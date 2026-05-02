@@ -1774,33 +1774,35 @@ class AIController:
 
     def find_nearest_allied_city(self, faction):
         """
-        Находит ближайший союзный город для передислокации войск.
+        Находит собственный город для передислокации войск.
         :param faction: Название фракции (своей или союзной)
-        :return: Имя ближайшего союзного города или None, если подходящий город не найден
+        :return: Имя подходящего города или None, если своих городов нет
         """
         try:
-            # Получаем координаты всех городов текущей фракции
-            query = "SELECT name, coordinates FROM cities WHERE faction = ?"
+            query = "SELECT name FROM cities WHERE faction = ?"
             self.cursor.execute(query, (self.faction,))
-            our_cities = self.cursor.fetchall()
+            our_cities = [row[0] for row in self.cursor.fetchall()]
+            if not our_cities:
+                return None
 
-            # Получаем координаты всех союзных городов
-            query = "SELECT name, coordinates FROM cities WHERE faction = ?"
-            self.cursor.execute(query, (faction,))
-            allied_cities = self.cursor.fetchall()
+            best_city = None
+            best_strength = -1
+            for city_name in our_cities:
+                self.cursor.execute(
+                    """
+                    SELECT COALESCE(SUM(g.unit_count * (u.attack + u.defense + u.durability)), 0)
+                    FROM garrisons g JOIN units u ON g.unit_name = u.unit_name
+                    WHERE g.city_name = ?
+                    """,
+                    (city_name,)
+                )
+                row = self.cursor.fetchone()
+                strength = row[0] if row else 0
+                if strength > best_strength:
+                    best_strength = strength
+                    best_city = city_name
 
-            # Находим ближайший союзный город с учетом ограничения по дистанции
-            nearest_city = None
-            for our_city_name, our_coords in our_cities:
-                our_coords = our_coords.strip("[]")  # Убираем [ и ]
-                our_x, our_y = map(int, our_coords.split(','))
-                for allied_city_name, allied_coords in allied_cities:
-                    allied_coords = allied_coords.strip("[]")  # Убираем [ и ]
-                    allied_x, allied_y = map(int, allied_coords.split(','))
-                    distance = ((our_x - allied_x) ** 2 + (our_y - allied_y) ** 2) ** 0.5
-                    if distance <= 280:
-                        nearest_city = allied_city_name
-            return nearest_city
+            return best_city if best_city else our_cities[0]
         except sqlite3.Error as e:
             print(f"Ошибка при поиске ближайшего союзного города: {e}")
             return None
@@ -2394,11 +2396,15 @@ class AIController:
                     continue
 
                 # Если нет войны, проверяем условия для объявления войны
-                if int(relationship) < 12:  # Если отношения ниже 12%
+                if self.turn < 13:
+                    print(f"{self.faction}: ещё рано объявлять войну (ход {self.turn + 1}). Ждём 14-й ход.")
+                    continue
+
+                if int(relationship) < 30:  # Если отношения достаточно плохие
                     enemy_strength = army_strength.get(faction, 0)
-                    # Проверяем, что наша сила армии больше в 1.4 раза
-                    if our_strength > 1.4 * enemy_strength:
-                        print(f"Отношения с фракцией {faction} упали ниже 12%. "
+                    # Проверяем, что наша сила армии больше в 1.3 раза
+                    if our_strength > 1.3 * enemy_strength:
+                        print(f"Отношения с фракцией {faction} упали ниже 30%. "
                               f"Сила нашей армии: {our_strength}, сила противника: {enemy_strength}. Объявление войны.")
                         # Обновляем статус дипломатии на "война"
                         self.update_diplomacy_status(faction, "война")
@@ -3321,3 +3327,6 @@ class AIController:
             print(f"Ошибка при выполнении хода: {e}")
             import traceback
             traceback.print_exc()
+
+from ai_strategy import apply_ai_improvements
+apply_ai_improvements(AIController)

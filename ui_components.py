@@ -18,6 +18,298 @@ from kivy.metrics import dp
 from kivy.utils import get_color_from_hex
 from kivy.properties import ListProperty, NumericProperty
 
+# Импорт дизайн-системы
+from design_system import PRIMARY_COLORS, THEMES, TYPOGRAPHY
+
+class ModernButton(Button):
+    normal_color = ListProperty([0.3, 0.7, 0.3, 1])   # зелёный
+    pressed_color = ListProperty([0.2, 0.5, 0.2, 1]) # тёмно-зелёный
+    shadow_color = ListProperty([0, 0, 0, 0.2])
+    radius = NumericProperty(dp(24))
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.background_color = (0, 0, 0, 0)
+        self.background_normal = ''
+        self.background_down = ''
+        self.border = (0, 0, 0, 0)
+        self.font_size = dp(18)
+        self.bold = True
+        self.color = (1, 1, 1, 1)
+
+        with self.canvas.before:
+            # Тень
+            Color(*self.shadow_color)
+            self.shadow_rect = RoundedRectangle(
+                pos=(self.x + dp(2), self.y - dp(2)),
+                size=self.size,
+                radius=[self.radius]
+            )
+            # Основной цвет (normal)
+            self.bg_color = Color(*self.normal_color)
+            self.bg_rect = RoundedRectangle(
+                pos=self.pos,
+                size=self.size,
+                radius=[self.radius]
+            )
+
+        self.bind(pos=self._update_graphics, size=self._update_graphics,
+                  normal_color=self._update_bg_color, pressed_color=self._update_bg_color)
+
+    def _update_graphics(self, *args):
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+        self.shadow_rect.pos = (self.x + dp(2), self.y - dp(2))
+        self.shadow_rect.size = self.size
+
+    def _update_bg_color(self, *args):
+        # При смене цвета обновляем Color инструкцию, если не нажата
+        if not self.state == 'down':
+            self.bg_color.rgba = self.normal_color
+
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            self.bg_color.rgba = self.pressed_color
+        return super().on_touch_down(touch)
+
+    def on_touch_up(self, touch):
+        if self.collide_point(*touch.pos):
+            self.bg_color.rgba = self.normal_color
+        return super().on_touch_up(touch)
+
+
+class ResourceCard(BoxLayout):
+    """Карточка ресурса с иконкой и значением"""
+    resource_name = StringProperty('')
+    resource_value = StringProperty('')
+    resource_icon = StringProperty('')
+    card_color = ListProperty([0.16, 0.20, 0.27, 0.9])
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = 'horizontal'
+        self.size_hint_y = None
+        self.height = dp(60)
+        self.padding = dp(12)
+        self.spacing = dp(8)
+
+        with self.canvas.before:
+            Color(*self.card_color)
+            self.bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(12)])
+
+        self.bind(pos=self._update_bg, size=self._update_bg)
+
+        # Иконка ресурса
+        self.icon = Image(
+            source=self.resource_icon,
+            size_hint=(None, None),
+            size=(dp(36), dp(36)),
+            pos_hint={'center_y': 0.5}
+        )
+
+        # Контейнер для текста
+        text_container = BoxLayout(orientation='vertical', spacing=dp(2))
+
+        # Название ресурса
+        self.name_label = Label(
+            text=self.resource_name,
+            font_size=sp(12),
+            color=(0.7, 0.7, 0.7, 1),
+            size_hint_y=None,
+            height=dp(16),
+            halign='left'
+        )
+
+        # Значение ресурса
+        self.value_label = Label(
+            text=self.resource_value,
+            font_size=sp(16),
+            color=(1, 1, 1, 1),
+            bold=True,
+            size_hint_y=None,
+            height=dp(20),
+            halign='left'
+        )
+
+        text_container.add_widget(self.name_label)
+        text_container.add_widget(self.value_label)
+
+        self.add_widget(self.icon)
+        self.add_widget(text_container)
+
+    def _update_bg(self, *args):
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+
+
+class NotificationToast(FloatLayout):
+    """Всплывающее уведомление в стиле Android/iOS"""
+    message = StringProperty('')
+    toast_type = OptionProperty('info', options=['info', 'success', 'warning', 'error'])
+    duration = NumericProperty(3.0)  # секунды
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint = (None, None)
+        self.size = (dp(300), dp(60))
+        self.pos_hint = {'center_x': 0.5, 'top': 0.95}
+
+        # Цвета для разных типов
+        colors = {
+            'info': get_color_from_hex(PRIMARY_COLORS['accent']),
+            'success': get_color_from_hex(PRIMARY_COLORS['success']),
+            'warning': get_color_from_hex(PRIMARY_COLORS['warning']),
+            'error': get_color_from_hex(PRIMARY_COLORS['error'])
+        }
+
+        with self.canvas.before:
+            Color(*colors.get(self.toast_type, colors['info']))
+            self.bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(30)])
+
+        self.bind(pos=self._update_bg, size=self._update_bg)
+
+        # Иконка типа уведомления
+        icons = {
+            'info': 'ℹ️',
+            'success': '✅',
+            'warning': '⚠️',
+            'error': '❌'
+        }
+
+        icon_label = Label(
+            text=icons.get(self.toast_type, 'ℹ️'),
+            font_size=sp(20),
+            size_hint=(None, None),
+            size=(dp(30), dp(30)),
+            pos_hint={'center_y': 0.5}
+        )
+
+        # Текст уведомления
+        message_label = Label(
+            text=self.message,
+            font_size=sp(14),
+            color=(1, 1, 1, 1),
+            halign='left',
+            valign='center',
+            text_size=(dp(240), dp(40))
+        )
+
+        # Добавляем виджеты
+        self.add_widget(icon_label)
+        self.add_widget(message_label)
+
+        # Анимация появления
+        self.opacity = 0
+        anim = Animation(opacity=1, duration=0.3)
+        anim.start(self)
+
+        # Автоматическое исчезновение
+        Clock.schedule_once(self._fade_out, self.duration)
+
+    def _update_bg(self, *args):
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+
+    def _fade_out(self, dt):
+        anim = Animation(opacity=0, duration=0.5)
+        anim.bind(on_complete=lambda *args: self.parent.remove_widget(self) if self.parent else None)
+        anim.start(self)
+
+
+class ProgressBar(FloatLayout):
+    """Современная полоска прогресса"""
+    value = NumericProperty(0)
+    max_value = NumericProperty(100)
+    bar_color = ListProperty([0.3, 0.7, 0.3, 1])
+    background_color = ListProperty([0.2, 0.2, 0.2, 0.3])
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint_y = None
+        self.height = dp(8)
+
+        with self.canvas.before:
+            # Фон полоски
+            Color(*self.background_color)
+            self.bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(4)])
+
+            # Заполненная часть
+            Color(*self.bar_color)
+            self.progress_rect = RoundedRectangle(pos=self.pos, size=(0, self.height), radius=[dp(4)])
+
+        self.bind(pos=self._update_graphics, size=self._update_graphics, value=self._update_progress)
+
+    def _update_graphics(self, *args):
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+        self._update_progress()
+
+    def _update_progress(self, *args):
+        if self.max_value > 0:
+            progress_width = (self.value / self.max_value) * self.width
+            self.progress_rect.size = (progress_width, self.height)
+            self.progress_rect.pos = self.pos
+
+
+class TabBar(BoxLayout):
+    """Горизонтальная панель вкладок"""
+    tabs = ListProperty([])
+    active_tab = NumericProperty(0)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = 'horizontal'
+        self.size_hint_y = None
+        self.height = dp(48)
+        self.spacing = dp(2)
+
+        # Создаем вкладки
+        self._create_tabs()
+
+    def _create_tabs(self):
+        self.clear_widgets()
+        for i, tab_data in enumerate(self.tabs):
+            tab = TabButton(
+                text=tab_data.get('text', ''),
+                icon=tab_data.get('icon', ''),
+                active=i == self.active_tab
+            )
+            tab.bind(on_release=lambda btn, idx=i: self._switch_tab(idx))
+            self.add_widget(tab)
+
+    def _switch_tab(self, tab_index):
+        self.active_tab = tab_index
+        self._create_tabs()
+
+
+class TabButton(Button):
+    """Кнопка вкладки"""
+    icon = StringProperty('')
+    active = OptionProperty(False, options=[True, False])
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.background_color = (0, 0, 0, 0)
+        self.background_normal = ''
+        self.size_hint_x = 1
+        self.font_size = sp(14)
+
+        with self.canvas.before:
+            if self.active:
+                Color(0.3, 0.6, 0.9, 1)
+            else:
+                Color(0.2, 0.2, 0.2, 0.5)
+            self.bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(8), dp(8), 0, 0])
+
+        self.bind(pos=self._update_bg, size=self._update_bg, active=self._update_bg)
+
+    def _update_bg(self, *args):
+        if hasattr(self, 'bg_rect'):
+            if self.active:
+                self.bg_rect.source.color = (0.3, 0.6, 0.9, 1)
+            else:
+                self.bg_rect.source.color = (0.2, 0.2, 0.2, 0.5)
+
 class ModernButton(Button):
     normal_color = ListProperty([0.3, 0.7, 0.3, 1])   # зелёный
     pressed_color = ListProperty([0.2, 0.5, 0.2, 1]) # тёмно-зелёный

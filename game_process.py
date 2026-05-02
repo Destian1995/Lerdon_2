@@ -2334,6 +2334,15 @@ class GameScreen(Screen):
             """)
             factions_with_cities = {row[0] for row in cursor.fetchall()}
 
+            # Шаг 1.1: Учитываем фракции, у которых есть хотя бы одна армия в гарнизонах
+            cursor.execute("""
+                SELECT DISTINCT u.faction
+                FROM garrisons g
+                JOIN units u ON g.unit_name = u.unit_name
+            """)
+            factions_with_units = {row[0] for row in cursor.fetchall()}
+            factions_with_cities |= factions_with_units
+
             # Шаг 2: Получаем все уникальные фракции из таблицы diplomacies
             cursor.execute("""
                 SELECT DISTINCT faction1
@@ -2344,6 +2353,7 @@ class GameScreen(Screen):
             # Исключаем "Мятежников" из проверки на уничтожение
             all_factions.discard("Мятежники")
             factions_with_cities.discard("Мятежники")
+            factions_with_units.discard("Мятежники")
 
             # Шаг 3: Определяем фракции, у которых нет ни одного города
             destroyed_factions = all_factions - factions_with_cities

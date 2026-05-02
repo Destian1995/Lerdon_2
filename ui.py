@@ -1553,6 +1553,11 @@ class FortressInfoPopup(Popup):
                 (self.city_name,)
             )
             target_faction_row = cursor.fetchone()
+            destination_owner = target_faction_row[0] if target_faction_row else None
+            is_war_destination = False
+            if destination_owner and destination_owner != current_player_kingdom:
+                is_war_destination = self.get_relationship(current_player_kingdom, destination_owner) == 'война'
+
             if target_faction_row and target_faction_row[0] == current_player_kingdom:
                 allowed_by_distance = True
             else:
@@ -1592,12 +1597,14 @@ class FortressInfoPopup(Popup):
 
             # Перемещаем по каждому городу отдельно
             for source_city, units in grouped_by_city.items():
+                source_units = [u for u in self.selected_group if u.get("city_name") == source_city]
                 for unit_name, total_count in units.items():
                     success = self.transfer_troops_between_cities(
                         source_fortress_name=source_city,
                         destination_fortress_name=self.city_name,
                         unit_name=unit_name,
-                        taken_count=total_count
+                        taken_count=total_count,
+                        attacking_units=source_units
                     )
                     if not success:
                         show_popup_message(
@@ -1605,6 +1612,8 @@ class FortressInfoPopup(Popup):
                             f"Не удалось переместить {unit_name} из {source_city}"
                         )
                         return
+                    if is_war_destination:
+                        break
 
             # Фиксируем факт использования перемещения
             cursor.execute(
@@ -1631,7 +1640,8 @@ class FortressInfoPopup(Popup):
                                        source_fortress_name,
                                        destination_fortress_name,
                                        unit_name,
-                                       taken_count):
+                                       taken_count,
+                                       attacking_units=None):
 
         try:
             cursor = self.conn.cursor()
@@ -1697,9 +1707,10 @@ class FortressInfoPopup(Popup):
                     self.conn.commit()
 
                     # Запускаем бой
+                    battle_units = attacking_units if attacking_units is not None else self.selected_group
                     self.start_battle_group(source_fortress_name,
                                             destination_fortress_name,
-                                            self.selected_group)
+                                            battle_units)
                     return True
 
                 elif relationship == "нейтралитет":

@@ -1,3 +1,5 @@
+import os
+os.environ['KIVY_VIDEO'] = 'ffpyplayer'
 from game_process import GameScreen
 from ui import *
 from db_lerdon_connect import *

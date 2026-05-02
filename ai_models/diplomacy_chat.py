@@ -40,6 +40,16 @@ class EnhancedDiplomacyChat():
         # История предложений в текущей сессии
         self.current_offers = {}
 
+        # Память о предыдущих разговорах (последние 10 сообщений)
+        self.conversation_memory = []
+
+        # Эмоциональное состояние ИИ
+        self.emotional_state = {
+            'mood': 'neutral',  # neutral, happy, angry, suspicious, friendly
+            'trust_level': 50,  # 0-100
+            'patience': 100     # 0-100, уменьшается при повторяющихся вопросах
+        }
+
         # Инициализация помощника для Android клавиатуры
         self.keyboard_helper = AndroidKeyboardHelper(self)
 
@@ -85,6 +95,66 @@ class EnhancedDiplomacyChat():
                 "rejection": "Ночь еще не наступила для таких решений."
             }
         }
+
+    def update_emotional_state(self, message, relation_level):
+        """Обновляет эмоциональное состояние ИИ на основе сообщения"""
+        message_lower = message.lower()
+
+        # Анализируем тон сообщения
+        if any(word in message_lower for word in ['спасибо', 'благодарю', 'хорошо', 'отлично']):
+            self.emotional_state['mood'] = 'happy'
+            self.emotional_state['trust_level'] = min(100, self.emotional_state['trust_level'] + 5)
+        elif any(word in message_lower for word in ['ублюдок', 'сука', 'пошел', 'заткнись', 'идиот']):
+            self.emotional_state['mood'] = 'angry'
+            self.emotional_state['trust_level'] = max(0, self.emotional_state['trust_level'] - 10)
+            self.emotional_state['patience'] = max(0, self.emotional_state['patience'] - 15)
+        elif any(word in message_lower for word in ['обман', 'лжешь', 'не верю']):
+            self.emotional_state['mood'] = 'suspicious'
+            self.emotional_state['trust_level'] = max(0, self.emotional_state['trust_level'] - 5)
+
+        # Проверяем на повторяющиеся вопросы
+        if len(self.conversation_memory) > 1:
+            last_messages = [msg['player'] for msg in self.conversation_memory[-3:]]
+            if all(msg.lower().strip() == message_lower.strip() for msg in last_messages):
+                self.emotional_state['patience'] = max(0, self.emotional_state['patience'] - 20)
+
+        # Восстанавливаем терпение со временем
+        self.emotional_state['patience'] = min(100, self.emotional_state['patience'] + 1)
+
+    def add_to_memory(self, player_message, ai_response):
+        """Добавляет сообщение в память разговора"""
+        self.conversation_memory.append({
+            'player': player_message,
+            'ai': ai_response,
+            'timestamp': datetime.now(),
+            'relation_level': None  # будет заполнено позже
+        })
+
+        # Ограничиваем память последними 10 сообщениями
+        if len(self.conversation_memory) > 10:
+            self.conversation_memory.pop(0)
+
+    def get_contextual_response(self, base_response, relation_level):
+        """Добавляет контекстуальную окраску к ответу на основе эмоционального состояния"""
+        mood = self.emotional_state['mood']
+        patience = self.emotional_state['patience']
+
+        # Модификаторы ответа
+        if mood == 'happy' and relation_level > 50:
+            modifiers = ["", " 😊", " Рад слышать!", " Отлично!"]
+            base_response += random.choice(modifiers)
+        elif mood == 'angry':
+            modifiers = ["", " 😠", " Не зли меня!", " Хватит!"]
+            base_response += random.choice(modifiers)
+        elif patience < 30:
+            modifiers = ["", " (устал повторять)", " Опять то же самое...", " Слушай внимательно!"]
+            base_response += random.choice(modifiers)
+
+        return base_response
+
+    def contextual_return(self, response, relation_level):
+        """Обертка для возврата ответа с контекстуальной окраской"""
+        return self.get_contextual_response(response, relation_level)
 
     def open_diplomacy_window(self):
         """Открывает окно дипломатических переговоров (адаптировано для Android)"""
@@ -1057,6 +1127,9 @@ class EnhancedDiplomacyChat():
                 is_player=False
             )
 
+            # Добавляем в память разговора
+            self.add_to_memory(message, response)
+
     def generate_diplomatic_response(self, player_message, target_faction):
         """Генерирует ответ ИИ на сообщение игрока со всеми политическими функциями"""
 
@@ -1067,6 +1140,9 @@ class EnhancedDiplomacyChat():
         relation_data = relations.get(target_faction, {"relation_level": 50, "status": "нейтралитет"})
         relation_level = int(relation_data.get("relation_level", 50))
         status = relation_data.get('status', 'нейтралитет')
+
+        # ОБНОВЛЯЕМ ЭМОЦИОНАЛЬНОЕ СОСТОЯНИЕ
+        self.update_emotional_state(player_message, relation_level)
 
         message_lower = player_message.lower()
 
@@ -1288,7 +1364,8 @@ class EnhancedDiplomacyChat():
         }
 
         # 17. ФОЛБЭК
-        return self._generate_fallback_response(player_message, target_faction, relation_level)
+        response = self._generate_fallback_response(player_message, target_faction, relation_level)
+        return self.get_contextual_response(response, relation_level)
 
     def _is_what_do_you_think(self, message):
         """Определяет, является ли сообщение вопросом 'Что думаешь?'"""
@@ -4291,7 +4368,7 @@ class EnhancedDiplomacyChat():
         return random.choice(farewells)
 
     def _generate_fallback_response(self, message, faction, relation_level):
-        """Генерирует ответ, когда не распознан интент"""
+        """Генерирует ответ, когда не распознан интент, используя память разговора"""
 
         # Проверяем вручную на ключевые слова
         message_lower = message.lower()
@@ -4310,6 +4387,15 @@ class EnhancedDiplomacyChat():
         thanks_words = ['спасибо', 'благодарю', 'thanks', 'thank you']
         if any(word in message_lower for word in thanks_words):
             return random.choice(["Пожалуйста!", "Рад помочь!", "Не за что!"])
+
+        # Проверяем на повторяющиеся вопросы в памяти
+        if self._is_repeated_question(message):
+            return self._handle_repeated_question(message, faction, relation_level)
+
+        # Анализируем контекст предыдущих сообщений
+        context_hint = self._analyze_conversation_context()
+        if context_hint:
+            return context_hint
 
         # Если ничего не распознано
         if relation_level >= 60:
@@ -4333,6 +4419,66 @@ class EnhancedDiplomacyChat():
             ]
 
         return random.choice(fallbacks)
+
+    def _is_repeated_question(self, message):
+        """Проверяет, является ли сообщение повторяющимся вопросом"""
+        if len(self.conversation_memory) < 2:
+            return False
+
+        message_lower = message.lower().strip()
+        recent_messages = [msg['player'].lower().strip() for msg in self.conversation_memory[-3:]]
+
+        # Проверяем, повторяется ли сообщение
+        return recent_messages.count(message_lower) >= 2
+
+    def _handle_repeated_question(self, message, faction, relation_level):
+        """Обрабатывает повторяющиеся вопросы"""
+        if relation_level < 30:
+            responses = [
+                "Сколько можно повторять одно и то же?!",
+                "Ты что, издеваешься надо мной?!",
+                "Хватит уже долдонить одно и то же!",
+                "Ты тупой что ли? Я же уже ответил!",
+                "Прекрати повторяться, идиот!"
+            ]
+        elif relation_level < 60:
+            responses = [
+                "Я уже отвечал на этот вопрос...",
+                "Мы же только что об этом говорили.",
+                "Давай сменим тему, я уже устал повторять.",
+                "Ты что, не помнишь наш разговор?"
+            ]
+        else:
+            responses = [
+                "Как я уже говорил...",
+                "Повторюсь, поскольку ты спросил снова...",
+                "Напомню, что мы обсуждали ранее..."
+            ]
+
+        return random.choice(responses)
+
+    def _analyze_conversation_context(self):
+        """Анализирует контекст разговора для подсказок"""
+        if len(self.conversation_memory) < 2:
+            return None
+
+        # Анализируем последние сообщения
+        recent = self.conversation_memory[-3:]
+
+        # Если пользователь спрашивал о ресурсах, но не уточнил тип
+        resource_questions = ['ресурсы', 'ресурс', 'деньги', 'кроны', 'кристаллы', 'рабочие']
+        for msg in recent:
+            if any(word in msg['player'].lower() for word in resource_questions):
+                if not any(word in msg['ai'].lower() for word in ['кроны', 'кристаллы', 'рабочие']):
+                    return "Если ты спрашиваешь о ресурсах, уточни какие именно: Кроны (деньги), Кристаллы (минералы) или Рабочие (люди)?"
+
+        # Если пользователь спрашивал об отношениях
+        relation_questions = ['отношения', 'друзья', 'союз', 'война', 'мир']
+        for msg in recent:
+            if any(word in msg['player'].lower() for word in relation_questions):
+                return "Если хочешь узнать об отношениях, спроси 'Как у нас отношения?' или 'Какой у нас статус?'"
+
+        return None
 
     def _is_improve_relations_request(self, message):
         """Определяет, является ли сообщение запросом на улучшение отношений"""

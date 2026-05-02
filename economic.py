@@ -1241,6 +1241,24 @@ class Faction:
             print(f"Ошибка при получении количества городов: {e}")
             return 0
 
+    def has_army_units(self):
+        """
+        Проверяет, есть ли у текущей фракции боевые юниты в гарнизонах.
+        :return: True, если найдены юниты фракции, False иначе.
+        """
+        try:
+            self.cursor.execute("""
+                SELECT COUNT(*)
+                FROM garrisons g
+                JOIN units u ON g.unit_name = u.unit_name
+                WHERE u.faction = ?
+            """, (self.faction,))
+            row = self.cursor.fetchone()
+            return bool(row and row[0] > 0)
+        except sqlite3.Error as e:
+            print(f"Ошибка при проверке наличия армии у фракции {self.faction}: {e}")
+            return False
+
     def check_all_relations_high(self):
         """
         Проверяет, превышают ли все отношения текущей фракции с НЕУНИЧТОЖЕННЫМИ фракциями 93%.
@@ -1326,6 +1344,9 @@ class Faction:
                 return False, message
 
             if self.get_city_count() == 0:
+                if self.has_army_units():
+                    print("У фракции нет городов, но армия ещё есть. Игра продолжается.")
+                    return True, ""
                 message = "Противник завоевал все города"
                 print(message)
                 return False, message
