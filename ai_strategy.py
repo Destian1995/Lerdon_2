@@ -66,7 +66,8 @@ LEADER_RELATIONS_PENALTY = 30
 # === Захват нейтралов ===
 EXPANSION_START_TURN = 1             # с turn=1 (2-й ход) можно захватывать
 EXPANSION_END_TURN = 25
-NEUTRAL_SEARCH_RADIUS = 600
+MAX_MOVE_DISTANCE = 280               # тот же радиус перемещения, что у игрока
+NEUTRAL_SEARCH_RADIUS = MAX_MOVE_DISTANCE
 NEUTRAL_ATTACKER_COUNT = 1
 
 # === Объявление войны ===
@@ -529,7 +530,8 @@ def find_best_attack_target(self, faction):
                 except Exception:
                     continue
                 distance = abs(ox - ex) + abs(oy - ey)
-                candidates.append((enemy_name, garrisons_strength.get(enemy_name, 0), distance))
+                if distance < MAX_MOVE_DISTANCE:
+                    candidates.append((enemy_name, garrisons_strength.get(enemy_name, 0), distance))
 
         if not candidates:
             return None
@@ -593,10 +595,15 @@ def attack_city_v2(self, city_name, faction):
         return
 
     try:
-        allied_city = self.find_nearest_allied_city(self.faction)
+        allied_city = self._find_closest_own_city_in_range(city_name)
         if not allied_city:
+            print(f"[AI] attack_city_v2: нет собственного города в радиусе {MAX_MOVE_DISTANCE} от {city_name}")
             return
+    except Exception as e:
+        print(f"[AI] attack_city_v2: find_closest_own_city_in_range упал: {e}")
+        return
 
+    try:
         all_units = self.collect_all_units()
         if not all_units:
             return
@@ -650,7 +657,7 @@ def attack_city_v2(self, city_name, faction):
                     "city_name": unit["city_name"], "unit_name": unit["unit_name"],
                     "unit_count": take, "unit_image": unit["unit_image"]
                 })
-                remaining -= take
+            remaining -= take
 
         if not attack_army:
             return
@@ -683,7 +690,7 @@ def attack_city_v2(self, city_name, faction):
             self.cursor.execute("""
                 SELECT attack, defense, durability, unit_class
                 FROM units WHERE unit_name = ?
-            """, (unit["unit_name"],))
+                """, (unit["unit_name"],))
             stats = self.cursor.fetchone()
             if stats:
                 a, d, du, uc = stats
@@ -822,9 +829,9 @@ def early_expansion(self):
     _diag(self, f"early_expansion: выбран '{chosen['unit_name']}' из '{chosen['city_name']}'")
 
     try:
-        allied_city = self.find_nearest_allied_city(self.faction)
+        allied_city = self._find_closest_own_city_in_range(target_city)
     except Exception as e:
-        _diag(self, f"early_expansion: find_nearest_allied_city упал: {e}")
+        _diag(self, f"early_expansion: _find_closest_own_city_in_range упал: {e}")
         return
     if not allied_city:
         return
@@ -934,6 +941,39 @@ def _find_neutral_in_radius(self, radius):
         return best
     except sqlite3.Error as e:
         print(f"[AI] _find_neutral_in_radius: {e}")
+        return None
+
+
+def _find_closest_own_city_in_range(self, target_city_name, max_distance=MAX_MOVE_DISTANCE):
+    try:
+        self.cursor.execute("SELECT coordinates FROM cities WHERE name = ?", (target_city_name,))
+        row = self.cursor.fetchone()
+        if not row:
+            return None
+
+        try:
+            tx, ty = map(int, row[0].strip("[]").split(','))
+        except Exception:
+            return None
+
+        self.cursor.execute("SELECT name, coordinates FROM cities WHERE faction = ?", (self.faction,))
+        our_cities = self.cursor.fetchall()
+        best_city = None
+        best_dist = max_distance + 1
+
+        for name, coords in our_cities:
+            try:
+                ox, oy = map(int, coords.strip("[]").split(','))
+            except Exception:
+                continue
+            dist = abs(ox - tx) + abs(oy - ty)
+            if dist < max_distance and dist < best_dist:
+                best_dist = dist
+                best_city = name
+
+        return best_city
+    except sqlite3.Error as e:
+        print(f"[AI] _find_closest_own_city_in_range: {e}")
         return None
 
 
@@ -1061,6 +1101,7 @@ def apply_ai_improvements(AIControllerCls):
     AIControllerCls.early_expansion = early_expansion
     AIControllerCls.ensure_scout_unit = ensure_scout_unit
     AIControllerCls.emergency_sell_crystals = emergency_sell_crystals
+    AIControllerCls._find_closest_own_city_in_range = _find_closest_own_city_in_range
 
     print("[AI] Стратегические улучшения ИИ применены (ai_strategy v6).")
 

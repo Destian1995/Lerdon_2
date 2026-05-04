@@ -33,13 +33,14 @@ TOTAL_CITIES = 23
 FACTION_CITIES = 5
 NEUTRAL_CITIES = TOTAL_CITIES - FACTION_CITIES
 ALL_CITIES = FACTION_CITIES + TOTAL_CITIES
-# Константы
-MAX_NEIGHBOURS = 3  # Максимум 3 соседа
-MIN_DISTANCE_PX = 120   # <-- Увеличиваем до расстояния между
-MAX_DISTANCE_PX = 230   # Можно немного увеличить для большей гибкости
+# Константы перемещения (синхронизированы с правилами движения = 280 Manhattan)
+MAX_NEIGHBOURS = 4  # Максимум 4 соседа для лучшей связности
+MIN_DISTANCE_PX = 120   # Минимальное евклидово расстояние между городами
+MAX_DISTANCE_PX = 300   # Максимальное евклидово расстояние для рассмотрения связей
+MANHATTAN_MOVE_LIMIT = 280  # Максимальное Manhattan расстояние для движения
 MAP_SIZE = (1200, 800)
-MARGIN = 100            # Лучше тоже чуть увеличить, чтобы города не прилипали к краям
-MANHATTAN_THRESHOLD = 250  # Синхронизируем с новым масштабом
+MARGIN = 100            # Отступ от краев карты
+MAX_ROADS_PER_CITY = 5  # Максимум явных дорог между городами (для визуализации)
 
 def generate_city_coords(prev_point=None):
     """Генерирует координаты следующего города относительно предыдущего"""
@@ -105,7 +106,7 @@ def select_faction_cities(positions):
     )
 
 def generate_all_cities():
-    """Генерирует города с гарантией связности и возможности выбрать 5 фракционных с расстоянием > 300px"""
+    """Генерирует города с гарантией связности и возможности выбрать 5 фракционных с расстоянием > 200px"""
     while True:
         cities = []
         used_positions = set()
@@ -126,8 +127,8 @@ def generate_all_cities():
             if too_close:
                 attempts += 1
                 continue
-            # Проверяем, есть ли хотя бы одна связь по Манхэттену
-            if any(manhattan(new_point, p) <= MANHATTAN_THRESHOLD for p in cities):
+            # Проверяем, есть ли хотя бы одна связь по Манхэттену (синхронизировано с движением = 280)
+            if any(manhattan(new_point, p) <= MANHATTAN_MOVE_LIMIT for p in cities):
                 cities.append(new_point)
                 used_positions.add(new_point)
                 attempts = 0  # сбрасываем попытки
@@ -146,19 +147,30 @@ def generate_all_cities():
 
 
 def build_city_graph(cities):
-    """Строит граф связей между городами"""
+    """
+    Строит граф связей между городами, используя Manhattan distance.
+    Дороги соответствуют правилам движения (280 Manhattan).
+    Граф структурирован так, чтобы создавать естественные маршруты.
+    """
     graph = {i: [] for i in range(TOTAL_CITIES)}
     positions = [city["position"] for city in cities]
 
-    # Список всех пар городов с расстоянием <= MAX_DISTANCE_PX
+    # Список всех пар городов, которые находятся на расстоянии <= MANHATTAN_MOVE_LIMIT
     edges = []
     for i in range(TOTAL_CITIES):
         for j in range(i + 1, TOTAL_CITIES):
-            d = math.hypot(positions[i][0] - positions[j][0], positions[i][1] - positions[j][1])
-            if d <= MAX_DISTANCE_PX:
-                edges.append((d, i, j))
+            manhattan_dist = abs(positions[i][0] - positions[j][0]) + abs(positions[i][1] - positions[j][1])
+            if manhattan_dist <= MANHATTAN_MOVE_LIMIT:
+                # Приоритет: чем ближе по Manhattan, тем выше приоритет
+                edges.append((manhattan_dist, i, j))
 
-    # Алгоритм Краскала для MST (минимального связного дерева)
+    # Сортируем по Manhattan расстоянию
+    edges.sort()
+
+    # Фракционные города
+    faction_indices = [i for i, city in enumerate(cities) if city["type"] == "faction"]
+
+    # Строим минимальное связное дерево (MST) для гарантии связности
     parent = list(range(TOTAL_CITIES))
     def find(u):
         while parent[u] != u:
@@ -169,76 +181,76 @@ def build_city_graph(cities):
         pu, pv = find(u), find(v)
         if pu != pv:
             parent[pu] = pv
+            return True
+        return False
 
     mst_edges = set()
-    edges.sort()
-    for d, u, v in edges:
-        if find(u) != find(v):
-            union(u, v)
-            graph[u].append(v)
-            graph[v].append(u)
-            mst_edges.add((u, v))
-            mst_edges.add((v, u))
+    # Добавляем ребра MST
+    for manhattan_dist, u, v in edges:
+        if union(u, v):
+            # Проверяем: не соединяем две фракции напрямую
+            if not (cities[u]["type"] == "faction" and cities[v]["type"] == "faction"):
+                graph[u].append(v)
+                graph[v].append(u)
+                mst_edges.add((u, v))
+                mst_edges.add((v, u))
 
-    # Убираем связи между фракционными городами
-    faction_indices = [i for i, city in enumerate(cities) if city["type"] == "faction"]
-    for i in faction_indices:
-        for j in faction_indices:
-            if i != j and j in graph[i]:
-                graph[i].remove(j)
-                graph[j].remove(i)
-
-    # Добавляем дополнительные рёбра, чтобы все города имели 2–4 соседа
+    # Добавляем промежуточные дороги для естественности и разнообразия маршрутов
+    # Каждый город должен иметь минимум 2 и максимум MAX_NEIGHBOURS соседей
     for i in range(TOTAL_CITIES):
         current_neighbors = set(graph[i])
-        needed = max(0, 2 - len(current_neighbors))  # хотим минимум 2 соседа
-        if needed == 0:
-            continue
-        nearby = sorted(
-            [(j, math.hypot(positions[i][0] - positions[j][0], positions[i][1] - positions[j][1]))
-             for j in range(TOTAL_CITIES) if j != i and j not in current_neighbors],
-            key=lambda x: x[1]
-        )
-        added = 0
-        for j, d in nearby:
-            if d > MAX_DISTANCE_PX:
-                break
-            if (i, j) in mst_edges or (j, i) in mst_edges:
-                continue
-            if j in current_neighbors:
-                continue
-            # Если это фракционный город — нельзя добавлять других фракционных
-            if cities[i]["type"] == "faction" and cities[j]["type"] == "faction":
-                continue
-            graph[i].append(j)
-            graph[j].append(i)
-            current_neighbors.add(j)
-            added += 1
-            if added >= needed:
-                break
-
-    # Проверяем, что у каждого фракционного города есть минимум 2 нейтральных соседа
-    for idx in faction_indices:
-        faction_neighbors = [n for n in graph[idx] if cities[n]["type"] == "neutral"]
-        if len(faction_neighbors) < 2:
-            missing = 2 - len(faction_neighbors)
+        needed = max(0, 2 - len(current_neighbors))
+        if needed > 0:
+            # Добавляем ближайших кандидатов
             candidates = []
-            for i in range(TOTAL_CITIES):
-                if i == idx or cities[i]["type"] != "neutral" or i in graph[idx]:
-                    continue
-                d = math.hypot(positions[idx][0] - positions[i][0], positions[idx][1] - positions[i][1])
-                if d <= MAX_DISTANCE_PX:
-                    candidates.append((d, i))
-            candidates.sort()
-            for _, i in candidates[:missing]:
-                graph[idx].append(i)
-                graph[i].append(idx)
-                faction_neighbors.append(i)
+            for manhattan_dist, u, v in edges:
+                if u == i and v not in current_neighbors:
+                    # Не добавляем связи между фракциями
+                    if not (cities[i]["type"] == "faction" and cities[v]["type"] == "faction"):
+                        candidates.append((manhattan_dist, v))
+                elif v == i and u not in current_neighbors:
+                    # Не добавляем связи между фракциями
+                    if not (cities[i]["type"] == "faction" and cities[u]["type"] == "faction"):
+                        candidates.append((manhattan_dist, u))
 
-    # Ограничиваем максимальное число соседей
+            candidates.sort()
+            added = 0
+            for _, neighbor_idx in candidates:
+                if neighbor_idx not in current_neighbors:
+                    graph[i].append(neighbor_idx)
+                    graph[neighbor_idx].append(i)
+                    current_neighbors.add(neighbor_idx)
+                    added += 1
+                    if added >= needed:
+                        break
+
+    # Убеждаемся, что фракционные города имеют минимум 2 нейтральных соседа
+    for faction_idx in faction_indices:
+        neutral_neighbors = [n for n in graph[faction_idx] if cities[n]["type"] == "neutral"]
+        if len(neutral_neighbors) < 2:
+            needed = 2 - len(neutral_neighbors)
+            candidates = []
+            for manhattan_dist, u, v in edges:
+                if u == faction_idx and cities[v]["type"] == "neutral" and v not in graph[faction_idx]:
+                    candidates.append((manhattan_dist, v))
+                elif v == faction_idx and cities[u]["type"] == "neutral" and u not in graph[faction_idx]:
+                    candidates.append((manhattan_dist, u))
+            candidates.sort()
+            for _, neutral_idx in candidates[:needed]:
+                if neutral_idx not in graph[faction_idx]:
+                    graph[faction_idx].append(neutral_idx)
+                    graph[neutral_idx].append(faction_idx)
+
+    # Ограничиваем максимальное число соседей для визуальной ясности
     for i in range(TOTAL_CITIES):
-        if len(graph[i]) > 4:
-            graph[i] = random.sample(graph[i], 4)
+        if len(graph[i]) > MAX_NEIGHBOURS:
+            # Оставляем только ближайшие соседи
+            neighbors_with_dist = []
+            for neighbor_idx in graph[i]:
+                manhattan_dist = abs(positions[i][0] - positions[neighbor_idx][0]) + abs(positions[i][1] - positions[neighbor_idx][1])
+                neighbors_with_dist.append((manhattan_dist, neighbor_idx))
+            neighbors_with_dist.sort()
+            graph[i] = [neighbor_idx for _, neighbor_idx in neighbors_with_dist[:MAX_NEIGHBOURS]]
 
     return graph
 

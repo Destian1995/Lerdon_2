@@ -615,6 +615,9 @@ def update_loyalty_dynamically(conn):
 
         elif noble_traits['type'] == 'race_love':
             loved_race = noble_traits['value']
+            loved_ideology = get_faction_ideology(conn, loved_race)
+            if loved_ideology == player_ideology:
+                loyalty_change += 2.0
             relation = get_diplomacy_relation(conn, player_faction, loved_race)
             try:
                 if isinstance(relation, str) and relation.endswith('%'):

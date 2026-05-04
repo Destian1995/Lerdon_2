@@ -940,46 +940,50 @@ class MapWidget(Widget):
         return [x, y]
 
     def draw_roads(self):
-        """Рисует дороги между ближайшими городами - вызывается один раз."""
-        # Используем self.canvas.after или self.canvas, но не очищаем его в update_cities
-        # Для простоты оставим как есть, но будем вызывать только один раз
-        self.canvas.after.clear()  # Очищаем after только один раз
+        """Рисует явные дороги из таблицы roads для более ясной географии карты."""
+        self.canvas.after.clear()
 
         try:
             cursor = self.conn.cursor()
-            cursor.execute("SELECT name, coordinates FROM cities")
-            fortresses_data = cursor.fetchall()
+            # Загружаем города с их координатами
+            cursor.execute("SELECT id, coordinates FROM cities")
+            cities_data = cursor.fetchall()
+            cities_coords = {city_id: ast.literal_eval(coords) for city_id, coords in cities_data}
+            
+            # Загружаем явные дороги из таблицы roads
+            cursor.execute("SELECT city1, city2 FROM roads")
+            roads_data = cursor.fetchall()
         except sqlite3.Error as e:
-            print(f"Ошибка при загрузке данных о городах для дорог: {e}")
+            print(f"Ошибка при загрузке дорог: {e}")
             return
 
-        cities = []
-        for fortress_name, coords_str in fortresses_data:
-            try:
-                coords = ast.literal_eval(coords_str)
-                if len(coords) == 2:
-                    cities.append((fortress_name, coords))
-            except (ValueError, SyntaxError) as e:
-                print(f"Ошибка при разборе координат города '{fortress_name}' для дорог: {e}")
-                continue
+        if not roads_data:
+            print("[WARN] Таблица roads пуста, дороги не рисуются")
+            return
 
         with self.canvas.after:
-            Color(0.5, 0.5, 0.5, 1)  # Серый цвет для дорог
-
-            for i in range(len(cities)):
-                for j in range(i + 1, len(cities)):
-                    source_name, source_coords = cities[i]
-                    dest_name, dest_coords = cities[j]
-
-                    total_diff = self.calculate_manhattan_distance(source_coords, dest_coords)
-
-                    if total_diff < 280:
-                        drawn_x1 = source_coords[0] * self.map_scale + self.map_pos[0]
-                        drawn_y1 = source_coords[1] * self.map_scale + self.map_pos[1]
-                        drawn_x2 = dest_coords[0] * self.map_scale + self.map_pos[0]
-                        drawn_y2 = dest_coords[1] * self.map_scale + self.map_pos[1]
-
-                        Line(points=[drawn_x1, drawn_y1, drawn_x2, drawn_y2], width=1)
+            # Основные дороги - серый цвет, толщина 2
+            Color(0.4, 0.4, 0.4, 0.8)
+            
+            for city1_id, city2_id in roads_data:
+                if city1_id not in cities_coords or city2_id not in cities_coords:
+                    continue
+                    
+                coords1 = cities_coords[city1_id]
+                coords2 = cities_coords[city2_id]
+                
+                drawn_x1 = coords1[0] * self.map_scale + self.map_pos[0]
+                drawn_y1 = coords1[1] * self.map_scale + self.map_pos[1]
+                drawn_x2 = coords2[0] * self.map_scale + self.map_pos[0]
+                drawn_y2 = coords2[1] * self.map_scale + self.map_pos[1]
+                
+                # Рисуем линию дороги с тенью для глубины
+                Color(0.2, 0.2, 0.2, 0.4)  # Тень
+                Line(points=[drawn_x1 + 1, drawn_y1 + 1, drawn_x2 + 1, drawn_y2 + 1], width=3)
+                
+                # Основная линия дороги
+                Color(0.55, 0.52, 0.45, 1)  # Песочно-бежевый цвет дороги
+                Line(points=[drawn_x1, drawn_y1, drawn_x2, drawn_y2], width=2)
 
     def calculate_manhattan_distance(self, source_coords, destination_coords):
         """Вычисляет манхэттенское расстояние между точками"""
