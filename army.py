@@ -139,15 +139,6 @@ class ArmyCash:
         required_crowns = int(crowns) * int(quantity)
         required_workers = int(workers) * int(quantity)
 
-        # Проверка наличия ресурсов
-        if not self.deduct_resources(required_crowns, required_workers):
-            self.show_message(
-                title="Ошибка найма",
-                message=f"Нанять юнитов невозможно: недостаточно ресурсов.\n"
-                        f"Необходимые: {format_number(required_crowns)} крон и {format_number(required_workers)} рабочих."
-            )
-            return False
-
         # Проверка типа unit_stats
         if not isinstance(unit_stats, dict):
             print("[ERROR] unit_stats должен быть словарём!")
@@ -161,32 +152,40 @@ class ArmyCash:
             print(f"[ERROR] Не удалось определить класс юнита. Получено значение: '{unit_class_str}'")
             return False
 
-        # --- 🛡️ Основная проверка ограничений по классу ---
+        # --- Проверка ограничений по классу ДО списания ресурсов ---
         if unit_class == 1:
             # Класс 1 — можно нанимать всегда, без дополнительных проверок
             pass
 
         elif unit_class in [2, 3, 4]:
-            # Проверяем, есть ли уже юнит этого класса в armies или garrisons
+            # Герои: только один
+            if quantity > 1:
+                self.show_message(
+                    title="Ошибка найма",
+                    message=f"Можно нанять только одного героя {unit_class} класса."
+                )
+                return False
+
+            # Проверяем, есть ли уже живой герой этого класса в armies
             try:
-                # Проверка в armies
+                # unit_class хранится в armies как строка вида "N класс"
                 self.cursor.execute("""
                     SELECT 1
                     FROM armies
-                    WHERE faction = ? AND unit_class = ?
+                    WHERE faction = ? AND unit_class LIKE ?
                     LIMIT 1
-                """, (self.faction, str(unit_class)))  # <-- Теперь сравниваем с числом как строкой
+                """, (self.faction, f"{unit_class} %"))
 
                 exists_in_armies = self.cursor.fetchone()
 
-                # Проверка в garrisons через units
+                # Проверка в garrisons через units (unit_class в units — целое число)
                 self.cursor.execute("""
                     SELECT 1
                     FROM garrisons g
                     JOIN units u ON g.unit_name = u.unit_name
-                    WHERE u.faction = ? AND u.unit_class = ?
+                    WHERE u.faction = ? AND CAST(u.unit_class AS INTEGER) = ?
                     LIMIT 1
-                """, (self.faction, str(unit_class)))  # <-- То же самое
+                """, (self.faction, unit_class))
 
                 exists_in_garrisons = self.cursor.fetchone()
 
@@ -198,14 +197,6 @@ class ArmyCash:
                     )
                     return False
 
-                # Герои: только один
-                if quantity > 1:
-                    self.show_message(
-                        title="Ошибка найма",
-                        message=f"Можно нанять только одного героя {unit_class} класса."
-                    )
-                    return False
-
             except sqlite3.Error as e:
                 print(f"[ERROR] Ошибка при проверке существующего героя: {e}")
                 return False
@@ -214,6 +205,15 @@ class ArmyCash:
             self.show_message(
                 title="Ошибка найма",
                 message="Неизвестный класс юнита."
+            )
+            return False
+
+        # Проверка наличия ресурсов (после всех проверок, чтобы не списывать при ошибке)
+        if not self.deduct_resources(required_crowns, required_workers):
+            self.show_message(
+                title="Ошибка найма",
+                message=f"Нанять юнитов невозможно: недостаточно ресурсов.\n"
+                        f"Необходимые: {format_number(required_crowns)} крон и {format_number(required_workers)} рабочих."
             )
             return False
 
@@ -388,15 +388,16 @@ class ArmyCash:
         )
         content_layout.add_widget(close_button)
 
+        _is_mobile = platform in ('android', 'ios')
         popup = Popup(
             title=title,
             content=content_layout,
-            size_hint=(0.78, 0.34),
+            size_hint=(0.90 if _is_mobile else 0.78, 0.42 if _is_mobile else 0.34),
             auto_dismiss=False,
             background_color=(0.07, 0.08, 0.13, 1),
             separator_color=sep,
             title_color=title_clr,
-            title_size=sp(15),
+            title_size=sp(17) if _is_mobile else sp(15),
             title_align='center'
         )
         close_button.bind(on_release=popup.dismiss)
@@ -502,27 +503,7 @@ def start_army_mode(faction, game_area, class_faction, conn):
                         3: (0.85, 0.60, 0.10, 1), 4: (0.85, 0.15, 0.15, 1)}
         accent = CLASS_ACCENT.get(unit_class, (0.20, 0.55, 0.88, 1))
 
-        # ── Заголовок карточки ───────────────────────────────────────
-        header = BoxLayout(size_hint=(1, None), height=dp(44), orientation='horizontal',
-                           padding=[dp(8), dp(6), dp(8), dp(4)], spacing=dp(6))
-        # Акцент-полоса
-        bar = Widget(size_hint=(None, 1), width=dp(4))
-        with bar.canvas:
-            Color(*accent)
-            bar._r = RoundedRectangle(pos=bar.pos, size=bar.size, radius=[dp(2)])
-        bar.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
-                 size=lambda i, v: setattr(i._r, 'size', v))
-        header.add_widget(bar)
-        cls_names = {1: 'Рекрут', 2: 'Герой', 3: 'Чемпион', 4: 'Легенда'}
-        title_lbl = Label(
-            text=f'[b]{unit_name}[/b]  [color=#AAAAAA]{cls_names.get(unit_class, "")} кл.{unit_class}[/color]',
-            markup=True, font_size=sp(15), color=(0.96, 0.96, 0.96, 1),
-            halign='left', valign='middle'
-        )
-        title_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-        header.add_widget(title_lbl)
-
-        # ── Тело: статы слева, картинка справа ──────────────────────
+        # ── Тело: статы слева, картинка+название справа ─────────────
         body = BoxLayout(orientation='horizontal', size_hint=(1, 1), spacing=dp(4))
 
         stats_icons = [
@@ -549,10 +530,21 @@ def start_army_mode(faction, game_area, class_faction, conn):
             stats_box.add_widget(row)
         body.add_widget(stats_box)
 
-        img_box = BoxLayout(size_hint=(0.58, 1), padding=[0, dp(6), dp(6), dp(6)])
-        img_box.add_widget(Image(source=unit_info['image'], size_hint=(1, 1),
-                                 keep_ratio=True, allow_stretch=True, mipmap=True))
-        body.add_widget(img_box)
+        # Правая колонка: картинка сверху, название снизу
+        cls_names = {1: 'Рекрут', 2: 'Герой', 3: 'Чемпион', 4: 'Легенда'}
+        right_col = BoxLayout(orientation='vertical', size_hint=(0.58, 1),
+                              spacing=dp(4), padding=[0, dp(4), dp(4), dp(4)])
+        right_col.add_widget(Image(source=unit_info['image'], size_hint=(1, 1),
+                                   keep_ratio=True, allow_stretch=True, mipmap=True))
+        name_lbl = Label(
+            text=f'[b]{unit_name}[/b]  [color=#AAAAAA]{cls_names.get(unit_class, "")} кл.{unit_class}[/color]',
+            markup=True, font_size=sp(13), color=(0.96, 0.96, 0.96, 1),
+            size_hint=(1, None), height=dp(32),
+            halign='center', valign='middle'
+        )
+        name_lbl.bind(size=lambda i, s: setattr(i, 'text_size', s))
+        right_col.add_widget(name_lbl)
+        body.add_widget(right_col)
 
         # ── Стоимость ────────────────────────────────────────────────
         cost_row = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(34),
@@ -582,8 +574,8 @@ def start_army_mode(faction, game_area, class_faction, conn):
             return b
 
         if unit_class == 1:
-            # ── Слайдер + пресеты + поле ввода ───────────────────────
-            ctrl.height = dp(104)
+            # ── Слайдер + поле ввода + НАНЯТЬ ────────────────────────
+            ctrl.height = dp(76)
             ctrl.orientation = 'vertical'
             ctrl.padding = [dp(8), dp(2), dp(8), dp(2)]
             ctrl.spacing = dp(4)
@@ -601,7 +593,7 @@ def start_army_mode(faction, game_area, class_faction, conn):
                 max_affordable = 10000
 
             # — Строка 1: слайдер с подписью ——————————————————————————
-            slider_row = BoxLayout(size_hint=(1, None), height=dp(30),
+            slider_row = BoxLayout(size_hint=(1, None), height=dp(32),
                                    orientation='horizontal', spacing=dp(8))
             slider_lbl = Label(text='[b]1[/b]', markup=True, font_size=sp(14),
                                color=(1, 1, 1, 1), size_hint=(None, 1), width=dp(56),
@@ -614,37 +606,16 @@ def start_army_mode(faction, game_area, class_faction, conn):
             slider_row.add_widget(slider_lbl)
             slider_row.add_widget(qty_slider)
 
-            # — Строка 2: быстрые пресеты ——————————————————————————————
-            preset_row = BoxLayout(size_hint=(1, None), height=dp(28),
-                                   orientation='horizontal', spacing=dp(4))
-            # Показываем только пресеты, которые можно себе позволить
-            _all_presets = [('100', 100), ('500', 500), ('1к', 1000), ('5к', 5000), ('10к', 10000)]
-            PRESETS = [(lbl, v) for lbl, v in _all_presets if v <= max_affordable]
-            if not PRESETS:
-                PRESETS = [('Макс', max_affordable)]
-            preset_clr = (0.18, 0.26, 0.38, 1)
-
             def _set_qty(val, *, lbl=slider_lbl, sl=qty_slider, st=qty_state):
                 st['n'] = int(val)
                 sl.value = int(val)
                 lbl.text = f'[b]{int(val):,}[/b]'.replace(',', ' ')
 
-            for p_label, p_val in PRESETS:
-                pb = Button(text=p_label, font_size=sp(12), bold=True,
-                            background_color=(0, 0, 0, 0), color=(0.80, 0.92, 1.0, 1))
-                with pb.canvas.before:
-                    pb._pc = Color(*preset_clr)
-                    pb._pr = RoundedRectangle(pos=pb.pos, size=pb.size, radius=[dp(7)])
-                pb.bind(pos=lambda i, v: setattr(i._pr, 'pos', v),
-                        size=lambda i, v: setattr(i._pr, 'size', v))
-                pb.bind(on_release=lambda inst, v=p_val: _set_qty(v))
-                preset_row.add_widget(pb)
-
             def _on_slider(inst, val):
                 _set_qty(val)
             qty_slider.bind(value=_on_slider)
 
-            # — Строка 3: TextInput + НАНЯТЬ ——————————————————————————
+            # — Строка 2: TextInput + НАНЯТЬ ——————————————————————————
             hire_row = BoxLayout(size_hint=(1, None), height=dp(34),
                                  orientation='horizontal', spacing=dp(6))
             qty_input = TextInput(
@@ -667,7 +638,6 @@ def start_army_mode(faction, game_area, class_faction, conn):
                     pass
             qty_input.bind(text=_on_input_text)
 
-            # Keep input in sync when slider moves
             def _on_slider_sync(inst, val, inp=qty_input):
                 inp.text = str(int(val))
             qty_slider.bind(value=_on_slider_sync)
@@ -688,7 +658,7 @@ def start_army_mode(faction, game_area, class_faction, conn):
             hire_row.add_widget(qty_input)
             hire_row.add_widget(btn_hire)
 
-            for row in (slider_row, preset_row, hire_row):
+            for row in (slider_row, hire_row):
                 ctrl.add_widget(row)
         else:
             # Герои и выше — просто кнопка «НАНЯТЬ»
@@ -701,7 +671,6 @@ def start_army_mode(faction, game_area, class_faction, conn):
             ctrl.add_widget(btn_hero)
 
         # ── Сборка карточки ──────────────────────────────────────────
-        card.add_widget(header)
         card.add_widget(body)
         card.add_widget(cost_row)
         card.add_widget(ctrl)

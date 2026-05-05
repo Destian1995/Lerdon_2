@@ -2056,7 +2056,7 @@ def open_tax_popup(faction):
 
     def _effect_text(effect):
         prefix = "+" if effect > 0 else ""
-        return f"{prefix}{effect}% прироста нас."
+        return f"{prefix}{effect}% прироста населения"
 
     # === Основной контейнер ===
     main_layout = BoxLayout(orientation='vertical', padding=dp(16), spacing=dp(12))

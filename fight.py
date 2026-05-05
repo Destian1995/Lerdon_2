@@ -220,6 +220,24 @@ def calculate_army_auras(army):
     return min(total_atk, AURA_CAP_PERCENT), min(total_def, AURA_CAP_PERCENT)
 
 
+def calculate_hero_stat_bonus(army):
+    """Сумма сырых характеристик живых героев (классы ≥2) для бонуса юнитам 1 класса.
+    Возвращает (bonus_atk, bonus_def, bonus_dur).
+    Формула: у каждого юнита 1 класса атака += hero_atk, защита += hero_def + hero_dur/2.
+    """
+    bonus_atk = 0
+    bonus_def = 0
+    bonus_dur = 0
+    for u in army:
+        if u['unit_count'] <= 0:
+            continue
+        if get_unit_class(u) >= 2:
+            bonus_atk += _get_stat(u, 'Урон', 0)
+            bonus_def += _get_stat(u, 'Защита', 0)
+            bonus_dur += _get_stat(u, 'Живучесть', 0)
+    return bonus_atk, bonus_def, bonus_dur
+
+
 # ======================================================================
 #                СИЛА ЮНИТА (симметричная)
 # ======================================================================
@@ -264,7 +282,8 @@ def is_unit_combat_ready(unit, army=None):
 
 def battle_chain(attacker, defender, city, user_faction, conn,
                  atk_aura_atk=0, atk_aura_def=0,
-                 def_aura_atk=0, def_aura_def=0):
+                 def_aura_atk=0, def_aura_def=0,
+                 atk_hero_bonus=(0, 0, 0), def_hero_bonus=(0, 0, 0)):
     """Одна стычка: симметричные пропорциональные потери."""
     if attacker['unit_count'] <= 0 or defender['unit_count'] <= 0:
         return attacker, defender
@@ -273,6 +292,14 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     atk_defense = calculate_unit_power(attacker, is_attacking=False)
     def_attack = calculate_unit_power(defender, is_attacking=True)
     def_defense = calculate_unit_power(defender, is_attacking=False)
+
+    # Бонус от героев 2+ класса: сырые характеристики прибавляются к каждому юниту 1 класса
+    if get_unit_class(attacker) == 1:
+        atk_attack += atk_hero_bonus[0]
+        atk_defense += atk_hero_bonus[1] + atk_hero_bonus[2] / 2.0
+    if get_unit_class(defender) == 1:
+        def_attack += def_hero_bonus[0]
+        def_defense += def_hero_bonus[1] + def_hero_bonus[2] / 2.0
 
     # Ауры
     atk_attack *= (1 + atk_aura_atk / 100.0)
@@ -436,6 +463,10 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         atk_aura_atk, atk_aura_def = calculate_army_auras(atk_army)
         def_aura_atk, def_aura_def = calculate_army_auras(def_army)
 
+        # Сырые бонусы от героев 2+ класса для юнитов 1 класса
+        atk_hero_bonus = calculate_hero_stat_bonus(atk_army)
+        def_hero_bonus = calculate_hero_stat_bonus(def_army)
+
         all_combatants = [(get_initiative(u), 'A', u) for u in atk_alive] + \
                          [(get_initiative(u), 'D', u) for u in def_alive]
         all_combatants.sort(key=lambda t: -t[0])
@@ -455,11 +486,13 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             if side == 'A':
                 battle_chain(unit, target, defending_city, user_faction, conn,
                              atk_aura_atk=atk_aura_atk, atk_aura_def=atk_aura_def,
-                             def_aura_atk=def_aura_atk, def_aura_def=def_aura_def)
+                             def_aura_atk=def_aura_atk, def_aura_def=def_aura_def,
+                             atk_hero_bonus=atk_hero_bonus, def_hero_bonus=def_hero_bonus)
             else:
                 battle_chain(unit, target, defending_city, user_faction, conn,
                              atk_aura_atk=def_aura_atk, atk_aura_def=def_aura_def,
-                             def_aura_atk=atk_aura_atk, def_aura_def=atk_aura_def)
+                             def_aura_atk=atk_aura_atk, def_aura_def=atk_aura_def,
+                             atk_hero_bonus=def_hero_bonus, def_hero_bonus=atk_hero_bonus)
 
         # Проверка на вступление героев при потерях > 85%
         for side in ['atk', 'def']:
