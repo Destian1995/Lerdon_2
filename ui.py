@@ -1479,6 +1479,49 @@ class FortressInfoPopup(Popup):
             print(f"Ошибка при проверке дороги: {e}")
             return False
 
+    def has_own_territory_path(self, source_city, destination_city, faction):
+        """Проверяет наличие пути по дорогам внутри собственной территории."""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT id FROM cities WHERE name = ?", (source_city,))
+            source_row = cursor.fetchone()
+            cursor.execute("SELECT id FROM cities WHERE name = ?", (destination_city,))
+            destination_row = cursor.fetchone()
+            if not source_row or not destination_row:
+                return False
+
+            source_id = source_row[0]
+            destination_id = destination_row[0]
+            if source_id == destination_id:
+                return True
+
+            visited = {source_id}
+            queue = [source_id]
+
+            while queue:
+                current = queue.pop(0)
+                cursor.execute("""
+                    SELECT city1, city2 FROM roads
+                    WHERE city1 = ? OR city2 = ?
+                """, (current, current))
+                for city1_id, city2_id in cursor.fetchall():
+                    neighbor = city2_id if city1_id == current else city1_id
+                    if neighbor in visited:
+                        continue
+                    cursor.execute("SELECT faction FROM cities WHERE id = ?", (neighbor,))
+                    neighbor_row = cursor.fetchone()
+                    if not neighbor_row or neighbor_row[0] != faction:
+                        continue
+                    if neighbor == destination_id:
+                        return True
+                    visited.add(neighbor)
+                    queue.append(neighbor)
+
+            return False
+        except sqlite3.Error as e:
+            print(f"Ошибка при проверке пути по своей территории: {e}")
+            return False
+
     def initialize_turn_check_attack_faction(self):
         """
         Инициализирует запись в таблице turn_check_attack_faction, если её нет.
@@ -1581,7 +1624,21 @@ class FortressInfoPopup(Popup):
                 is_war_destination = self.get_relationship(current_player_kingdom, destination_owner) == 'война'
 
             if target_faction_row and target_faction_row[0] == current_player_kingdom:
-                allowed_by_distance = True
+                allowed_by_distance = False
+                for unit in self.selected_group:
+                    source_city = unit.get("city_name")
+                    if not source_city:
+                        show_popup_message("Ошибка", "Не указан исходный город для перемещения.")
+                        return
+
+                    source_owner = self.get_city_owner(source_city)
+                    if source_owner == current_player_kingdom:
+                        if self.has_own_territory_path(source_city, self.city_name, current_player_kingdom):
+                            allowed_by_distance = True
+                            break
+                    elif self.has_road_between_cities(source_city, self.city_name):
+                        allowed_by_distance = True
+                        break
             else:
                 # Проверяем условие по наличию дороги хотя бы для одного юнита
                 allowed_by_distance = False
@@ -1591,7 +1648,6 @@ class FortressInfoPopup(Popup):
                         show_popup_message("Ошибка", "Не указан исходный город для перемещения.")
                         return
 
-                    # Проверяем наличие дороги между городами
                     if self.has_road_between_cities(source_city, self.city_name):
                         allowed_by_distance = True
                         break  # достаточно одного юнита
@@ -1674,10 +1730,18 @@ class FortressInfoPopup(Popup):
                 show_popup_message("Ошибка", "Один из городов не существует.")
                 return False
 
-            # Проверяем наличие дороги между городами
-            if not self.has_road_between_cities(source_fortress_name, destination_fortress_name):
-                show_popup_message("Нет дороги", f"Нет дороги между {source_fortress_name} и {destination_fortress_name}.")
-                return False
+            # Проверяем маршрут для движения
+            if source_owner == self.player_fraction and destination_owner == self.player_fraction:
+                if not (self.has_road_between_cities(source_fortress_name, destination_fortress_name) or
+                        self.has_own_territory_path(source_fortress_name, destination_fortress_name,
+                                                   self.player_fraction)):
+                    show_popup_message("Нет дороги",
+                                       f"Нет пути между {source_fortress_name} и {destination_fortress_name} по вашей территории.")
+                    return False
+            else:
+                if not self.has_road_between_cities(source_fortress_name, destination_fortress_name):
+                    show_popup_message("Нет дороги", f"Нет дороги между {source_fortress_name} и {destination_fortress_name}.")
+                    return False
 
             current_player_kingdom = self.player_fraction
 
