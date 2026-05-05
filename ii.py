@@ -1807,8 +1807,29 @@ class AIController:
             print(f"Ошибка при поиске ближайшего союзного города: {e}")
             return None
 
+    def has_road_between_cities(self, city1_name, city2_name):
+        """Проверяет, есть ли дорога между двумя городами."""
+        try:
+            # Получаем id городов
+            self.cursor.execute("SELECT id FROM cities WHERE name = ?", (city1_name,))
+            city1_id = self.cursor.fetchone()
+            self.cursor.execute("SELECT id FROM cities WHERE name = ?", (city2_name,))
+            city2_id = self.cursor.fetchone()
+            if not city1_id or not city2_id:
+                return False
+            city1_id, city2_id = city1_id[0], city2_id[0]
+            # Проверяем наличие дороги
+            self.cursor.execute("""
+                SELECT 1 FROM roads 
+                WHERE (city1 = ? AND city2 = ?) OR (city1 = ? AND city2 = ?)
+            """, (city1_id, city2_id, city2_id, city1_id))
+            return self.cursor.fetchone() is not None
+        except sqlite3.Error as e:
+            print(f"Ошибка при проверке дороги: {e}")
+            return False
+
     def find_nearest_city(self, faction):
-        """Находит ближайший город противника для атаки.
+        """Находит ближайший город противника для атаки, с которым есть дорога.
         :param faction: Название фракции
         :return: Имя ближайшего города или None, если подходящий город не найден"""
         try:
@@ -1822,6 +1843,9 @@ class AIController:
             self.cursor.execute(query, (faction,))
             enemy_cities = self.cursor.fetchall()
 
+            min_distance = float('inf')
+            nearest_city = None
+
             for our_city_name, our_coords in our_cities:
                 our_coords = our_coords.strip("[]")  # Убираем [ и ]
                 our_x, our_y = map(int, our_coords.split(','))
@@ -1830,14 +1854,15 @@ class AIController:
                     enemy_coords = enemy_coords.strip("[]")  # Убираем [ и ]
                     enemy_x, enemy_y = map(int, enemy_coords.split(','))
 
-                    # Новый расчет расстояния
-                    distance = abs(our_x - enemy_x) + abs(our_y - enemy_y)
+                    # Проверяем наличие дороги
+                    if self.has_road_between_cities(our_city_name, enemy_city_name):
+                        # Расчет расстояния
+                        distance = abs(our_x - enemy_x) + abs(our_y - enemy_y)
+                        if distance < min_distance:
+                            min_distance = distance
+                            nearest_city = enemy_city_name
 
-                    if distance < 280:
-                        nearest_city = enemy_city_name
-                        return nearest_city
-
-            return None
+            return nearest_city
         except sqlite3.Error as e:
             print(f"Ошибка при поиске ближайшего города: {e}")
             return None
@@ -2960,7 +2985,7 @@ class AIController:
 
     def find_nearest_neutral_city(self):
         """
-        Находит ближайший нейтральный город для атаки.
+        Находит ближайший нейтральный город для атаки, с которым есть дорога.
         :return: Имя ближайшего нейтрального города или None
         """
         try:
@@ -2974,16 +2999,22 @@ class AIController:
             self.cursor.execute(query)
             neutral_cities = self.cursor.fetchall()
 
+            min_distance = float('inf')
+            nearest_city = None
+
             for our_city_name, our_coords in our_cities:
                 our_coords = our_coords.strip("[]")
                 our_x, our_y = map(int, our_coords.split(','))
                 for city_name, city_coords in neutral_cities:
                     city_coords = city_coords.strip("[]")
                     enemy_x, enemy_y = map(int, city_coords.split(','))
-                    distance = abs(our_x - enemy_x) + abs(our_y - enemy_y)
-                    if distance < 280:
-                        return city_name
-            return None
+                    # Проверяем наличие дороги
+                    if self.has_road_between_cities(our_city_name, city_name):
+                        distance = abs(our_x - enemy_x) + abs(our_y - enemy_y)
+                        if distance < min_distance:
+                            min_distance = distance
+                            nearest_city = city_name
+            return nearest_city
         except sqlite3.Error as e:
             print(f"Ошибка при поиске нейтрального города: {e}")
             return None

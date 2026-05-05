@@ -1457,6 +1457,28 @@ class FortressInfoPopup(Popup):
             print(f"Ошибка при получении владельца города: {e}")
             return None
 
+    def has_road_between_cities(self, city1_name, city2_name):
+        """Проверяет, есть ли дорога между двумя городами."""
+        try:
+            cursor = self.conn.cursor()
+            # Получаем id городов
+            cursor.execute("SELECT id FROM cities WHERE name = ?", (city1_name,))
+            city1_id = cursor.fetchone()
+            cursor.execute("SELECT id FROM cities WHERE name = ?", (city2_name,))
+            city2_id = cursor.fetchone()
+            if not city1_id or not city2_id:
+                return False
+            city1_id, city2_id = city1_id[0], city2_id[0]
+            # Проверяем наличие дороги
+            cursor.execute("""
+                SELECT 1 FROM roads 
+                WHERE (city1 = ? AND city2 = ?) OR (city1 = ? AND city2 = ?)
+            """, (city1_id, city2_id, city2_id, city1_id))
+            return cursor.fetchone() is not None
+        except sqlite3.Error as e:
+            print(f"Ошибка при проверке дороги: {e}")
+            return False
+
     def initialize_turn_check_attack_faction(self):
         """
         Инициализирует запись в таблице turn_check_attack_faction, если её нет.
@@ -1561,7 +1583,7 @@ class FortressInfoPopup(Popup):
             if target_faction_row and target_faction_row[0] == current_player_kingdom:
                 allowed_by_distance = True
             else:
-                # Проверяем условие по дистанции хотя бы для одного юнита
+                # Проверяем условие по наличию дороги хотя бы для одного юнита
                 allowed_by_distance = False
                 for unit in self.selected_group:
                     source_city = unit.get("city_name")
@@ -1569,21 +1591,15 @@ class FortressInfoPopup(Popup):
                         show_popup_message("Ошибка", "Не указан исходный город для перемещения.")
                         return
 
-                    # Получаем координаты городов и считаем манхэттенское расстояние
-                    source_coords = self.get_city_coordinates(source_city)
-                    dest_coords = self.get_city_coordinates(self.city_name)
-                    x_diff = abs(source_coords[0] - dest_coords[0])
-                    y_diff = abs(source_coords[1] - dest_coords[1])
-                    total_diff = x_diff + y_diff
-
-                    if total_diff < 280:
+                    # Проверяем наличие дороги между городами
+                    if self.has_road_between_cities(source_city, self.city_name):
                         allowed_by_distance = True
                         break  # достаточно одного юнита
 
             if not allowed_by_distance:
                 show_popup_message(
                     "Нет дороги",
-                    f"Наши слишком далеко, нет ни одного бойца находящегося ближе 280 километров от {self.city_name}."
+                    f"Нет дороги к городу {self.city_name} от ваших войск."
                 )
                 return
 
@@ -1658,6 +1674,11 @@ class FortressInfoPopup(Popup):
                 show_popup_message("Ошибка", "Один из городов не существует.")
                 return False
 
+            # Проверяем наличие дороги между городами
+            if not self.has_road_between_cities(source_fortress_name, destination_fortress_name):
+                show_popup_message("Нет дороги", f"Нет дороги между {source_fortress_name} и {destination_fortress_name}.")
+                return False
+
             current_player_kingdom = self.player_fraction
 
             # 1) Сценарий: войска в своём городе
@@ -1719,8 +1740,8 @@ class FortressInfoPopup(Popup):
                     return False
 
                 else:
-                    show_popup_message("Логистика не выдержит",
-                                       "Слишком далеко. Найдите ближайший населенный пункт.")
+                    show_popup_message("Нет дороги",
+                                       "Нет дороги к этому городу.")
                     return False
 
 
@@ -1734,8 +1755,8 @@ class FortressInfoPopup(Popup):
                     return True
 
                 else:
-                    show_popup_message("Логистика не выдержит",
-                                       "Слишком далеко. Найдите ближайший населенный пункт")
+                    show_popup_message("Нет дороги",
+                                       "Нет дороги к этому городу")
                     return False
 
             # 3) Во всех остальных случаях (нейтральный или враждебный источник)

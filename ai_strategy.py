@@ -529,8 +529,9 @@ def find_best_attack_target(self, faction):
                     ex, ey = map(int, enemy_coords.strip("[]").split(','))
                 except Exception:
                     continue
-                distance = abs(ox - ex) + abs(oy - ey)
-                if distance < MAX_MOVE_DISTANCE:
+                # Проверяем наличие дороги
+                if self.has_road_between_cities(our_name, enemy_name):
+                    distance = abs(ox - ex) + abs(oy - ey)
                     candidates.append((enemy_name, garrisons_strength.get(enemy_name, 0), distance))
 
         if not candidates:
