@@ -16,6 +16,8 @@ from kivy.core.window import Window
 from kivy.metrics import dp, sp
 from kivy.utils import get_color_from_hex
 from kivy.app import App
+from kivy.uix.spinner import SpinnerOption
+from kivy.graphics import Color, RoundedRectangle, Line
 
 import sqlite3
 import re
@@ -1068,15 +1070,71 @@ class RectangularButton(Button):
         self.border_rect_color.a = 1 if show else 0
 
 
-class ModernSpinner(Spinner):
-    """Стилизованный выпадающий список"""
-    bg_color = ListProperty([0.2, 0.3, 0.4, 1])
+class FactionButton(Button):
+    """Кнопка выбора фракции с закруглёнными углами через canvas"""
+    _DEFAULT_COLOR = [0.10, 0.16, 0.28, 1]
+    _SELECTED_COLOR = [0.62, 0.42, 0.08, 1]
+
+    def __init__(self, **kwargs):
+        btn_color = list(kwargs.pop('background_color', self._DEFAULT_COLOR))
+        super().__init__(**kwargs)
+        self.background_normal = ''
+        self.background_down = ''
+        self.background_color = (0, 0, 0, 0)
+        self._default_color = btn_color
+        with self.canvas.before:
+            self._ci = Color(*btn_color)
+            self._rr = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(10)])
+        self.bind(
+            pos=lambda i, v: setattr(i._rr, 'pos', v),
+            size=lambda i, v: setattr(i._rr, 'size', v)
+        )
+
+
+class ModernSpinnerOption(SpinnerOption):
+    """Стилизованный элемент выпадающего списка."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.background_normal = ''
         self.background_down = ''
+        self.background_color = (0.14, 0.20, 0.30, 1)
+        self.color = (0.92, 0.95, 1.0, 1)
+        self.bold = False
+        self.halign = 'center'
+
+        with self.canvas.before:
+            self._sep_color = Color(0.25, 0.35, 0.50, 0.6)
+            self._sep_line = Line(points=[], width=dp(1))
+
+        self.bind(pos=self._update_sep, size=self._update_sep)
+        self.bind(on_press=self._on_press, on_release=self._on_release)
+
+    def _update_sep(self, *_):
+        self._sep_line.points = [self.x, self.y, self.right, self.y]
+
+    def _on_press(self, *_):
+        Animation(background_color=(0.20, 0.40, 0.65, 1), duration=0.10).start(self)
+
+    def _on_release(self, *_):
+        Animation(background_color=(0.14, 0.20, 0.30, 1), duration=0.15).start(self)
+
+
+class ModernSpinner(Spinner):
+    """Стилизованный выпадающий список"""
+    bg_color = ListProperty([0.16, 0.24, 0.36, 1])
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault('option_cls', ModernSpinnerOption)
+        super().__init__(**kwargs)
+        self.background_normal = ''
+        self.background_down = ''
         self.background_color = self.bg_color
+        self.color = (0.92, 0.95, 1.0, 1)
+        self.bold = False
+
+        # Подгоняем высоту дропдауна под содержимое
+        self.bind(on_is_open=self._style_dropdown)
 
         # Анимация при наведении (для ПК)
         if platform != 'android' and platform != 'ios':
@@ -1085,11 +1143,21 @@ class ModernSpinner(Spinner):
                 on_leave=self.on_hover_leave
             )
 
+    def _style_dropdown(self, _, is_open):
+        if is_open and self._dropdown:
+            dd = self._dropdown
+            dd.background = ''
+            with dd.canvas.before:
+                Color(0.10, 0.15, 0.24, 0.97)
+                RoundedRectangle(pos=dd.pos, size=dd.size, radius=[dp(10)])
+                Color(0.25, 0.45, 0.72, 0.7)
+                Line(rounded_rectangle=[dd.x, dd.y, dd.width, dd.height, dp(10)], width=dp(1.2))
+
     def on_hover_enter(self, *args):
-        Animation(background_color=[c * 1.2 for c in self.bg_color[:3]] + [1], duration=0.2).start(self)
+        Animation(background_color=[min(c * 1.25, 1.0) for c in self.bg_color[:3]] + [1], duration=0.15).start(self)
 
     def on_hover_leave(self, *args):
-        Animation(background_color=self.bg_color, duration=0.2).start(self)
+        Animation(background_color=self.bg_color, duration=0.15).start(self)
 
 
 class KingdomSelectionWidget(MDFloatLayout):
@@ -1162,7 +1230,7 @@ class KingdomSelectionWidget(MDFloatLayout):
             text="Выберите сторону",
             font_style="H5",
             theme_text_color="Custom",
-            text_color=(1, 1, 1, 1),
+            text_color=(1.0, 0.88, 0.50, 1),
             outline_color=(0, 0, 0, 1),
             outline_width=2,
             halign='center',
@@ -1170,6 +1238,7 @@ class KingdomSelectionWidget(MDFloatLayout):
             size_hint=(0.8, None),
             height=title_height,
             font_size=title_size,
+            bold=True,
             pos_hint={'center_x': 0.22, 'top': 0.88 if is_android else 0.88}
         )
         self.add_widget(self.select_side_label)
@@ -1191,16 +1260,25 @@ class KingdomSelectionWidget(MDFloatLayout):
 
         # Фон для панели фракций
         with self.faction_panel_container.canvas.before:
-            Color(0.1, 0.1, 0.15, 0.8)
+            Color(0.05, 0.06, 0.11, 0.92)
             self.faction_bg = RoundedRectangle(
                 pos=self.faction_panel_container.pos,
                 size=self.faction_panel_container.size,
-                radius=[15]
+                radius=[dp(20)]
+            )
+            # Золотая полоска сверху
+            self._faction_accent_color = Color(0.75, 0.55, 0.15, 0.95)
+            self._faction_accent = RoundedRectangle(
+                pos=self.faction_panel_container.pos,
+                size=(self.faction_panel_container.width, dp(4)),
+                radius=[dp(20), dp(20), 0, 0]
             )
 
         def update_faction_bg(instance, value):
             self.faction_bg.pos = instance.pos
             self.faction_bg.size = instance.size
+            self._faction_accent.pos = instance.pos
+            self._faction_accent.size = (instance.width, dp(4))
 
         self.faction_panel_container.bind(pos=update_faction_bg, size=update_faction_bg)
 
@@ -1240,16 +1318,16 @@ class KingdomSelectionWidget(MDFloatLayout):
         try:
             for faction in self.faction_data:
                 kingdom = faction.get('name', 'Неизвестная фракция')
-                btn = ModernButton(
+                btn = FactionButton(
                     text=kingdom,
                     size_hint_y=None,
                     height=button_height,
                     font_size=button_font_size,
-                    background_color=(0.2, 0.3, 0.4, 1),
-                    background_normal='',
+                    background_color=FactionButton._DEFAULT_COLOR,
                     color=(1, 1, 1, 1),
+                    bold=True,
                     opacity=1,
-                    padding=[dp(8), 0]  # УМЕНЬШИЛ горизонтальные отступы
+                    padding=[dp(8), 0]
                 )
                 btn.bind(on_release=self.select_kingdom)
                 self.kingdom_buttons.add_widget(btn)
@@ -1268,16 +1346,25 @@ class KingdomSelectionWidget(MDFloatLayout):
 
         # Фон для панели настроек
         with self.settings_panel_container.canvas.before:
-            Color(0.1, 0.1, 0.15, 0.8)
+            Color(0.05, 0.06, 0.11, 0.92)
             self.settings_bg = RoundedRectangle(
                 pos=self.settings_panel_container.pos,
                 size=self.settings_panel_container.size,
-                radius=[15]
+                radius=[dp(20)]
+            )
+            # Синяя полоска сверху
+            self._settings_accent_color = Color(0.20, 0.50, 0.88, 0.95)
+            self._settings_accent = RoundedRectangle(
+                pos=self.settings_panel_container.pos,
+                size=(self.settings_panel_container.width, dp(4)),
+                radius=[dp(20), dp(20), 0, 0]
             )
 
         def update_settings_bg(instance, value):
             self.settings_bg.pos = instance.pos
             self.settings_bg.size = instance.size
+            self._settings_accent.pos = instance.pos
+            self._settings_accent.size = (instance.width, dp(4))
 
         self.settings_panel_container.bind(pos=update_settings_bg, size=update_settings_bg)
 
@@ -1323,11 +1410,12 @@ class KingdomSelectionWidget(MDFloatLayout):
             text="Идеология:",
             font_style="Body1",
             theme_text_color="Custom",
-            text_color=(1, 1, 1, 1),
+            text_color=(0.75, 0.55, 0.15, 1),
             size_hint_y=None,
             height=label_height,
             halign='left',
-            font_size=self.base_font_size * 0.85  # УМЕНЬШИЛ шрифт
+            bold=True,
+            font_size=self.base_font_size * 0.85
         )
         ideology_label.bind(size=ideology_label.setter('text_size'))
         ideology_container.add_widget(ideology_label)
@@ -1353,7 +1441,7 @@ class KingdomSelectionWidget(MDFloatLayout):
 
         # Фон для бонуса
         with self.ideology_bonus_container.canvas.before:
-            Color(0.15, 0.2, 0.25, 0.7)
+            Color(0.10, 0.14, 0.22, 0.90)
             self.ideology_bonus_bg = RoundedRectangle(
                 pos=self.ideology_bonus_container.pos,
                 size=self.ideology_bonus_container.size,
@@ -1413,11 +1501,12 @@ class KingdomSelectionWidget(MDFloatLayout):
             text="Единомышленники:",
             font_style="Body1",
             theme_text_color="Custom",
-            text_color=(1, 1, 1, 1),
+            text_color=(0.75, 0.55, 0.15, 1),
             size_hint_y=None,
             height=label_height,
             halign='left',
-            font_size=self.base_font_size * 0.85  # УМЕНЬШИЛ шрифт
+            bold=True,
+            font_size=self.base_font_size * 0.85
         )
         allies_label.bind(size=allies_label.setter('text_size'))
         allies_container.add_widget(allies_label)
@@ -1443,7 +1532,7 @@ class KingdomSelectionWidget(MDFloatLayout):
 
         # Фон для информации о союзниках
         with self.allies_info_container.canvas.before:
-            Color(0.15, 0.2, 0.25, 0.7)
+            Color(0.10, 0.14, 0.22, 0.90)
             self.allies_info_bg = RoundedRectangle(
                 pos=self.allies_info_container.pos,
                 size=self.allies_info_container.size,
@@ -1492,11 +1581,12 @@ class KingdomSelectionWidget(MDFloatLayout):
             text="Характеристики фракции:",
             font_style="Body1",
             theme_text_color="Custom",
-            text_color=(1, 1, 1, 1),
+            text_color=(0.40, 0.75, 1.0, 1),
             size_hint_y=None,
             height=label_height,
             halign='left',
-            font_size=self.base_font_size * 0.85  # УМЕНЬШИЛ шрифт
+            bold=True,
+            font_size=self.base_font_size * 0.85
         )
         info_title.bind(size=info_title.setter('text_size'))
         self.faction_info_container.add_widget(info_title)
@@ -1625,8 +1715,9 @@ class KingdomSelectionWidget(MDFloatLayout):
             size_hint=(None, None),
             size=(back_btn_width, button_height),
             color=(1, 1, 1, 1),
+            bold=True,
             font_size=button_font_size,
-            background_color=(0.6, 0.2, 0.2, 1)
+            background_color=(0.52, 0.12, 0.12, 1)
         )
         self.back_btn.bind(on_release=self.back_to_menu)
 
@@ -1635,10 +1726,10 @@ class KingdomSelectionWidget(MDFloatLayout):
             text="Начать игру",
             size_hint=(None, None),
             size=(start_btn_width, button_height),
-            font_size=button_font_size * 1.05,  # Немного уменьшил
+            font_size=button_font_size * 1.05,
             bold=True,
             color=(1, 1, 1, 1),
-            background_color=(0.2, 0.6, 0.2, 1),
+            background_color=(0.14, 0.52, 0.18, 1),
             opacity=1
         )
         self.start_game_button.bind(on_release=self.start_game)
@@ -1773,19 +1864,15 @@ class KingdomSelectionWidget(MDFloatLayout):
         if getattr(self, 'buttons_locked', False):
             return
 
-        # Сбрасываем цвет предыдущей выбранной кнопки (если была)
-        if self.selected_button:
-            # Возвращаем исходный цвет
-            Animation(background_color=(0.2, 0.3, 0.4, 1), duration=0.3).start(self.selected_button)
+        # Сбрасываем цвет предыдущей выбранной кнопки
+        if self.selected_button and self.selected_button is not instance:
+            self.selected_button._ci.rgba = FactionButton._DEFAULT_COLOR
 
-        # Устанавливаем новую выбранную кнопку
+        # Устанавливаем новую выбранную кнопку (золотой цвет)
         self.selected_button = instance
+        instance._ci.rgba = FactionButton._SELECTED_COLOR
+
         kingdom_name = instance.text
-
-        # Подсвечиваем выбранную кнопку зеленым цветом
-        Animation(background_color=(0.2, 0.8, 0.2, 1), duration=0.3).start(instance)
-
-        # Обновление информации о фракции
         self.update_faction_stats(kingdom_name)
         from kivy.app import App
         app = App.get_running_app()

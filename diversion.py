@@ -177,6 +177,9 @@ def show_diversion_window(conn, faction, class_faction):
     table_factions = GridLayout(cols=2, spacing=dp(5), size_hint_y=None)
     table_factions.bind(minimum_height=table_factions.setter('height'))
 
+    _BTN_DEFAULT = (0.18, 0.28, 0.45, 1)
+    _BTN_SELECTED = (0.72, 0.18, 0.22, 1)
+
     selected_faction = [None]
     selected_btn = [None]
 
@@ -205,28 +208,17 @@ def show_diversion_window(conn, faction, class_faction):
             size_hint_y=None,
             height=btn_height,
             font_size=font_btn,
-            background_color=SECONDARY_COLOR
+            background_color=_BTN_DEFAULT
         )
 
         # Функция для выбора фракции
         def make_select_handler(faction_name, btn):
             def handler(instance):
-                if selected_btn[0]:
-                    # Убираем подсветку с предыдущей кнопки
-                    selected_btn[0].canvas.before.clear()
-                    with selected_btn[0].canvas.before:
-                        Color(*CARD_COLOR)
-                        RoundedRectangle(size=selected_btn[0].size, pos=selected_btn[0].pos, radius=[dp(12)])
-                # Добавляем подсветку к новой кнопке
-                btn.canvas.before.clear()
-                with btn.canvas.before:
-                    Color(*CARD_COLOR)
-                    RoundedRectangle(size=btn.size, pos=btn.pos, radius=[dp(12)])
-                    Color(*SELECTED_OUTLINE)
-                    RoundedRectangle(size=btn.size, pos=btn.pos, radius=[dp(12)], line_width=dp(2), source=None)
+                if selected_btn[0] and selected_btn[0] is not btn:
+                    selected_btn[0]._btn_color_instr.rgba = _BTN_DEFAULT
+                btn._btn_color_instr.rgba = _BTN_SELECTED
                 selected_btn[0] = btn
                 selected_faction[0] = faction_name
-                # Включаем кнопку "Перейти к операциям"
                 select_all_btn.disabled = False
             return handler
 
@@ -311,16 +303,24 @@ def show_operations_window(conn, player_faction, cash_player, target_faction, ta
     operations_layout = BoxLayout(orientation='vertical', size_hint_y=None, spacing=spacing_main) # Используем уменьшенный отступ
     operations_layout.bind(minimum_height=operations_layout.setter('height'))
 
+    _OP_DEFAULT = (0.50, 0.14, 0.18, 1)
+    _OP_PRESSED = (0.72, 0.18, 0.22, 1)
+    _selected_op = [None]
+
     for op_name, op_info in ops_descriptions.items():
         op_btn = ThemedButton(
             text=f"{op_name}\n{op_info['desc']}",
             size_hint_y=None,
-            height=dp(50),  # Уменьшаем высоту кнопки операции
-            font_size=font_info, # Используем уменьшенный шрифт
-            background_color=CARD_COLOR
+            height=dp(50),
+            font_size=font_info,
+            background_color=_OP_DEFAULT
         )
         def make_op_handler(op_name, op_info):
             def on_op_select(instance):
+                if _selected_op[0] and _selected_op[0] is not instance:
+                    _selected_op[0]._btn_color_instr.rgba = _OP_DEFAULT
+                instance._btn_color_instr.rgba = _OP_PRESSED
+                _selected_op[0] = instance
                 if op_name == 'Мятеж':
                     show_rebellion_cost_selection(conn, player_faction, cash_player, op_name, op_info, target_faction, targets_info)
                 else:

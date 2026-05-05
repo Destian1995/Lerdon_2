@@ -48,13 +48,14 @@ def _show_dark_error_popup(title, message):
     content.add_widget(lbl)
     content.add_widget(btn)
 
+    _is_mobile = platform in ('android', 'ios')
     popup = Popup(
         title=title, content=content,
-        size_hint=(0.72, 0.32),
+        size_hint=(0.88 if _is_mobile else 0.72, 0.40 if _is_mobile else 0.32),
         background_color=(0.07, 0.08, 0.13, 1),
         separator_color=(0.78, 0.18, 0.18, 0.85),
         title_color=(1, 0.55, 0.55, 1),
-        title_size=sp(16), title_align='center',
+        title_size=sp(18) if _is_mobile else sp(16), title_align='center',
         auto_dismiss=False
     )
     btn.bind(on_release=popup.dismiss)
@@ -364,56 +365,98 @@ class FortressInfoPopup(Popup):
         :param previous_popup: Предыдущее всплывающее окно для закрытия.
         """
         try:
-            # Закрываем предыдущее окно
             if previous_popup is not None:
                 previous_popup.dismiss()
-            cursor = self.conn.cursor()
-            # Шаг 1: Получаем все юниты из таблицы garrisons
-            cursor.execute("""
-                SELECT city_name, unit_name, unit_count, unit_image 
-                FROM garrisons
-            """)
-            all_troops = cursor.fetchall()
 
-            if not all_troops:
-                # Если войск нет, показываем сообщение
-                _show_dark_error_popup("Нет войск", "Нет доступных войск.")
+            cursor = self.conn.cursor()
+            target_city = self.city_name
+
+            # Получаем id и владельца целевого города
+            cursor.execute("SELECT id, faction FROM cities WHERE name = ?", (target_city,))
+            target_row = cursor.fetchone()
+            if not target_row:
+                _show_dark_error_popup("Ошибка", f"Город '{target_city}' не найден.")
+                return
+            target_id, target_faction = target_row
+
+            # Получаем все гарнизонные города игрока
+            cursor.execute("""
+                SELECT DISTINCT c.id, c.name
+                FROM garrisons g
+                JOIN cities c ON c.name = g.city_name
+                JOIN units u ON u.unit_name = g.unit_name
+                WHERE u.faction = ? AND c.faction = ?
+            """, (self.player_fraction, self.player_fraction))
+            all_garr = cursor.fetchall()  # [(city_id, city_name), ...]
+
+            if not all_garr:
+                _show_dark_error_popup("Нет войск", "У вас нет войск ни в одном городе.")
                 return
 
-            # Шаг 2: Фильтруем юниты по типу (атакующие, защитные, любые) и фракции
-            filtered_troops = []
-            for city_name, unit_name, unit_count, unit_image in all_troops:
-                # Получаем характеристики юнита из таблицы units
+            if target_faction == self.player_fraction:
+                # ── Свой город: допускаем все гарнизоны, до которых есть
+                #    непрерывный путь через свою территорию (BFS по roads,
+                #    проходим только через города своей фракции).
+                source_city_ids = set()
+                visited = {target_id}
+                queue = [target_id]
+                while queue:
+                    cur = queue.pop(0)
+                    cursor.execute("""
+                        SELECT CASE WHEN city1=? THEN city2 ELSE city1 END
+                        FROM roads WHERE city1=? OR city2=?
+                    """, (cur, cur, cur))
+                    for (nbr_id,) in cursor.fetchall():
+                        if nbr_id in visited:
+                            continue
+                        cursor.execute("SELECT faction FROM cities WHERE id=?", (nbr_id,))
+                        row = cursor.fetchone()
+                        if row and row[0] == self.player_fraction:
+                            visited.add(nbr_id)
+                            queue.append(nbr_id)
+                            source_city_ids.add(nbr_id)
+                # Оставляем только гарнизонные города из достижимых
+                reachable_garr_ids = [cid for cid, _ in all_garr if cid in source_city_ids]
+            else:
+                # ── Нейтральный / вражеский город: только прямые соседи
                 cursor.execute("""
-                    SELECT attack, defense, durability, faction 
-                    FROM units 
-                    WHERE unit_name = ?
-                """, (unit_name,))
-                unit_stats = cursor.fetchone()
+                    SELECT CASE WHEN city1=? THEN city2 ELSE city1 END
+                    FROM roads WHERE city1=? OR city2=?
+                """, (target_id, target_id, target_id))
+                neighbor_ids = {row[0] for row in cursor.fetchall()}
+                reachable_garr_ids = [cid for cid, _ in all_garr if cid in neighbor_ids]
 
-                if not unit_stats:
-                    print(f"Характеристики для юнита '{unit_name}' не найдены.")
-                    continue
+            if not reachable_garr_ids:
+                _show_dark_error_popup("Нет войск", f"Нет ваших войск в городах, откуда можно достичь {target_city}.")
+                return
 
-                attack, defense, durability, unit_faction = unit_stats
+            placeholders = ','.join('?' * len(reachable_garr_ids))
+            cursor.execute(f"""
+                SELECT g.city_name, g.unit_name, g.unit_count, g.unit_image,
+                       u.attack, u.defense, u.durability
+                FROM garrisons g
+                JOIN cities c ON c.name = g.city_name
+                JOIN units u ON u.unit_name = g.unit_name
+                WHERE c.id IN ({placeholders})
+                  AND u.faction = ?
+                  AND c.faction = ?
+            """, reachable_garr_ids + [self.player_fraction, self.player_fraction])
 
-                # Проверяем принадлежность юнита к фракции игрока
-                if unit_faction != self.player_fraction:
-                    continue  # Пропускаем юниты других фракций
+            rows = cursor.fetchall()
 
-                # Определяем тип юнита
+            filtered_troops = []
+            for city_name, unit_name, unit_count, unit_image, attack, defense, durability in rows:
                 if troop_type == "Защитных":
                     if defense > attack and defense > durability:
                         filtered_troops.append((city_name, unit_name, unit_count, unit_image))
                 elif troop_type == "Атакующих":
                     if attack > defense and attack > durability:
                         filtered_troops.append((city_name, unit_name, unit_count, unit_image))
-                else:  # "Any"
+                else:
                     filtered_troops.append((city_name, unit_name, unit_count, unit_image))
 
             if not filtered_troops:
-                # Если подходящих войск нет, показываем сообщение
-                _show_dark_error_popup("Нет войск", f"Нет доступных {troop_type} войск вашей фракции.")
+                _show_dark_error_popup("Нет войск", f"Нет доступных войск для перемещения в {target_city}.")
                 return
 
             # Открываем окно с выбором войск
@@ -428,18 +471,26 @@ class FortressInfoPopup(Popup):
         :param troops_data: Список войск, полученный из базы данных.
         """
         self.current_troops_data = troops_data
+        _is_mobile = platform in ('android', 'ios')
         popup = Popup(
             title="Выберите войска для перемещения",
-            size_hint=(0.9, 0.9),
+            size_hint=(0.97 if _is_mobile else 0.9, 0.95 if _is_mobile else 0.9),
             background_color=(0.07, 0.08, 0.13, 1),
             separator_color=(0.25, 0.52, 0.92, 0.5),
             title_color=(1, 1, 1, 1),
-            title_size=sp(18),
+            title_size=sp(16) if _is_mobile else sp(18),
             title_align='center'
         )
         self.current_popup = popup  # Сохраняем ссылку на текущее окно
 
-        main_layout = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(10))
+        _row_h = dp(54) if _is_mobile else dp(90)
+        _hdr_h = dp(36) if _is_mobile else dp(60)
+        _img_h = dp(44) if _is_mobile else dp(60)
+        _btn_h = dp(48) if _is_mobile else dp(80)
+        _fsize = sp(12) if _is_mobile else sp(15)
+        _hdr_fsize = sp(13) if _is_mobile else sp(18)
+
+        main_layout = BoxLayout(orientation='vertical', padding=dp(8) if _is_mobile else dp(10), spacing=dp(6) if _is_mobile else dp(10))
         with main_layout.canvas.before:
             main_layout._bgc = Color(0.07, 0.08, 0.13, 1)
             main_layout._bgr = Rectangle(pos=main_layout.pos, size=main_layout.size)
@@ -454,33 +505,33 @@ class FortressInfoPopup(Popup):
         for header in headers:
             label = Label(
                 text=header,
-                font_size=sp(18),
+                font_size=_hdr_fsize,
                 bold=True,
                 size_hint_y=None,
-                height=dp(60),
+                height=_hdr_h,
                 color=(0.55, 0.75, 1.0, 1)
             )
             self.table_layout.add_widget(label)
 
         for city_name, unit_name, unit_count, unit_image in troops_data:
-            city_lbl = Label(text=city_name, font_size=sp(15), size_hint_y=None, height=dp(90), color=(0.96, 0.96, 0.96, 1))
-            unit_lbl = Label(text=unit_name, font_size=sp(15), size_hint_y=None, height=dp(90), color=(0.96, 0.96, 0.96, 1))
-            count_lbl = Label(text=str(unit_count), font_size=sp(15), size_hint_y=None, height=dp(90), color=(0.65, 0.70, 0.80, 1))
+            city_lbl = Label(text=city_name, font_size=_fsize, size_hint_y=None, height=_row_h, color=(0.96, 0.96, 0.96, 1))
+            unit_lbl = Label(text=unit_name, font_size=_fsize, size_hint_y=None, height=_row_h, color=(0.96, 0.96, 0.96, 1))
+            count_lbl = Label(text=str(unit_count), font_size=_fsize, size_hint_y=None, height=_row_h, color=(0.65, 0.70, 0.80, 1))
 
-            img_box = BoxLayout(size_hint_y=None, height=dp(60))
+            img_box = BoxLayout(size_hint_y=None, height=_img_h)
             with img_box.canvas.before:
                 img_box._bgc = Color(0.10, 0.13, 0.20, 1)
                 img_box._bgr = RoundedRectangle(pos=img_box.pos, size=img_box.size, radius=[dp(10)])
             img_box.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
                          size=lambda i, v: setattr(i._bgr, 'size', v))
-            img_box.add_widget(Image(source=unit_image, size=(dp(80), dp(80)), size_hint=(None, None)))
+            img_box.add_widget(Image(source=unit_image, size=(_img_h, _img_h), size_hint=(None, None)))
 
             btn_add = Button(
                 text="Добавить",
-                font_size=sp(16),
+                font_size=_fsize,
                 bold=True,
                 size_hint_y=None,
-                height=dp(80),
+                height=_btn_h,
                 background_color=(0, 0, 0, 0),
                 color=(1, 1, 1, 1)
             )
@@ -568,15 +619,10 @@ class FortressInfoPopup(Popup):
 
         btn_add_all.bind(on_release=add_all)
 
-        # Добавляем «Добавить всех» над кнопками отправки/закрытия
-        main_layout.add_widget(btn_add_all)
-        # Небольшой отступ
-        main_layout.add_widget(Widget(size_hint_y=None, height=dp(10)))
-
         # Кнопки «Отправить группу в город» и «Закрыть»
         self.send_group_button = Button(
             text="Отправить группу в город",
-            size_hint=(0.5, None),
+            size_hint=(1, None),
             height=dp(44),
             font_size=sp(16),
             bold=True,
@@ -592,7 +638,7 @@ class FortressInfoPopup(Popup):
 
         close_button = Button(
             text="Закрыть",
-            size_hint=(0.5, None),
+            size_hint=(1, None),
             height=dp(44),
             font_size=sp(16),
             bold=True,
@@ -608,14 +654,24 @@ class FortressInfoPopup(Popup):
         self.send_group_button.bind(on_release=self.move_selected_group_to_city)
         close_button.bind(on_release=popup.dismiss)
 
-        buttons_layout = BoxLayout(
+        # Все три кнопки вместе: «Создать группу» сверху, «Отправить» и «Закрыть» рядом снизу
+        bottom_row = BoxLayout(
             orientation='horizontal',
             size_hint_y=None,
-            height=dp(90),
+            height=dp(44),
             spacing=dp(10)
         )
-        buttons_layout.add_widget(self.send_group_button)
-        buttons_layout.add_widget(close_button)
+        bottom_row.add_widget(self.send_group_button)
+        bottom_row.add_widget(close_button)
+
+        buttons_layout = BoxLayout(
+            orientation='vertical',
+            size_hint_y=None,
+            height=dp(100),
+            spacing=dp(8)
+        )
+        buttons_layout.add_widget(btn_add_all)
+        buttons_layout.add_widget(bottom_row)
 
         main_layout.add_widget(buttons_layout)
 
@@ -673,13 +729,14 @@ class FortressInfoPopup(Popup):
 
         # Если юнитов больше 1, показываем окно выбора
         # Создаем всплывающее окно
+        _is_mobile = platform in ('android', 'ios')
         popup = Popup(
             title=f"Добавление {unit_name} в группу",
-            size_hint=(0.8, 0.7),
+            size_hint=(0.95 if _is_mobile else 0.8, 0.82 if _is_mobile else 0.7),
             background_color=(0.07, 0.08, 0.13, 1),
             separator_color=(0.25, 0.52, 0.92, 0.5),
             title_color=(1, 1, 1, 1),
-            title_size=sp(18),
+            title_size=sp(16) if _is_mobile else sp(18),
             title_align='center'
         )
         layout = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(10))
@@ -1235,9 +1292,10 @@ class FortressInfoPopup(Popup):
             self.attacking_units_box.add_widget(error_label)
 
     def show_warning_popup(self):
+        _is_mobile = platform in ('android', 'ios')
         popup = Popup(
             title="Внимание!",
-            size_hint=(0.55, 0.25),
+            size_hint=(0.85 if _is_mobile else 0.55, 0.38 if _is_mobile else 0.28),
             background_color=(0.07, 0.08, 0.13, 1),
             separator_color=(0.25, 0.52, 0.92, 0.5),
             title_color=(1, 1, 1, 1),
@@ -1310,13 +1368,14 @@ class FortressInfoPopup(Popup):
                 return
 
             # Создаем всплывающее окно
+            _is_mobile = platform in ('android', 'ios')
             popup = Popup(
                 title="Разместить армию",
-                size_hint=(0.95, 0.92),
+                size_hint=(0.99 if _is_mobile else 0.95, 0.97 if _is_mobile else 0.92),
                 background_color=(0.07, 0.08, 0.13, 1),
                 separator_color=(0.25, 0.52, 0.92, 0.5),
                 title_color=(1, 1, 1, 1),
-                title_size=sp(18),
+                title_size=sp(16) if _is_mobile else sp(18),
                 title_align='center'
             )
             self.current_popup = popup
@@ -2579,34 +2638,54 @@ def show_popup_message(title, message):
     content.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
                  size=lambda i, v: setattr(i._bgr, 'size', v))
 
-    # Размер popup: максимум 90% ширины и 70% высоты экрана
-    popup_width = min(dp(500), Window.width * 0.9)
-    popup_height = min(dp(600), Window.height * 0.7)
+    _is_mobile = platform in ('android', 'ios')
+    # На Android занимаем больше экрана; на ПК — фиксированный максимум
+    if _is_mobile:
+        popup_w_hint = 0.92
+        popup_h_hint = 0.45
+    else:
+        popup_w_hint = None  # используем абсолютный размер
+        popup_h_hint = None
 
-    # Создаём само окно с тёмным дизайном
-    popup = Popup(
-        title=title,
-        title_size=sp(18),
-        title_align='center',
-        title_color=(1, 1, 1, 1),
-        content=content,
-        separator_color=(0.25, 0.52, 0.92, 0.5),
-        separator_height=dp(1),
-        size_hint=(None, None),
-        size=(popup_width, popup_height),
-        background_color=(0.07, 0.08, 0.13, 1),
-        overlay_color=(0, 0, 0, 0.5),
-        auto_dismiss=False
-    )
+    if _is_mobile:
+        popup = Popup(
+            title=title,
+            title_size=sp(18),
+            title_align='center',
+            title_color=(1, 1, 1, 1),
+            content=content,
+            separator_color=(0.25, 0.52, 0.92, 0.5),
+            separator_height=dp(1),
+            size_hint=(popup_w_hint, popup_h_hint),
+            background_color=(0.07, 0.08, 0.13, 1),
+            overlay_color=(0, 0, 0, 0.5),
+            auto_dismiss=False
+        )
+    else:
+        popup_width = min(dp(500), Window.width * 0.9)
+        popup_height = min(dp(600), Window.height * 0.7)
+        popup = Popup(
+            title=title,
+            title_size=sp(18),
+            title_align='center',
+            title_color=(1, 1, 1, 1),
+            content=content,
+            separator_color=(0.25, 0.52, 0.92, 0.5),
+            separator_height=dp(1),
+            size_hint=(None, None),
+            size=(popup_width, popup_height),
+            background_color=(0.07, 0.08, 0.13, 1),
+            overlay_color=(0, 0, 0, 0.5),
+            auto_dismiss=False
+        )
 
-    # Обработчик изменения размера окна (если пользователь повернёт экран или сменит размер)
-    def update_size(*args):
-        new_w = min(dp(500), Window.width * 0.9)
-        new_h = min(dp(600), Window.height * 0.7)
-        popup.size = (new_w, new_h)
+        def update_size(*args):
+            new_w = min(dp(500), Window.width * 0.9)
+            new_h = min(dp(600), Window.height * 0.7)
+            popup.size = (new_w, new_h)
 
-    Window.bind(on_resize=update_size)
-    popup.bind(on_dismiss=lambda *x: Window.unbind(on_resize=update_size))
+        Window.bind(on_resize=update_size)
+        popup.bind(on_dismiss=lambda *x: Window.unbind(on_resize=update_size))
 
     close_button.bind(on_release=popup.dismiss)
 
