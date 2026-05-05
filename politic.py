@@ -216,18 +216,11 @@ class DiplomacyManager:
 
         # Создаем контент для popup
         content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(10))
-
-        # Заголовок
-        title_label = Label(
-            text=f"Дипломатические отношения: {self.faction}",
-            font_size='20sp',
-            bold=True,
-            color=(1, 1, 1, 1),
-            halign='center',
-            size_hint_y=None,
-            height=dp(50)
-        )
-        content.add_widget(title_label)
+        with content.canvas.before:
+            Color(0.07, 0.08, 0.13, 1)
+            content._bg = Rectangle(pos=content.pos, size=content.size)
+        content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                     size=lambda i, v: setattr(i._bg, 'size', v))
 
         # Создаем таблицу
         table = GridLayout(
@@ -311,10 +304,18 @@ class DiplomacyManager:
         close_button = Button(
             text="Закрыть",
             size_hint=(1, None),
-            height=dp(50),
-            font_size='18sp',
-            background_color=(0.8, 0.2, 0.2, 1),
+            height=dp(46),
+            font_size=sp(15),
+            bold=True,
+            background_color=(0, 0, 0, 0),
             color=(1, 1, 1, 1)
+        )
+        with close_button.canvas.before:
+            close_button._bc = Color(0.65, 0.18, 0.18, 1)
+            close_button._br = RoundedRectangle(pos=close_button.pos, size=close_button.size, radius=[dp(10)])
+        close_button.bind(
+            pos=lambda i, v: setattr(i._br, 'pos', v),
+            size=lambda i, v: setattr(i._br, 'size', v)
         )
 
         def close_popup(instance):
@@ -324,13 +325,16 @@ class DiplomacyManager:
         close_button.bind(on_release=close_popup)
         content.add_widget(close_button)
 
-        # Создаем и показываем popup
         self.popup = Popup(
-            title="",
+            title=f"Отношения: {self.faction}",
             content=content,
             size_hint=(0.85, 0.9),
             auto_dismiss=False,
-            background_color=(0.1, 0.1, 0.2, 0.95)
+            background_color=(0.07, 0.08, 0.13, 1),
+            separator_color=(0.20, 0.55, 0.88, 0.7),
+            title_color=(0.65, 0.88, 1, 1),
+            title_size=sp(16),
+            title_align='center'
         )
         self.popup.open()
 
@@ -805,46 +809,41 @@ def show_ratings_popup(conn):
 
     is_android = platform == 'android'
 
-    # === Создаем контент для popup (как в diplomacy) ===
-    content = BoxLayout(
-        orientation='vertical',
-        spacing=dp(8),
-        padding=dp(10)
-    )
+    content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(10))
+    with content.canvas.before:
+        Color(0.07, 0.08, 0.13, 1)
+        content._bg = Rectangle(pos=content.pos, size=content.size)
+    content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                 size=lambda i, v: setattr(i._bg, 'size', v))
 
-    # === Заголовок (как в diplomacy) ===
-    title_label = Label(
-        text="Рейтинг армий",
-        font_size='20sp',
-        bold=True,
-        color=(1, 1, 1, 1),
-        halign='center',
-        size_hint_y=None,
-        height=dp(50)
-    )
-    content.add_widget(title_label)
-
-    # === Создаем таблицу ===
+    # === Таблица ===
     table = create_army_rating_table(conn)
 
-    # === Добавляем таблицу в ScrollView (КЛЮЧЕВОЕ: size_hint=(1, 0.8) как в diplomacy) ===
     scroll = ScrollView(
-        size_hint=(1, 0.8),  # ← 80% высоты, как в show_diplomatic_relations
+        size_hint=(1, 1),
         bar_width=dp(6),
-        bar_color=(0.5, 0.5, 0.5, 0.6),
+        bar_color=(0.20, 0.55, 0.88, 0.5),
         scroll_type=['bars', 'content']
     )
     scroll.add_widget(table)
     content.add_widget(scroll)
 
-    # === Кнопка закрытия (как в diplomacy) ===
+    # === Кнопка закрытия ===
     close_button = Button(
         text="Закрыть",
         size_hint=(1, None),
-        height=dp(50),
-        font_size='18sp',
-        background_color=(0.8, 0.2, 0.2, 1),
+        height=dp(46),
+        font_size=sp(15),
+        bold=True,
+        background_color=(0, 0, 0, 0),
         color=(1, 1, 1, 1)
+    )
+    with close_button.canvas.before:
+        close_button._bc = Color(0.65, 0.18, 0.18, 1)
+        close_button._br = RoundedRectangle(pos=close_button.pos, size=close_button.size, radius=[dp(10)])
+    close_button.bind(
+        pos=lambda i, v: setattr(i._br, 'pos', v),
+        size=lambda i, v: setattr(i._br, 'size', v)
     )
 
     def close_popup(instance):
@@ -854,13 +853,16 @@ def show_ratings_popup(conn):
     close_button.bind(on_release=close_popup)
     content.add_widget(close_button)
 
-    # === Создаем и показываем popup (как в diplomacy) ===
     show_ratings_popup.popup = Popup(
-        title="",
+        title="Силы армий",
         content=content,
         size_hint=(0.95, 0.85),
         auto_dismiss=False,
-        background_color=(0.1, 0.1, 0.2, 0.95)
+        background_color=(0.07, 0.08, 0.13, 1),
+        separator_color=(0.20, 0.55, 0.88, 0.7),
+        title_color=(0.65, 0.88, 1, 1),
+        title_size=sp(17),
+        title_align='center'
     )
     show_ratings_popup.popup.open()
 

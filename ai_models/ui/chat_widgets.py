@@ -35,7 +35,7 @@ class ChatMessage(BoxLayout):
         )
 
         sender_label = Label(
-            text=f"{'👑' if is_player else '🏛️'} {sender}",
+            text=f"{'[Я]' if is_player else '[ИИ]'} {sender}",
             font_size='11sp',
             color=(0.8, 0.8, 0.8, 1) if is_player else (0.7, 0.8, 1, 1),
             size_hint=(0.7, 1),

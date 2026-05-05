@@ -2038,110 +2038,108 @@ def handle_trade(game_instance, action, quantity, trade_popup):
 
 # -----------------------------------
 def open_tax_popup(faction):
-    # Проверка платформы
     is_android = platform == 'android'
-    # Размеры popup в зависимости от платформы
-    popup_size_hint = (0.9, 0.7) if is_android else (0.8, 0.6)
-    tax_popup = Popup(
-        title="Управление налогами",
-        size_hint=popup_size_hint,
-        background_color=(0.05, 0.05, 0.05, 0.95),
-        title_color=(0.8, 0.8, 0.8, 1),
-        separator_color=(0.3, 0.3, 0.3, 1),
-        title_size=sp(26) if is_android else sp(20),
-        title_align='center'
-    )
-    main_layout = FloatLayout()
+    popup_size_hint = (0.85, 0.55) if is_android else (0.72, 0.50)
+
     try:
         current_tax_rate = int(faction.current_tax_rate.strip('%')) \
             if isinstance(faction.current_tax_rate, str) else int(faction.current_tax_rate)
     except:
         current_tax_rate = 0
 
-    # === Метка с текущим уровнем налогов и эффектом на население ===
-    # Рассчитываем начальный эффект
+    def _effect_color(effect):
+        if effect > 0:
+            return (0.35, 1.0, 0.45, 1)
+        elif effect < 0:
+            return (1.0, 0.38, 0.38, 1)
+        return (1.0, 0.90, 0.35, 1)
+
+    def _effect_text(effect):
+        prefix = "+" if effect > 0 else ""
+        return f"{prefix}{effect}% прироста нас."
+
+    # === Основной контейнер ===
+    main_layout = BoxLayout(orientation='vertical', padding=dp(16), spacing=dp(12))
+    with main_layout.canvas.before:
+        Color(0.07, 0.08, 0.13, 1)
+        main_layout._bg = Rectangle(pos=main_layout.pos, size=main_layout.size)
+    main_layout.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                     size=lambda i, v: setattr(i._bg, 'size', v))
+
+    # === Карточка с отображением налога ===
+    card = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(70),
+                     padding=dp(10), spacing=dp(4))
+    with card.canvas.before:
+        Color(0.12, 0.15, 0.24, 1)
+        card._bg = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(12)])
+    card.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+              size=lambda i, v: setattr(i._bg, 'size', v))
+
     initial_effect = faction.tax_effect(current_tax_rate)
-    if initial_effect > 0:
-        effect_text = f"+{initial_effect}% доп. прирост населения"
-        effect_color = (0, 1, 0, 1)  # Зелёный для положительного эффекта
-    elif initial_effect < 0:
-        effect_text = f"{initial_effect}% доп. прирост населения"
-        effect_color = (1, 0, 0, 1)  # Красный для отрицательного эффекта
-    else:
-        effect_text = "0% доп. населения"
-        effect_color = (1, 1, 0, 1)  # Жёлтый для нулевого эффекта
-
     tax_label = Label(
-        text=f"Налог: {current_tax_rate}% ({effect_text})",
-        color=(0.7, 0.9, 0.7, 1),
-        font_size=sp(26) if is_android else sp(24),
+        text=f"Налог: {current_tax_rate}%",
+        color=(0.65, 0.88, 1, 1),
+        font_size=sp(22) if is_android else sp(20),
         bold=True,
-        pos_hint={'center_x': 0.5, 'top': 0.92},
-        size_hint=(0.9, None),
-        halign="center"
+        halign='center',
+        size_hint_y=None,
+        height=dp(30)
     )
-    main_layout.add_widget(tax_label)
+    effect_label = Label(
+        text=_effect_text(initial_effect),
+        color=_effect_color(initial_effect),
+        font_size=sp(14),
+        halign='center',
+        size_hint_y=None,
+        height=dp(22)
+    )
+    card.add_widget(tax_label)
+    card.add_widget(effect_label)
+    main_layout.add_widget(card)
 
-    # === Ползунок управления налогом ===
+    # === Ползунок ===
     tax_slider = Slider(
-        min=0,
-        max=100,
-        value=current_tax_rate,
-        step=1,
+        min=0, max=100, value=current_tax_rate, step=1,
         orientation='horizontal',
-        pos_hint={'center_x': 0.5, 'center_y': 0.65},
-        size_hint=(0.95, 0.12) if is_android else (0.9, 0.15),
-        background_width=dp(10),
-        cursor_size=(dp(40), dp(40)),
+        size_hint=(1, None),
+        height=dp(44) if is_android else dp(38),
+        background_width=dp(8),
+        cursor_size=(dp(36), dp(36)),
         value_track=False
     )
 
     def update_tax_label(instance, value):
-        tax_rate = int(value)
-        # Рассчитываем эффект на население
-        effect = faction.tax_effect(tax_rate)
-
-        # Формируем текст эффекта с цветовой индикацией
-        if effect > 0:
-            effect_text = f"+{effect}% доп. прирост населения"
-            effect_color = (0, 1, 0, 1)  # Зелёный
-        elif effect < 0:
-            effect_text = f"{effect}% доп. прирост населения"
-            effect_color = (1, 0, 0, 1)  # Красный
-        else:
-            effect_text = "0% доп. прирост населения"
-            effect_color = (1, 1, 0, 1)  # Жёлтый
-
-        # Обновляем текст метки
-        tax_label.text = f"Налог: {tax_rate}% ({effect_text})"
-        tax_label.color = effect_color
+        rate = int(value)
+        effect = faction.tax_effect(rate)
+        tax_label.text = f"Налог: {rate}%"
+        effect_label.text = _effect_text(effect)
+        effect_label.color = _effect_color(effect)
 
     tax_slider.bind(value=update_tax_label)
     main_layout.add_widget(tax_slider)
 
+    # Распорка
+    main_layout.add_widget(BoxLayout(size_hint_y=1))
+
     # === Кнопка "Применить" ===
     set_tax_button = Button(
         text="Применить",
-        pos_hint={'center_x': 0.5, 'y': 0.08},
-        size_hint=(0.8, 0.15) if is_android else (0.6, 0.15),
+        size_hint=(1, None),
+        height=dp(46) if is_android else dp(42),
         background_color=(0, 0, 0, 0),
-        color=(0.8, 0.8, 0.8, 1),
-        font_size=sp(24) if is_android else sp(20),
+        color=(1, 1, 1, 1),
+        font_size=sp(18) if is_android else sp(16),
         bold=True
     )
     with set_tax_button.canvas.before:
-        Color(0.3, 0.3, 0.3, 0.5)
-        set_tax_button.rect = RoundedRectangle(
-            size=set_tax_button.size,
-            pos=set_tax_button.pos,
-            radius=[dp(15)]
+        set_tax_button._bc = Color(0.18, 0.55, 0.22, 1)
+        set_tax_button._br = RoundedRectangle(
+            size=set_tax_button.size, pos=set_tax_button.pos, radius=[dp(12)]
         )
-
-    def update_rect(instance, value):
-        instance.rect.pos = instance.pos
-        instance.rect.size = instance.size
-
-    set_tax_button.bind(pos=update_rect, size=update_rect)
+    set_tax_button.bind(
+        pos=lambda i, v: setattr(i._br, 'pos', v),
+        size=lambda i, v: setattr(i._br, 'size', v)
+    )
 
     def set_tax(instance):
         tax_rate = int(tax_slider.value)
@@ -2153,13 +2151,17 @@ def open_tax_popup(faction):
     set_tax_button.bind(on_release=set_tax)
     main_layout.add_widget(set_tax_button)
 
-    # === Закрытие попапа по нажатию вне виджета ===
-    def dismiss_on_outside(instance, touch):
-        if not main_layout.collide_point(*touch.pos):
-            tax_popup.dismiss()
-
-    tax_popup.bind(on_touch_down=dismiss_on_outside)
-    tax_popup.content = main_layout
+    tax_popup = Popup(
+        title="Управление налогами",
+        content=main_layout,
+        size_hint=popup_size_hint,
+        background_color=(0.07, 0.08, 0.13, 1),
+        separator_color=(0.25, 0.72, 0.35, 0.7),
+        title_color=(0.65, 0.88, 1, 1),
+        title_size=sp(18) if is_android else sp(16),
+        title_align='center',
+        auto_dismiss=True
+    )
     tax_popup.open()
 
 

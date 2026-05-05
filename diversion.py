@@ -81,10 +81,11 @@ class CalculateCash:
 
 class ThemedButton(Button):
     def __init__(self, **kwargs):
+        btn_color = kwargs.pop('background_color', CARD_COLOR)
         super().__init__(**kwargs)
         self.background_color = (0, 0, 0, 0)
         with self.canvas.before:
-            Color(*CARD_COLOR)
+            self._btn_color_instr = Color(*btn_color)
             self.rect = RoundedRectangle(size=self.size, pos=self.pos, radius=[dp(12)])
         self.bind(pos=self.update_graphics, size=self.update_graphics)
 
@@ -94,15 +95,12 @@ class ThemedButton(Button):
 
 class ThemedPopup(Popup):
     def __init__(self, **kwargs):
+        kwargs.setdefault('background_color', (0.07, 0.08, 0.13, 1))
+        kwargs.setdefault('separator_color', (0.55, 0.22, 0.80, 0.75))
+        kwargs.setdefault('title_color', (0.82, 0.60, 1.0, 1))
+        kwargs.setdefault('title_size', sp(16))
+        kwargs.setdefault('title_align', 'center')
         super().__init__(**kwargs)
-        with self.canvas.before:
-            Color(*BACKGROUND_COLOR)
-            self.rect = RoundedRectangle(size=self.size, pos=self.pos, radius=[dp(16)])
-        self.bind(pos=self.update_graphics, size=self.update_graphics)
-
-    def update_graphics(self, *args):
-        self.rect.pos = self.pos
-        self.rect.size = self.size
 
 def show_diversion_window(conn, faction, class_faction):
     cash_player = CalculateCash(faction, class_faction)

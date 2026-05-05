@@ -5223,9 +5223,17 @@ class EnhancedDiplomacyChat():
             text=">",
             size_hint=(0.2, 1),
             background_normal='',
-            background_color=(0.25, 0.5, 0.9, 1),
+            background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1),
             font_size='16sp',
             bold=True
+        )
+        with send_btn.canvas.before:
+            send_btn._bc = Color(0.20, 0.50, 0.88, 1)
+            send_btn._br = RoundedRectangle(pos=send_btn.pos, size=send_btn.size, radius=[dp(8)])
+        send_btn.bind(
+            pos=lambda i, v: setattr(i._br, 'pos', v),
+            size=lambda i, v: setattr(i._br, 'size', v)
         )
         send_btn.bind(on_press=self.send_diplomatic_message)
 

@@ -229,12 +229,15 @@ def show_nobles_window(conn, faction, class_faction):
 
     # Popup контейнер
     popup = Popup(
-        title="",
+        title="Совет",
         content=main_layout,
         size_hint=(0.95, 0.9) if not UIStyles.is_android() else (1, 1),
         pos_hint={'center_x': 0.5, 'center_y': 0.5},
-        background_color=(0, 0, 0, 0.5),
-        separator_height=0
+        background_color=(0.07, 0.08, 0.13, 1),
+        separator_color=(0.72, 0.55, 0.18, 0.75),
+        title_color=(1.0, 0.88, 0.50, 1),
+        title_size=sp(17),
+        title_align='center'
     )
     popup.open()
 
@@ -339,7 +342,7 @@ def show_insufficient_funds_popup(required, current, shortage):
 
     # Заголовок
     title_label = Label(
-        text="[b]⚠ Недостаточно средств[/b]",
+        text="[b]Недостаточно средств[/b]",
         font_size=font_title,
         markup=True,
         halign='center',

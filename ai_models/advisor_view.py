@@ -8,7 +8,8 @@ from kivy.uix.button import Button
 from kivy.uix.image import Image
 from kivy.uix.popup import Popup
 from kivy.core.window import Window
-from kivy.metrics import dp
+from kivy.metrics import dp, sp
+from kivy.graphics import Color, RoundedRectangle
 from kivy.uix.behaviors import ButtonBehavior
 import os
 import random
@@ -103,11 +104,12 @@ class AdvisorView(FloatLayout):
 
         self.popup = Popup(
             title="Дипломатия",
-            title_size=Window.height * 0.03,
+            title_size=sp(17),
             title_align="center",
+            title_color=(0.65, 0.88, 1, 1),
             content=main_container,
             size_hint=(0.95, 0.95),
-            separator_height=dp(0),
+            separator_color=(0.20, 0.55, 0.88, 0.6),
             background=background,
             auto_dismiss=False
         )
@@ -118,9 +120,17 @@ class AdvisorView(FloatLayout):
             size_hint=(None, None),
             size=(dp(40), dp(40)),
             pos_hint={'right': 0.98, 'top': 0.98},
-            background_normal='',
-            background_color=(0.8, 0.1, 0.1, 0.8),
-            font_size='20sp',
+            background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1),
+            font_size=sp(16),
+            bold=True
+        )
+        with close_button.canvas.before:
+            close_button._bc = Color(0.65, 0.18, 0.18, 1)
+            close_button._br = RoundedRectangle(pos=close_button.pos, size=close_button.size, radius=[dp(10)])
+        close_button.bind(
+            pos=lambda i, v: setattr(i._br, 'pos', v),
+            size=lambda i, v: setattr(i._br, 'size', v),
             on_press=self.close_window
         )
         main_container.add_widget(close_button)
