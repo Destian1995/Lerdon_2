@@ -1807,6 +1807,22 @@ class AIController:
             print(f"Ошибка при поиске ближайшего союзного города: {e}")
             return None
 
+    def get_city_owner(self, city_name):
+        try:
+            self.cursor.execute("""
+                SELECT faction FROM cities 
+                WHERE name = ?
+            """, (city_name,))
+            result = self.cursor.fetchone()
+            if not result:
+                print(f"Город '{city_name}' не найден в таблице cities.")
+                return None
+
+            return result[0]
+        except sqlite3.Error as e:
+            print(f"Ошибка при получении владельца города: {e}")
+            return None
+
     def has_road_between_cities(self, city1_name, city2_name):
         """Проверяет, есть ли дорога между двумя городами."""
         try:
@@ -1826,6 +1842,48 @@ class AIController:
             return self.cursor.fetchone() is not None
         except sqlite3.Error as e:
             print(f"Ошибка при проверке дороги: {e}")
+            return False
+
+    def has_own_territory_path(self, source_city, destination_city, faction):
+        """Проверяет наличие пути по дорогам внутри собственной территории."""
+        try:
+            self.cursor.execute("SELECT id FROM cities WHERE name = ?", (source_city,))
+            source_row = self.cursor.fetchone()
+            self.cursor.execute("SELECT id FROM cities WHERE name = ?", (destination_city,))
+            destination_row = self.cursor.fetchone()
+            if not source_row or not destination_row:
+                return False
+
+            source_id = source_row[0]
+            destination_id = destination_row[0]
+            if source_id == destination_id:
+                return True
+
+            visited = {source_id}
+            queue = [source_id]
+
+            while queue:
+                current = queue.pop(0)
+                self.cursor.execute("""
+                    SELECT city1, city2 FROM roads
+                    WHERE city1 = ? OR city2 = ?
+                """, (current, current))
+                for city1_id, city2_id in self.cursor.fetchall():
+                    neighbor = city2_id if city1_id == current else city1_id
+                    if neighbor in visited:
+                        continue
+                    self.cursor.execute("SELECT faction FROM cities WHERE id = ?", (neighbor,))
+                    neighbor_row = self.cursor.fetchone()
+                    if not neighbor_row or neighbor_row[0] != faction:
+                        continue
+                    if neighbor == destination_id:
+                        return True
+                    visited.add(neighbor)
+                    queue.append(neighbor)
+
+            return False
+        except sqlite3.Error as e:
+            print(f"Ошибка при проверке пути по своей территории: {e}")
             return False
 
     def find_nearest_city(self, faction):
@@ -1873,6 +1931,19 @@ class AIController:
             if from_city_name == to_city_name:
                 print(f"Передислокация в тот же город невозможна: {from_city_name}")
                 return
+
+            # Проверяем наличие пути
+            from_owner = self.get_city_owner(from_city_name)
+            to_owner = self.get_city_owner(to_city_name)
+            if from_owner == self.faction and to_owner == self.faction:
+                if not (self.has_road_between_cities(from_city_name, to_city_name) or
+                        self.has_own_territory_path(from_city_name, to_city_name, self.faction)):
+                    print(f"Нет пути между {from_city_name} и {to_city_name} по своей территории.")
+                    return
+            else:
+                if not self.has_road_between_cities(from_city_name, to_city_name):
+                    print(f"Нет дороги между {from_city_name} и {to_city_name}.")
+                    return
 
             # Уменьшаем количество юнитов в исходном городе
             self.cursor.execute("""
@@ -2897,12 +2968,15 @@ class AIController:
         all_factions = self.load_relations()
 
         for faction, relation_level in all_factions.items():
+            if faction == self.faction:
+                continue  # пропускаем собственную фракцию
+
             other_system = self.load_political_system_for_faction(faction)
 
             # Преобразуем relation_level в число
             relation_level = int(relation_level)
 
-            if current_system == other_system:
+            if current_system.strip() == other_system.strip():
                 new_relation = min(relation_level + 3, 100)
             else:
                 new_relation = max(relation_level - 7, 0)

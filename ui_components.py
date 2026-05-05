@@ -3,6 +3,7 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.image import Image
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
+from kivy.uix.widget import Widget
 from kivy.clock import Clock
 from kivy.animation import Animation
 from kivy.core.window import Window
@@ -638,3 +639,60 @@ class TutorialHint(FloatLayout):
             return False
 
         return True  # поглощаем касание вне области
+
+
+class AnimatedHealthBar(Widget):
+    """
+    Анимированная полоса здоровья с плавным изменением цвета.
+    Зелёный (100%) → Жёлтый (50%) → Красный (0%).
+    Использует Animation(ratio=...) для плавного перехода.
+    """
+    ratio = NumericProperty(1.0)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint_y = None
+        self.height = dp(28)
+        self.bind(ratio=self._draw, pos=self._draw, size=self._draw)
+
+    @staticmethod
+    def _hp_color(r):
+        """Цвет полосы по текущему значению ratio (0.0–1.0)."""
+        r = max(0.0, min(1.0, r))
+        if r >= 0.55:
+            # Зелёный → жёлто-зелёный
+            t = (r - 0.55) / 0.45
+            return (0.15 + (1 - t) * 0.72, 0.58 + t * 0.28, 0.04, 1)
+        elif r >= 0.25:
+            # Жёлто-зелёный → оранжевый
+            t = (r - 0.25) / 0.30
+            return (0.94, 0.12 + t * 0.52, 0.02, 1)
+        else:
+            # Красный
+            return (0.88, 0.08, 0.04, 1)
+
+    def _draw(self, *args):
+        self.canvas.clear()
+        if self.width <= 0 or self.height <= 0:
+            return
+        with self.canvas:
+            # Фоновый трек
+            Color(0.09, 0.09, 0.15, 1)
+            RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(14)])
+            # Заполненная часть
+            fw = self.width * max(0.0, min(1.0, self.ratio))
+            if fw > dp(6):
+                Color(*self._hp_color(self.ratio))
+                RoundedRectangle(pos=self.pos, size=(fw, self.height), radius=[dp(14)])
+                # Блик сверху
+                Color(1, 1, 1, 0.15)
+                RoundedRectangle(
+                    pos=(self.x + dp(4), self.y + self.height * 0.60),
+                    size=(max(dp(4), fw - dp(8)), self.height * 0.28),
+                    radius=[dp(8)]
+                )
+
+    def animate_to(self, new_ratio, duration=0.44):
+        """Плавно анимирует полосу к новому значению."""
+        Animation.cancel_all(self, 'ratio')
+        Animation(ratio=max(0.0, new_ratio), duration=duration, t='out_cubic').start(self)

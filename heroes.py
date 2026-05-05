@@ -541,6 +541,11 @@ def open_artifacts_popup(faction, season_manager):
     hero_image_path = load_hero_image_from_db(faction)
     popup_layout = BoxLayout(orientation='horizontal', padding=padding_small if is_android else padding_medium,
                              spacing=spacing_small if is_android else spacing_medium)
+    with popup_layout.canvas.before:
+        Color(0.07, 0.08, 0.13, 1)
+        popup_layout._bg = Rectangle(pos=popup_layout.pos, size=popup_layout.size)
+    popup_layout.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                      size=lambda i, v: setattr(i._bg, 'size', v))
     left_panel = BoxLayout(orientation='vertical', size_hint=(0.5, 1))
     filters_container = BoxLayout(orientation='vertical', size_hint_y=None,
                                   height=filter_height, spacing=filter_spacing)
@@ -607,6 +612,17 @@ def open_artifacts_popup(faction, season_manager):
                                                padding=(dp(3) if is_android else dp(5),
                                                         dp(3) if is_android else dp(5)),
                                                spacing=dp(5) if is_android else dp(10))
+            with artifact_row_container.canvas.before:
+                Color(0.12, 0.15, 0.24, 1)
+                artifact_row_container._bg = RoundedRectangle(
+                    pos=artifact_row_container.pos,
+                    size=artifact_row_container.size,
+                    radius=[dp(8)]
+                )
+            artifact_row_container.bind(
+                pos=lambda i, v: setattr(i._bg, 'pos', v),
+                size=lambda i, v: setattr(i._bg, 'size', v)
+            )
 
             artifact_info_container = BoxLayout(orientation='vertical', size_hint_x=0.75)
             name_label = Label(text=artifact['name'], halign='left', valign='middle',
@@ -950,9 +966,18 @@ def open_artifacts_popup(faction, season_manager):
     filters_container.add_widget(cost_filter_layout)
 
     left_panel.add_widget(filters_container)
-    left_panel.add_widget(Label(text="Артефакты", size_hint_y=None,
-                                height=dp(30) if is_android else dp(40), bold=True,
-                                font_size=font_size_large if is_android else '18sp'))
+    art_header = Label(
+        text="[b]Артефакты[/b]",
+        markup=True,
+        size_hint_y=None,
+        height=dp(32) if is_android else dp(42),
+        bold=True,
+        font_size=font_size_large if is_android else '18sp',
+        color=(0.82, 0.60, 1.0, 1),
+        halign='center', valign='middle'
+    )
+    art_header.bind(size=art_header.setter('text_size'))
+    left_panel.add_widget(art_header)
     scroll_view = ScrollView(do_scroll_x=False)
     artifacts_list_layout = BoxLayout(orientation='vertical', size_hint_y=None,
                                       spacing=dp(3) if is_android else dp(5))
@@ -1228,9 +1253,11 @@ def open_artifacts_popup(faction, season_manager):
     artifacts_popup = Popup(
         title="Лавка артефактов",
         content=popup_layout,
-        size_hint=(0.94 if is_android else 0.94, 0.94 if is_android else 0.94),
+        size_hint=(0.94, 0.94),
         title_align='center',
-        separator_color=(0.5, 0.3, 0.7, 1),
+        background_color=(0.07, 0.08, 0.13, 1),
+        separator_color=(0.50, 0.22, 0.80, 0.75),
+        title_color=(0.82, 0.60, 1.0, 1),
         title_size=font_size_large if is_android else '20sp'
     )
 

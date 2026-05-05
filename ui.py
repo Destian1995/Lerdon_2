@@ -22,6 +22,45 @@ def format_number(number):
     else:
         return f"{number}"
 
+
+def _show_dark_error_popup(title, message):
+    """Стилизованный попап ошибки в тёмной теме, единый с дизайном ui.py."""
+    content = BoxLayout(orientation='vertical', padding=dp(14), spacing=dp(10))
+
+    lbl = Label(
+        text=message,
+        font_size=sp(14), color=(1, 1, 1, 1),
+        halign='center', valign='middle'
+    )
+    lbl.bind(size=lbl.setter('text_size'))
+
+    btn = Button(
+        text='Закрыть', size_hint_y=None, height=dp(42),
+        background_color=(0, 0, 0, 0), color=(1, 1, 1, 1),
+        font_size=sp(14), bold=True
+    )
+    with btn.canvas.before:
+        btn._bc = Color(0.65, 0.18, 0.18, 1)
+        btn._br = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(10)])
+    btn.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+             size=lambda i, v: setattr(i._br, 'size', v))
+
+    content.add_widget(lbl)
+    content.add_widget(btn)
+
+    popup = Popup(
+        title=title, content=content,
+        size_hint=(0.72, 0.32),
+        background_color=(0.07, 0.08, 0.13, 1),
+        separator_color=(0.78, 0.18, 0.18, 0.85),
+        title_color=(1, 0.55, 0.55, 1),
+        title_size=sp(16), title_align='center',
+        auto_dismiss=False
+    )
+    btn.bind(on_release=popup.dismiss)
+    popup.open()
+
+
 class FortressInfoPopup(Popup):
     def __init__(self, ai_fraction, city_coords, player_fraction, conn, **kwargs):
         super(FortressInfoPopup, self).__init__(**kwargs)
@@ -65,178 +104,234 @@ class FortressInfoPopup(Popup):
 
     def create_ui(self):
         """
-        Создает масштабируемый пользовательский интерфейс для окна города (Гарнизон / Здания).
+        Переработанный UI окна города — тёмная тема, карточки, фракционные акценты.
         """
-        from kivy.core.window import Window  # Убедимся, что Window доступен
+        from kivy.core.window import Window
+        from kivy.animation import Animation as _Anim
 
         is_android = platform == 'android'
+        sp_base = 13 if is_android else 12
+        btn_h = dp(44) if is_android else dp(38)
+        pad = dp(10)
+        spc = dp(8)
 
-        # Базовые параметры для масштабирования
-        screen_width, screen_height = Window.size
-        scale_factor = screen_width / 360  # Относительно стандартной ширины
+        # ── Фракционные цвета ────────────────────────────────────────
+        _FC = {
+            'Север':   (0.25, 0.52, 0.92, 1),
+            'Эльфы':   (0.22, 0.76, 0.32, 1),
+            'Вампиры': (0.78, 0.10, 0.16, 1),
+            'Адепты':  (0.62, 0.22, 0.88, 1),
+            'Элины':   (0.92, 0.70, 0.10, 1),
+        }
+        acc = _FC.get(self.player_fraction, (0.25, 0.52, 0.92, 1))
 
-        base_font_size = 14 if is_android else 12
-        base_button_height = dp(50) if is_android else 40
-        padding = dp(15)
-        spacing = dp(10)
-
-        font_size = sp(base_font_size)
-        button_height = base_button_height
-
-        # Главный макет
-        main_layout = BoxLayout(orientation='vertical', padding=padding, spacing=spacing)
-
-        # === Верхняя часть: Гарнизон и здания в двух колонках ===
-        columns_layout = GridLayout(cols=2, spacing=spacing, size_hint_y=0.7)
-
-        # --- Левая колонка: Гарнизон ---
-        troops_column = BoxLayout(orientation='vertical', spacing=spacing)
-
-        troops_label = Label(
-            text="Гарнизон",
-            font_size=font_size * 1.2,
-            bold=True,
-            size_hint_y=None,
-            height=dp(40),
-            color=(1, 1, 1, 1)
-        )
-        troops_column.add_widget(troops_label)
-
-        self.attacking_units_list = ScrollView(size_hint=(1, 1))
-        self.attacking_units_box = BoxLayout(orientation='vertical', size_hint_y=None, spacing=spacing)
-        self.attacking_units_box.bind(minimum_height=self.attacking_units_box.setter('height'))
-        self.attacking_units_list.add_widget(self.attacking_units_box)
-        troops_column.add_widget(self.attacking_units_list)
-        columns_layout.add_widget(troops_column)
-
-        # --- Правая колонка: Здания ---
-        buildings_column = BoxLayout(orientation='vertical', spacing=spacing)
-
-        buildings_label = Label(
-            text="Здания",
-            font_size=font_size * 1.2,
-            bold=True,
-            size_hint_y=None,
-            height=dp(40),
-            color=(1, 1, 1, 1)
-        )
-        buildings_column.add_widget(buildings_label)
-
-        self.buildings_list = ScrollView(size_hint=(1, 1))
-        self.buildings_box = BoxLayout(orientation='vertical', size_hint_y=None, spacing=spacing)
-        self.buildings_box.bind(minimum_height=self.buildings_box.setter('height'))
-        self.buildings_list.add_widget(self.buildings_box)
-        buildings_column.add_widget(self.buildings_list)
-        columns_layout.add_widget(buildings_column)
-
-        main_layout.add_widget(columns_layout)
-
-        # === Нижняя часть: Кнопки действий ===
-        button_layout = BoxLayout(orientation='horizontal', spacing=spacing, size_hint_y=None, height=button_height)
-
-        def create_styled_button(text, bg_color, height=dp(50) if is_android else 40):
+        def _make_btn(text, color, on_rel=None):
+            """Стилизованная кнопка с фоном и hover-анимацией."""
             btn = Button(
-                text=text,
-                size_hint=(None, None),
-                width=Window.width / 3 - spacing * 2,
-                height=height,  # Теперь можно задать нужную высоту
-                background_color=(0, 0, 0, 0),
-                color=(1, 1, 1, 1),
-                font_size=font_size,
+                text=text, size_hint_y=None, height=btn_h,
+                background_color=(0, 0, 0, 0), color=(1, 1, 1, 1),
+                font_size=sp(sp_base), bold=True
             )
+            darker = (color[0] * 0.7, color[1] * 0.7, color[2] * 0.7, 1)
             with btn.canvas.before:
-                Color(*bg_color)
-                btn.rect = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[15])
-            btn.bind(pos=lambda inst, val: setattr(inst.rect, 'pos', inst.pos))
-            btn.bind(size=lambda inst, val: setattr(inst.rect, 'size', inst.size))
+                btn._bg_clr = Color(*color)
+                btn._bg_rr = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(12)])
+            btn.bind(
+                pos=lambda i, v: setattr(i._bg_rr, 'pos', v),
+                size=lambda i, v: setattr(i._bg_rr, 'size', v),
+            )
+
+            def _down(touch):
+                if btn.collide_point(*touch.pos):
+                    btn._bg_clr.rgba = darker
+                return Button.on_touch_down(btn, touch)
+
+            def _up(touch):
+                btn._bg_clr.rgba = color
+                return Button.on_touch_up(btn, touch)
+
+            btn.on_touch_down = _down
+            btn.on_touch_up = _up
+            if on_rel:
+                btn.bind(on_release=on_rel)
             return btn
 
-        # Ввести войска
-        send_troops_button = create_styled_button("Ввести войска", (0.2, 0.8, 0.2, 1),
-                                                  height=dp(40) if is_android else 30)
-        send_troops_button.size_hint_x = 1
-        send_troops_button.bind(on_release=lambda btn: self.load_troops_by_type("Любые", None))
-        button_layout.add_widget(send_troops_button)
-        # Разместить армию
-        place_army_button = create_styled_button("Разместить армию", (0.2, 0.6, 0.9, 1),
-                                                 height=dp(40) if is_android else 30)
-        place_army_button.size_hint_x = 1
-        place_army_button.bind(on_release=self.place_army)
-        button_layout.add_widget(place_army_button)
+        def _section_header(title, icon_char=''):
+            """Заголовок секции с акцентной полосой."""
+            row = BoxLayout(size_hint_y=None, height=dp(34), spacing=dp(6))
+            # Акцентная вертикальная полоса
+            bar = Widget(size_hint=(None, 1), width=dp(4))
+            with bar.canvas:
+                Color(*acc)
+                bar._r = RoundedRectangle(pos=bar.pos, size=bar.size, radius=[dp(2)])
+            bar.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
+                     size=lambda i, v: setattr(i._r, 'size', v))
+            lbl = Label(
+                text=f'[b]{title}[/b]', markup=True,
+                font_size=sp(sp_base + 2), color=(0.95, 0.95, 0.95, 1),
+                halign='left', valign='middle'
+            )
+            lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+            row.add_widget(bar)
+            row.add_widget(lbl)
+            return row
 
-        main_layout.add_widget(button_layout)
+        # ── Root layout ───────────────────────────────────────────────
+        root = BoxLayout(orientation='vertical', padding=pad, spacing=spc)
 
-        # === Кнопка "Закрыть" ===
-        close_button = create_styled_button("Закрыть", (0.9, 0.3, 0.3, 1), height=dp(40) if is_android else 30)
-        close_button.size_hint_x = 1
-        close_button.bind(on_release=self.dismiss)
-        main_layout.add_widget(close_button)
+        # Тёмный фон
+        with root.canvas.before:
+            Color(0.07, 0.07, 0.11, 1)
+            root._bg = RoundedRectangle(pos=root.pos, size=root.size, radius=[dp(10)])
+        root.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                  size=lambda i, v: setattr(i._bg, 'size', v))
 
-        self.content = main_layout
+        # ── Две колонки ───────────────────────────────────────────────
+        cols = GridLayout(cols=2, spacing=spc, size_hint_y=0.78)
 
-        # === Инициализация данных ===
+        # Левая: Гарнизон
+        left = BoxLayout(orientation='vertical', spacing=spc)
+        left.add_widget(_section_header('Гарнизон'))
+        self.attacking_units_list = ScrollView(size_hint=(1, 1))
+        self.attacking_units_box = BoxLayout(
+            orientation='vertical', size_hint_y=None, spacing=dp(6), padding=[0, dp(4)]
+        )
+        self.attacking_units_box.bind(minimum_height=self.attacking_units_box.setter('height'))
+        self.attacking_units_list.add_widget(self.attacking_units_box)
+        left.add_widget(self.attacking_units_list)
+        cols.add_widget(left)
+
+        # Правая: Здания
+        right = BoxLayout(orientation='vertical', spacing=spc)
+        right.add_widget(_section_header('Здания'))
+        self.buildings_list = ScrollView(size_hint=(1, 1))
+        self.buildings_box = BoxLayout(
+            orientation='vertical', size_hint_y=None, spacing=dp(6), padding=[0, dp(4)]
+        )
+        self.buildings_box.bind(minimum_height=self.buildings_box.setter('height'))
+        self.buildings_list.add_widget(self.buildings_box)
+        right.add_widget(self.buildings_list)
+        cols.add_widget(right)
+
+        root.add_widget(cols)
+
+        # ── Разделитель ───────────────────────────────────────────────
+        sep = Widget(size_hint_y=None, height=dp(1))
+        with sep.canvas:
+            Color(*acc[:3], 0.35)
+            sep._r = RoundedRectangle(pos=sep.pos, size=sep.size)
+        sep.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
+                 size=lambda i, v: setattr(i._r, 'size', v))
+        root.add_widget(sep)
+
+        # ── Кнопки действий ───────────────────────────────────────────
+        btn_row = BoxLayout(size_hint_y=None, height=btn_h, spacing=spc)
+        btn_row.add_widget(_make_btn(
+            'Ввести войска', (0.18, 0.62, 0.22, 1),
+            on_rel=lambda btn: self.load_troops_by_type("Любые", None)
+        ))
+        btn_row.add_widget(_make_btn(
+            'Разместить армию', (0.16, 0.46, 0.82, 1),
+            on_rel=self.place_army
+        ))
+        root.add_widget(btn_row)
+
+        root.add_widget(_make_btn(
+            'Закрыть', (0.62, 0.14, 0.14, 1),
+            on_rel=self.dismiss
+        ))
+
+        self.content = root
+        self.garrison_widgets = {}
+
+        # Анимация появления
+        root.opacity = 0
+        from kivy.clock import Clock as _Clk
+        _Clk.schedule_once(
+            lambda dt: _Anim(opacity=1, duration=0.30, t='out_cubic').start(root), 0.05
+        )
+
         self.get_garrison()
         self.load_buildings()
 
-        # Ссылки на виджеты гарнизона
-        self.garrison_widgets = {}  # Словарь для хранения ссылок на виджеты гарнизона
-
     def load_buildings(self):
-        """Загружает здания в интерфейс."""
-        buildings = self.get_buildings()  # Получаем список зданий
-
-        # Очищаем контейнер перед добавлением новых данных
+        """Загружает здания в интерфейс — стилизованные карточки."""
         self.buildings_box.clear_widgets()
+        buildings = self.get_buildings()
 
-        # Если зданий нет, добавляем сообщение об этом
         if not buildings:
-            label = Label(
-                text="Зданий нет",
-                size_hint_y=None,
-                height=40,
-                font_size='16sp',  # Увеличиваем размер шрифта
-                color=(1, 0, 0, 1),  # Ярко-красный цвет текста
-                halign='center',
-                valign='middle'
+            lbl = Label(
+                text='[color=#FF6666]Зданий нет[/color]', markup=True,
+                size_hint_y=None, height=dp(40), font_size=sp(13),
+                halign='center', valign='middle'
             )
-            label.bind(size=label.setter('text_size'))  # Для корректного выравнивания текста
-            self.buildings_box.add_widget(label)
+            lbl.bind(size=lbl.setter('text_size'))
+            self.buildings_box.add_widget(lbl)
             return
 
-        # Добавляем каждое здание в интерфейс
-        for building in buildings:
-            # Создаем макет для одного здания
-            building_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=60, spacing=10)
+        # Иконки для типов зданий (если файлы есть — иначе просто буква)
+        BUILDING_COLORS = {
+            'Ферма':       (0.25, 0.70, 0.28, 1),
+            'Казарма':     (0.75, 0.22, 0.22, 1),
+            'Рынок':       (0.85, 0.65, 0.10, 1),
+            'Стена':       (0.45, 0.45, 0.55, 1),
+            'Библиотека':  (0.35, 0.30, 0.75, 1),
+            'Кузница':     (0.60, 0.38, 0.12, 1),
+            'Вышка':       (0.20, 0.55, 0.75, 1),
+            'Больница':    (0.80, 0.22, 0.35, 1),
+            'Фабрика':     (0.50, 0.50, 0.12, 1),
+        }
 
-            # Информация о здании (текст с названием и количеством)
-            text_container = BoxLayout(orientation='vertical', size_hint=(1, 1), padding=5)
-            with text_container.canvas.before:
-                Color(0.1, 0.1, 0.1, 1)  # Темно-серый фон для контраста
-                text_container.bg_rect = Rectangle(pos=text_container.pos, size=text_container.size)
+        for building_str in buildings:
+            # Разбираем строку "Тип: N"
+            parts = building_str.split(':', 1)
+            b_name = parts[0].strip()
+            b_count = parts[1].strip() if len(parts) > 1 else '?'
 
-            def update_rect(instance, value):
-                """Обновляет позицию и размер фона при изменении размеров виджета."""
-                if hasattr(instance, 'bg_rect'):
-                    instance.bg_rect.pos = instance.pos
-                    instance.bg_rect.size = instance.size
-
-            text_container.bind(pos=update_rect, size=update_rect)
-
-            # Текст с названием и количеством
-            text_label = Label(
-                text=building,
-                font_size='18sp',  # Увеличиваем размер шрифта
-                color=(1, 1, 1, 1),  # Белый цвет текста
-                halign='left',
-                valign='middle'
+            card = BoxLayout(
+                orientation='horizontal', size_hint_y=None, height=dp(38),
+                spacing=dp(6), padding=[dp(6), dp(3), dp(6), dp(3)]
             )
-            text_label.bind(size=text_label.setter('text_size'))  # Для корректного выравнивания текста
-            text_container.add_widget(text_label)
+            # Фон карточки
+            card_color = BUILDING_COLORS.get(b_name, (0.22, 0.25, 0.32, 1))
+            darker = (card_color[0] * 0.55, card_color[1] * 0.55, card_color[2] * 0.55, 1)
+            with card.canvas.before:
+                Color(*darker)
+                card._bg = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(8)])
+            card.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                      size=lambda i, v: setattr(i._bg, 'size', v))
 
-            building_layout.add_widget(text_container)
+            # Цветная метка-тип слева
+            badge = Label(
+                text=b_name[0], font_size=sp(13), bold=True,
+                size_hint=(None, None), size=(dp(28), dp(28)),
+                color=(1, 1, 1, 1)
+            )
+            with badge.canvas.before:
+                Color(*card_color)
+                badge._r = RoundedRectangle(pos=badge.pos, size=badge.size, radius=[dp(6)])
+            badge.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
+                       size=lambda i, v: setattr(i._r, 'size', v))
+            card.add_widget(badge)
 
-            # Добавляем макет здания в контейнер
-            self.buildings_box.add_widget(building_layout)
+            # Название здания
+            name_lbl = Label(
+                text=b_name, font_size=sp(12), color=(0.92, 0.92, 0.92, 1),
+                halign='left', valign='middle'
+            )
+            name_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+            card.add_widget(name_lbl)
+
+            # Количество — справа
+            count_lbl = Label(
+                text=f'[b]{b_count}[/b]', markup=True,
+                font_size=sp(13), color=(0.95, 0.85, 0.35, 1),
+                size_hint=(None, 1), width=dp(40), halign='right', valign='middle'
+            )
+            count_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+            card.add_widget(count_lbl)
+
+            self.buildings_box.add_widget(card)
 
 
     def get_buildings(self):
@@ -282,12 +377,7 @@ class FortressInfoPopup(Popup):
 
             if not all_troops:
                 # Если войск нет, показываем сообщение
-                error_popup = Popup(
-                    title="Ошибка",
-                    content=Label(text=f"Нет доступных войск."),
-                    size_hint=(0.6, 0.4)
-                )
-                error_popup.open()
+                _show_dark_error_popup("Нет войск", "Нет доступных войск.")
                 return
 
             # Шаг 2: Фильтруем юниты по типу (атакующие, защитные, любые) и фракции
@@ -323,12 +413,7 @@ class FortressInfoPopup(Popup):
 
             if not filtered_troops:
                 # Если подходящих войск нет, показываем сообщение
-                error_popup = Popup(
-                    title="Ошибка",
-                    content=Label(text=f"Нет доступных {troop_type} войск вашей фракции."),
-                    size_hint=(0.6, 0.4)
-                )
-                error_popup.open()
+                _show_dark_error_popup("Нет войск", f"Нет доступных {troop_type} войск вашей фракции.")
                 return
 
             # Открываем окно с выбором войск
@@ -343,34 +428,67 @@ class FortressInfoPopup(Popup):
         :param troops_data: Список войск, полученный из базы данных.
         """
         self.current_troops_data = troops_data
-        popup = Popup(title="Выберите войска для перемещения", size_hint=(0.9, 0.9))
+        popup = Popup(
+            title="Выберите войска для перемещения",
+            size_hint=(0.9, 0.9),
+            background_color=(0.07, 0.08, 0.13, 1),
+            separator_color=(0.25, 0.52, 0.92, 0.5),
+            title_color=(1, 1, 1, 1),
+            title_size=sp(18),
+            title_align='center'
+        )
         self.current_popup = popup  # Сохраняем ссылку на текущее окно
 
-        main_layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
+        main_layout = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(10))
+        with main_layout.canvas.before:
+            main_layout._bgc = Color(0.07, 0.08, 0.13, 1)
+            main_layout._bgr = Rectangle(pos=main_layout.pos, size=main_layout.size)
+        main_layout.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
+                         size=lambda i, v: setattr(i._bgr, 'size', v))
 
         # Создаем таблицу для отображения войск
-        self.table_layout = GridLayout(cols=5, spacing=10, size_hint_y=None)
+        self.table_layout = GridLayout(cols=5, spacing=dp(10), size_hint_y=None)
         self.table_layout.bind(minimum_height=self.table_layout.setter('height'))
 
         headers = ["Город", "Юнит", "Количество", "Изображение", "Действие"]
         for header in headers:
             label = Label(
                 text=header,
-                font_size='18sp',
+                font_size=sp(18),
                 bold=True,
                 size_hint_y=None,
-                height=60,
-                color=(1, 1, 1, 1)
+                height=dp(60),
+                color=(0.55, 0.75, 1.0, 1)
             )
             self.table_layout.add_widget(label)
 
         for city_name, unit_name, unit_count, unit_image in troops_data:
-            city_lbl = Label(text=city_name, font_size='18sp', size_hint_y=None, height=90)
-            unit_lbl = Label(text=unit_name, font_size='18sp', size_hint_y=None, height=90)
-            count_lbl = Label(text=str(unit_count), font_size='18sp', size_hint_y=None, height=90)
-            img_box = BoxLayout(size_hint_y=None, height=60)
-            img_box.add_widget(Image(source=unit_image, size=(80, 80), size_hint=(None, None)))
-            btn_add = Button(text="Добавить", font_size='18sp', size_hint_y=None, height=80)
+            city_lbl = Label(text=city_name, font_size=sp(15), size_hint_y=None, height=dp(90), color=(0.96, 0.96, 0.96, 1))
+            unit_lbl = Label(text=unit_name, font_size=sp(15), size_hint_y=None, height=dp(90), color=(0.96, 0.96, 0.96, 1))
+            count_lbl = Label(text=str(unit_count), font_size=sp(15), size_hint_y=None, height=dp(90), color=(0.65, 0.70, 0.80, 1))
+
+            img_box = BoxLayout(size_hint_y=None, height=dp(60))
+            with img_box.canvas.before:
+                img_box._bgc = Color(0.10, 0.13, 0.20, 1)
+                img_box._bgr = RoundedRectangle(pos=img_box.pos, size=img_box.size, radius=[dp(10)])
+            img_box.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
+                         size=lambda i, v: setattr(i._bgr, 'size', v))
+            img_box.add_widget(Image(source=unit_image, size=(dp(80), dp(80)), size_hint=(None, None)))
+
+            btn_add = Button(
+                text="Добавить",
+                font_size=sp(16),
+                bold=True,
+                size_hint_y=None,
+                height=dp(80),
+                background_color=(0, 0, 0, 0),
+                color=(1, 1, 1, 1)
+            )
+            with btn_add.canvas.before:
+                btn_add._bc = Color(0.18, 0.62, 0.22, 1)
+                btn_add._br = RoundedRectangle(pos=btn_add.pos, size=btn_add.size, radius=[dp(12)])
+            btn_add.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                         size=lambda i, v: setattr(i._br, 'size', v))
             btn_add.bind(
                 on_release=lambda btn, data=(city_name, unit_name, unit_count, unit_image):
                 self.create_troop_group(data, btn, city_lbl, unit_lbl, count_lbl, img_box, btn_add)
@@ -392,16 +510,21 @@ class FortressInfoPopup(Popup):
         scroll_view.add_widget(self.table_layout)
         main_layout.add_widget(scroll_view)
 
-        # Кнопка «Добавить всех в группу»
+        # Кнопка «Создать группу» — синяя
         btn_add_all = Button(
             text="Создать группу (1-3 класс)",
             size_hint=(1, None),
             height=dp(44),
             font_size=sp(16),
-            background_normal='',
-            background_color=(0.2, 0.5, 0.8, 1),
+            bold=True,
+            background_color=(0, 0, 0, 0),
             color=(1, 1, 1, 1)
         )
+        with btn_add_all.canvas.before:
+            btn_add_all._bc = Color(0.16, 0.46, 0.82, 1)
+            btn_add_all._br = RoundedRectangle(pos=btn_add_all.pos, size=btn_add_all.size, radius=[dp(12)])
+        btn_add_all.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                         size=lambda i, v: setattr(i._br, 'size', v))
 
         def add_all(btn):
             # Создаем копию списка для итерации, так как мы будем его модифицировать
@@ -456,28 +579,40 @@ class FortressInfoPopup(Popup):
             size_hint=(0.5, None),
             height=dp(44),
             font_size=sp(16),
-            background_normal='',
-            background_color=(0.3, 0.7, 0.3, 1),
+            bold=True,
+            background_color=(0, 0, 0, 0),
             color=(1, 1, 1, 1),
             disabled=True
         )
+        with self.send_group_button.canvas.before:
+            self.send_group_button._bc = Color(0.18, 0.62, 0.22, 1)
+            self.send_group_button._br = RoundedRectangle(pos=self.send_group_button.pos, size=self.send_group_button.size, radius=[dp(12)])
+        self.send_group_button.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                                    size=lambda i, v: setattr(i._br, 'size', v))
+
         close_button = Button(
             text="Закрыть",
             size_hint=(0.5, None),
             height=dp(44),
             font_size=sp(16),
-            background_normal='',
-            background_color=(0.6, 0.6, 0.6, 1),
+            bold=True,
+            background_color=(0, 0, 0, 0),
             color=(1, 1, 1, 1)
         )
+        with close_button.canvas.before:
+            close_button._bc = Color(0.55, 0.14, 0.14, 1)
+            close_button._br = RoundedRectangle(pos=close_button.pos, size=close_button.size, radius=[dp(12)])
+        close_button.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                          size=lambda i, v: setattr(i._br, 'size', v))
+
         self.send_group_button.bind(on_release=self.move_selected_group_to_city)
         close_button.bind(on_release=popup.dismiss)
 
         buttons_layout = BoxLayout(
             orientation='horizontal',
             size_hint_y=None,
-            height=90,
-            spacing=10
+            height=dp(90),
+            spacing=dp(10)
         )
         buttons_layout.add_widget(self.send_group_button)
         buttons_layout.add_widget(close_button)
@@ -538,19 +673,32 @@ class FortressInfoPopup(Popup):
 
         # Если юнитов больше 1, показываем окно выбора
         # Создаем всплывающее окно
-        popup = Popup(title=f"Добавление {unit_name} в группу", size_hint=(0.8, 0.7))
-        layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
+        popup = Popup(
+            title=f"Добавление {unit_name} в группу",
+            size_hint=(0.8, 0.7),
+            background_color=(0.07, 0.08, 0.13, 1),
+            separator_color=(0.25, 0.52, 0.92, 0.5),
+            title_color=(1, 1, 1, 1),
+            title_size=sp(18),
+            title_align='center'
+        )
+        layout = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(10))
+        with layout.canvas.before:
+            layout._bgc = Color(0.07, 0.08, 0.13, 1)
+            layout._bgr = Rectangle(pos=layout.pos, size=layout.size)
+        layout.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
+                    size=lambda i, v: setattr(i._bgr, 'size', v))
 
         # Контейнер для изображения и количества
-        top_section = BoxLayout(orientation='vertical', size_hint_y=None, height=120, spacing=10)
+        top_section = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(120), spacing=dp(10))
 
         # Метка количества
         selected_count_label = Label(
             text="Выбрано: 0",
-            font_size='18sp',
-            color=(1, 1, 1, 1),
+            font_size=sp(18),
+            color=(0.96, 0.96, 0.96, 1),
             size_hint_y=None,
-            height=30
+            height=dp(30)
         )
 
         # Добавляем изображение и метку количества в вертикальный контейнер
@@ -558,7 +706,7 @@ class FortressInfoPopup(Popup):
         layout.add_widget(top_section)
 
         # Слайдер для выбора количества
-        slider_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=70, spacing=10)
+        slider_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(70), spacing=dp(10))
         slider = Slider(min=0, max=unit_count, value=0, step=1)
 
         # Обновляем метки при изменении значения слайдера
@@ -574,14 +722,37 @@ class FortressInfoPopup(Popup):
             text="",
             color=(1, 0, 0, 1),  # Красный цвет текста
             size_hint_y=None,
-            height=30
+            height=dp(30)
         )
         layout.add_widget(error_label)
 
         # Кнопки подтверждения и отмены
-        button_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=60, spacing=10)
-        confirm_button = Button(text="Подтвердить", background_color=(0.6, 0.8, 0.6, 1))
-        cancel_button = Button(text="Отмена", background_color=(0.8, 0.6, 0.6, 1))
+        button_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(60), spacing=dp(10))
+        confirm_button = Button(
+            text="Подтвердить",
+            font_size=sp(16),
+            bold=True,
+            background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1)
+        )
+        with confirm_button.canvas.before:
+            confirm_button._bc = Color(0.18, 0.62, 0.22, 1)
+            confirm_button._br = RoundedRectangle(pos=confirm_button.pos, size=confirm_button.size, radius=[dp(12)])
+        confirm_button.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                            size=lambda i, v: setattr(i._br, 'size', v))
+
+        cancel_button = Button(
+            text="Отмена",
+            font_size=sp(16),
+            bold=True,
+            background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1)
+        )
+        with cancel_button.canvas.before:
+            cancel_button._bc = Color(0.55, 0.14, 0.14, 1)
+            cancel_button._br = RoundedRectangle(pos=cancel_button.pos, size=cancel_button.size, radius=[dp(12)])
+        cancel_button.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                           size=lambda i, v: setattr(i._br, 'size', v))
 
         def confirm_action(btn):
             selected = int(slider.value)
@@ -938,121 +1109,114 @@ class FortressInfoPopup(Popup):
 
             if not garrison_data:
                 print(f"Гарнизон для города {self.city_name} пуст.")
-                empty_label = Label(
-                    text="Гарнизон пуст",
-                    size_hint_y=None,
-                    height=60,
-                    font_size='18sp',
-                    color=(1, 0, 0, 1),
-                    halign='center',
-                    valign='middle'
+                lbl = Label(
+                    text='[color=#FF8888]Гарнизон пуст[/color]', markup=True,
+                    size_hint_y=None, height=dp(40), font_size=sp(13),
+                    halign='center', valign='middle'
                 )
-                empty_label.bind(size=empty_label.setter('text_size'))
-                self.attacking_units_box.add_widget(empty_label)
+                lbl.bind(size=lbl.setter('text_size'))
+                self.attacking_units_box.add_widget(lbl)
                 return
 
-            # Добавляем данные о каждом юните в интерфейс
+            # Цвета по классу юнита
+            CLASS_COLORS = {
+                '1': (0.22, 0.28, 0.38, 1),   # Серо-синий
+                '2': (0.28, 0.22, 0.38, 1),   # Серо-фиолетовый
+                '3': (0.38, 0.26, 0.12, 1),   # Золотистый
+                '4': (0.38, 0.10, 0.10, 1),   # Тёмно-красный (легенда)
+            }
+
             for unit_name, unit_count, unit_image in garrison_data:
-                # --- НОВАЯ ЛОГИКА: Получение класса, характеристик и определение специализации ---
-                specialization_icon_path = None  # Путь к иконке специализации
+                unit_class = '1'
+                specialization_icon_path = None
                 try:
-                    # 1. Получаем класс юнита
-                    self.cursor.execute("""
-                        SELECT unit_class, attack, defense
-                        FROM units
-                        WHERE unit_name = ?
-                    """, (unit_name,))
+                    self.cursor.execute(
+                        "SELECT unit_class, attack, defense FROM units WHERE unit_name = ?",
+                        (unit_name,)
+                    )
                     unit_info = self.cursor.fetchone()
-
                     if unit_info:
-                        unit_class, attack, defense = unit_info[0], unit_info[1], unit_info[2]
-
-                        # 2. Логика отображения в зависимости от класса
-                        if unit_class == "1":
-                            # Класс 1: отображаем количество
-                            unit_text = f"{unit_name}\nКоличество: {format_number(unit_count)}"
-                        elif unit_class == "4":
-                            # Класс 4: отображаем только имя
-                            unit_text = f"{unit_name}"
-                        elif unit_class in ("2", "3"):  # Класс 2 или 3: отображаем имя и иконку специализации
-                            # 3. Определяем специализацию
+                        unit_class = str(unit_info[0])
+                        attack, defense = unit_info[1], unit_info[2]
+                        if unit_class in ('2', '3'):
                             try:
-                                if defense == 0:
-                                    if attack > 0:
-                                        specialization_icon_path = "files/pict/hero_type/sword.png"
-                                elif attack == 0:
-                                    if defense > 0:
-                                        specialization_icon_path = "files/pict/hero_type/shield.png"
+                                if defense == 0 and attack > 0:
+                                    specialization_icon_path = "files/pict/hero_type/sword.png"
+                                elif attack == 0 and defense > 0:
+                                    specialization_icon_path = "files/pict/hero_type/shield.png"
                                 else:
-                                    attack_to_defense_ratio = attack / defense
-                                    defense_to_attack_ratio = defense / attack
-                                    if attack_to_defense_ratio >= 2.0:
+                                    r = attack / defense if defense > 0 else 99
+                                    if r >= 2.0:
                                         specialization_icon_path = "files/pict/hero_type/sword.png"
-                                    elif defense_to_attack_ratio >= 2.0:
+                                    elif 1 / r >= 2.0:
                                         specialization_icon_path = "files/pict/hero_type/shield.png"
                                     else:
                                         specialization_icon_path = "files/pict/hero_type/sword-shield.png"
-                            except Exception as spec_error:
-                                print(f"Ошибка при определении специализации для '{unit_name}': {spec_error}")
-                            unit_text = f"{unit_name}"
-                        else:
-                            unit_text = f"{unit_name}\n(Класс {unit_class})"
-                    else:
-                        print(f"Информация для юнита '{unit_name}' не найдена в таблице units.")
-                        unit_text = f"{unit_name}\n(Не найден в units)"
-                except sqlite3.Error as e:
-                    print(f"Ошибка БД при получении данных юнита '{unit_name}': {e}")
-                    unit_text = f"{unit_name}\n(Ошибка БД)"
+                            except Exception:
+                                pass
                 except Exception as e:
-                    print(f"Неожиданная ошибка при обработке юнита '{unit_name}': {e}")
-                    unit_text = f"{unit_name}\n(Ошибка обработки)"
+                    print(f"[WARN] get_garrison unit info: {e}")
 
-                # Создаем макет для одного юнита
-                unit_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=150, spacing=10)
-
-                # Изображение юнита - проверяем существование файла
-                unit_image_source = unit_image
-                if unit_image_source and not os.path.exists(unit_image_source):
-                    print(f"Файл изображения не найден: {unit_image_source}")
-                    unit_image_source = "files/pict/placeholder.png"
-
-                unit_image_widget = Image(
-                    source=unit_image_source,
-                    size_hint=(None, None),
-                    size=(150, 150)
+                # ── Карточка юнита ──────────────────────────────────────
+                card_h = dp(72) if unit_class == '1' else dp(90)
+                card = BoxLayout(
+                    orientation='horizontal', size_hint_y=None, height=card_h,
+                    spacing=dp(8), padding=[dp(6), dp(4), dp(6), dp(4)]
                 )
-                unit_layout.add_widget(unit_image_widget)
+                card_bg = CLASS_COLORS.get(unit_class, (0.20, 0.22, 0.30, 1))
+                with card.canvas.before:
+                    Color(*card_bg)
+                    card._bg = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(10)])
+                card.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                          size=lambda i, v: setattr(i._bg, 'size', v))
 
-                # Справа — контейнер с текстом и специализацией
-                right_container = BoxLayout(orientation='horizontal', size_hint=(1, 1), padding=5, spacing=10)
-
-                # Текст с названием юнита
-                text_label = Label(
-                    text=unit_text,
-                    font_size='17sp',
-                    color=(1, 1, 1, 1),
-                    halign='left',
-                    valign='middle'
+                # Изображение юнита
+                img_src = unit_image if unit_image and os.path.exists(unit_image) else ''
+                img_size = dp(72) if unit_class == '1' else dp(82)
+                unit_img = Image(
+                    source=img_src, size_hint=(None, None),
+                    size=(img_size, img_size),
+                    allow_stretch=True, keep_ratio=True, mipmap=True
                 )
-                text_label.bind(size=text_label.setter('text_size'))
-                right_container.add_widget(text_label)
+                card.add_widget(unit_img)
 
-                # Иконка специализации (только для классов 2 и 3)
-                if unit_class in ("2", "3") and specialization_icon_path:
+                # Текстовая часть
+                info = BoxLayout(orientation='vertical', spacing=dp(2))
+
+                # Название
+                class_labels = {'1': '', '2': '  [Герой]', '3': '  [Чемпион]', '4': '  [Легенда]'}
+                cls_tag = class_labels.get(unit_class, '')
+                name_lbl = Label(
+                    text=f'[b]{unit_name}[/b][color=#AAAAAA]{cls_tag}[/color]',
+                    markup=True, font_size=sp(12), color=(0.95, 0.95, 0.95, 1),
+                    halign='left', valign='middle', size_hint_y=None, height=dp(22)
+                )
+                name_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+                info.add_widget(name_lbl)
+
+                # Количество (только для класса 1)
+                if unit_class == '1':
+                    cnt_lbl = Label(
+                        text=f'[color=#FFD700]{format_number(unit_count)}[/color] бойцов',
+                        markup=True, font_size=sp(11), color=(0.80, 0.80, 0.80, 1),
+                        halign='left', valign='middle', size_hint_y=None, height=dp(18)
+                    )
+                    cnt_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+                    info.add_widget(cnt_lbl)
+
+                card.add_widget(info)
+
+                # Иконка специализации для героев
+                if unit_class in ('2', '3') and specialization_icon_path:
                     if os.path.exists(specialization_icon_path):
-                        icon_image = Image(
+                        card.add_widget(Image(
                             source=specialization_icon_path,
-                            size_hint=(None, None),
-                            size=(120, 120),
-                            pos_hint={'center_y': 0.5}
-                        )
-                        right_container.add_widget(icon_image)
-                    else:
-                        print(f"Файл иконки специализации не найден: {specialization_icon_path}")
+                            size_hint=(None, None), size=(dp(40), dp(40)),
+                            pos_hint={'center_y': 0.5},
+                            allow_stretch=True, keep_ratio=True
+                        ))
 
-                unit_layout.add_widget(right_container)
-
-                self.attacking_units_box.add_widget(unit_layout)
+                self.attacking_units_box.add_widget(card)
 
         except Exception as e:
             print(f"Ошибка при получении гарнизона: {e}")
@@ -1071,11 +1235,48 @@ class FortressInfoPopup(Popup):
             self.attacking_units_box.add_widget(error_label)
 
     def show_warning_popup(self):
-        layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
-        label = Label(text="Для размещения юнитов сначала надо нанять!")
-        btn = Button(text="OK", size_hint=(1, 0.3))
+        popup = Popup(
+            title="Внимание!",
+            size_hint=(0.55, 0.25),
+            background_color=(0.07, 0.08, 0.13, 1),
+            separator_color=(0.25, 0.52, 0.92, 0.5),
+            title_color=(1, 1, 1, 1),
+            title_size=sp(18),
+            title_align='center'
+        )
 
-        popup = Popup(title="Внимание!", content=layout, size_hint=(0.5, 0.3))
+        layout = BoxLayout(orientation='vertical', padding=dp(12), spacing=dp(10))
+        with layout.canvas.before:
+            layout._bgc = Color(0.07, 0.08, 0.13, 1)
+            layout._bgr = Rectangle(pos=layout.pos, size=layout.size)
+        layout.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
+                    size=lambda i, v: setattr(i._bgr, 'size', v))
+
+        label = Label(
+            text="Для размещения юнитов сначала надо нанять!",
+            color=(0.96, 0.96, 0.96, 1),
+            font_size=sp(15),
+            halign='center',
+            valign='middle'
+        )
+        label.bind(size=lambda i, s: setattr(i, 'text_size', s))
+
+        btn = Button(
+            text="OK",
+            font_size=sp(16),
+            bold=True,
+            background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1),
+            size_hint=(1, None),
+            height=dp(44)
+        )
+        with btn.canvas.before:
+            btn._bc = Color(0.16, 0.46, 0.82, 1)
+            btn._br = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(12)])
+        btn.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                 size=lambda i, v: setattr(i._br, 'size', v))
+
+        popup.content = layout
         btn.bind(on_release=popup.dismiss)
 
         layout.add_widget(label)
@@ -1109,7 +1310,15 @@ class FortressInfoPopup(Popup):
                 return
 
             # Создаем всплывающее окно
-            popup = Popup(title="Разместить армию", size_hint=(0.95, 0.95))
+            popup = Popup(
+                title="Разместить армию",
+                size_hint=(0.95, 0.92),
+                background_color=(0.07, 0.08, 0.13, 1),
+                separator_color=(0.25, 0.52, 0.92, 0.5),
+                title_color=(1, 1, 1, 1),
+                title_size=sp(18),
+                title_align='center'
+            )
             self.current_popup = popup
 
             screen_width, _ = Window.size
@@ -1118,15 +1327,17 @@ class FortressInfoPopup(Popup):
             font_size = min(max(int(9 * scale_factor), 14), 18)
             image_size = int(80 * scale_factor)
 
-            main_layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
+            main_layout = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(10))
+            with main_layout.canvas.before:
+                main_layout._bgc = Color(0.07, 0.08, 0.13, 1)
+                main_layout._bgr = Rectangle(pos=main_layout.pos, size=main_layout.size)
+            main_layout.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
+                             size=lambda i, v: setattr(i._bgr, 'size', v))
 
             # ScrollView с карточками
             scroll_view = ScrollView(size_hint=(1, 1))
-            card_layout = BoxLayout(orientation='vertical', spacing=10, size_hint_y=None)
+            card_layout = BoxLayout(orientation='vertical', spacing=dp(10), size_hint_y=None)
             card_layout.bind(minimum_height=card_layout.setter('height'))
-
-            # Цвет фона карточек
-            card_bg_color = (0.15, 0.15, 0.15, 1)
 
             def create_card(unit):
                 unit_type, quantity, attack, defense, durability, unit_class, unit_image = unit
@@ -1146,11 +1357,18 @@ class FortressInfoPopup(Popup):
 
                 card = BoxLayout(
                     orientation='horizontal',
-                    spacing=10,
+                    spacing=dp(10),
                     size_hint_y=None,
                     height=int(120 * scale_factor),
-                    padding=10
+                    padding=dp(10)
                 )
+
+                # Фон карточки — тёмная карточка с RoundedRectangle
+                with card.canvas.before:
+                    card._bgc = Color(0.10, 0.13, 0.20, 1)
+                    card._bgr = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(10)])
+                card.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
+                          size=lambda i, v: setattr(i._bgr, 'size', v))
 
                 # Изображение
                 image = Image(
@@ -1160,12 +1378,12 @@ class FortressInfoPopup(Popup):
                 )
 
                 # Информация
-                info_layout = BoxLayout(orientation='vertical', spacing=5)
+                info_layout = BoxLayout(orientation='vertical', spacing=dp(5))
                 name_label = Label(
                     text=unit_type,
                     font_size=sp(font_size + 2),
                     bold=True,
-                    color=(1, 1, 1, 1),
+                    color=(0.96, 0.96, 0.96, 1),
                     size_hint_y=None,
                     height=int(30 * scale_factor)
                 )
@@ -1173,7 +1391,7 @@ class FortressInfoPopup(Popup):
                 stats_label = Label(
                     text=f"Атака: {str(format_number(attack))}\nЗащита: {str(format_number(defense))}\nЖивучесть: {str(format_number(durability))}\nКласс: {unit_class}",
                     font_size=sp(font_size - 1),
-                    color=(0.9, 0.9, 0.9, 1),
+                    color=(0.65, 0.70, 0.80, 1),
                     size_hint_y=None,
                     height=int(60 * scale_factor),
                     valign='middle'
@@ -1183,34 +1401,33 @@ class FortressInfoPopup(Popup):
                 quantity_label = Label(
                     text=f"Доступно: {str(format_number(quantity))}",
                     font_size=sp(font_size - 1),
-                    color=(0.7, 0.7, 0.7, 1)
+                    color=(0.65, 0.70, 0.80, 1)
                 )
 
                 info_layout.add_widget(name_label)
                 info_layout.add_widget(stats_label)
                 info_layout.add_widget(quantity_label)
 
-                # Кнопка
+                # Кнопка «Добавить» — зелёная
                 btn = Button(
                     text="Добавить",
                     font_size=sp(font_size),
+                    bold=True,
                     size_hint=(None, None),
                     size=(int(50 * scale_factor), int(50 * scale_factor)),
-                    background_color=(0.2, 0.6, 0.2, 1),
-                    background_normal=''
+                    background_color=(0, 0, 0, 0),
+                    color=(1, 1, 1, 1)
                 )
+                with btn.canvas.before:
+                    btn._bc = Color(0.18, 0.62, 0.22, 1)
+                    btn._br = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(12)])
+                btn.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                         size=lambda i, v: setattr(i._br, 'size', v))
                 btn.bind(on_release=lambda btn, data=unit_data: self.add_to_garrison_with_slider(data, btn))
 
                 card.add_widget(image)
                 card.add_widget(info_layout)
                 card.add_widget(btn)
-
-                # Фон карточки
-                with card.canvas.before:
-                    Color(*card_bg_color)
-                    card.rect = Rectangle(pos=card.pos, size=card.size)
-                card.bind(pos=lambda inst, val: setattr(inst.rect, 'pos', val))
-                card.bind(size=lambda inst, val: setattr(inst.rect, 'size', val))
 
                 return card
 
@@ -1221,15 +1438,21 @@ class FortressInfoPopup(Popup):
             scroll_view.add_widget(card_layout)
             main_layout.add_widget(scroll_view)
 
-            # Кнопка закрытия
+            # Кнопка закрытия — красная
             close_btn = Button(
                 text="Закрыть",
                 font_size=sp(font_size + 1),
+                bold=True,
                 size_hint=(1, None),
-                height=int(30 * scale_factor),
-                background_color=(0.2, 0.2, 0.2, 1),
-                background_normal=''
+                height=dp(44),
+                background_color=(0, 0, 0, 0),
+                color=(1, 1, 1, 1)
             )
+            with close_btn.canvas.before:
+                close_btn._bc = Color(0.55, 0.14, 0.14, 1)
+                close_btn._br = RoundedRectangle(pos=close_btn.pos, size=close_btn.size, radius=[dp(12)])
+            close_btn.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                           size=lambda i, v: setattr(i._br, 'size', v))
             close_btn.bind(on_release=popup.dismiss)
             main_layout.add_widget(close_btn)
 
@@ -1273,7 +1496,10 @@ class FortressInfoPopup(Popup):
             width=window_width,
             height=window_height,
             title_size=sp(20) if is_mobile else sp(18),
-            background_color=(0.1, 0.1, 0.1, 0.95)
+            background_color=(0.07, 0.08, 0.13, 1),
+            separator_color=(0.25, 0.52, 0.92, 0.5),
+            title_color=(1, 1, 1, 1),
+            title_align='center'
         )
 
         # Основной контейнер с адаптированными отступами
@@ -1282,6 +1508,11 @@ class FortressInfoPopup(Popup):
             padding=[dp(20), dp(15)],
             spacing=dp(20)
         )
+        with layout.canvas.before:
+            layout._bgc = Color(0.07, 0.08, 0.13, 1)
+            layout._bgr = Rectangle(pos=layout.pos, size=layout.size)
+        layout.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
+                    size=lambda i, v: setattr(i._bgr, 'size', v))
 
         # === Получаем данные о потреблении ===
         current_consumption, army_limit = self.get_army_consumption_and_limit()
@@ -1299,13 +1530,19 @@ class FortressInfoPopup(Popup):
             print(f"Ошибка при получении потребления юнита: {e}")
             unit_consumption = 0
 
-        # === Информация о потреблении ===
+        # === Информация о потреблении — секция с тёмным фоном ===
         consumption_info = BoxLayout(
             orientation='vertical',
             size_hint_y=None,
             height=dp(100),
-            spacing=dp(5)
+            spacing=dp(5),
+            padding=[dp(8), dp(6)]
         )
+        with consumption_info.canvas.before:
+            consumption_info._bgc = Color(0.10, 0.13, 0.20, 1)
+            consumption_info._bgr = RoundedRectangle(pos=consumption_info.pos, size=consumption_info.size, radius=[dp(10)])
+        consumption_info.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
+                              size=lambda i, v: setattr(i._bgr, 'size', v))
 
         # Потребление (динамически обновляется, форматируем до 1 знака)
         new_consumption_label = Label(
@@ -1335,7 +1572,7 @@ class FortressInfoPopup(Popup):
             text="Количество: 0",
             font_size=sp(18) if is_mobile else sp(16),
             size_hint_x=0.4,
-            color=(1, 1, 1, 1),
+            color=(0.96, 0.96, 0.96, 1),
             halign='right',
             valign='middle'
         )
@@ -1385,20 +1622,30 @@ class FortressInfoPopup(Popup):
         confirm_button = Button(
             text="Подтвердить",
             font_size=sp(20) if is_mobile else sp(16),
-            background_color=(0.4, 0.7, 0.4, 1),
-            background_normal='',
-            border=[dp(15), dp(15), dp(15), dp(15)],
+            bold=True,
+            background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1),
             size_hint_x=0.5
         )
+        with confirm_button.canvas.before:
+            confirm_button._bc = Color(0.18, 0.62, 0.22, 1)
+            confirm_button._br = RoundedRectangle(pos=confirm_button.pos, size=confirm_button.size, radius=[dp(12)])
+        confirm_button.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                            size=lambda i, v: setattr(i._br, 'size', v))
 
         cancel_button = Button(
             text="Отмена",
             font_size=sp(20) if is_mobile else sp(16),
-            background_color=(0.7, 0.4, 0.4, 1),
-            background_normal='',
-            border=[dp(15), dp(15), dp(15), dp(15)],
+            bold=True,
+            background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1),
             size_hint_x=0.5
         )
+        with cancel_button.canvas.before:
+            cancel_button._bc = Color(0.55, 0.14, 0.14, 1)
+            cancel_button._br = RoundedRectangle(pos=cancel_button.pos, size=cancel_button.size, radius=[dp(12)])
+        cancel_button.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                           size=lambda i, v: setattr(i._br, 'size', v))
 
         def confirm_action(btn):
             try:
@@ -1477,6 +1724,49 @@ class FortressInfoPopup(Popup):
             return cursor.fetchone() is not None
         except sqlite3.Error as e:
             print(f"Ошибка при проверке дороги: {e}")
+            return False
+
+    def has_own_territory_path(self, source_city, destination_city, faction):
+        """Проверяет наличие пути по дорогам внутри собственной территории."""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT id FROM cities WHERE name = ?", (source_city,))
+            source_row = cursor.fetchone()
+            cursor.execute("SELECT id FROM cities WHERE name = ?", (destination_city,))
+            destination_row = cursor.fetchone()
+            if not source_row or not destination_row:
+                return False
+
+            source_id = source_row[0]
+            destination_id = destination_row[0]
+            if source_id == destination_id:
+                return True
+
+            visited = {source_id}
+            queue = [source_id]
+
+            while queue:
+                current = queue.pop(0)
+                cursor.execute("""
+                    SELECT city1, city2 FROM roads
+                    WHERE city1 = ? OR city2 = ?
+                """, (current, current))
+                for city1_id, city2_id in cursor.fetchall():
+                    neighbor = city2_id if city1_id == current else city1_id
+                    if neighbor in visited:
+                        continue
+                    cursor.execute("SELECT faction FROM cities WHERE id = ?", (neighbor,))
+                    neighbor_row = cursor.fetchone()
+                    if not neighbor_row or neighbor_row[0] != faction:
+                        continue
+                    if neighbor == destination_id:
+                        return True
+                    visited.add(neighbor)
+                    queue.append(neighbor)
+
+            return False
+        except sqlite3.Error as e:
+            print(f"Ошибка при проверке пути по своей территории: {e}")
             return False
 
     def initialize_turn_check_attack_faction(self):
@@ -1581,7 +1871,21 @@ class FortressInfoPopup(Popup):
                 is_war_destination = self.get_relationship(current_player_kingdom, destination_owner) == 'война'
 
             if target_faction_row and target_faction_row[0] == current_player_kingdom:
-                allowed_by_distance = True
+                allowed_by_distance = False
+                for unit in self.selected_group:
+                    source_city = unit.get("city_name")
+                    if not source_city:
+                        show_popup_message("Ошибка", "Не указан исходный город для перемещения.")
+                        return
+
+                    source_owner = self.get_city_owner(source_city)
+                    if source_owner == current_player_kingdom:
+                        if self.has_own_territory_path(source_city, self.city_name, current_player_kingdom):
+                            allowed_by_distance = True
+                            break
+                    elif self.has_road_between_cities(source_city, self.city_name):
+                        allowed_by_distance = True
+                        break
             else:
                 # Проверяем условие по наличию дороги хотя бы для одного юнита
                 allowed_by_distance = False
@@ -1591,7 +1895,6 @@ class FortressInfoPopup(Popup):
                         show_popup_message("Ошибка", "Не указан исходный город для перемещения.")
                         return
 
-                    # Проверяем наличие дороги между городами
                     if self.has_road_between_cities(source_city, self.city_name):
                         allowed_by_distance = True
                         break  # достаточно одного юнита
@@ -1674,10 +1977,18 @@ class FortressInfoPopup(Popup):
                 show_popup_message("Ошибка", "Один из городов не существует.")
                 return False
 
-            # Проверяем наличие дороги между городами
-            if not self.has_road_between_cities(source_fortress_name, destination_fortress_name):
-                show_popup_message("Нет дороги", f"Нет дороги между {source_fortress_name} и {destination_fortress_name}.")
-                return False
+            # Проверяем маршрут для движения
+            if source_owner == self.player_fraction and destination_owner == self.player_fraction:
+                if not (self.has_road_between_cities(source_fortress_name, destination_fortress_name) or
+                        self.has_own_territory_path(source_fortress_name, destination_fortress_name,
+                                                   self.player_fraction)):
+                    show_popup_message("Нет дороги",
+                                       f"Нет пути между {source_fortress_name} и {destination_fortress_name} по вашей территории.")
+                    return False
+            else:
+                if not self.has_road_between_cities(source_fortress_name, destination_fortress_name):
+                    show_popup_message("Нет дороги", f"Нет дороги между {source_fortress_name} и {destination_fortress_name}.")
+                    return False
 
             current_player_kingdom = self.player_fraction
 
@@ -2244,35 +2555,46 @@ def show_popup_message(title, message):
 
     content.add_widget(message_label)
 
-    # Кнопка «Закрыть» внизу
+    # Кнопка «Закрыть» внизу — красная с RoundedRectangle
     close_button = Button(
         text="Закрыть",
         size_hint_y=None,
         height=dp(50),
-        background_color=get_color_from_hex("#4CAF50"),
-        background_normal='',
+        background_color=(0, 0, 0, 0),
         color=(1, 1, 1, 1),
-        font_size=dp(16),
+        font_size=sp(16),
         bold=True
     )
+    with close_button.canvas.before:
+        close_button._bc = Color(0.55, 0.14, 0.14, 1)
+        close_button._br = RoundedRectangle(pos=close_button.pos, size=close_button.size, radius=[dp(12)])
+    close_button.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                      size=lambda i, v: setattr(i._br, 'size', v))
     content.add_widget(close_button)
+
+    # Тёмный фон контейнера
+    with content.canvas.before:
+        content._bgc = Color(0.07, 0.08, 0.13, 1)
+        content._bgr = Rectangle(pos=content.pos, size=content.size)
+    content.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
+                 size=lambda i, v: setattr(i._bgr, 'size', v))
 
     # Размер popup: максимум 90% ширины и 70% высоты экрана
     popup_width = min(dp(500), Window.width * 0.9)
     popup_height = min(dp(600), Window.height * 0.7)
 
-    # Создаём само окно. Фон сделаем тёмным, чтобы белый текст был хорошо виден.
+    # Создаём само окно с тёмным дизайном
     popup = Popup(
         title=title,
-        title_size=dp(18),
+        title_size=sp(18),
         title_align='center',
-        title_color=get_color_from_hex("#FFFFFF"),
+        title_color=(1, 1, 1, 1),
         content=content,
-        separator_color=get_color_from_hex("#FFFFFF"),
+        separator_color=(0.25, 0.52, 0.92, 0.5),
         separator_height=dp(1),
         size_hint=(None, None),
         size=(popup_width, popup_height),
-        background_color=(0.15, 0.15, 0.15, 1),  # тёмно-серый фон (чтобы белый текст читался)
+        background_color=(0.07, 0.08, 0.13, 1),
         overlay_color=(0, 0, 0, 0.5),
         auto_dismiss=False
     )

@@ -6,9 +6,9 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.slider import Slider
-from kivy.uix.textinput import TextInput
 
 from kivy.uix.image import Image
+from kivy.graphics import Color, RoundedRectangle
 
 from kivy.metrics import dp, sp
 from kivy.core.window import Window
@@ -272,37 +272,36 @@ def workshop(faction, db_conn):
     def screen1(layout):
         # Заголовок
         title = Label(
-            text="Выберите иконку и название",
+            text="Выберите иконку артефакта",
             font_size=font_normal,
-            color=(0.9, 0.9, 0.9, 1),  # Ярче
+            color=(0.85, 0.90, 1.0, 1),
             size_hint_y=None,
             height=label_height,
             halign='center',
-            valign='middle'
+            valign='middle',
+            bold=True
         )
         title.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
         layout.add_widget(title)
 
-        # Кнопки навигации
-        nav_layout = BoxLayout(size_hint_y=None, height=dp(25), spacing=dp(3))
-        prev_btn = Button(
-            text="<",
-            size_hint_x=0.3,
-            font_size=font_small,
-            background_color=(0.2, 0.2, 0.2, 1),
-            background_normal='',
-            size_hint_y=None,
-            height=dp(25)
-        )
-        next_btn = Button(
-            text=">",
-            size_hint_x=0.3,
-            font_size=font_small,
-            background_color=(0.2, 0.2, 0.2, 1),
-            background_normal='',
-            size_hint_y=None,
-            height=dp(25)
-        )
+        # Кнопки навигации иконки
+        nav_layout = BoxLayout(size_hint_y=None, height=dp(28), spacing=dp(4))
+        def _nav_btn(txt):
+            b = Button(
+                text=txt, size_hint_x=0.3,
+                font_size=font_small, color=(1, 1, 1, 1),
+                background_color=(0, 0, 0, 0),
+                size_hint_y=None, height=dp(28)
+            )
+            with b.canvas.before:
+                b._bc = Color(0.18, 0.28, 0.45, 1)
+                b._br = RoundedRectangle(pos=b.pos, size=b.size, radius=[dp(8)])
+            b.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                   size=lambda i, v: setattr(i._br, 'size', v))
+            return b
+
+        prev_btn = _nav_btn("<")
+        next_btn = _nav_btn(">")
         nav_layout.add_widget(prev_btn)
         nav_layout.add_widget(next_btn)
         layout.add_widget(nav_layout)
@@ -311,20 +310,35 @@ def workshop(faction, db_conn):
         current_icon_display = Image(
             source="" if not image_files else os.path.join(artifact_images_path, image_files[0]),
             size_hint_y=None,
-            height=dp(50) if is_android else dp(60),
-            width=dp(50) if is_android else dp(60),
+            height=dp(60) if is_android else dp(72),
             allow_stretch=True,
             keep_ratio=True
         )
         layout.add_widget(current_icon_display)
 
+        # Метка с текущим названием артефакта (только для чтения)
+        name_display_label = Label(
+            text="—",
+            font_size=font_small,
+            color=(0.75, 0.95, 0.85, 1),
+            size_hint_y=None,
+            height=label_height,
+            halign='center',
+            valign='middle',
+            bold=True
+        )
+        name_display_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
+        layout.add_widget(name_display_label)
+
         def update_current_icon():
             if not image_files:
                 current_icon_display.source = ""
                 selected_image[0] = None
+                name_display_label.text = "—"
+                current_data['name'] = ''
                 return
             idx = current_index[0] % len(image_files)
-            img_filename = image_files[idx]  # Только имя файла, без пути
+            img_filename = image_files[idx]
             img_path = os.path.join(artifact_images_path, img_filename)
             current_icon_display.source = img_path
             selected_image[0] = img_filename
@@ -338,7 +352,15 @@ def workshop(faction, db_conn):
                     if artifact_type in slot_map:
                         current_data['slot'] = slot_map[artifact_type]
             except (IndexError, ValueError):
-                pass  # Если не удалось определить тип — оставляем текущий слот
+                pass
+
+            # Автоматически генерируем название при смене иконки
+            auto_name, detected_type = generate_random_name(img_filename)
+            current_data['name'] = auto_name
+            name_display_label.text = auto_name
+            slot_map = {0: 'Оружие', 1: 'Голова', 2: 'Ноги', 3: 'Туловище', 4: 'Аксессуар'}
+            if detected_type in slot_map:
+                current_data['slot'] = slot_map[detected_type]
 
         def on_prev(instance):
             current_index[0] -= 1
@@ -352,63 +374,46 @@ def workshop(faction, db_conn):
         next_btn.bind(on_release=on_next)
         update_current_icon()
 
-        # Название
-        name_label = Label(
-            text="Название артефакта:",
-            font_size=font_small,
-            color=(0.9, 0.9, 0.9, 1),
-            size_hint_y=None,
-            height=label_height,
-            halign='left',
-            valign='middle'
-        )
-        name_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        layout.add_widget(name_label)
-
-        name_input = TextInput(
-            hint_text="Введите название или оставьте пустым",
-            font_size=font_small,
-            multiline=False,
-            size_hint_y=None,
-            height=input_height,
-            padding=[dp(5), dp(3)],
-            background_color=(0.15, 0.15, 0.15, 1),
-            foreground_color=(0.9, 0.9, 0.9, 1),
-            cursor_color=(0.9, 0.9, 0.9, 1),
-            size_hint_x=1
-        )
-        layout.add_widget(name_input)
-
-        # Кнопка случайного названия
+        # Кнопка случайного названия (единственный способ задать имя)
         random_name_btn = Button(
-            text="Случайное",
+            text="Сгенерировать название",
             size_hint_y=None,
-            height=btn_height * 0.8,
-            background_normal='',
-            background_color=(0.2, 0.5, 0.5, 1),
-            font_size=font_small,
+            height=btn_height,
+            background_color=(0, 0, 0, 0),
+            font_size=font_normal,
+            color=(1, 1, 1, 1),
+            bold=True,
             size_hint_x=1
+        )
+        with random_name_btn.canvas.before:
+            random_name_btn._bc = Color(0.18, 0.45, 0.55, 1)
+            random_name_btn._br = RoundedRectangle(
+                pos=random_name_btn.pos, size=random_name_btn.size, radius=[dp(10)]
+            )
+        random_name_btn.bind(
+            pos=lambda i, v: setattr(i._br, 'pos', v),
+            size=lambda i, v: setattr(i._br, 'size', v)
         )
         layout.add_widget(random_name_btn)
 
         # Кнопки навигации внизу
-        btn_box = BoxLayout(orientation='horizontal', spacing=dp(3), size_hint=(1, None), height=btn_height)
-        close_btn = Button(
-            text="Закрыть",
-            size_hint=(0.5, 1),
-            background_normal='',
-            background_color=(0.7, 0.2, 0.2, 1),
-            font_size=font_normal,
-            color=(1, 1, 1, 1)
-        )
-        next_scr_btn = Button(
-            text="Далее",
-            size_hint=(0.5, 1),
-            background_normal='',
-            background_color=(0.2, 0.6, 0.2, 1),
-            font_size=font_normal,
-            color=(1, 1, 1, 1)
-        )
+        btn_box = BoxLayout(orientation='horizontal', spacing=dp(4), size_hint=(1, None), height=btn_height)
+
+        def _action_btn(txt, color):
+            b = Button(
+                text=txt, size_hint=(0.5, 1),
+                background_color=(0, 0, 0, 0),
+                font_size=font_normal, color=(1, 1, 1, 1), bold=True
+            )
+            with b.canvas.before:
+                b._bc = Color(*color)
+                b._br = RoundedRectangle(pos=b.pos, size=b.size, radius=[dp(10)])
+            b.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                   size=lambda i, v: setattr(i._br, 'size', v))
+            return b
+
+        close_btn = _action_btn("Закрыть", (0.65, 0.18, 0.18, 1))
+        next_scr_btn = _action_btn("Далее", (0.18, 0.55, 0.22, 1))
         btn_box.add_widget(close_btn)
         btn_box.add_widget(next_scr_btn)
         layout.add_widget(btn_box)
@@ -416,18 +421,19 @@ def workshop(faction, db_conn):
         # Привязка событий
         def on_next_screen(instance):
             current_data['icon'] = selected_image[0]
-            current_data['name'] = name_input.text
             if not current_data['icon']:
                 show_message("Ошибка", "Пожалуйста, выберите иконку")
                 return
+            # Если название ещё не сгенерировано — генерируем автоматически
+            if not current_data.get('name'):
+                auto_name, _ = generate_random_name(selected_image[0])
+                current_data['name'] = auto_name
             switch_to_screen(screen2)
 
         def on_random_name(instance):
-            # Передаём имя выбранного файла для контекстной генерации
             name, detected_type = generate_random_name(selected_image[0])
-            name_input.text = name
             current_data['name'] = name
-            # Автоустановка слота при генерации имени (можно переопределить вручную позже)
+            name_display_label.text = name
             slot_map = {0: 'Оружие', 1: 'Голова', 2: 'Ноги', 3: 'Туловище', 4: 'Аксессуар'}
             if detected_type in slot_map:
                 current_data['slot'] = slot_map[detected_type]
@@ -657,24 +663,23 @@ def workshop(faction, db_conn):
         next_season_btn.bind(on_release=on_next_season)
 
         # === Кнопки навигации (СОЗДАЁМ ДО вызова update_values!) ===
-        btn_box = BoxLayout(orientation='horizontal', spacing=dp(3), size_hint=(1, None), height=btn_height)
-        back_btn = Button(
-            text="Назад",
-            size_hint=(0.5, 1),
-            background_normal='',
-            background_color=(0.6, 0.6, 0.2, 1),
-            font_size=font_normal,
-            color=(1, 1, 1, 1)
-        )
-        next_scr_btn = Button(
-            text="Далее",
-            size_hint=(0.5, 1),
-            background_normal='',
-            background_color=(0.2, 0.6, 0.2, 1),
-            font_size=font_normal,
-            color=(1, 1, 1, 1),
-            disabled=False  # Будет обновлено в update_values
-        )
+        btn_box = BoxLayout(orientation='horizontal', spacing=dp(4), size_hint=(1, None), height=btn_height)
+
+        def _s2_btn(txt, clr):
+            b = Button(
+                text=txt, size_hint=(0.5, 1),
+                background_color=(0, 0, 0, 0),
+                font_size=font_normal, color=(1, 1, 1, 1), bold=True
+            )
+            with b.canvas.before:
+                b._bc = Color(*clr)
+                b._br = RoundedRectangle(pos=b.pos, size=b.size, radius=[dp(10)])
+            b.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                   size=lambda i, v: setattr(i._br, 'size', v))
+            return b
+
+        back_btn = _s2_btn("Назад", (0.50, 0.42, 0.10, 1))
+        next_scr_btn = _s2_btn("Далее", (0.18, 0.55, 0.22, 1))
         btn_box.add_widget(back_btn)
         btn_box.add_widget(next_scr_btn)
         layout.add_widget(btn_box)
@@ -703,12 +708,14 @@ def workshop(faction, db_conn):
                 balance_label.color = (0.95, 0.3, 0.3, 1)
                 balance_label.text = f"БЮДЖЕТ ПРЕВЫШЕН! Доступно: {ardanian_tokens_available:.1f}, Нужно: {tokens_used:.1f}"
                 next_scr_btn.disabled = True
-                next_scr_btn.background_color = (0.4, 0.4, 0.4, 1)
+                if hasattr(next_scr_btn, '_bc'):
+                    next_scr_btn._bc.rgba = (0.35, 0.35, 0.35, 1)
             else:
                 balance_label.color = (0.6, 0.95, 0.6, 1)
                 balance_label.text = f"Доступно жетонов: {ardanian_tokens_available:.1f} | Использовано: {tokens_used:.1f}"
                 next_scr_btn.disabled = False
-                next_scr_btn.background_color = (0.2, 0.6, 0.2, 1)
+                if hasattr(next_scr_btn, '_bc'):
+                    next_scr_btn._bc.rgba = (0.18, 0.55, 0.22, 1)
 
             # Сохраняем текущие значения
             current_data['attack'] = attack_val

@@ -579,7 +579,9 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                     city=defending_city
                 )
                 show_battle_report(report_data, is_user_involved=is_user_involved,
-                                   user_faction=user_faction, conn=conn)
+                                   user_faction=user_faction, conn=conn,
+                                   attacking_fraction=attacking_fraction,
+                                   defending_fraction=defending_fraction)
             
             show_battle_animation(battle_rounds, attacking_fraction, defending_fraction, winner, user_faction, attacking_city, defending_city, callback=show_report)
         except Exception as e:
@@ -701,7 +703,8 @@ def generate_battle_report(attacking_army, defending_army, winner,
     return report_data
 
 
-def show_battle_report(report_data, is_user_involved=False, user_faction=None, conn=None):
+def show_battle_report(report_data, is_user_involved=False, user_faction=None, conn=None,
+                       attacking_fraction=None, defending_fraction=None):
     """Финальный отчёт о бою — Kivy popup."""
     if not report_data:
         print("Нет данных для отображения.")
@@ -713,8 +716,17 @@ def show_battle_report(report_data, is_user_involved=False, user_faction=None, c
     from kivy.uix.anchorlayout import AnchorLayout
     from kivy.uix.boxlayout import BoxLayout
     from kivy.uix.button import Button
-    from kivy.graphics import Color, Rectangle
+    from kivy.graphics import Color, Rectangle, RoundedRectangle as _RR
     from kivy.core.window import Window
+    from kivy.animation import Animation
+
+    # Цвета фракций для заголовков
+    _FACTION_HEX = {
+        'Север': '#4085EB', 'Эльфы': '#38C252', 'Вампиры': '#C71A28',
+        'Адепты': '#9E38E0', 'Элины': '#EBB31A',
+    }
+    atk_col = _FACTION_HEX.get(attacking_fraction, '#4CAF50')
+    def_col = _FACTION_HEX.get(defending_fraction, '#F44336')
 
     def make_label(text, font_sp, markup=False, halign='center', valign='middle',
                    height_dp=None, size_hint_x=1.0, min_width=None, bold=False):
@@ -791,15 +803,18 @@ def show_battle_report(report_data, is_user_involved=False, user_faction=None, c
             player_side = it.get('side')
             break
 
+    atk_display = attacking_fraction or 'Атакующий'
+    def_display = defending_fraction or 'Защитник'
+
     if player_side == 'attacking':
-        left_title = "[b][color=#F44336]ИИ[/color][/b]"
-        right_title = "[b][color=#4CAF50]Игрок[/color][/b]"
+        left_title  = f"[b][color={def_col}]{def_display}[/color][/b]  [color=#888888](ИИ)[/color]"
+        right_title = f"[b][color={atk_col}]{atk_display}[/color][/b]  [color=#888888](Вы)[/color]"
     elif player_side == 'defending':
-        left_title = "[b][color=#4CAF50]Игрок[/color][/b]"
-        right_title = "[b][color=#F44336]ИИ[/color][/b]"
+        left_title  = f"[b][color={atk_col}]{atk_display}[/color][/b]  [color=#888888](ИИ)[/color]"
+        right_title = f"[b][color={def_col}]{def_display}[/color][/b]  [color=#888888](Вы)[/color]"
     else:
-        left_title = "[b][color=#F44336]ИИ[/color][/b]"
-        right_title = "[b][color=#4CAF50]Игрок[/color][/b]"
+        left_title  = f"[b][color={def_col}]{def_display}[/color][/b]"
+        right_title = f"[b][color={atk_col}]{atk_display}[/color][/b]"
 
     titles_h = dp(40) if not is_small else dp(36)
     titles_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=titles_h)
@@ -818,6 +833,17 @@ def show_battle_report(report_data, is_user_involved=False, user_faction=None, c
     attacking_units = [item for item in report_data if item.get('side') == 'attacking']
     defending_units = [item for item in report_data if item.get('side') == 'defending']
     max_rows = max(len(attacking_units), len(defending_units))
+
+    # Левая колонка — ИИ, правая — Игрок; зависит от того, кто атаковал
+    if player_side == 'attacking':
+        left_units = defending_units
+        right_units = attacking_units
+    elif player_side == 'defending':
+        left_units = attacking_units
+        right_units = defending_units
+    else:
+        left_units = defending_units
+        right_units = attacking_units
 
     row_h = dp(36) if not is_small else dp(32)
     header_h = dp(40) if not is_small else dp(34)
@@ -844,8 +870,8 @@ def show_battle_report(report_data, is_user_involved=False, user_faction=None, c
         row.add_widget(Label(size_hint_x=0.05))
 
         # Левая сторона (ИИ)
-        if i < len(defending_units):
-            u = defending_units[i]
+        if i < len(left_units):
+            u = left_units[i]
             name = u.get('unit_name', '—')
             init, fin = u.get('initial_count', 0), u.get('final_count', 0)
             losses = u.get('losses', 0)
@@ -872,8 +898,8 @@ def show_battle_report(report_data, is_user_involved=False, user_faction=None, c
         row.add_widget(Label(size_hint_x=0.1))
 
         # Правая сторона (Игрок)
-        if i < len(attacking_units):
-            u = attacking_units[i]
+        if i < len(right_units):
+            u = right_units[i]
             name = u.get('unit_name', '—')
             init, fin = u.get('initial_count', 0), u.get('final_count', 0)
             losses = u.get('losses', 0)
@@ -915,6 +941,13 @@ def show_battle_report(report_data, is_user_involved=False, user_faction=None, c
     close_button.bind(on_press=lambda inst: popup.dismiss())
     close_button.bind(on_release=lambda inst: popup.dismiss())
 
+    # Анимация появления
+    outer.opacity = 0
+    from kivy.clock import Clock as _Clock
+    _Clock.schedule_once(
+        lambda dt: Animation(opacity=1, duration=0.38, t='out_cubic').start(outer), 0.05
+    )
+
     # Обновление досье
     if is_user_involved and user_faction and report_data:
         is_victory = any(item.get('result') in ("Победа", "VICTORY") for item in report_data)
@@ -926,8 +959,15 @@ def show_battle_report(report_data, is_user_involved=False, user_faction=None, c
     popup.open()
 
 
-def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction, winner, user_faction, attacking_city, defending_city, callback=None):
-    """Анимация боя: две глобальные полосы здоровья + раунд."""
+def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction, winner,
+                          user_faction, attacking_city, defending_city, callback=None):
+    """
+    Боевая анимация v2 — полностью переработана:
+      • Плавные HP-полосы с цветовым градиентом (зелёный→жёлтый→красный)
+      • Лента боевых событий последних 3 раундов
+      • Фракционные цвета на каждой стороне
+      • Финальный экран с победителем и кнопкой «Продолжить»
+    """
     from kivy.clock import Clock
     from kivy.uix.popup import Popup
     from kivy.uix.boxlayout import BoxLayout
@@ -936,119 +976,370 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
     from kivy.uix.widget import Widget
     from kivy.graphics import Color, RoundedRectangle
     from kivy.metrics import dp, sp
-    from kivy.core.window import Window
+    from kivy.animation import Animation
+    from kivy.properties import NumericProperty
+    import random as _rnd
 
-    if len(battle_rounds) > 10:
-        indices = [0, len(battle_rounds)//4, len(battle_rounds)//2, 3*len(battle_rounds)//4, -1]
-        selected_rounds = [battle_rounds[i] for i in indices if i < len(battle_rounds)]
+    # ── Фракционные цвета ────────────────────────────────────────────────
+    _FC = {
+        'Север':   (0.25, 0.52, 0.92, 1),
+        'Эльфы':   (0.22, 0.76, 0.32, 1),
+        'Вампиры': (0.78, 0.10, 0.16, 1),
+        'Адепты':  (0.62, 0.22, 0.88, 1),
+        'Элины':   (0.92, 0.70, 0.10, 1),
+    }
+    atk_c = _FC.get(attacking_fraction, (0.25, 0.72, 0.30, 1))
+    def_c = _FC.get(defending_fraction, (0.72, 0.18, 0.18, 1))
+
+    def _to_hex(rgba):
+        return '#{:02X}{:02X}{:02X}'.format(
+            int(rgba[0] * 255), int(rgba[1] * 255), int(rgba[2] * 255))
+
+    atk_hex = _to_hex(atk_c)
+    def_hex = _to_hex(def_c)
+
+    # ── Виджет анимированной HP-полосы ──────────────────────────────────
+    class BattleBar(Widget):
+        ratio = NumericProperty(1.0)
+
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.bind(ratio=self._draw, pos=self._draw, size=self._draw)
+
+        @staticmethod
+        def _hp_color(r):
+            r = max(0.0, min(1.0, r))
+            if r >= 0.55:
+                t = (r - 0.55) / 0.45
+                return (0.15 + (1 - t) * 0.72, 0.58 + t * 0.28, 0.04, 1)
+            elif r >= 0.25:
+                t = (r - 0.25) / 0.30
+                return (0.94, 0.12 + t * 0.52, 0.02, 1)
+            else:
+                return (0.88, 0.08, 0.04, 1)
+
+        def _draw(self, *args):
+            self.canvas.clear()
+            if self.width <= 0 or self.height <= 0:
+                return
+            with self.canvas:
+                Color(0.09, 0.09, 0.15, 1)
+                RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(14)])
+                fw = self.width * max(0.0, min(1.0, self.ratio))
+                if fw > dp(6):
+                    Color(*self._hp_color(self.ratio))
+                    RoundedRectangle(pos=self.pos, size=(fw, self.height), radius=[dp(14)])
+                    # Блик
+                    Color(1, 1, 1, 0.14)
+                    RoundedRectangle(
+                        pos=(self.x + dp(4), self.y + self.height * 0.60),
+                        size=(max(dp(4), fw - dp(8)), self.height * 0.28),
+                        radius=[dp(8)]
+                    )
+
+        def animate_to(self, new_ratio, duration=0.44):
+            Animation.cancel_all(self, 'ratio')
+            Animation(ratio=max(0.0, new_ratio), duration=duration, t='out_cubic').start(self)
+
+    # ── Подготовка раундов ───────────────────────────────────────────────
+    if len(battle_rounds) > 14:
+        step = max(1, len(battle_rounds) // 12)
+        selected = battle_rounds[::step]
+        if selected[-1] is not battle_rounds[-1]:
+            selected.append(battle_rounds[-1])
     else:
-        selected_rounds = battle_rounds
+        selected = list(battle_rounds)
 
-    popup = Popup(title=f"Бой: {attacking_city} vs {defending_city}", size_hint=(0.9, 0.9), background_color=(0.05, 0.05, 0.08, 1))
-    main_layout = BoxLayout(orientation='vertical', spacing=dp(12), padding=dp(12))
+    # ── Root layout ──────────────────────────────────────────────────────
+    root = BoxLayout(orientation='vertical', spacing=dp(8),
+                     padding=[dp(12), dp(10), dp(12), dp(10)])
 
-    with main_layout.canvas.before:
-        Color(0.08, 0.08, 0.12, 1)
-        main_layout.bg = RoundedRectangle(pos=main_layout.pos, size=main_layout.size, radius=[dp(10)])
-    main_layout.bind(pos=lambda inst, v: setattr(inst.bg, 'pos', v), size=lambda inst, v: setattr(inst.bg, 'size', v))
+    with root.canvas.before:
+        Color(0.06, 0.06, 0.10, 1)
+        root._bg = RoundedRectangle(pos=root.pos, size=root.size, radius=[dp(14)])
+    root.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+              size=lambda i, v: setattr(i._bg, 'size', v))
 
-    skip_button = Button(text="Пропустить", size_hint_y=None, height=dp(40), background_color=(0.8, 0.2, 0.2, 1), bold=True, font_size=sp(14))
-    main_layout.add_widget(skip_button)
+    popup = Popup(
+        title='', content=root,
+        size_hint=(0.92, 0.86),
+        background_color=(0.04, 0.04, 0.08, 1),
+        separator_height=0,
+    )
 
-    round_label = Label(text="Раунд 1/1", font_size=sp(18), bold=True, size_hint_y=None, height=dp(32), color=(0.9, 0.9, 0.9, 1))
-    main_layout.add_widget(round_label)
+    # Строка с кнопкой «Пропустить»
+    top_row = BoxLayout(size_hint_y=None, height=dp(32))
+    top_row.add_widget(Label())
+    skip_btn = Button(
+        text='Пропустить', size_hint=(None, None), size=(dp(120), dp(28)),
+        font_size=sp(11), bold=True,
+        background_color=(0.45, 0.08, 0.08, 1), color=(1, 1, 1, 1)
+    )
+    top_row.add_widget(skip_btn)
+    root.add_widget(top_row)
 
-    info_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(28), spacing=dp(10))
-    atk_title = Label(text=f"[b][color=#4CAF50]{attacking_fraction}[/color][/b]", markup=True, halign='left', valign='middle', font_size=sp(14))
-    def_title = Label(text=f"[b][color=#F44336]{defending_fraction}[/color][/b]", markup=True, halign='right', valign='middle', font_size=sp(14))
-    info_layout.add_widget(atk_title)
-    info_layout.add_widget(Label(size_hint_x=0.5))
-    info_layout.add_widget(def_title)
-    main_layout.add_widget(info_layout)
+    # Заголовок
+    root.add_widget(Label(
+        text='[b][color=#FFD700]== СРАЖЕНИЕ ==[/color][/b]',
+        markup=True, font_size=sp(19), size_hint_y=None, height=dp(28)
+    ))
+    root.add_widget(Label(
+        text=f'[color=#777777]{attacking_city}  >>  {defending_city}[/color]',
+        markup=True, font_size=sp(12), size_hint_y=None, height=dp(18)
+    ))
 
-    def make_bar_widget(color):
-        bar = Widget(size_hint_y=None, height=dp(28))
-        bar.ratio = 1.0
-        bar.color_rgb = color
+    # Разделитель
+    def _make_sep():
+        s = Widget(size_hint_y=None, height=dp(1))
+        with s.canvas:
+            Color(0.30, 0.30, 0.40, 0.35)
+            s._r = RoundedRectangle(pos=s.pos, size=s.size)
+        s.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
+               size=lambda i, v: setattr(i._r, 'size', v))
+        return s
 
-        def redraw(widget, *_):
-            widget.canvas.clear()
-            with widget.canvas:
-                Color(0.18, 0.18, 0.22, 1)
-                RoundedRectangle(pos=widget.pos, size=(widget.width, widget.height), radius=[dp(12)])
-                Color(*widget.color_rgb, 0.95)
-                RoundedRectangle(pos=widget.pos, size=(widget.width * widget.ratio, widget.height), radius=[dp(12)])
-        bar.bind(pos=redraw, size=redraw)
-        return bar
+    root.add_widget(_make_sep())
 
-    player_bar = make_bar_widget((0.2, 0.8, 0.2))
-    enemy_bar = make_bar_widget((0.8, 0.2, 0.2))
+    # ── Атакующий ────────────────────────────────────────────────────────
+    atk_lbl = Label(
+        text=f'[b][color={atk_hex}]>> {attacking_fraction}[/color][/b]',
+        markup=True, font_size=sp(14), size_hint_y=None, height=dp(22), halign='left'
+    )
+    atk_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    root.add_widget(atk_lbl)
 
-    player_label = Label(text="Игрок: 0/0", font_size=sp(13), size_hint_y=None, height=dp(22), halign='left', valign='middle')
-    enemy_label = Label(text="ИИ: 0/0", font_size=sp(13), size_hint_y=None, height=dp(22), halign='left', valign='middle')
+    atk_bar = BattleBar(size_hint_y=None, height=dp(30))
+    root.add_widget(atk_bar)
 
-    main_layout.add_widget(player_label)
-    main_layout.add_widget(player_bar)
-    main_layout.add_widget(enemy_label)
-    main_layout.add_widget(enemy_bar)
+    atk_cnt = Label(
+        text='', markup=True, font_size=sp(11), color=(0.72, 0.72, 0.72, 1),
+        size_hint_y=None, height=dp(16), halign='right'
+    )
+    atk_cnt.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    root.add_widget(atk_cnt)
 
-    popup.content = main_layout
+    # ── VS ───────────────────────────────────────────────────────────────
+    vs_lbl = Label(
+        text='[b][color=#E67E22][ VS ][/color][/b]',
+        markup=True, font_size=sp(14), size_hint_y=None, height=dp(22), opacity=0.9
+    )
+    root.add_widget(vs_lbl)
 
-    current_round_idx = 0
-    animation_event = {'event': None}
+    def _pulse_vs(dt):
+        (Animation(opacity=0.45, duration=0.65, t='out_sine') +
+         Animation(opacity=1.00, duration=0.65, t='out_sine')).repeat = True
+        anim = (Animation(opacity=0.45, duration=0.65, t='out_sine') +
+                Animation(opacity=1.00, duration=0.65, t='out_sine'))
+        anim.repeat = True
+        anim.start(vs_lbl)
 
-    def update_round(dt):
-        nonlocal current_round_idx
-        if current_round_idx >= len(selected_rounds):
-            if animation_event['event'] is not None:
-                animation_event['event'].cancel()
-            popup.dismiss()
-            if callback:
-                Clock.schedule_once(lambda dt: callback(), 0.05)
-            return False
+    Clock.schedule_once(_pulse_vs, 0.6)
 
-        round_data = selected_rounds[current_round_idx]
-        total_rounds = len(battle_rounds)
-        round_label.text = f"Раунд {round_data['round']}/{total_rounds}"
+    # ── Защитник ─────────────────────────────────────────────────────────
+    def_lbl = Label(
+        text=f'[b][color={def_hex}]>> {defending_fraction}[/color][/b]',
+        markup=True, font_size=sp(14), size_hint_y=None, height=dp(22), halign='left'
+    )
+    def_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    root.add_widget(def_lbl)
 
-        atk_ratio = (round_data['atk_total'] / round_data['atk_max']) if round_data['atk_max'] > 0 else 0
-        def_ratio = (round_data['def_total'] / round_data['def_max']) if round_data['def_max'] > 0 else 0
+    def_bar = BattleBar(size_hint_y=None, height=dp(30))
+    root.add_widget(def_bar)
 
-        player_bar.ratio = atk_ratio
-        enemy_bar.ratio = def_ratio
+    def_cnt = Label(
+        text='', markup=True, font_size=sp(11), color=(0.72, 0.72, 0.72, 1),
+        size_hint_y=None, height=dp(16), halign='right'
+    )
+    def_cnt.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    root.add_widget(def_cnt)
 
-        player_label.text = f"{attacking_fraction}: {round_data['atk_total']} / {round_data['atk_max']}"
-        enemy_label.text = f"{defending_fraction}: {round_data['def_total']} / {round_data['def_max']}"
+    root.add_widget(_make_sep())
 
-        # Перерисовать полосы
-        player_bar.canvas.clear()
-        with player_bar.canvas:
-            Color(0.18, 0.18, 0.22, 1)
-            RoundedRectangle(pos=player_bar.pos, size=(player_bar.width, player_bar.height), radius=[dp(12)])
-            Color(*player_bar.color_rgb, 0.95)
-            RoundedRectangle(pos=player_bar.pos, size=(player_bar.width * player_bar.ratio, player_bar.height), radius=[dp(12)])
+    # ── Раунд + лента событий ────────────────────────────────────────────
+    round_lbl = Label(
+        text='Подготовка к бою...', font_size=sp(12), bold=True,
+        color=(0.88, 0.88, 0.88, 1), size_hint_y=None, height=dp(20)
+    )
+    root.add_widget(round_lbl)
 
-        enemy_bar.canvas.clear()
-        with enemy_bar.canvas:
-            Color(0.18, 0.18, 0.22, 1)
-            RoundedRectangle(pos=enemy_bar.pos, size=(enemy_bar.width, enemy_bar.height), radius=[dp(12)])
-            Color(*enemy_bar.color_rgb, 0.95)
-            RoundedRectangle(pos=enemy_bar.pos, size=(enemy_bar.width * enemy_bar.ratio, enemy_bar.height), radius=[dp(12)])
+    events_box = BoxLayout(orientation='vertical', spacing=dp(2),
+                           size_hint_y=None, height=dp(64),
+                           padding=[dp(8), dp(4)])
+    with events_box.canvas.before:
+        Color(0.09, 0.09, 0.14, 1)
+        events_box._bg = RoundedRectangle(pos=events_box.pos, size=events_box.size, radius=[dp(8)])
+    events_box.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                    size=lambda i, v: setattr(i._bg, 'size', v))
+    root.add_widget(events_box)
 
-        current_round_idx += 1
-        return True
+    event_labels = []
+    for _ in range(3):
+        el = Label(text='', font_size=sp(10), halign='left', valign='middle',
+                   markup=True, size_hint_y=None, height=dp(18))
+        el.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+        events_box.add_widget(el)
+        event_labels.append(el)
 
-    def skip_animation(instance):
-        if animation_event['event'] is not None:
-            animation_event['event'].cancel()
+    event_log = []
+
+    def _push_event(text):
+        event_log.append(text)
+        start = max(0, len(event_log) - 3)
+        for i, lbl in enumerate(event_labels):
+            idx = start + i
+            lbl.text = event_log[idx] if idx < len(event_log) else ''
+
+    # ── Состояние анимации ───────────────────────────────────────────────
+    state = {'idx': 0, 'evt': None, 'done': False,
+             'prev_atk': None, 'prev_def': None}
+
+    def _finish():
+        if state['done']:
+            return
+        state['done'] = True
+        if state['evt']:
+            state['evt'].cancel()
         popup.dismiss()
         if callback:
-            Clock.schedule_once(lambda dt: callback(), 0.05)
+            Clock.schedule_once(lambda dt: callback(), 0.08)
 
-    skip_button.bind(on_press=skip_animation)
+    def _show_winner():
+        """Финальный экран победителя внутри popup."""
+        if state['done']:
+            return
 
+        is_my_victory = (
+            (winner == 'attacker' and user_faction == attacking_fraction) or
+            (winner == 'defender' and user_faction == defending_fraction)
+        )
+        winner_name = attacking_fraction if winner == 'attacker' else defending_fraction
+        w_hex = atk_hex if winner == 'attacker' else def_hex
+
+        if is_my_victory:
+            header = '[b][color=#FFD700][ ПОБЕДА! ][/color][/b]'
+            sub = (f'[color={atk_hex}]{attacking_fraction}[/color] захватила '
+                   f'[b]{defending_city}[/b]!'
+                   if winner == 'attacker' else
+                   f'[color={def_hex}]{defending_fraction}[/color] отстояла '
+                   f'[b]{defending_city}[/b]!')
+        elif winner == 'attacker':
+            header = '[b][color=#CC3333][ ПОРАЖЕНИЕ ][/color][/b]'
+            sub = (f'[color={atk_hex}]{attacking_fraction}[/color] захватила '
+                   f'[b]{defending_city}[/b]')
+        else:
+            header = '[b][color=#FFD700][ ОБОРОНА УСТОЯЛА! ][/color][/b]'
+            sub = (f'[color={def_hex}]{defending_fraction}[/color] защитила '
+                   f'[b]{defending_city}[/b]!')
+
+        root.clear_widgets()
+        root.padding = [dp(20), dp(50), dp(20), dp(30)]
+        root.spacing = dp(20)
+
+        h_lbl = Label(text=header, markup=True, font_size=sp(24),
+                      size_hint_y=None, height=dp(52), opacity=0)
+        root.add_widget(h_lbl)
+        Animation(opacity=1, duration=0.70, t='out_cubic').start(h_lbl)
+
+        s_lbl = Label(text=sub, markup=True, font_size=sp(15),
+                      size_hint_y=None, height=dp(36), opacity=0)
+        root.add_widget(s_lbl)
+        Clock.schedule_once(
+            lambda dt: Animation(opacity=1, duration=0.50, t='out_cubic').start(s_lbl), 0.5
+        )
+
+        root.add_widget(Label())  # spacer
+
+        cont_btn = Button(
+            text='Продолжить',
+            size_hint=(None, None), size=(dp(190), dp(42)),
+            font_size=sp(14), bold=True,
+            background_color=(0.16, 0.52, 0.92, 1), color=(1, 1, 1, 1),
+            pos_hint={'center_x': 0.5},
+            opacity=0
+        )
+        Clock.schedule_once(
+            lambda dt: Animation(opacity=1, duration=0.45).start(cont_btn), 0.9
+        )
+
+        def _on_cont(inst):
+            state['done'] = True
+            popup.dismiss()
+            if callback:
+                Clock.schedule_once(lambda dt: callback(), 0.08)
+
+        cont_btn.bind(on_press=_on_cont)
+        btn_row = BoxLayout(size_hint_y=None, height=dp(52))
+        btn_row.add_widget(Label())
+        btn_row.add_widget(cont_btn)
+        btn_row.add_widget(Label())
+        root.add_widget(btn_row)
+
+    def _tick(dt):
+        idx = state['idx']
+        if idx >= len(selected):
+            if state['evt']:
+                state['evt'].cancel()
+                state['evt'] = None
+            Clock.schedule_once(lambda dt: _show_winner(), 0.15)
+            return False
+
+        rd = selected[idx]
+        total = len(battle_rounds)
+
+        atk_ratio = rd['atk_total'] / rd['atk_max'] if rd['atk_max'] > 0 else 0.0
+        def_ratio = rd['def_total'] / rd['def_max'] if rd['def_max'] > 0 else 0.0
+
+        atk_bar.animate_to(atk_ratio)
+        def_bar.animate_to(def_ratio)
+
+        atk_cnt.text = f'{rd["atk_total"]:,} / {rd["atk_max"]:,} бойцов'.replace(',', ' ')
+        def_cnt.text = f'{rd["def_total"]:,} / {rd["def_max"]:,} бойцов'.replace(',', ' ')
+        round_lbl.text = f'Раунд {rd["round"]} / {total}'
+
+        # Генерируем событие раунда
+        p_atk = state['prev_atk']
+        p_def = state['prev_def']
+        if p_atk is not None:
+            a_loss = max(0, p_atk - rd['atk_total'])
+            d_loss = max(0, p_def - rd['def_total'])
+            is_crit = _rnd.random() < 0.20 and (a_loss + d_loss) > 0
+
+            if is_crit and d_loss > 0:
+                _push_event(
+                    f'[color=#FFD700]!! КРИТИЧЕСКИЙ УДАР! {attacking_fraction}'
+                    f'  −{d_loss} у врага[/color]'
+                )
+            elif is_crit and a_loss > 0:
+                _push_event(
+                    f'[color=#FF8844]!! КРИТИЧЕСКИЙ УДАР! {defending_fraction}'
+                    f'  −{a_loss} у атакующих[/color]'
+                )
+            elif d_loss > a_loss and d_loss > 0:
+                _push_event(
+                    f'[color=#88FF99]Раунд {rd["round"]}: {attacking_fraction}'
+                    f' наступает  −{d_loss} врагов[/color]'
+                )
+            elif a_loss > d_loss and a_loss > 0:
+                _push_event(
+                    f'[color=#FF8888]Раунд {rd["round"]}: {defending_fraction}'
+                    f' держится  −{a_loss} атакующих[/color]'
+                )
+            elif a_loss > 0 or d_loss > 0:
+                _push_event(
+                    f'[color=#AAAAAA]Раунд {rd["round"]}: обе стороны несут потери[/color]'
+                )
+
+        state['prev_atk'] = rd['atk_total']
+        state['prev_def'] = rd['def_total']
+        state['idx'] += 1
+
+    skip_btn.bind(on_press=lambda *_: _finish())
     popup.open()
-    animation_event['event'] = Clock.schedule_interval(update_round, 0.3)
+
+    def _start(dt):
+        state['evt'] = Clock.schedule_interval(_tick, 0.60)
+
+    Clock.schedule_once(_start, 0.30)
 
 
 def update_garrisons_after_battle(winner, attacking_city, defending_city,

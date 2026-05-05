@@ -39,3 +39,50 @@ TYPOGRAPHY = {
     'caption': {'size': 14, 'weight': 'normal'},
     'button': {'size': 16, 'weight': 'medium'}
 }
+
+## Цвета фракций
+FACTION_COLORS = {
+    'Север': {
+        'primary': (0.25, 0.52, 0.92, 1),
+        'secondary': (0.12, 0.32, 0.72, 1),
+        'glow': (0.40, 0.68, 1.00, 0.55),
+        'hex': '#4085EB',
+    },
+    'Эльфы': {
+        'primary': (0.22, 0.76, 0.32, 1),
+        'secondary': (0.10, 0.50, 0.20, 1),
+        'glow': (0.38, 1.00, 0.52, 0.55),
+        'hex': '#38C252',
+    },
+    'Вампиры': {
+        'primary': (0.78, 0.10, 0.16, 1),
+        'secondary': (0.50, 0.05, 0.10, 1),
+        'glow': (1.00, 0.20, 0.30, 0.55),
+        'hex': '#C71A28',
+    },
+    'Адепты': {
+        'primary': (0.62, 0.22, 0.88, 1),
+        'secondary': (0.40, 0.10, 0.60, 1),
+        'glow': (0.80, 0.40, 1.00, 0.55),
+        'hex': '#9E38E0',
+    },
+    'Элины': {
+        'primary': (0.92, 0.70, 0.10, 1),
+        'secondary': (0.70, 0.50, 0.04, 1),
+        'glow': (1.00, 0.90, 0.28, 0.55),
+        'hex': '#EBB31A',
+    },
+}
+
+## Константы анимаций
+ANIMATION = {
+    'fast':       0.15,
+    'normal':     0.30,
+    'slow':       0.55,
+    'very_slow':  1.10,
+    'bounce':     'out_elastic',
+    'smooth':     'out_cubic',
+    'ease_in':    'in_quad',
+    'ease_out':   'out_quad',
+    'linear':     'linear',
+}

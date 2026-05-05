@@ -849,9 +849,12 @@ class Faction:
         all_factions = self.load_relations()
 
         for faction, relation_level in all_factions.items():
+            if faction == self.faction:
+                continue  # пропускаем собственную фракцию
+
             other_system = self.load_political_system_for_faction(faction)
 
-            if current_system == other_system:
+            if current_system.strip() == other_system.strip():
                 # Улучшаем отношения на +3%
                 new_relation = min(relation_level + 3, 100)
                 print(f"Улучшение отношений с {faction}: {relation_level} -> {new_relation}")
@@ -1789,6 +1792,11 @@ def open_trade_popup(game_instance):
         padding=dp(16),
         spacing=dp(12)
     )
+    with trade_layout.canvas.before:
+        Color(0.07, 0.08, 0.13, 1)
+        trade_layout._bg = Rectangle(pos=trade_layout.pos, size=trade_layout.size)
+    trade_layout.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                      size=lambda i, v: setattr(i._bg, 'size', v))
 
     # === РАСЧЕТ ЛИМИТОВ ДЛЯ СЛАЙДЕРА ===
     current_price = game_instance.current_raw_material_price
@@ -1811,25 +1819,32 @@ def open_trade_popup(game_instance):
     arrow_color = (0, 1, 0, 1) if current_price > prev_price else \
         (1, 0, 0, 1) if current_price < prev_price else (0.8, 0.8, 0.8, 1)
 
-    # Верхняя строка с ценой и ресурсами
-    info_layout = BoxLayout(
+    # Карточка-заголовок с ценой
+    price_card = BoxLayout(
         orientation='horizontal',
         size_hint=(1, None),
-        height=dp(40),
-        spacing=dp(10)
+        height=dp(54),
+        spacing=dp(10),
+        padding=[dp(14), dp(8), dp(14), dp(8)]
     )
+    with price_card.canvas.before:
+        Color(0.13, 0.17, 0.28, 1)
+        price_card._bg = RoundedRectangle(pos=price_card.pos, size=price_card.size, radius=[dp(12)])
+    price_card.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                    size=lambda i, v: setattr(i._bg, 'size', v))
 
     current_price_label = Label(
-        text=f"[b]Цена за 100 ед.(1 лот):[/b] {current_price}",
+        text=f"[b]Цена 1 лота (100 ед.):[/b]  {current_price} крон",
         markup=True,
-        font_size=sp(18),
+        font_size=sp(16),
         color=arrow_color,
-        halign="center",
-        size_hint=(0.6, 1)
+        halign="left",
+        valign="middle",
+        size_hint=(1, 1)
     )
     current_price_label.bind(size=current_price_label.setter('text_size'))
-    info_layout.add_widget(current_price_label)
-    trade_layout.add_widget(info_layout)
+    price_card.add_widget(current_price_label)
+    trade_layout.add_widget(price_card)
 
     # === ЧЕКБОКС "ПРОДАТЬ ВСЁ" ===
     sell_all_layout = BoxLayout(
@@ -1860,29 +1875,22 @@ def open_trade_popup(game_instance):
     trade_layout.add_widget(sell_all_layout)
 
     # === СОЗДАНИЕ КНОПОК ===
-    buy_btn = Button(
-        text="Купить",
-        font_size=sp(16),
-        bold=True,
-        background_color=(0, 0.6, 0.2, 1),
-        color=(1, 1, 1, 1),
-        size_hint=(0.5, 1),
-        background_normal='',
-        background_down='',
-        disabled=True
-    )
+    def _trade_btn(txt, clr):
+        b = Button(
+            text=txt, font_size=sp(16), bold=True,
+            background_color=(0, 0, 0, 0), color=(1, 1, 1, 1),
+            size_hint=(0.5, 1), background_normal='', background_down='',
+            disabled=True
+        )
+        with b.canvas.before:
+            b._bc = Color(*clr)
+            b._br = RoundedRectangle(pos=b.pos, size=b.size, radius=[dp(12)])
+        b.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+               size=lambda i, v: setattr(i._br, 'size', v))
+        return b
 
-    sell_btn = Button(
-        text="Продать",
-        font_size=sp(16),
-        bold=True,
-        background_color=(0.7, 0.1, 0.1, 1),
-        color=(1, 1, 1, 1),
-        size_hint=(0.5, 1),
-        background_normal='',
-        background_down='',
-        disabled=True
-    )
+    buy_btn = _trade_btn("Купить", (0.12, 0.52, 0.18, 1))
+    sell_btn = _trade_btn("Продать", (0.60, 0.10, 0.10, 1))
 
     # === СЛАЙДЕР И ОТОБРАЖЕНИЕ ЗНАЧЕНИЯ ===
     slider_layout = BoxLayout(orientation='vertical', spacing=dp(5), size_hint=(1, None), height=dp(80))
@@ -1958,7 +1966,16 @@ def open_trade_popup(game_instance):
     trade_layout.add_widget(button_layout)
 
     # === ПОПАП ===
-    popup = Popup(title="Рынок", content=trade_layout, size_hint=(0.95, 0.7))
+    popup = Popup(
+        title="Рынок Кристаллов",
+        content=trade_layout,
+        size_hint=(0.95, 0.72),
+        background_color=(0.07, 0.08, 0.13, 1),
+        separator_color=(0.25, 0.52, 0.92, 0.6),
+        title_color=(0.65, 0.88, 1, 1),
+        title_size=sp(18),
+        title_align='center'
+    )
 
     def on_press_wrapper(action):
         def handler(instance):
@@ -2209,7 +2226,7 @@ def open_auto_build_popup(faction):
                                               radius=[dp(8), 0, 0, dp(8)])
         hospitals_bar.bind(pos=lambda inst, val: setattr(hospitals_bar.rect, 'pos', val))
         hospitals_bar.bind(size=lambda inst, val: setattr(hospitals_bar.rect, 'size', val))
-    hospitals_label = Label(text="🏥 1", font_size=sp(18), bold=True, color=(1, 1, 1, 1), halign='center',
+    hospitals_label = Label(text="H 1", font_size=sp(18), bold=True, color=(1, 1, 1, 1), halign='center',
                             valign='middle')
     hospitals_label.bind(size=hospitals_label.setter('text_size'))
     hospitals_bar.add_widget(hospitals_label)
@@ -2285,8 +2302,8 @@ def open_auto_build_popup(faction):
         hospitals, factories, name, desc = RATIOS[idx]
 
         # Обновление визуального индикатора
-        hospitals_label.text = f"🏥 {hospitals}"
-        factories_label.text = f"🏭 {factories}"
+        hospitals_label.text = f"H {hospitals}"
+        factories_label.text = f"F {factories}"
 
         # Обновление пропорций баров
         total = hospitals + factories
@@ -2366,10 +2383,13 @@ def open_development_popup(faction):
         padding = [dp(16), dp(20), dp(16), dp(16)]
 
     dev_popup = Popup(
-        title="",
+        title="Стратегия развития",
         size_hint=popup_size_hint,
-        background_color=(0.10, 0.12, 0.18, 0.98),
-        separator_height=0,
+        background_color=(0.08, 0.10, 0.16, 0.98),
+        separator_color=(0.25, 0.52, 0.92, 0.55),
+        title_color=(0.75, 0.92, 1, 1),
+        title_size=sp(18) if is_mobile else sp(20),
+        title_align='center',
         auto_dismiss=False
     )
 
@@ -2481,47 +2501,66 @@ def open_development_popup(faction):
     slider_container.add_widget(slider)
     build_content.add_widget(slider_container)
 
-    # 3. Быстрые кнопки управления слайдером - ПОДНЯЛ ВПРИТЫК
+    # 3. Быстрые пресеты для слайдера
     quick_buttons = BoxLayout(
         orientation='horizontal',
-        spacing=dp(4) if is_mobile else dp(8),  # Уменьшил spacing
+        spacing=dp(4) if is_mobile else dp(6),
         size_hint_y=None,
-        height=dp(40) if is_mobile else dp(48),  # Чуть уменьшил высоту
-        padding=[0, 0, 0, 0]  # Убрал padding полностью
+        height=dp(38) if is_mobile else dp(44),
+        padding=[0, 0, 0, 0]
     )
+
+    PRESET_LABELS = ["Больн x2.5", "Баланс", "Фабр x2.5"]
+    PRESET_VALS   = [0, 4, 8]
+
+    def _preset_btn(txt, val):
+        b = Button(
+            text=txt, font_size=sp(12) if is_mobile else sp(13),
+            bold=True, background_color=(0, 0, 0, 0),
+            color=(0.82, 0.94, 1, 1)
+        )
+        with b.canvas.before:
+            b._bc = Color(0.18, 0.26, 0.42, 1)
+            b._br = RoundedRectangle(pos=b.pos, size=b.size, radius=[dp(8)])
+        b.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+               size=lambda i, v: setattr(i._br, 'size', v))
+        return b
+
+    for p_label, p_val in zip(PRESET_LABELS, PRESET_VALS):
+        pb = _preset_btn(p_label, p_val)
+        pb.bind(on_release=lambda inst, v=p_val: setattr(slider, 'value', v))
+        quick_buttons.add_widget(pb)
 
     build_content.add_widget(quick_buttons)
 
-    # 4. Основные кнопки действия - ПОДНЯЛ ВПРИТЫК к быстрым кнопкам
+    # 4. Основные кнопки действия
     action_buttons = BoxLayout(
         orientation='horizontal',
-        spacing=dp(6) if is_mobile else dp(10),  # Уменьшил spacing
+        spacing=dp(6) if is_mobile else dp(10),
         size_hint_y=None,
-        height=dp(45) if is_mobile else dp(55),  # Немного уменьшил высоту
-        padding=[0, 0, 0, 0]  # Убрал padding
+        height=dp(48) if is_mobile else dp(56),
+        padding=[0, 0, 0, 0]
     )
 
-    cancel_btn = Button(
-        text="Отмена",
-        font_size=sp(15) if is_mobile else sp(17),  # Чуть меньше
-        bold=True,
-        background_color=(0.65, 0.25, 0.25, 1),
-        background_normal='',
-        padding=[dp(4), dp(4)]  # Уменьшил padding
-    )
+    def _action_dev_btn(txt, clr):
+        b = Button(
+            text=txt,
+            font_size=sp(15) if is_mobile else sp(17),
+            bold=True, background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1)
+        )
+        with b.canvas.before:
+            b._bc = Color(*clr)
+            b._br = RoundedRectangle(pos=b.pos, size=b.size, radius=[dp(12)])
+        b.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+               size=lambda i, v: setattr(i._br, 'size', v))
+        return b
 
-    apply_btn = Button(
-        text="Применить",
-        font_size=sp(15) if is_mobile else sp(17),  # Чуть меньше
-        bold=True,
-        background_color=(0.35, 0.75, 0.4, 1),
-        background_normal='',
-        padding=[dp(4), dp(4)]  # Уменьшил padding
-    )
+    cancel_btn = _action_dev_btn("Отмена", (0.60, 0.18, 0.18, 1))
+    apply_btn  = _action_dev_btn("Применить", (0.18, 0.62, 0.28, 1))
 
-    # Равные размеры кнопок
-    cancel_btn.size_hint_x = 0.48
-    apply_btn.size_hint_x = 0.48
+    cancel_btn.size_hint_x = 0.45
+    apply_btn.size_hint_x  = 0.55
 
     action_buttons.add_widget(cancel_btn)
     action_buttons.add_widget(apply_btn)

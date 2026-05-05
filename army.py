@@ -336,56 +336,69 @@ class ArmyCash:
             print(f"Ошибка при обновлении таблицы weapons: {e}")
 
     def show_message(self, title, message):
-        screen_width, _ = Window.size
-        scale_factor = screen_width / 360
-
-        font_size = min(max(int(15 * scale_factor), 12), 18)
-        padding = int(15 * scale_factor)
-        spacing = int(5 * scale_factor)  # ← Уменьшен
-        label_height = int(80 * scale_factor)  # ← Уменьшен
-        button_height = int(30 * scale_factor)
+        # Определяем акцент по заголовку
+        is_error = 'ошибк' in title.lower()
+        acc = (0.72, 0.18, 0.18, 1) if is_error else (0.20, 0.55, 0.88, 1)
+        sep = (0.78, 0.18, 0.18, 0.85) if is_error else (0.20, 0.55, 0.88, 0.7)
+        title_clr = (1, 0.55, 0.55, 1) if is_error else (0.65, 0.88, 1, 1)
 
         content_layout = BoxLayout(
             orientation='vertical',
-            padding=[padding, padding / 2, padding, padding / 2],  # ← Скорректированы
-            spacing=spacing
+            padding=[dp(14), dp(10), dp(14), dp(12)],
+            spacing=dp(10)
         )
+
+        # Разделительная полоска-акцент вверху
+        accent_bar = Widget(size_hint=(1, None), height=dp(3))
+        with accent_bar.canvas:
+            Color(*acc)
+            accent_bar._r = RoundedRectangle(pos=accent_bar.pos, size=accent_bar.size, radius=[dp(2)])
+        accent_bar.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
+                        size=lambda i, v: setattr(i._r, 'size', v))
+        content_layout.add_widget(accent_bar)
 
         message_label = Label(
             text=message,
-            color=(1, 1, 1, 1),
-            font_size=sp(font_size),
-            size_hint_y=None,
-            height=label_height,
+            color=(0.94, 0.94, 0.94, 1),
+            font_size=sp(14),
             halign='center',
-            valign='middle'
+            valign='middle',
+            markup=True
         )
         message_label.bind(size=message_label.setter('text_size'))
+        content_layout.add_widget(message_label)
 
         close_button = Button(
             text="Закрыть",
-            font_size=sp(font_size),
+            font_size=sp(14),
             size_hint_y=None,
-            height=button_height,
-            background_color=(0.2, 0.6, 1, 1),
-            background_normal=''
+            height=dp(40),
+            background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1),
+            bold=True
         )
-
-        content_layout.add_widget(message_label)
+        with close_button.canvas.before:
+            close_button._bc = Color(*acc)
+            close_button._br = RoundedRectangle(
+                pos=close_button.pos, size=close_button.size, radius=[dp(10)]
+            )
+        close_button.bind(
+            pos=lambda i, v: setattr(i._br, 'pos', v),
+            size=lambda i, v: setattr(i._br, 'size', v)
+        )
         content_layout.add_widget(close_button)
 
-        total_height = label_height + button_height + spacing + padding  # ← Новый расчет
         popup = Popup(
             title=title,
             content=content_layout,
-            size_hint=(0.75, None),
-            height=total_height,  # ← Динамическая высота
+            size_hint=(0.78, 0.34),
             auto_dismiss=False,
-            title_size=sp(font_size + 1),
-            title_align='center',
-            separator_color=(0.2, 0.6, 1, 1)
+            background_color=(0.07, 0.08, 0.13, 1),
+            separator_color=sep,
+            title_color=title_clr,
+            title_size=sp(15),
+            title_align='center'
         )
-
         close_button.bind(on_release=popup.dismiss)
         popup.open()
 
@@ -481,203 +494,218 @@ def start_army_mode(faction, game_area, class_faction, conn):
 
         card.bind(pos=update_bg, size=update_bg)
 
-        # Заголовок
-        header = BoxLayout(
-            size_hint=(1, 0.12),
-            orientation='horizontal',
-            padding=[dp(150), dp(5), dp(5), dp(5)],
-        )
-        title = Label(
-            text=unit_name,
-            font_size='18sp',
-            bold=True,
-            color=TEXT_COLOR,
-            halign='left',
-            valign='middle',
-            text_size=(None, None),
-            size_hint=(None, None),
-            width=dp(1)
-        )
-        title.bind(texture_size=lambda inst, ts: setattr(inst, 'width', ts[0] + dp(5)))
-        header.add_widget(title)
-
-        # Тело карточки: сначала иконки‑статы, потом изображение
-        body = BoxLayout(orientation='horizontal', size_hint=(1, 0.6), spacing=dp(3))
-
-        # Контейнер для иконок‑стат
-        stats_icons = {
-            'Урон': 'files/pict/hire/sword.png',
-            'Защита': 'files/pict/hire/shield.png',
-            'Живучесть': 'files/pict/hire/health.png',
-            'Класс': 'files/pict/hire/class.png',
-            'Потребление': 'files/pict/hire/consumption.png',
-        }
-        stats_container = BoxLayout(orientation='vertical', size_hint=(0.4, 1), spacing=dp(5))
-        for stat_name, icon_src in stats_icons.items():
-            stat_line = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(20), spacing=dp(5))
-            stat_line.add_widget(Image(
-                source=icon_src,
-                size_hint=(None, None),
-                size=(dp(24), dp(24)),
-                allow_stretch=True,
-                keep_ratio=True
-            ))
-
-            # выбираем правильный ключ в unit_info['stats']
-            if stat_name == 'Класс':
-                key = 'Класс юнита'
-            elif stat_name == 'Потребление':
-                key = 'Потребление Кристаллов'
-            else:
-                key = stat_name
-
-            value = unit_info['stats'].get(key, '')
-            if key in ('Урон', 'Защита', 'Живучесть', 'Потребление Кристаллов'):
-                value = format_number(value)
-
-            stat_line.add_widget(Label(
-                text=str(value),
-                font_size='16sp',
-                bold=True,
-                color=TEXT_COLOR,
-                halign='left',
-                valign='middle'
-            ))
-            stats_container.add_widget(stat_line)
-
-        # Контейнер для изображения
-        img_container = BoxLayout(orientation='vertical', size_hint=(0.6, 1), padding=[0, dp(10), 0, 0])
-        img = Image(
-            source=unit_info['image'],
-            size_hint=(1, 1),
-            keep_ratio=True,
-            allow_stretch=True,
-            mipmap=True
-        )
-        img_container.add_widget(img)
-
-        # Добавляем в тело сначала stats, потом картинку
-        body.add_widget(stats_container)
-        body.add_widget(img_container)
-
-        # Стоимость
-        cost_container = BoxLayout(
-            orientation='horizontal',
-            size_hint=(1, 0.2),
-            spacing=dp(10),
-            padding=[dp(15), 0, dp(15), 0]
-        )
-        price_label = Label(
-            text="Цена:  ",
-            font_size='16sp',
-            bold=True,
-            color=TEXT_COLOR,
-            halign='right',
-            size_hint=(0.3, 1)
-        )
-        cost_values = BoxLayout(orientation='vertical', size_hint=(0.7, 1), spacing=dp(5))
+        unit_class = int(unit_info['stats']['Класс юнита'].split()[0])
         cost_money, cost_time = unit_info['cost']
 
-        money_stat = BoxLayout(orientation='horizontal', size_hint=(1, 0.5), spacing=dp(5))
-        money_icon = Label(
-            text="[color=#FFFFFF]Кроны[/color]",
-            markup=True,
-            font_size='14sp',
-            halign='left',
-            size_hint=(0.2, 1)
-        )
-        money_value = Label(
-            text=f"{format_number(cost_money)}",
-            font_size='16sp',
-            bold=True,
-            color=TEXT_COLOR,
-            size_hint=(0.8, 1),
-            halign='left'
-        )
-        money_stat.add_widget(money_icon)
-        money_stat.add_widget(money_value)
+        # ── Класс-специфичные цвета ──────────────────────────────────
+        CLASS_ACCENT = {1: (0.20, 0.55, 0.88, 1), 2: (0.55, 0.20, 0.80, 1),
+                        3: (0.85, 0.60, 0.10, 1), 4: (0.85, 0.15, 0.15, 1)}
+        accent = CLASS_ACCENT.get(unit_class, (0.20, 0.55, 0.88, 1))
 
-        time_stat = BoxLayout(orientation='horizontal', size_hint=(1, 0.5), spacing=dp(5))
-        time_icon = Label(
-            text="[color=#FFFFFF]Рабочие[/color]",
-            markup=True,
-            font_size='14sp',
-            halign='left',
-            size_hint=(0.2, 1)
+        # ── Заголовок карточки ───────────────────────────────────────
+        header = BoxLayout(size_hint=(1, None), height=dp(44), orientation='horizontal',
+                           padding=[dp(8), dp(6), dp(8), dp(4)], spacing=dp(6))
+        # Акцент-полоса
+        bar = Widget(size_hint=(None, 1), width=dp(4))
+        with bar.canvas:
+            Color(*accent)
+            bar._r = RoundedRectangle(pos=bar.pos, size=bar.size, radius=[dp(2)])
+        bar.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
+                 size=lambda i, v: setattr(i._r, 'size', v))
+        header.add_widget(bar)
+        cls_names = {1: 'Рекрут', 2: 'Герой', 3: 'Чемпион', 4: 'Легенда'}
+        title_lbl = Label(
+            text=f'[b]{unit_name}[/b]  [color=#AAAAAA]{cls_names.get(unit_class, "")} кл.{unit_class}[/color]',
+            markup=True, font_size=sp(15), color=(0.96, 0.96, 0.96, 1),
+            halign='left', valign='middle'
         )
-        time_value = Label(
-            text=f"{format_number(cost_time)}",
-            font_size='16sp',
-            bold=True,
-            color=TEXT_COLOR,
-            size_hint=(0.8, 1),
-            halign='left'
-        )
-        time_stat.add_widget(time_icon)
-        time_stat.add_widget(time_value)
+        title_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+        header.add_widget(title_lbl)
 
-        cost_values.add_widget(money_stat)
-        cost_values.add_widget(time_stat)
-        cost_container.add_widget(price_label)
-        cost_container.add_widget(cost_values)
+        # ── Тело: статы слева, картинка справа ──────────────────────
+        body = BoxLayout(orientation='horizontal', size_hint=(1, 1), spacing=dp(4))
 
-        # Контроллеры найма
-        unit_class = int(unit_info['stats']['Класс юнита'].split()[0])
-        control_panel = BoxLayout(
-            size_hint=(1, 0.18),
-            orientation='horizontal',
-            spacing=dp(10),
-            padding=[dp(5), dp(10), dp(5), dp(5)]
-        )
-        btn_hire = Button(
-            text='НАБРАТЬ',
-            font_size='16sp',
-            bold=True,
-            background_color=PRIMARY_COLOR,
-            color=TEXT_COLOR,
-            size_hint=(0.4, 1)
-        )
+        stats_icons = [
+            ('Урон',     'files/pict/hire/sword.png',       'Урон'),
+            ('Защита',   'files/pict/hire/shield.png',      'Защита'),
+            ('Живучесть','files/pict/hire/health.png',      'Живучесть'),
+            ('Класс',    'files/pict/hire/class.png',       'Класс юнита'),
+            ('Расход',   'files/pict/hire/consumption.png', 'Потребление Кристаллов'),
+        ]
+        stats_box = BoxLayout(orientation='vertical', size_hint=(0.42, 1),
+                              spacing=dp(4), padding=[dp(6), dp(4)])
+        for label, icon, key in stats_icons:
+            row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(26), spacing=dp(6))
+            row.add_widget(Image(source=icon, size_hint=(None, None), size=(dp(22), dp(22)),
+                                 allow_stretch=True, keep_ratio=True))
+            val = unit_info['stats'].get(key, 0)
+            if key in ('Урон', 'Защита', 'Живучесть', 'Потребление Кристаллов'):
+                val = format_number(val)
+            stat_lbl = Label(text=f'[color=#CCCCCC]{label}:[/color] [b]{val}[/b]',
+                             markup=True, font_size=sp(12), color=TEXT_COLOR,
+                             halign='left', valign='middle')
+            stat_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+            row.add_widget(stat_lbl)
+            stats_box.add_widget(row)
+        body.add_widget(stats_box)
 
-        # Если первый класс — добавляем поле ввода
+        img_box = BoxLayout(size_hint=(0.58, 1), padding=[0, dp(6), dp(6), dp(6)])
+        img_box.add_widget(Image(source=unit_info['image'], size_hint=(1, 1),
+                                 keep_ratio=True, allow_stretch=True, mipmap=True))
+        body.add_widget(img_box)
+
+        # ── Стоимость ────────────────────────────────────────────────
+        cost_row = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(34),
+                             spacing=dp(10), padding=[dp(8), dp(2)])
+        cost_row.add_widget(Label(text='[b]Цена:[/b]', markup=True, font_size=sp(13),
+                                  color=TEXT_COLOR, size_hint=(None, 1), width=dp(48)))
+        cost_row.add_widget(Label(
+            text=f'[color=#FFD700]{format_number(cost_money)}[/color] крон  '
+                 f'[color=#88CCFF]{format_number(cost_time)}[/color] раб.',
+            markup=True, font_size=sp(13), color=TEXT_COLOR, halign='left', valign='middle'
+        ))
+
+        # ── Контроллер найма ─────────────────────────────────────────
+        ctrl = BoxLayout(size_hint=(1, None), height=dp(46),
+                         orientation='horizontal', spacing=dp(8),
+                         padding=[dp(8), dp(4), dp(8), dp(4)])
+
+        def _styled_btn(txt, bg, w=None):
+            b = Button(text=txt, font_size=sp(14), bold=True,
+                       background_color=(0, 0, 0, 0), color=TEXT_COLOR,
+                       size_hint_x=(None if w else 1), width=(w or 0))
+            with b.canvas.before:
+                b._c = Color(*bg)
+                b._r = RoundedRectangle(pos=b.pos, size=b.size, radius=[dp(10)])
+            b.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
+                   size=lambda i, v: setattr(i._r, 'size', v))
+            return b
+
         if unit_class == 1:
-            input_qty = TextInput(
-                hint_text='Количество',
+            # ── Слайдер + пресеты + поле ввода ───────────────────────
+            ctrl.height = dp(104)
+            ctrl.orientation = 'vertical'
+            ctrl.padding = [dp(8), dp(2), dp(8), dp(2)]
+            ctrl.spacing = dp(4)
+
+            qty_state = {'n': 1}
+
+            # Максимум = сколько можно купить на текущие ресурсы
+            try:
+                avail_crowns  = int(army_hire.class_faction.get_resource_now("Кроны")  or 0)
+                avail_workers = int(army_hire.class_faction.get_resource_now("Рабочие") or 0)
+                max_by_crowns  = int(avail_crowns  // cost_money)  if cost_money  > 0 else 99999
+                max_by_workers = int(avail_workers // cost_time)   if cost_time   > 0 else 99999
+                max_affordable = max(1, min(max_by_crowns, max_by_workers))
+            except Exception:
+                max_affordable = 10000
+
+            # — Строка 1: слайдер с подписью ——————————————————————————
+            slider_row = BoxLayout(size_hint=(1, None), height=dp(30),
+                                   orientation='horizontal', spacing=dp(8))
+            slider_lbl = Label(text='[b]1[/b]', markup=True, font_size=sp(14),
+                               color=(1, 1, 1, 1), size_hint=(None, 1), width=dp(56),
+                               halign='right', valign='middle')
+            slider_lbl.bind(size=lambda i, s: setattr(i, 'text_size', s))
+            qty_slider = Slider(min=1, max=max_affordable, value=1, step=1,
+                                size_hint=(1, 1),
+                                cursor_size=(dp(22), dp(22)))
+
+            slider_row.add_widget(slider_lbl)
+            slider_row.add_widget(qty_slider)
+
+            # — Строка 2: быстрые пресеты ——————————————————————————————
+            preset_row = BoxLayout(size_hint=(1, None), height=dp(28),
+                                   orientation='horizontal', spacing=dp(4))
+            # Показываем только пресеты, которые можно себе позволить
+            _all_presets = [('100', 100), ('500', 500), ('1к', 1000), ('5к', 5000), ('10к', 10000)]
+            PRESETS = [(lbl, v) for lbl, v in _all_presets if v <= max_affordable]
+            if not PRESETS:
+                PRESETS = [('Макс', max_affordable)]
+            preset_clr = (0.18, 0.26, 0.38, 1)
+
+            def _set_qty(val, *, lbl=slider_lbl, sl=qty_slider, st=qty_state):
+                st['n'] = int(val)
+                sl.value = int(val)
+                lbl.text = f'[b]{int(val):,}[/b]'.replace(',', ' ')
+
+            for p_label, p_val in PRESETS:
+                pb = Button(text=p_label, font_size=sp(12), bold=True,
+                            background_color=(0, 0, 0, 0), color=(0.80, 0.92, 1.0, 1))
+                with pb.canvas.before:
+                    pb._pc = Color(*preset_clr)
+                    pb._pr = RoundedRectangle(pos=pb.pos, size=pb.size, radius=[dp(7)])
+                pb.bind(pos=lambda i, v: setattr(i._pr, 'pos', v),
+                        size=lambda i, v: setattr(i._pr, 'size', v))
+                pb.bind(on_release=lambda inst, v=p_val: _set_qty(v))
+                preset_row.add_widget(pb)
+
+            def _on_slider(inst, val):
+                _set_qty(val)
+            qty_slider.bind(value=_on_slider)
+
+            # — Строка 3: TextInput + НАНЯТЬ ——————————————————————————
+            hire_row = BoxLayout(size_hint=(1, None), height=dp(34),
+                                 orientation='horizontal', spacing=dp(6))
+            qty_input = TextInput(
+                text='1', font_size=sp(14), multiline=False,
+                size_hint=(0.40, 1),
+                background_color=(0.12, 0.16, 0.22, 1),
+                foreground_color=(1, 1, 1, 1),
+                cursor_color=(1, 1, 1, 1),
                 input_filter='int',
-                font_size='14sp',
-                size_hint=(0.6, 1),
-                background_color=INPUT_BACKGROUND,
                 halign='center',
-                multiline=False
             )
-            btn_hire.bind(
-                on_release=lambda inst, name=unit_name, cost=unit_info['cost'],
-                                  input_box=input_qty, stats=unit_info['stats'], image=unit_info["image"]:
-                broadcast_units(name, cost, input_box, army_hire, image, stats)
-            )
-            control_panel.add_widget(input_qty)
+
+            def _on_input_text(inst, val):
+                try:
+                    v = max(1, min(max_affordable, int(val) if val else 1))
+                    qty_state['n'] = v
+                    qty_slider.value = v
+                    slider_lbl.text = f'[b]{v:,}[/b]'.replace(',', ' ')
+                except ValueError:
+                    pass
+            qty_input.bind(text=_on_input_text)
+
+            # Keep input in sync when slider moves
+            def _on_slider_sync(inst, val, inp=qty_input):
+                inp.text = str(int(val))
+            qty_slider.bind(value=_on_slider_sync)
+
+            btn_hire = _styled_btn('НАНЯТЬ', accent)
+
+            class _FakeInput:
+                def __init__(self): self.text = ''
+            _fi = _FakeInput()
+
+            def _do_hire(inst, name=unit_name, cost=unit_info['cost'],
+                         stats=unit_info['stats'], image=unit_info['image']):
+                _fi.text = str(qty_state['n'])
+                broadcast_units(name, cost, _fi, army_hire, image, stats)
+
+            btn_hire.bind(on_release=_do_hire)
+
+            hire_row.add_widget(qty_input)
+            hire_row.add_widget(btn_hire)
+
+            for row in (slider_row, preset_row, hire_row):
+                ctrl.add_widget(row)
         else:
-            btn_hire = Button(
-                text='НАНЯТЬ',
-                font_size='16sp',
-                bold=True,
-                background_color=PRIMARY_COLOR,
-                color=TEXT_COLOR,
-                size_hint=(0.4,1)
-            )
-            btn_hire.bind(
+            # Герои и выше — просто кнопка «НАНЯТЬ»
+            btn_hero = _styled_btn('НАНЯТЬ ГЕРОЯ', accent)
+            btn_hero.bind(
                 on_release=lambda inst, name=unit_name, cost=unit_info['cost'],
-                                  stats=unit_info['stats'], image=unit_info["image"]:
+                                  stats=unit_info['stats'], image=unit_info['image']:
                 broadcast_units(name, cost, None, army_hire, image, stats)
             )
+            ctrl.add_widget(btn_hero)
 
-        control_panel.add_widget(btn_hire)
-
-        # Вставляем контроллеры в карточку и в карусель
-        card.add_widget(control_panel)
-        carousel.add_widget(slide)
-        card.add_widget(body)
+        # ── Сборка карточки ──────────────────────────────────────────
         card.add_widget(header)
-        card.add_widget(cost_container)
+        card.add_widget(body)
+        card.add_widget(cost_row)
+        card.add_widget(ctrl)
+        carousel.add_widget(slide)
         slide.add_widget(card)
 
     # Добавляем стрелки прокрутки
@@ -775,16 +803,43 @@ def broadcast_units(unit_name, unit_cost, quantity_input, army_hire, image, unit
         )
 
 def show_army_message(title, message):
+    is_error = 'ошибк' in title.lower()
+    acc = (0.72, 0.18, 0.18, 1) if is_error else (0.20, 0.55, 0.88, 1)
+    sep = (0.78, 0.18, 0.18, 0.85) if is_error else (0.20, 0.55, 0.88, 0.7)
+    title_clr = (1, 0.55, 0.55, 1) if is_error else (0.65, 0.88, 1, 1)
+
+    content = BoxLayout(orientation='vertical', padding=[dp(14), dp(10), dp(14), dp(12)], spacing=dp(10))
+
+    lbl = Label(
+        text=message, markup=True,
+        font_size=sp(14), color=(0.94, 0.94, 0.94, 1),
+        halign='center', valign='middle'
+    )
+    lbl.bind(size=lbl.setter('text_size'))
+    content.add_widget(lbl)
+
+    btn = Button(
+        text="Закрыть", size_hint_y=None, height=dp(40),
+        background_color=(0, 0, 0, 0), color=(1, 1, 1, 1),
+        font_size=sp(14), bold=True
+    )
+    with btn.canvas.before:
+        btn._bc = Color(*acc)
+        btn._br = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(10)])
+    btn.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+             size=lambda i, v: setattr(i._br, 'size', v))
+    content.add_widget(btn)
+
     popup = Popup(
-        title=title,
-        content=Label(
-            text=message,
-            markup=True,
-            font_size=dp(18),
-            color=TEXT_COLOR),
-        size_hint=(None, None),
-        size=(dp(300), dp(200)),
-        background_color=BACKGROUND_COLOR)
+        title=title, content=content,
+        size_hint=(0.78, 0.34),
+        background_color=(0.07, 0.08, 0.13, 1),
+        separator_color=sep,
+        title_color=title_clr,
+        title_size=sp(15), title_align='center',
+        auto_dismiss=False
+    )
+    btn.bind(on_release=popup.dismiss)
     popup.open()
 
 def set_font_size(relative_size):
