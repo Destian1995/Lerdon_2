@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /c/Users/lerdo/IdeaProjects/Lerdon_2/*.py)",
+      "Bash(grep -r Информация /c/Users/lerdo/IdeaProjects/Lerdon_2 --include=*.py)",
+      "Bash(grep -r Settlement /c/Users/lerdo/IdeaProjects/Lerdon_2 --include=*.py)",
+      "Bash(grep -n \"def.*build\\\\|class.*build\" /c/Users/lerdo/IdeaProjects/Lerdon_2/*.py)",
+      "Bash(grep -n \"7.00\\\\|8.50\\\\|1.85\\\\|3.25\" \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\"/*.py)",
+      "Bash(grep -n \"apply_political_system_bonus\\\\|apply_player_bonuses\" \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\"/*.py)",
+      "Bash(grep -n \"update_relations_based_on_political_system\" \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\"/*.py)",
+      "Bash(grep -n \"same ideology\\\\|ideology.*relation\\\\|relation.*ideology\" \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\"/*.py -i)",
+      "Bash(grep -n \"class.*Faction\\\\|class Economic\" \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\"/*.py)"
+    ]
+  }
+}

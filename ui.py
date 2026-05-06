@@ -1004,151 +1004,131 @@ class FortressInfoPopup(Popup):
 
     def update_garrison(self):
         """
-        Обновляет данные о гарнизоне на интерфейсе с сохранением стиля,
-        учитывая класс юнита для отображения количества или специализации.
+        Обновляет данные о гарнизоне на интерфейсе с тем же стилем карточек,
+        что и get_garrison().
         """
         try:
-            # Очищаем текущие виджеты гарнизона
             self.attacking_units_box.clear_widgets()
 
-            # Получаем актуальные данные о гарнизоне из базы данных
             cursor = self.conn.cursor()
             cursor.execute("""
-                SELECT unit_name, unit_count, unit_image 
-                FROM garrisons 
+                SELECT unit_name, unit_count, unit_image
+                FROM garrisons
                 WHERE city_name = ?
             """, (self.city_name,))
             garrison_data = cursor.fetchall()
 
             if not garrison_data:
-                # Если гарнизон пуст, добавляем сообщение
-                label = Label(
-                    text="Гарнизон пуст",
-                    size_hint_y=None,
-                    height=60,
-                    font_size='18sp',
-                    color=(1, 0, 0, 1),  # Ярко-красный текст
-                    halign='center',
-                    valign='middle'
+                lbl = Label(
+                    text='[color=#FF8888]Гарнизон пуст[/color]', markup=True,
+                    size_hint_y=None, height=dp(40), font_size=sp(13),
+                    halign='center', valign='middle'
                 )
-                label.bind(size=label.setter('text_size'))
-                self.attacking_units_box.add_widget(label)
+                lbl.bind(size=lbl.setter('text_size'))
+                self.attacking_units_box.add_widget(lbl)
                 return
 
-            # Добавляем новые виджеты для каждого юнита в гарнизоне
+            CLASS_COLORS = {
+                '1': (0.22, 0.28, 0.38, 1),
+                '2': (0.28, 0.22, 0.38, 1),
+                '3': (0.38, 0.26, 0.12, 1),
+                '4': (0.38, 0.10, 0.10, 1),
+            }
+
             for unit_name, unit_count, unit_image in garrison_data:
-                # --- НОВАЯ ЛОГИКА: Получение класса, характеристик и определение специализации ---
-                specialization_icon_path = None  # Путь к иконке специализации
+                unit_class = '1'
+                specialization_icon_path = None
                 try:
-                    # 1. Получаем класс юнита
-                    cursor.execute("""
-                        SELECT unit_class, attack, defense
-                        FROM units
-                        WHERE unit_name = ?
-                    """, (unit_name,))
+                    cursor.execute(
+                        "SELECT unit_class, attack, defense FROM units WHERE unit_name = ?",
+                        (unit_name,)
+                    )
                     unit_info = cursor.fetchone()
-
                     if unit_info:
-                        unit_class, attack, defense = unit_info[0], unit_info[1], unit_info[2]
-
-                        # 2. Логика отображения в зависимости от класса
-                        if unit_class == "1":
-                            # Класс 1: отображаем количество
-                            unit_text = f"{unit_name}\nКоличество: {format_number(unit_count)}"
-                        elif unit_class == "4":
-                            # Класс 4: отображаем только имя
-                            unit_text = f"{unit_name}"
-                        elif unit_class in ("2", "3"):  # Класс 2 или 3: отображаем имя и иконку специализации
-                            # 3. Определяем специализацию
+                        unit_class = str(unit_info[0])
+                        attack, defense = unit_info[1], unit_info[2]
+                        if unit_class in ('2', '3'):
                             try:
-                                # Обработка случаев, когда один из параметров равен 0
-                                if defense == 0:
-                                    if attack > 0:
-                                        specialization_icon_path = r"files/pict/hero_type/sword.png"
-                                    # Если оба 0, остается None
-                                elif attack == 0:
-                                    if defense > 0:
-                                        specialization_icon_path = r"files/pict/hero_type/shield.png"
-                                    # Если оба 0, остается None
+                                if defense == 0 and attack > 0:
+                                    specialization_icon_path = "files/pict/hero_type/sword.png"
+                                elif attack == 0 and defense > 0:
+                                    specialization_icon_path = "files/pict/hero_type/shield.png"
                                 else:
-                                    # Основная логика определения специализации
-                                    attack_to_defense_ratio = attack / defense
-                                    defense_to_attack_ratio = defense / attack
-                                    if attack_to_defense_ratio >= 2.0:
-                                        specialization_icon_path = r"files/pict/hero_type/sword.png"
-                                    elif defense_to_attack_ratio >= 2.0:
-                                        specialization_icon_path = r"files/pict/hero_type/shield.png"
+                                    r = attack / defense if defense > 0 else 99
+                                    if r >= 2.0:
+                                        specialization_icon_path = "files/pict/hero_type/sword.png"
+                                    elif 1 / r >= 2.0:
+                                        specialization_icon_path = "files/pict/hero_type/shield.png"
                                     else:
-                                        specialization_icon_path = r"files/pict/hero_type/sword-shield.png"
-                            except Exception as spec_error:
-                                print(f"Ошибка при определении специализации для '{unit_name}': {spec_error}")
-                                # Оставляем specialization_icon_path как None в случае ошибки вычисления
-                            # Формируем текст с названием
-                            unit_text = f"{unit_name}"
-                        else:
-                            # Для других классов (например, если в будущем появятся 5+)
-                            unit_text = f"{unit_name}\n(Класс {unit_class})"
-                    else:
-                        print(f"Информация для юнита '{unit_name}' не найдена в таблице units.")
-                        unit_text = f"{unit_name}\n(Не найден в units)"
-                except sqlite3.Error as e:
-                    print(f"Ошибка БД при получении данных юнита '{unit_name}': {e}")
-                    unit_text = f"{unit_name}\n(Ошибка БД)"
+                                        specialization_icon_path = "files/pict/hero_type/sword-shield.png"
+                            except Exception:
+                                pass
                 except Exception as e:
-                    print(f"Неожиданная ошибка при обработке юнита '{unit_name}': {e}")
-                    unit_text = f"{unit_name}\n(Ошибка обработки)"
+                    print(f"[WARN] update_garrison unit info: {e}")
 
-                # Создаем макет для одного юнита
-                unit_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=150, spacing=10)
-
-                # Изображение юнита - проверяем существование файла
-                unit_image_source = unit_image
-                if unit_image_source and not os.path.exists(unit_image_source):
-                    print(f"Файл изображения не найден: {unit_image_source}")
-                    unit_image_source = "files/pict/placeholder.png"
-
-                unit_image_widget = Image(
-                    source=unit_image_source,
-                    size_hint=(None, None),
-                    size=(150, 150)  # Увеличенное изображение
+                card_h = dp(72) if unit_class == '1' else dp(90)
+                card = BoxLayout(
+                    orientation='horizontal', size_hint_y=None, height=card_h,
+                    spacing=dp(8), padding=[dp(6), dp(4), dp(6), dp(4)]
                 )
-                unit_layout.add_widget(unit_image_widget)
+                card_bg = CLASS_COLORS.get(unit_class, (0.20, 0.22, 0.30, 1))
+                with card.canvas.before:
+                    Color(*card_bg)
+                    card._bg = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(10)])
+                card.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                          size=lambda i, v: setattr(i._bg, 'size', v))
 
-                # Справа — контейнер с текстом и специализацией
-                right_container = BoxLayout(orientation='horizontal', size_hint=(1, 1), padding=5, spacing=10)
-
-                # Текст с названием юнита
-                text_label = Label(
-                    text=unit_text,
-                    font_size='17sp',
-                    color=(1, 1, 1, 1),
-                    halign='left',
-                    valign='middle'
+                img_src = unit_image if unit_image and os.path.exists(unit_image) else ''
+                img_size = dp(72) if unit_class == '1' else dp(82)
+                unit_img = Image(
+                    source=img_src, size_hint=(None, None),
+                    size=(img_size, img_size),
+                    allow_stretch=True, keep_ratio=True, mipmap=True
                 )
-                text_label.bind(size=text_label.setter('text_size'))
-                right_container.add_widget(text_label)
+                card.add_widget(unit_img)
 
-                # Иконка специализации (только для классов 2 и 3)
-                if unit_class in ("2", "3") and specialization_icon_path:
+                info = BoxLayout(orientation='vertical', spacing=dp(2))
+                class_labels = {'1': '', '2': '  [Герой]', '3': '  [Чемпион]', '4': '  [Легенда]'}
+                cls_tag = class_labels.get(unit_class, '')
+                name_lbl = Label(
+                    text=f'[b]{unit_name}[/b][color=#AAAAAA]{cls_tag}[/color]',
+                    markup=True, font_size=sp(12), color=(0.95, 0.95, 0.95, 1),
+                    halign='left', valign='middle', size_hint_y=None, height=dp(22)
+                )
+                name_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+                info.add_widget(name_lbl)
+
+                if unit_class == '1':
+                    cnt_lbl = Label(
+                        text=f'[color=#FFD700]{format_number(unit_count)}[/color] бойцов',
+                        markup=True, font_size=sp(11), color=(0.80, 0.80, 0.80, 1),
+                        halign='left', valign='middle', size_hint_y=None, height=dp(18)
+                    )
+                    cnt_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+                    info.add_widget(cnt_lbl)
+
+                card.add_widget(info)
+
+                if unit_class in ('2', '3') and specialization_icon_path:
                     if os.path.exists(specialization_icon_path):
-                        icon_image = Image(
+                        card.add_widget(Image(
                             source=specialization_icon_path,
-                            size_hint=(None, None),
-                            size=(120, 120),
-                            pos_hint={'center_y': 0.5}
-                        )
-                        right_container.add_widget(icon_image)
-                    else:
-                        print(f"Файл иконки специализации не найден: {specialization_icon_path}")
+                            size_hint=(None, None), size=(dp(40), dp(40)),
+                            pos_hint={'center_y': 0.5},
+                            allow_stretch=True, keep_ratio=True
+                        ))
 
-                # Добавляем правый контейнер
-                unit_layout.add_widget(right_container)
-
-                # Добавляем макет юнита в контейнер
-                self.attacking_units_box.add_widget(unit_layout)
+                self.attacking_units_box.add_widget(card)
 
         except Exception as e:
             print(f"Ошибка при обновлении гарнизона: {e}")
+            error_label = Label(
+                text="Ошибка загрузки гарнизона",
+                size_hint_y=None, height=dp(60), font_size=sp(13),
+                color=(1, 0, 0, 1), halign='center', valign='middle'
+            )
+            error_label.bind(size=error_label.setter('text_size'))
+            self.attacking_units_box.add_widget(error_label)
 
     def get_garrison(self):
         """Получает гарнизон города из таблицы garrisons и отображает его с учетом класса и специализации юнитов."""

@@ -372,14 +372,12 @@ class AuthorScreen(Screen):
         )
         layout.add_widget(credits_label)
 
-        # Кнопка "Назад" — уменьшена (остается без изменений)
-        back_button = Button(
+        # Кнопка "Назад"
+        back_button = RoundedButton(
             text="Назад",
             size_hint=(0.3, None),
-            height=dp(40),
+            height=dp(44),
             pos_hint={'center_x': 0.5},
-            background_color=(0.2, 0.6, 1, 0.8),
-            color=(1, 1, 1, 1),
             font_size='14sp'
         )
         back_button.bind(on_press=self.go_back)
@@ -1266,19 +1264,10 @@ class KingdomSelectionWidget(MDFloatLayout):
                 size=self.faction_panel_container.size,
                 radius=[dp(20)]
             )
-            # Золотая полоска сверху
-            self._faction_accent_color = Color(0.75, 0.55, 0.15, 0.95)
-            self._faction_accent = RoundedRectangle(
-                pos=self.faction_panel_container.pos,
-                size=(self.faction_panel_container.width, dp(4)),
-                radius=[dp(20), dp(20), 0, 0]
-            )
 
         def update_faction_bg(instance, value):
             self.faction_bg.pos = instance.pos
             self.faction_bg.size = instance.size
-            self._faction_accent.pos = instance.pos
-            self._faction_accent.size = (instance.width, dp(4))
 
         self.faction_panel_container.bind(pos=update_faction_bg, size=update_faction_bg)
 
@@ -1352,19 +1341,10 @@ class KingdomSelectionWidget(MDFloatLayout):
                 size=self.settings_panel_container.size,
                 radius=[dp(20)]
             )
-            # Синяя полоска сверху
-            self._settings_accent_color = Color(0.20, 0.50, 0.88, 0.95)
-            self._settings_accent = RoundedRectangle(
-                pos=self.settings_panel_container.pos,
-                size=(self.settings_panel_container.width, dp(4)),
-                radius=[dp(20), dp(20), 0, 0]
-            )
 
         def update_settings_bg(instance, value):
             self.settings_bg.pos = instance.pos
             self.settings_bg.size = instance.size
-            self._settings_accent.pos = instance.pos
-            self._settings_accent.size = (instance.width, dp(4))
 
         self.settings_panel_container.bind(pos=update_settings_bg, size=update_settings_bg)
 
@@ -1770,7 +1750,7 @@ class KingdomSelectionWidget(MDFloatLayout):
         elif text == 'Борьба':
             self.selected_ideology = 'Борьба'
             # Обновляем текст, цвет и иконку
-            self.ideology_bonus_label.text = "+850% к добыче кристаллов"
+            self.ideology_bonus_label.text = "+550% к добыче кристаллов"
             self.ideology_bonus_label.color = (1.0, 0.5, 0.5, 1)  # Красноватый цвет
             self.ideology_bonus_icon.source = 'files/status/resource_box/crystal.png'
             # Важно: перезагрузить текстуру изображения
@@ -2467,13 +2447,13 @@ class MenuWidget(FloatLayout):
         )
         self.add_widget(self.bg_image)
 
-        # ======== Логотип с черной обводкой ========
-        self.title_label = Label(
-            text="Легенды Лэрдона",
+        # ======== Логотип с анимированной обводкой ========
+        self.title_label = AnimatedLabel(
+            text="[b]Легенды Лэрдона[/b]",
             font_size='48sp',
             bold=True,
-            color=(1, 1, 1, 1),  # Белый текст
-            outline_color=(0, 0, 0, 1),  # Черная обводка
+            color=(1, 0.92, 0.60, 1),
+            outline_color=(0, 0, 0, 1),
             outline_width=3,
             halign='center',
             valign='middle',
@@ -2482,6 +2462,7 @@ class MenuWidget(FloatLayout):
             markup=True
         )
         self.add_widget(self.title_label)
+        self.title_label.start_glow_animation()
 
         # ======== Контейнер для кнопок ========
         self.button_container = FloatLayout(size_hint=(1, 0.7), pos_hint={'center_x': 0.5, 'y': 0.15})
@@ -2500,18 +2481,13 @@ class MenuWidget(FloatLayout):
         self.selected_button = None
 
         for config in button_configs:
-            btn = Button(
+            btn = GameButton(
                 text=config["text"],
+                button_type=config["type"],
                 size_hint=(0.5, 0.12),
                 pos_hint={'center_x': 0.5, 'y': config["y_pos"]},
-                background_color=(0.2, 0.2, 0.2, 0.8),  # Темный фон
-                color=(1, 1, 1, 1),  # Белый текст
-                font_size='22sp',
-                bold=True,
-                background_normal='',  # Убираем стандартный фон
-                background_down='',  # Убираем стандартный фон при нажатии
-                border=(2, 2, 2, 2)
             )
+            btn.font_size = '22sp'
 
             # Назначаем обработчики событий
             btn.bind(
@@ -2528,14 +2504,12 @@ class MenuWidget(FloatLayout):
 
     def select_button(self, button):
         """Выделяет выбранную кнопку"""
-        # Снимаем выделение с предыдущей кнопки
-        if self.selected_button:
-            self.selected_button.background_color = (0.2, 0.2, 0.2, 0.8)  # Темный фон
-            self.selected_button.color = (1, 1, 1, 1)  # Белый текст
+        if self.selected_button and self.selected_button is not button:
+            self.selected_button.glow_intensity = 0.0
+            self.selected_button.update_canvas()
 
-        # Выделяем новую кнопку
-        button.background_color = (0.4, 0.2, 0.1, 0.9)  # Оранжево-коричневый фон
-        button.color = (1, 1, 1, 1)  # Белый текст
+        button.glow_intensity = 0.9
+        button.update_canvas()
         self.selected_button = button
 
     def on_button_press(self, button):
@@ -2595,14 +2569,38 @@ def ssp(x):
 
 class DossierScreen(Screen):
 
+    FACTION_COLORS = {
+        'Вампиры': (0.55, 0.10, 0.75, 1),
+        'Север':   (0.10, 0.50, 0.85, 1),
+        'Эльфы':   (0.15, 0.72, 0.35, 1),
+        'Адепты':  (0.90, 0.62, 0.10, 1),
+        'Элины':   (0.90, 0.32, 0.10, 1),
+    }
+
     def __init__(self, conn, **kwargs):
         super().__init__(**kwargs)
         self.conn = conn
         self.tabs = None
-        self.build_ui()
 
-        # Привязываем обработчик изменения размера
+        # Фоновое изображение
+        with self.canvas.before:
+            self._dossier_bg = Rectangle(
+                source='files/menu/vampire.jpg',
+                pos=self.pos,
+                size=self.size
+            )
+            Color(0, 0, 0, 0.55)
+            self._dossier_overlay = Rectangle(pos=self.pos, size=self.size)
+        self.bind(pos=self._upd_dossier_bg, size=self._upd_dossier_bg)
+
+        self.build_ui()
         Window.bind(on_resize=self.on_window_resize)
+
+    def _upd_dossier_bg(self, *args):
+        self._dossier_bg.pos = self.pos
+        self._dossier_bg.size = self.size
+        self._dossier_overlay.pos = self.pos
+        self._dossier_overlay.size = self.size
 
     # Таблицы званий для каждой фракции
     RANK_TABLES = {
@@ -2751,6 +2749,11 @@ class DossierScreen(Screen):
     # RANK HELPERS
     # -------------------------
 
+    def _color_to_hex(self, color_tuple):
+        """Конвертирует RGBA tuple (0-1) в hex строку без #"""
+        r, g, b = color_tuple[:3]
+        return '{:02X}{:02X}{:02X}'.format(int(r * 255), int(g * 255), int(b * 255))
+
     def _priority_to_roman(self, priority):
         """Конвертирует числовой приоритет (1-19) в римскую цифру"""
         romans = {
@@ -2875,11 +2878,27 @@ class DossierScreen(Screen):
             spacing=sdp(8)
         )
 
+        with bar.canvas.before:
+            Color(0, 0, 0, 0.65)
+            _bar_bg = Rectangle(pos=bar.pos, size=bar.size)
+            Color(0.75, 0.55, 0.15, 0.9)
+            _bar_accent = Rectangle(pos=bar.pos, size=(bar.width, dp(3)))
+
+        def _upd_bar(instance, value):
+            _bar_bg.pos = instance.pos
+            _bar_bg.size = instance.size
+            _bar_accent.pos = instance.pos
+            _bar_accent.size = (instance.width, dp(3))
+
+        bar.bind(pos=_upd_bar, size=_upd_bar)
+
         title = Label(
             text=" [b]Рейтинг[/b]",
             markup=True,
             font_size=font_sizes['title'],
             color=get_color_from_hex('#FFD700'),
+            outline_color=(0, 0, 0, 1),
+            outline_width=2,
             halign='left',
             valign='middle',
             size_hint_x=None,
@@ -2896,11 +2915,12 @@ class DossierScreen(Screen):
     def _create_tabs_panel(self, params):
         is_landscape = params['is_landscape']
 
-        tab_height = sdp(30 if is_landscape else 36)
+        tab_height = sdp(30 if is_landscape else 38)
         self.tabs = TabbedPanel(
             do_default_tab=False,
             tab_height=tab_height,
-            tab_width=sdp(140)
+            tab_width=sdp(150),
+            background_color=(0.05, 0.07, 0.12, 1),
         )
         self._load_dossier_data_to_tabs(self.tabs, params)
         return self.tabs
@@ -2953,25 +2973,25 @@ class DossierScreen(Screen):
         buttons = [
             {
                 'text': "Назад",
-                'bg_color': (0.2, 0.4, 0.8, 1),
+                'btn_type': 'start',
                 'action': self.go_back
             },
             {
                 'text': "Очистить все",
-                'bg_color': (0.6, 0.15, 0.15, 1),
+                'btn_type': 'exit',
                 'action': self.clear_dossier
             }
         ]
 
         for btn_info in buttons:
-            btn = Button(
+            btn = GameButton(
                 text=btn_info['text'],
-                font_size=btn_config['font_size'],
+                button_type=btn_info['btn_type'],
                 size_hint_y=None,
                 height=btn_config['height'],
                 size_hint_x=btn_config['size_hint_x'],
-                background_color=btn_info['bg_color']
             )
+            btn.font_size = btn_config['font_size']
             btn.bind(on_release=btn_info['action'])
             panel.add_widget(btn)
 
@@ -2982,36 +3002,56 @@ class DossierScreen(Screen):
     # -------------------------
 
     def _create_empty_state(self, params):
-        """Создает адаптивное сообщение об отсутствии данных"""
+        """Создает стилизованное сообщение об отсутствии данных"""
         is_landscape = params['is_landscape']
-
-        # Используем BoxLayout для центрирования
-        container = BoxLayout(
-            orientation='vertical',
-            padding=self._get_spacing(20, is_landscape)
-        )
-
         font_sizes = self._get_font_sizes(16, is_landscape)
 
-        # Основной текст
+        container = BoxLayout(
+            orientation='vertical',
+            padding=self._get_spacing(30, is_landscape),
+            spacing=self._get_spacing(12, is_landscape)
+        )
+
+        with container.canvas.before:
+            Color(0.06, 0.08, 0.14, 0.85)
+            _emp_bg = RoundedRectangle(pos=container.pos, size=container.size, radius=[dp(16)])
+            Color(0.3, 0.3, 0.5, 0.4)
+            _emp_border = Line(
+                rounded_rectangle=(container.x, container.y, container.width, container.height, dp(16)),
+                width=dp(1)
+            )
+
+        def _upd_emp(instance, value):
+            _emp_bg.pos = instance.pos
+            _emp_bg.size = instance.size
+            _emp_border.rounded_rectangle = (instance.x, instance.y, instance.width, instance.height, dp(16))
+
+        container.bind(pos=_upd_emp, size=_upd_emp)
+
         main_label = Label(
-            text="Вы еще не воевали...",
+            text="[b]Вы ещё не воевали...[/b]",
+            markup=True,
             font_size=font_sizes['title'],
             halign='center',
-            valign='middle'
+            valign='middle',
+            color=(0.85, 0.85, 1.0, 1),
+            size_hint_y=None,
+            height=ssp(30)
         )
 
-        # Подзаголовок
         sub_label = Label(
-            text="Начните играть, чтобы увидеть статистику",
+            text="Начните игру, чтобы здесь появилась статистика",
             font_size=font_sizes['small'],
             halign='center',
-            valign='top',
-            color=(0.7, 0.7, 0.7, 1)
+            valign='middle',
+            color=(0.55, 0.55, 0.65, 1),
+            size_hint_y=None,
+            height=ssp(20)
         )
 
-        container.add_widget(main_label)
-        container.add_widget(sub_label)
+        for w in (main_label, sub_label):
+            w.bind(size=w.setter('text_size'))
+            container.add_widget(w)
 
         return container
 
@@ -3020,35 +3060,89 @@ class DossierScreen(Screen):
     # -------------------------
 
     def _create_character_card(self, data, params, faction=None):
-        """Создает адаптивную карточку персонажа с учетом фракции"""
+        """Создает стилизованную карточку персонажа с фракционным цветом"""
         is_landscape = params['is_landscape']
 
-        # Динамические параметры
         card_padding = self._get_spacing(8 if is_landscape else 12, is_landscape)
         card_spacing = self._get_spacing(6 if is_landscape else 8, is_landscape)
-
-        card = BoxLayout(
-            orientation='vertical',
-            spacing=card_spacing,
-            padding=card_padding,
-            size_hint_y=None,
-            size_hint_x=1
-        )
-        card.bind(minimum_height=card.setter('height'))
 
         # Получаем звание и фракцию
         raw_rank = data.get('military_rank') or "Еще не признан..."
         if faction is None:
             faction = data.get('faction', 'Неизвестно')
 
-        # Получаем полную информацию о ранге
         rank_info = self._get_rank_info(raw_rank, faction)
+        fc = self.FACTION_COLORS.get(faction, (0.3, 0.3, 0.5, 1))
 
-        # Создаем верхнюю строку
+        # Внешняя обёртка — добавим отступ слева для цветной полосы
+        outer = BoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            size_hint_x=1,
+            spacing=0,
+        )
+        outer.bind(minimum_height=outer.setter('height'))
+
+        # Цветная левая полоса
+        accent_bar = BoxLayout(size_hint=(None, 1), width=dp(5))
+        with accent_bar.canvas.before:
+            Color(*fc)
+            _ab_rect = RoundedRectangle(pos=accent_bar.pos, size=accent_bar.size, radius=[dp(4), 0, 0, dp(4)])
+        accent_bar.bind(
+            pos=lambda i, v: setattr(_ab_rect, 'pos', v),
+            size=lambda i, v: setattr(_ab_rect, 'size', v)
+        )
+
+        # Основной контейнер карточки
+        card = BoxLayout(
+            orientation='vertical',
+            spacing=card_spacing,
+            padding=[card_padding, card_padding * 0.8, card_padding, card_padding * 0.8],
+            size_hint=(1, None),
+        )
+        card.bind(minimum_height=card.setter('height'))
+
+        with card.canvas.before:
+            Color(0.06, 0.08, 0.14, 0.92)
+            _card_bg = RoundedRectangle(pos=card.pos, size=card.size, radius=[0, dp(10), dp(10), 0])
+            Color(fc[0] * 0.4, fc[1] * 0.4, fc[2] * 0.4, 0.5)
+            _card_border = Line(
+                rounded_rectangle=(card.x, card.y, card.width, card.height, dp(10)),
+                width=dp(1)
+            )
+
+        def _upd_card_bg(instance, value):
+            _card_bg.pos = instance.pos
+            _card_bg.size = instance.size
+            _card_border.rounded_rectangle = (instance.x, instance.y, instance.width, instance.height, dp(10))
+
+        card.bind(pos=_upd_card_bg, size=_upd_card_bg)
+
         top_row = self._create_card_top_row(data, rank_info, params)
         card.add_widget(top_row)
 
-        return card
+        # Дата последней игры
+        last_data = data.get('last_data')
+        if last_data:
+            date_label = Label(
+                text=f"[color=#888888]Последняя игра: {last_data}[/color]",
+                markup=True,
+                font_size=ssp(10),
+                halign='right',
+                valign='middle',
+                size_hint_y=None,
+                height=ssp(14)
+            )
+            date_label.bind(size=date_label.setter('text_size'))
+            card.add_widget(date_label)
+
+        outer.add_widget(accent_bar)
+        outer.add_widget(card)
+
+        # Привязываем высоту outer к высоте card
+        card.bind(height=lambda i, v: setattr(outer, 'height', v + dp(4)))
+
+        return outer
 
     def _create_card_top_row(self, data, rank_info, params):
         """Создает верхнюю строку карточки с адаптивной компоновкой"""
@@ -3283,17 +3377,45 @@ class DossierScreen(Screen):
 
         # Создаем вкладки для каждой фракции
         for faction, items in factions.items():
-            tab = TabbedPanelItem(text=faction)
+            fc = self.FACTION_COLORS.get(faction, (0.3, 0.3, 0.5, 1))
+            tab = TabbedPanelItem(
+                text=faction,
+                color=(1, 1, 1, 1),
+                bold=True,
+                background_normal='',
+                background_down='',
+                background_color=(fc[0] * 0.4, fc[1] * 0.4, fc[2] * 0.4, 1),
+            )
 
-            scroll = ScrollView()
+            scroll = ScrollView(
+                bar_width=dp(6),
+                bar_color=(fc[0], fc[1], fc[2], 0.8),
+                bar_inactive_color=(fc[0] * 0.5, fc[1] * 0.5, fc[2] * 0.5, 0.4),
+                scroll_type=['bars', 'content']
+            )
             grid = GridLayout(
                 cols=1,
-                spacing=self._get_spacing(10, params['is_landscape']),
-                padding=self._get_spacing(10, params['is_landscape']),
+                spacing=self._get_spacing(8, params['is_landscape']),
+                padding=self._get_spacing(12, params['is_landscape']),
                 size_hint_y=None,
                 size_hint_x=1
             )
             grid.bind(minimum_height=grid.setter('height'))
+
+            # Заголовок фракции в начале списка
+            faction_header = Label(
+                text=f"[b][color=#{self._color_to_hex(fc)}]{faction}[/color][/b]  — история сражений",
+                markup=True,
+                font_size=ssp(16),
+                halign='center',
+                valign='middle',
+                size_hint_y=None,
+                height=ssp(28),
+                outline_color=(0, 0, 0, 1),
+                outline_width=1
+            )
+            faction_header.bind(size=faction_header.setter('text_size'))
+            grid.add_widget(faction_header)
 
             # Сортировка по приоритету звания
             sorted_items = []
@@ -3388,15 +3510,27 @@ class Lor(Screen):
     def build_ui(self):
         layout = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(20))
 
+        with layout.canvas.before:
+            Color(0, 0, 0, 0.58)
+            _layout_bg = RoundedRectangle(pos=layout.pos, size=layout.size, radius=[dp(10)])
+
+        def _upd_layout_bg(instance, value):
+            _layout_bg.pos = instance.pos
+            _layout_bg.size = instance.size
+
+        layout.bind(pos=_upd_layout_bg, size=_upd_layout_bg)
+
         title = Label(
             text="[b]История Лэрдона[/b]",
             markup=True,
-            font_size='32sp',
+            font_size='34sp',
             size_hint=(1, None),
-            height=dp(60),
+            height=dp(65),
             halign='center',
             valign='middle',
-            color=(1, 1, 1, 1)
+            color=(1, 0.85, 0.3, 1),
+            outline_color=(0, 0, 0, 1),
+            outline_width=2
         )
         layout.add_widget(title)
 
@@ -3499,13 +3633,11 @@ class Lor(Screen):
         animate_bar()
         layout.add_widget(scroll)
 
-        back_button = Button(
+        back_button = RoundedButton(
             text="Назад",
             size_hint=(0.3, None),
             height=dp(50),
             pos_hint={'center_x': 0.5},
-            background_color=(0.2, 0.6, 1, 1),
-            color=(1, 1, 1, 1),
             font_size='16sp'
         )
         back_button.bind(on_release=self.go_back)

@@ -221,7 +221,8 @@ def calculate_army_auras(army):
 
 
 def calculate_hero_stat_bonus(army):
-    """Сумма сырых характеристик живых героев (классы ≥2) для бонуса юнитам 1 класса.
+    """Сумма сырых характеристик живых героев классов 2 и 3 для бонуса юнитам 1 класса.
+    Класс 4 действует сам по себе и НЕ передаёт статы солдатам.
     Возвращает (bonus_atk, bonus_def, bonus_dur).
     Формула: у каждого юнита 1 класса атака += hero_atk, защита += hero_def + hero_dur/2.
     """
@@ -231,7 +232,8 @@ def calculate_hero_stat_bonus(army):
     for u in army:
         if u['unit_count'] <= 0:
             continue
-        if get_unit_class(u) >= 2:
+        uc = get_unit_class(u)
+        if uc == 2 or uc == 3:  # класс 4 исключён намеренно
             bonus_atk += _get_stat(u, 'Урон', 0)
             bonus_def += _get_stat(u, 'Защита', 0)
             bonus_dur += _get_stat(u, 'Живучесть', 0)
@@ -409,14 +411,26 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     _enrich_with_db_stats(atk_army, conn)
     _enrich_with_db_stats(def_army, conn)
 
-    # Стартовые значения и выделение героев вне боя
-    heroes = {'atk': None, 'def': None}
+    # Стартовые значения и выделение героев вне боя.
+    # heroes3 — класс 3 (вступает при потерях ≥85%).
+    # heroes4 — класс 4 (вступает последним: только когда класс 3 уже вступил или отсутствует, и потери ≥85%).
+    heroes3 = {'atk': None, 'def': None}
+    heroes4 = {'atk': None, 'def': None}
+    heroes = heroes3  # обратная совместимость для остального кода
     new_atk_army = []
     new_def_army = []
 
     for u in atk_army:
-        if get_unit_class(u) >= 3 and u['unit_count'] == 1:
-            heroes['atk'] = u
+        uc = get_unit_class(u)
+        if uc == 3 and u['unit_count'] == 1:
+            heroes3['atk'] = u
+            u['initial_count'] = 1
+            u['killed_count'] = 0
+            u['hero_engaged'] = False
+            u['hero_candidate'] = True
+            new_atk_army.append(u)
+        elif uc == 4 and u['unit_count'] == 1:
+            heroes4['atk'] = u
             u['initial_count'] = 1
             u['killed_count'] = 0
             u['hero_engaged'] = False
@@ -430,8 +444,16 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             new_atk_army.append(u)
 
     for u in def_army:
-        if get_unit_class(u) >= 3 and u['unit_count'] == 1:
-            heroes['def'] = u
+        uc = get_unit_class(u)
+        if uc == 3 and u['unit_count'] == 1:
+            heroes3['def'] = u
+            u['initial_count'] = 1
+            u['killed_count'] = 0
+            u['hero_engaged'] = False
+            u['hero_candidate'] = True
+            new_def_army.append(u)
+        elif uc == 4 and u['unit_count'] == 1:
+            heroes4['def'] = u
             u['initial_count'] = 1
             u['killed_count'] = 0
             u['hero_engaged'] = False
@@ -494,28 +516,44 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                              def_aura_atk=atk_aura_atk, def_aura_def=atk_aura_def,
                              atk_hero_bonus=def_hero_bonus, def_hero_bonus=atk_hero_bonus)
 
-        # Проверка на вступление героев при потерях > 85%
+        # Проверка на вступление героев при потерях ≥85%
         for side in ['atk', 'def']:
-            if heroes[side] is None:
-                continue
-            hero = heroes[side]
             army = atk_army if side == 'atk' else def_army
             active_units = [u for u in army if not u.get('hero_candidate', False)]
-
             total_initial = sum(u['initial_count'] for u in active_units)
             total_current = sum(u['unit_count'] for u in active_units)
+            losses_percent = 100.0 if total_initial == 0 else (
+                (total_initial - total_current) / total_initial * 100
+            )
 
-            if not hero.get('hero_engaged', False):
-                losses_percent = 100.0 if total_initial == 0 else ((total_initial - total_current) / total_initial) * 100
+            # Класс 3: вступает при потерях ≥85%
+            hero3 = heroes3[side]
+            if hero3 is not None and not hero3.get('hero_engaged', False):
                 if total_initial == 0 or losses_percent >= 85:
-                    hero['hero_engaged'] = True
-                    hero['unit_count'] = 1
-                    stats = hero.get('units_stats', {})
+                    hero3['hero_engaged'] = True
+                    hero3['unit_count'] = 1
+                    stats = hero3.get('units_stats', {})
                     if 'Урон' in stats:
                         stats['Урон'] = int(float(stats['Урон']) * 1.5)
                     if 'Защита' in stats:
                         stats['Защита'] = int(float(stats['Защита']) * 1.5)
-                    print(f"[BattleHero] Герой '{hero['unit_name']}' вступил в бой! Урон и Защита +50%")
+                    print(f"[BattleHero] Герой 3 кл. '{hero3['unit_name']}' вступил в бой! +50%")
+
+            # Класс 4: вступает ПОСЛЕДНИМ — только если класс 3 уже вступил (или отсутствует)
+            # и потери также ≥85%
+            hero4 = heroes4[side]
+            if hero4 is not None and not hero4.get('hero_engaged', False):
+                class3_done = (hero3 is None or hero3.get('hero_engaged', False)
+                               or hero3.get('unit_count', 0) <= 0)
+                if class3_done and (total_initial == 0 or losses_percent >= 85):
+                    hero4['hero_engaged'] = True
+                    hero4['unit_count'] = 1
+                    stats = hero4.get('units_stats', {})
+                    if 'Урон' in stats:
+                        stats['Урон'] = int(float(stats['Урон']) * 1.5)
+                    if 'Защита' in stats:
+                        stats['Защита'] = int(float(stats['Защита']) * 1.5)
+                    print(f"[BattleHero] Герой 4 кл. '{hero4['unit_name']}' вступил в бой! +50%")
 
         # Сохраняем состояние после раунда
         atk_total = sum(u['unit_count'] for u in atk_army)

@@ -420,35 +420,27 @@ class AIController:
     def manage_buildings(self):
         """
         Управляет строительством зданий для ИИ.
-        Теперь ИИ строит 12 больниц и 13 фабрик вместо 25 одного типа.
+        Строит больницы и фабрики во всех городах до достижения лимита (12 каждого типа, 24 всего).
         """
         try:
             crowns = self.resources['Кроны']
-            building_budget = int(crowns * 0.99)  # Используем 90% бюджета на строительство
+            building_budget = int(crowns * 0.99)
 
-            if building_budget < 20:
+            if building_budget < 10:
                 print("Недостаточно средств для строительства.")
                 return
 
-            # Фиксируем максимальное количество зданий — 24 всего
-            max_hospitals = 12
-            max_factories = 12
+            # Лимиты на город: 12 больниц + 12 фабрик = 24 всего
+            max_hospitals_per_city = 12
+            max_factories_per_city = 12
 
-            # Проверяем, сколько можно построить с учетом денег
-            max_by_money = building_budget // 10  # Каждое здание стоит 10 крон
-            total_possible = min(max_hospitals + max_factories, max_by_money)
+            # Загружаем города, чтобы знать сколько их
+            self.cities = self.load_cities()
+            num_cities = max(len(self.cities), 1)
 
-            # Пропорционально делим возможное количество
-            hospitals_to_build = int(total_possible * (max_hospitals / (max_hospitals + max_factories)))
-            factories_to_build = total_possible - hospitals_to_build
-
-            # Строим больницы
-            if hospitals_to_build > 0:
-                self.build_in_city("Больница", hospitals_to_build)
-
-            # Строим фабрики
-            if factories_to_build > 0:
-                self.build_in_city("Фабрика", factories_to_build)
+            # Передаём достаточно большой count: build_in_city сам ограничивает по лимиту города и деньгам
+            self.build_in_city("Больница", max_hospitals_per_city * num_cities)
+            self.build_in_city("Фабрика", max_factories_per_city * num_cities)
 
             self.save_all_data()
         except Exception as e:
@@ -456,11 +448,11 @@ class AIController:
 
     def build_in_city(self, building_type, count):
         """
-        Строительство зданий в городе.
+        Строительство зданий во всех городах фракции до достижения лимита.
         :param building_type: Тип здания ("Больница" или "Фабрика").
-        :param count: Максимальное количество зданий для постройки.
+        :param count: Максимальное суммарное количество зданий для постройки за вызов.
         """
-        cost = 10 if building_type == 'Больница' else 10
+        cost = 10
 
         # Загружаем актуальные данные о городах фракции
         self.cities = self.load_cities()
@@ -468,51 +460,65 @@ class AIController:
             print(f"Нет доступных городов для строительства у фракции '{self.faction}'.")
             return False
 
-        import random
-        target_city = random.choice(list(self.cities.values()))
-
-        # Загружаем актуальные данные о зданиях в выбранном городе
+        # Загружаем актуальные данные о зданиях (в self.cities_buildings)
         self.load_buildings()
-        city_buildings = self.buildings.get(target_city, {"Здания": {"Больница": 0, "Фабрика": 0}})
-        current_factories = city_buildings["Здания"].get("Фабрика", 0)
-        current_hospitals = city_buildings["Здания"].get("Больница", 0)
-        total_buildings = current_factories + current_hospitals
 
-        # Максимальное количество зданий в городе
         max_buildings_per_city = 24
+        max_type_per_city = 12  # Лимит одного типа здания на город
 
-        # Вычисляем, сколько еще можно построить зданий в городе
-        remaining_slots = max_buildings_per_city - total_buildings
-        if remaining_slots <= 0:
-            print(f"В городе {target_city} достигнут лимит зданий ({max_buildings_per_city}).")
-            return False
+        total_built = 0
 
-        # Ограничиваем количество зданий, которое можно построить, минимальным значением
-        # между запрошенным количеством (`count`) и доступными слотами (`remaining_slots`)
-        count_to_build = min(count, remaining_slots)
+        for target_city in self.cities.values():
+            if count <= 0:
+                break
+            if self.resources['Кроны'] < cost:
+                print("Недостаточно крон для дальнейшего строительства.")
+                break
 
-        # Проверяем, достаточно ли денег для постройки
-        total_cost = cost * count_to_build
-        if self.resources['Кроны'] < total_cost:
-            print(f"Недостаточно денег для постройки {count_to_build} зданий в городе {target_city}.")
-            return False
+            city_b = self.cities_buildings.get(target_city, {"Больница": 0, "Фабрика": 0})
+            current_hospitals = city_b.get("Больница", 0)
+            current_factories = city_b.get("Фабрика", 0)
+            total_buildings = current_hospitals + current_factories
+            current_type = current_hospitals if building_type == 'Больница' else current_factories
 
-        # Увеличиваем количество зданий в выбранном городе
-        self.buildings.setdefault(target_city, {"Здания": {"Больница": 0, "Фабрика": 0}})
-        self.buildings[target_city]["Здания"][building_type] += count_to_build
+            remaining_total = max_buildings_per_city - total_buildings
+            remaining_type = max_type_per_city - current_type
+            remaining_slots = min(remaining_total, remaining_type)
 
-        # Обновляем глобальные переменные
-        if building_type == 'Больница':
-            self.hospitals += count_to_build
-        elif building_type == 'Фабрика':
-            self.factories += count_to_build
+            if remaining_slots <= 0:
+                print(f"В городе {target_city} достигнут лимит {building_type}.")
+                continue
 
-        # Списываем кроны
-        self.resources['Кроны'] -= total_cost
-        print(f"Построено {count_to_build} {building_type} в городе {target_city}")
+            can_afford = self.resources['Кроны'] // cost
+            count_to_build = min(count, remaining_slots, can_afford)
 
+            if count_to_build <= 0:
+                continue
 
-        return True
+            total_cost = cost * count_to_build
+
+            # Обновляем self.buildings (используется в save_buildings)
+            self.buildings.setdefault(target_city, {"Здания": {"Больница": 0, "Фабрика": 0}})
+            self.buildings[target_city]["Здания"][building_type] += count_to_build
+
+            # Обновляем self.cities_buildings, чтобы учитывать постройки в рамках этого вызова
+            self.cities_buildings.setdefault(target_city, {"Больница": 0, "Фабрика": 0})
+            self.cities_buildings[target_city][building_type] = (
+                self.cities_buildings[target_city].get(building_type, 0) + count_to_build
+            )
+
+            if building_type == 'Больница':
+                self.hospitals += count_to_build
+            elif building_type == 'Фабрика':
+                self.factories += count_to_build
+
+            self.resources['Кроны'] -= total_cost
+            count -= count_to_build
+            total_built += count_to_build
+
+            print(f"Построено {count_to_build} {building_type} в городе {target_city}")
+
+        return total_built > 0
 
     def sell_resources(self):
         if self.resources['Кристаллы'] > 100:
@@ -1460,8 +1466,10 @@ class AIController:
 
             # Учитываем, что одна фабрика может прокормить 100 людей
             self.raw_material += int((self.factories * 100) - (self.population * coeffs['food_loss']))
-            self.food_info = (
-                    int((self.factories * 100) - (self.population * coeffs['food_loss'])) - self.total_consumption)
+            # food_info — база для бонуса «Борьба»: не вычитаем потребление армии,
+            # так как армия уже списывает кристаллы напрямую.
+            # max(0, ...) — фракция с отрицательным производством просто не получает бонус.
+            self.food_info = max(0, int((self.factories * 100) - (self.population * coeffs['food_loss'])))
             self.food_peoples = int(self.population * coeffs['food_loss'])
 
 
@@ -2953,7 +2961,7 @@ class AIController:
             self.resources['Кроны'] = int(self.resources.get('Кроны', 0)) + crowns_bonus
             print(f"Бонус от смирения: +{crowns_bonus} Крон")
         elif system == "Борьба":
-            raw_material_bonus = int(self.food_info * 3.25)
+            raw_material_bonus = int(self.food_info * 0.25)
             self.resources['Кристаллы'] = int(self.resources.get('Кристаллы', 0)) + raw_material_bonus
             print(f"Бонус от борьбы: +{raw_material_bonus} Кристаллы")
 

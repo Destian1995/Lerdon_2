@@ -815,7 +815,7 @@ class Faction:
                     self.money += crowns_bonus
                     bonuses["Кроны"] = crowns_bonus
             elif system == "Борьба":
-                raw_material_bonus = int(self.food_info * 8.50)
+                raw_material_bonus = int(self.food_info * 5.50)
                 if raw_material_bonus > 0:
                     self.raw_material += raw_material_bonus
                     bonuses["Кристаллы"] = raw_material_bonus
@@ -1087,7 +1087,6 @@ class Faction:
 
         # Рассчитываем базовый прирост Кристаллов (до бонусов городов)
         base_raw_material_production = (self.factories * 105) - (self.population * coeffs['food_loss'])
-        self.food_info = int(base_raw_material_production) - self.current_consumption
 
         # Загружаем коэффициенты kf_crystal для городов фракции
         city_raw_material_bonus = 0.0
@@ -1110,6 +1109,13 @@ class Faction:
         # Рассчитываем бонус от городов (kf_crystal)
         # Базовый прирост Кристаллов * суммарный kf_crystal
         total_city_bonus_kf = int(base_raw_material_production * city_raw_material_bonus)
+
+        # food_info — база для бонуса идеологии «Борьба»:
+        # включает бонус городов, но НЕ вычитает потребление армии
+        # (армия уже списывает кристаллы напрямую; двойное наказание нарушает баланс).
+        # max(0, ...) гарантирует, что фракция с отрицательным базовым производством
+        # просто не получает бонус, вместо отрицательного значения.
+        self.food_info = max(0, int(base_raw_material_production + total_city_bonus_kf))
 
         # Итоговый прирост Кристаллов = базовый + бонус от kf_crystal - потребление армии
         # self.raw_material увеличивается на этот итоговый прирост
