@@ -411,6 +411,43 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     _enrich_with_db_stats(atk_army, conn)
     _enrich_with_db_stats(def_army, conn)
 
+    # === Система опыта: миграция + загрузка + бонусы ===
+    try:
+        _cur = conn.cursor()
+        try:
+            _cur.execute("ALTER TABLE garrisons ADD COLUMN experience INTEGER DEFAULT 0")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # Колонка уже есть
+
+        # Загружаем опыт для каждого юнита
+        for army, city in [(atk_army, attacking_city), (def_army, defending_city)]:
+            for u in army:
+                _cur.execute(
+                    "SELECT COALESCE(experience, 0) FROM garrisons WHERE city_name = ? AND unit_name = ?",
+                    (city, u['unit_name'])
+                )
+                row = _cur.fetchone()
+                u['experience'] = row[0] if row else 0
+
+                # Бонус от опыта: Новобранец(0), Бывалый(3+: +5%), Ветеран(7+: +15%), Элита(12+: +25%)
+                exp = u['experience']
+                if exp >= 12:
+                    exp_mult = 1.25
+                elif exp >= 7:
+                    exp_mult = 1.15
+                elif exp >= 3:
+                    exp_mult = 1.05
+                else:
+                    exp_mult = 1.0
+
+                if exp_mult > 1.0 and get_unit_class(u) == 1:
+                    stats = u.get('units_stats', {})
+                    stats['Урон'] = stats.get('Урон', 0) * exp_mult
+                    stats['Защита'] = stats.get('Защита', 0) * exp_mult
+    except Exception as e:
+        print(f"[EXP] Ошибка загрузки опыта: {e}")
+
     # Стартовые значения и выделение героев вне боя.
     # heroes3 — класс 3 (вступает при потерях ≥85%).
     # heroes4 — класс 4 (вступает последним: только когда класс 3 уже вступил или отсутствует, и потери ≥85%).
@@ -503,6 +540,26 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     # Данные для анимации
     battle_rounds = []
 
+    # === Мораль: загружаем morale из units, проверяем бегство ===
+    # morale хранится в units table (колонка morale, дефолт 100)
+    # При потерях > 50% и morale < 50 — шанс бегства 15% юнитов за раунд
+    def _check_morale_rout(army):
+        """Проверяет бегство юнитов с низкой моралью."""
+        total_initial = sum(u.get('initial_count', u['unit_count']) for u in army)
+        total_current = sum(u['unit_count'] for u in army)
+        if total_initial == 0:
+            return
+        loss_pct = (total_initial - total_current) / total_initial * 100
+        if loss_pct < 50:
+            return  # Потери < 50% — мораль держится
+        for u in army:
+            if u['unit_count'] <= 0 or get_unit_class(u) >= 2:
+                continue  # Герои не бегут
+            morale = _get_stat(u, 'Мораль', 100)
+            if morale < 50 and random.random() < 0.15:
+                fled = max(1, int(u['unit_count'] * 0.15))
+                u['unit_count'] = max(0, u['unit_count'] - fled)
+
     # Боевой цикл
     round_num = 0
     while round_num < MAX_ROUNDS:
@@ -588,6 +645,10 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                     if 'Защита' in stats:
                         stats['Защита'] = int(float(stats['Защита']) * 1.5)
                     print(f"[BattleHero] Герой 4 кл. '{hero4['unit_name']}' вступил в бой! +50%")
+
+        # Проверка морали — бегство при тяжёлых потерях
+        _check_morale_rout(atk_army)
+        _check_morale_rout(def_army)
 
         # Сохраняем состояние после раунда
         atk_total = sum(u['unit_count'] for u in atk_army)
@@ -1527,6 +1588,23 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
         # Сброс характеристик юнитов 3 класса при необходимости
         reset_third_class_units_if_empty(conn, attacking_fraction)
         reset_third_class_units_if_empty(conn, defending_fraction)
+
+        # === Обновление опыта выживших юнитов (+1 за бой) ===
+        try:
+            # Выжившие в городе победителя получают опыт
+            target_city = defending_city if winner == 'attacking' else defending_city
+            cursor.execute("""
+                UPDATE garrisons SET experience = COALESCE(experience, 0) + 1
+                WHERE city_name = ? AND unit_count > 0
+            """, (target_city,))
+            # Выжившие в городе атакующего тоже (если проиграли — они остались дома)
+            if winner != 'attacking':
+                cursor.execute("""
+                    UPDATE garrisons SET experience = COALESCE(experience, 0) + 1
+                    WHERE city_name = ? AND unit_count > 0
+                """, (attacking_city,))
+        except Exception as e:
+            print(f"[EXP] Ошибка обновления опыта: {e}")
 
         conn.commit()
 

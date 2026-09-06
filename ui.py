@@ -1363,7 +1363,8 @@ class FortressInfoPopup(Popup):
             # Используем COALESCE: если unit_image пустой/NULL — берём image_path из units
             self.cursor.execute("""
                 SELECT g.unit_name, g.unit_count,
-                       COALESCE(NULLIF(g.unit_image, ''), u.image_path, '') as unit_image
+                       COALESCE(NULLIF(g.unit_image, ''), u.image_path, '') as unit_image,
+                       COALESCE(g.experience, 0) as experience
                 FROM garrisons g
                 LEFT JOIN units u ON g.unit_name = u.unit_name
                 WHERE g.city_name = ?
@@ -1392,7 +1393,9 @@ class FortressInfoPopup(Popup):
                 '4': (0.38, 0.10, 0.10, 1),   # Тёмно-красный (легенда)
             }
 
-            for unit_name, unit_count, unit_image in garrison_data:
+            for row_data in garrison_data:
+                unit_name, unit_count, unit_image = row_data[0], row_data[1], row_data[2]
+                unit_exp = row_data[3] if len(row_data) > 3 else 0
                 unit_class = '1'
                 specialization_icon_path = None
                 try:
@@ -1460,7 +1463,7 @@ class FortressInfoPopup(Popup):
                 name_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
                 info.add_widget(name_lbl)
 
-                # Количество (только для класса 1)
+                # Количество + опыт (только для класса 1)
                 if unit_class == '1':
                     cnt_lbl = Label(
                         text=f'[color=#FFD700]{format_number(unit_count)}[/color] бойцов',
@@ -1469,6 +1472,23 @@ class FortressInfoPopup(Popup):
                     )
                     cnt_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
                     info.add_widget(cnt_lbl)
+
+                    # Уровень опыта
+                    if unit_exp >= 12:
+                        rank_text = "[color=#FF4444]Элита[/color] (+25%)"
+                    elif unit_exp >= 7:
+                        rank_text = "[color=#FFD700]Ветеран[/color] (+15%)"
+                    elif unit_exp >= 3:
+                        rank_text = "[color=#88CCFF]Бывалый[/color] (+5%)"
+                    else:
+                        rank_text = "[color=#888888]Новобранец[/color]"
+                    exp_lbl = Label(
+                        text=rank_text, markup=True,
+                        font_size=sp(10), halign='left', valign='middle',
+                        size_hint_y=None, height=dp(16)
+                    )
+                    exp_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+                    info.add_widget(exp_lbl)
 
                 card.add_widget(info)
 
