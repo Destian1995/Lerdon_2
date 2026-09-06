@@ -475,106 +475,75 @@ class EventManager:
 
     def show_temporary_build(self, description, event_type):
         """
-        Стильная бегущая строка с градиентным фоном, иконкой типа и плавной анимацией.
+        Бегущая строка: фон на всю ширину экрана, текст скользит по нему.
         """
         if hasattr(self, '_running_marquee') and self._running_marquee:
             Clock.schedule_once(lambda dt: self.show_temporary_build(description, event_type), 2)
             return
 
-        # Стили по типу события
+        # Цвета по типу
         styles = {
-            'passive':   {'color': (0.9, 0.9, 0.9, 1),   'bg': (0.08, 0.10, 0.18, 0.85), 'accent': (0.3, 0.5, 0.7, 1),  'icon': '📜'},
-            'active':    {'color': (1.0, 0.95, 0.7, 1),   'bg': (0.15, 0.12, 0.05, 0.85), 'accent': (0.85, 0.7, 0.3, 1), 'icon': '⚔'},
-            'sequences': {'color': (0.7, 0.9, 1.0, 1),    'bg': (0.05, 0.08, 0.15, 0.85), 'accent': (0.3, 0.6, 0.9, 1),  'icon': '🔮'},
+            'passive':   {'color': (0.9, 0.9, 0.9, 1),   'bg': (0.05, 0.06, 0.12, 0.9), 'accent': (0.3, 0.5, 0.7, 1)},
+            'active':    {'color': (1.0, 0.95, 0.7, 1),   'bg': (0.12, 0.10, 0.04, 0.9), 'accent': (0.85, 0.7, 0.3, 1)},
+            'sequences': {'color': (0.7, 0.9, 1.0, 1),    'bg': (0.04, 0.06, 0.12, 0.9), 'accent': (0.3, 0.6, 0.9, 1)},
         }
         style = styles.get(event_type, styles['passive'])
 
-        font_size = get_adaptive_font_size(min_size=14, max_size=18)
+        font_size = get_adaptive_font_size(min_size=15, max_size=20)
         screen_width = Window.width
-        bar_height = dp(42)
-        start_y = Window.height * 0.13
+        bar_height = dp(38)
+        bar_y = Window.height * 0.12
 
-        # Текст с иконкой
-        display_text = f"  {style['icon']}  {description}  "
-
-        # Измеряем ширину текста
-        build_label = Label(
-            text=display_text, font_size=font_size, markup=True,
-            size_hint=(None, None), height=bar_height,
-            text_size=(None, bar_height), shorten=False
+        # === Фон-полоса на весь экран (фиксированная) ===
+        from kivy.uix.widget import Widget as _Widget
+        bg_bar = _Widget(size_hint=(None, None), size=(screen_width, bar_height), pos=(0, bar_y))
+        accent = style['accent']
+        with bg_bar.canvas:
+            Color(*style['bg'])
+            bg_bar._bg = Rectangle(pos=bg_bar.pos, size=bg_bar.size)
+            # Верхняя акцентная линия
+            Color(*accent[:3], 0.6)
+            bg_bar._top = Rectangle(pos=(0, bar_y + bar_height - dp(2)), size=(screen_width, dp(2)))
+            # Нижняя акцентная линия
+            Color(*accent[:3], 0.4)
+            bg_bar._bot = Rectangle(pos=(0, bar_y), size=(screen_width, dp(2)))
+        bg_bar.bind(
+            pos=lambda i, v: (setattr(i._bg, 'pos', v), setattr(i._top, 'pos', (0, v[1] + bar_height - dp(2))), setattr(i._bot, 'pos', (0, v[1]))),
+            size=lambda i, v: (setattr(i._bg, 'size', v), setattr(i._top, 'size', (v[0], dp(2))), setattr(i._bot, 'size', (v[0], dp(2))))
         )
-        build_label.texture_update()
-        text_width = build_label.texture_size[0] + dp(40)
+        self.game_screen.add_widget(bg_bar)
 
-        # Контейнер
-        from kivy.uix.floatlayout import FloatLayout
-        container = FloatLayout(
-            size_hint=(None, None),
-            size=(text_width, bar_height),
-            pos=(screen_width, start_y)
-        )
-
-        # Фон с градиентом (основной + акцентная полоса сверху)
-        bg_color = style['bg']
-        accent_color = style['accent']
-        with container.canvas.before:
-            # Основной фон
-            Color(*bg_color)
-            container._bg = RoundedRectangle(
-                pos=container.pos, size=container.size, radius=[dp(6)]
-            )
-            # Акцентная полоска снизу
-            Color(*accent_color[:3], 0.7)
-            container._accent = Rectangle(
-                pos=(container.x, container.y),
-                size=(container.width, dp(2))
-            )
-            # Акцентная полоска сверху
-            Color(*accent_color[:3], 0.4)
-            container._accent_top = Rectangle(
-                pos=(container.x, container.y + bar_height - dp(2)),
-                size=(container.width, dp(2))
-            )
-
-        def update_bg(inst, val):
-            inst._bg.pos = inst.pos
-            inst._bg.size = inst.size
-            inst._accent.pos = (inst.x, inst.y)
-            inst._accent.size = (inst.width, dp(2))
-            inst._accent_top.pos = (inst.x, inst.y + bar_height - dp(2))
-            inst._accent_top.size = (inst.width, dp(2))
-
-        container.bind(pos=update_bg, size=update_bg)
-
-        # Текст
+        # === Текст (скользит по фону) ===
+        display_text = f"    {description}    "
         text_label = Label(
             text=display_text, font_size=font_size,
-            color=style['color'], markup=True,
-            size_hint=(1, 1), halign='left', valign='middle',
-            text_size=(text_width, bar_height),
-            bold=True
+            color=style['color'], markup=True, bold=True,
+            size_hint=(None, None), height=bar_height,
+            halign='left', valign='middle',
         )
-        container.add_widget(text_label)
+        # Измеряем ширину
+        text_label.texture_update()
+        text_width = text_label.texture_size[0] + dp(20)
+        text_label.size = (text_width, bar_height)
+        text_label.text_size = (text_width, bar_height)
+        text_label.pos = (screen_width, bar_y)
 
-        self.game_screen.add_widget(container)
+        self.game_screen.add_widget(text_label)
 
-        # Анимация: появление + движение + исчезновение
-        total_distance = text_width + screen_width
-        duration = total_distance / dp(160)
+        # === Анимация текста: справа → налево ===
+        total_distance = screen_width + text_width
+        duration = total_distance / dp(140)  # скорость
 
-        # Плавное появление
-        container.opacity = 0
-        anim_fade_in = Animation(opacity=1, duration=0.3)
-        anim_move = Animation(pos=(-text_width, start_y), duration=duration, t='linear')
-        anim = anim_fade_in + anim_move
+        anim = Animation(x=-text_width, duration=duration, t='linear')
 
         def on_complete(*args):
             try:
-                self.game_screen.remove_widget(container)
+                self.game_screen.remove_widget(text_label)
+                self.game_screen.remove_widget(bg_bar)
             except Exception:
                 pass
             self._running_marquee = False
 
         self._running_marquee = True
         anim.bind(on_complete=on_complete)
-        anim.start(container)
+        anim.start(text_label)
