@@ -1008,7 +1008,7 @@ def show_faction_bonuses_popup(conn, faction):
     FACTION_DATA = {
         'Север': {
             'name': 'Шквал',
-            'desc': 'Если бонусы увеличили урон в 5+ раз → ещё +60%',
+            'desc': 'Если бонусы увеличили урон в 5+ раз, ещё +60%',
             'color': (0.25, 0.52, 0.92, 1),
             'calc': lambda: _calc_shkval(base_unit_atk, total_unit_atk),
         },
