@@ -296,6 +296,10 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     def_attack = calculate_unit_power(defender, is_attacking=True)
     def_defense = calculate_unit_power(defender, is_attacking=False)
 
+    # Сохраняем базовый урон до бонусов (для Шквала Севера)
+    atk_base_attack = atk_attack
+    def_base_attack = def_attack
+
     # Бонус от героев 2+ класса: сырые характеристики прибавляются к каждому юниту 1 класса
     if get_unit_class(attacker) == 1:
         atk_attack += atk_hero_bonus[0]
@@ -309,6 +313,15 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     atk_defense *= (1 + atk_aura_def / 100.0)
     def_attack *= (1 + def_aura_atk / 100.0)
     def_defense *= (1 + def_aura_def / 100.0)
+
+    # Север: Шквал — если итоговый урон юнита >= 5x от базового (от артефактов/героев),
+    # то урон ещё +60%
+    if atk_fraction == 'Север' and get_unit_class(attacker) == 1 and atk_base_attack > 0:
+        if atk_attack / atk_base_attack >= 5.0:
+            atk_attack *= 1.60
+    if def_fraction == 'Север' and get_unit_class(defender) == 1 and def_base_attack > 0:
+        if def_attack / def_base_attack >= 5.0:
+            def_attack *= 1.60
 
     # Тип-преимущество
     atk_type = get_unit_type(attacker)
@@ -331,14 +344,6 @@ def battle_chain(attacker, defender, city, user_faction, conn,
 
     incoming_to_def = atk_attack * attacker['unit_count']
     incoming_to_atk = def_attack * defender['unit_count']
-
-    # Север: Шквал — при превосходстве урона 5:1 и более, урон +60%
-    if atk_fraction == 'Север' and incoming_to_atk > 0:
-        if incoming_to_def / incoming_to_atk >= 5.0:
-            incoming_to_def *= 1.60
-    if def_fraction == 'Север' and incoming_to_def > 0:
-        if incoming_to_atk / incoming_to_def >= 5.0:
-            incoming_to_atk *= 1.60
 
     # Урон по инфраструктуре (как в старой системе — каждая стычка)
     try:
