@@ -285,7 +285,8 @@ def is_unit_combat_ready(unit, army=None):
 def battle_chain(attacker, defender, city, user_faction, conn,
                  atk_aura_atk=0, atk_aura_def=0,
                  def_aura_atk=0, def_aura_def=0,
-                 atk_hero_bonus=(0, 0, 0), def_hero_bonus=(0, 0, 0)):
+                 atk_hero_bonus=(0, 0, 0), def_hero_bonus=(0, 0, 0),
+                 atk_fraction='', def_fraction=''):
     """Одна стычка: симметричные пропорциональные потери."""
     if attacker['unit_count'] <= 0 or defender['unit_count'] <= 0:
         return attacker, defender
@@ -330,6 +331,14 @@ def battle_chain(attacker, defender, city, user_faction, conn,
 
     incoming_to_def = atk_attack * attacker['unit_count']
     incoming_to_atk = def_attack * defender['unit_count']
+
+    # Север: Шквал — при превосходстве урона 5:1 и более, урон +60%
+    if atk_fraction == 'Север' and incoming_to_atk > 0:
+        if incoming_to_def / incoming_to_atk >= 5.0:
+            incoming_to_def *= 1.60
+    if def_fraction == 'Север' and incoming_to_def > 0:
+        if incoming_to_atk / incoming_to_def >= 5.0:
+            incoming_to_atk *= 1.60
 
     # Урон по инфраструктуре (как в старой системе — каждая стычка)
     try:
@@ -507,25 +516,7 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     def_army = new_def_army
 
     # === Фракционные пассивные способности ===
-    # Север: Закалённые — +10% атака и защита зимой
-    try:
-        _cur = conn.cursor()
-        _cur.execute("SELECT season_index FROM season LIMIT 1")
-        _season_row = _cur.fetchone()
-        _current_season = _season_row[0] if _season_row else -1
-    except Exception:
-        _current_season = -1
-
-    if _current_season == 0:  # Зима
-        def _apply_winter_bonus(army, fraction):
-            if fraction != 'Север':
-                return
-            for u in army:
-                stats = u.get('units_stats', {})
-                stats['Урон'] = stats.get('Урон', 0) * 1.10
-                stats['Защита'] = stats.get('Защита', 0) * 1.10
-        _apply_winter_bonus(atk_army, attacking_fraction)
-        _apply_winter_bonus(def_army, defending_fraction)
+    # Север: Шквал — реализуется в battle_chain (при превосходстве 5:1 урон +60%)
 
     # Эльфы: Лесная хитрость — +10% инициатива всех юнитов
     if attacking_fraction == 'Эльфы':
@@ -637,12 +628,14 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                 battle_chain(unit, target, defending_city, user_faction, conn,
                              atk_aura_atk=atk_aura_atk, atk_aura_def=atk_aura_def,
                              def_aura_atk=def_aura_atk, def_aura_def=def_aura_def,
-                             atk_hero_bonus=atk_hero_bonus, def_hero_bonus=def_hero_bonus)
+                             atk_hero_bonus=atk_hero_bonus, def_hero_bonus=def_hero_bonus,
+                             atk_fraction=attacking_fraction, def_fraction=defending_fraction)
             else:
                 battle_chain(unit, target, defending_city, user_faction, conn,
                              atk_aura_atk=def_aura_atk, atk_aura_def=def_aura_def,
                              def_aura_atk=atk_aura_atk, def_aura_def=atk_aura_def,
-                             atk_hero_bonus=def_hero_bonus, def_hero_bonus=atk_hero_bonus)
+                             atk_hero_bonus=def_hero_bonus, def_hero_bonus=atk_hero_bonus,
+                             atk_fraction=defending_fraction, def_fraction=attacking_fraction)
 
         # Проверка на вступление героев при потерях ≥85%
         for side in ['atk', 'def']:
