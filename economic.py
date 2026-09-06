@@ -204,7 +204,9 @@ class Faction:
                 for unit_name, unit_count, unit_class in units:
                     if str(unit_class) != '1' or unit_count <= 0:
                         continue
-                    loss = max(1, int(unit_count * 0.10))
+                    # Север: Стойкость — на 50% меньше потерь от отсутствия снабжения
+                    loss_rate = 0.05 if self.faction == 'Север' else 0.10
+                    loss = max(1, int(unit_count * loss_rate))
                     new_count = unit_count - loss
                     if new_count <= 0:
                         self.cursor.execute(
@@ -1220,6 +1222,9 @@ class Faction:
         base_income = int(self.calculate_tax_income() - (self.hospitals * coeffs['money_loss']))
         # Бонус от Рынков: +10% дохода крон за каждый рынок
         market_bonus = 1.0 + self.markets * 0.10
+        # Элины: Торговая империя — дополнительные +15% к доходу
+        if self.faction == 'Элины':
+            market_bonus += 0.15
         boosted_income = int(base_income * market_bonus)
         self.money += boosted_income
         self.money_info = int(self.hospitals * coeffs['money_loss'])

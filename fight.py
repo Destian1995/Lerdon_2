@@ -506,6 +506,23 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     atk_army = new_atk_army
     def_army = new_def_army
 
+    # === Фракционные пассивные способности ===
+    # Эльфы: Лесная хитрость — +10% инициатива всех юнитов
+    if attacking_fraction == 'Эльфы':
+        for u in atk_army:
+            stats = u.get('units_stats', {})
+            stats['Инициатива'] = stats.get('Инициатива', 50) * 1.10
+    if defending_fraction == 'Эльфы':
+        for u in def_army:
+            stats = u.get('units_stats', {})
+            stats['Инициатива'] = stats.get('Инициатива', 50) * 1.10
+
+    # Адепты: Святое благословение — +20% защита при обороне своих городов
+    if defending_fraction == 'Адепты':
+        for u in def_army:
+            stats = u.get('units_stats', {})
+            stats['Защита'] = stats.get('Защита', 0) * 1.20
+
     # === Бонусы от зданий города-защитника ===
     city_wall_bonus = 0.0    # +15% защита за каждую Стену
     city_smithy_bonus = 0.0  # +5% атака за каждую Кузницу (бонус защитнику)
@@ -669,6 +686,24 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             u['killed_count'] = u['initial_count'] - u['unit_count']
         else:
             u['killed_count'] = 0
+
+    # Вампиры: Вампиризм — 5% убитых врагов воскресают как свои юниты 1 класса
+    def _apply_vampirism(vampire_army, enemy_army, faction):
+        if faction != 'Вампиры':
+            return
+        enemy_killed = sum(u.get('killed_count', 0) for u in enemy_army if get_unit_class(u) == 1)
+        if enemy_killed <= 0:
+            return
+        resurrected = max(1, int(enemy_killed * 0.05))
+        # Добавляем к первому юниту 1 класса вампиров
+        for u in vampire_army:
+            if get_unit_class(u) == 1 and u['unit_count'] > 0:
+                u['unit_count'] += resurrected
+                print(f"[Вампиризм] {resurrected} врагов воскрешены как юниты Вампиров")
+                break
+
+    _apply_vampirism(atk_army, def_army, attacking_fraction)
+    _apply_vampirism(def_army, atk_army, defending_fraction)
 
     atk_remaining = sum(u['unit_count'] for u in atk_army)
     def_remaining = sum(u['unit_count'] for u in def_army)
