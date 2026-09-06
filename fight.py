@@ -469,6 +469,37 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     atk_army = new_atk_army
     def_army = new_def_army
 
+    # === Бонусы от зданий города-защитника ===
+    city_wall_bonus = 0.0    # +15% защита за каждую Стену
+    city_smithy_bonus = 0.0  # +5% атака за каждую Кузницу (бонус защитнику)
+    try:
+        _cur = conn.cursor()
+        _cur.execute(
+            "SELECT building_type, count FROM buildings WHERE city_name = ?",
+            (defending_city,)
+        )
+        for b_type, b_count in _cur.fetchall():
+            if b_type == 'Стена':
+                city_wall_bonus += b_count * 0.15
+            elif b_type == 'Кузница':
+                city_smithy_bonus += b_count * 0.05
+    except Exception:
+        pass
+
+    # Применяем бонус Стен: усиливаем защиту всех юнитов обороны
+    if city_wall_bonus > 0:
+        for u in def_army:
+            stats = u.get('units_stats', {})
+            base_def = stats.get('Защита', 0)
+            stats['Защита'] = base_def * (1 + city_wall_bonus)
+
+    # Применяем бонус Кузниц: усиливаем атаку юнитов обороны
+    if city_smithy_bonus > 0:
+        for u in def_army:
+            stats = u.get('units_stats', {})
+            base_atk = stats.get('Урон', 0)
+            stats['Урон'] = base_atk * (1 + city_smithy_bonus)
+
     # Данные для анимации
     battle_rounds = []
 

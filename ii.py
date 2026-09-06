@@ -386,7 +386,7 @@ class AIController:
     def manage_buildings(self):
         """
         Управляет строительством зданий для ИИ.
-        Строит больницы и фабрики во всех городах до достижения лимита (12 каждого типа, 24 всего).
+        Приоритет: Больницы → Фабрики → Стены/Рынки/Кузницы/Вышки.
         """
         try:
             crowns = self.resources['Кроны']
@@ -396,21 +396,59 @@ class AIController:
                 print("Недостаточно средств для строительства.")
                 return
 
-            # Лимиты на город: 12 больниц + 12 фабрик = 24 всего
-            max_hospitals_per_city = 12
-            max_factories_per_city = 12
-
-            # Загружаем города, чтобы знать сколько их
             self.cities = self.load_cities()
             num_cities = max(len(self.cities), 1)
 
-            # Передаём достаточно большой count: build_in_city сам ограничивает по лимиту города и деньгам
-            self.build_in_city("Больница", max_hospitals_per_city * num_cities)
-            self.build_in_city("Фабрика", max_factories_per_city * num_cities)
+            # Приоритет 1: базовая инфраструктура
+            self.build_in_city("Больница", 12 * num_cities)
+            self.build_in_city("Фабрика", 12 * num_cities)
+
+            # Приоритет 2: продвинутые здания (если хватает денег)
+            if self.resources['Кроны'] > 100000:
+                import random
+                advanced = random.choice(["Стена", "Рынок", "Кузница", "Вышка"])
+                self._build_advanced(advanced, num_cities)
 
             self.save_all_data()
         except Exception as e:
             print(f"Ошибка в manage_buildings: {e}")
+
+    def _build_advanced(self, building_type, num_cities):
+        """AI строит продвинутые здания (Стена/Рынок/Кузница/Вышка)."""
+        costs = {'Стена': 50000, 'Рынок': 30000, 'Кузница': 40000, 'Вышка': 25000}
+        limits = {'Стена': 3, 'Рынок': 3, 'Кузница': 3, 'Вышка': 5}
+        cost = costs.get(building_type, 50000)
+        max_per_city = limits.get(building_type, 3)
+
+        for target_city in self.cities.values():
+            if self.resources['Кроны'] < cost:
+                break
+            city_b = self.cities_buildings.get(target_city, {})
+            current = city_b.get(building_type, 0)
+            total = sum(city_b.values())
+            if current >= max_per_city or total >= 25:
+                continue
+
+            # Строим 1 здание
+            self.cursor.execute(
+                "SELECT count FROM buildings WHERE city_name = ? AND faction = ? AND building_type = ?",
+                (target_city, self.faction, building_type)
+            )
+            row = self.cursor.fetchone()
+            if row:
+                self.cursor.execute(
+                    "UPDATE buildings SET count = count + 1 WHERE city_name = ? AND faction = ? AND building_type = ?",
+                    (target_city, self.faction, building_type)
+                )
+            else:
+                self.cursor.execute(
+                    "INSERT INTO buildings (city_name, faction, building_type, count) VALUES (?, ?, ?, 1)",
+                    (target_city, self.faction, building_type)
+                )
+            self.resources['Кроны'] -= cost
+            self.cities_buildings.setdefault(target_city, {})[building_type] = current + 1
+            self.db_connection.commit()
+            print(f"[AI BUILD] {self.faction} построил {building_type} в {target_city}")
 
     def build_in_city(self, building_type, count):
         """

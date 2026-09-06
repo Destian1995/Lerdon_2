@@ -9,7 +9,17 @@
       "Bash(grep -n \"apply_political_system_bonus\\\\|apply_player_bonuses\" \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\"/*.py)",
       "Bash(grep -n \"update_relations_based_on_political_system\" \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\"/*.py)",
       "Bash(grep -n \"same ideology\\\\|ideology.*relation\\\\|relation.*ideology\" \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\"/*.py -i)",
-      "Bash(grep -n \"class.*Faction\\\\|class Economic\" \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\"/*.py)"
+      "Bash(grep -n \"class.*Faction\\\\|class Economic\" \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\"/*.py)",
+      "Bash(wc -l /c/Users/lerdo/IdeaProjects/Lerdon_2/*.py)",
+      "Bash(head -30 /c/Users/lerdo/IdeaProjects/Lerdon_2/*.py)",
+      "Bash(python -c \"from utils.helpers import format_number, parse_formatted_number; print\\(format_number\\(1234567\\)\\); print\\(format_number\\(0\\)\\); print\\(format_number\\(-5000000000\\)\\); print\\(parse_formatted_number\\(''1.2 млн.''\\)\\)\")",
+      "Bash(python -c \"from utils.helpers import format_number, parse_formatted_number; print\\(parse_formatted_number\\(''1.2 млн.''\\)\\); print\\(parse_formatted_number\\(''5.3 тыс.''\\)\\); print\\(format_number\\(1234567\\)\\)\")",
+      "Bash(python -c \"import lerdon_libraries; print\\(''lerdon_libraries OK''\\)\")",
+      "Bash(python -c \"from utils.helpers import format_number; from db_lerdon_connect import *; print\\(''''db_lerdon_connect OK''''\\)\")",
+      "Bash(python -c \"from economic import format_number; print\\(''''economic OK - format_number accessible''''\\)\")",
+      "Bash(python -c \":*)",
+      "Bash(python -c \"import main; print\\(''''main OK''''\\)\")",
+      "Bash(grep -r is_player /c/Users/lerdo/IdeaProjects/Lerdon_2/*.py)"
     ]
   }
 }

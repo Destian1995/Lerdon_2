@@ -57,6 +57,10 @@ class Faction:
         self.cities = self.load_cities()  # Загрузка городов
         self.hospitals = 0
         self.factories = 0
+        self.walls = 0
+        self.markets = 0
+        self.smithies = 0
+        self.towers = 0
         self.taxes = 0
         self.food_info = 0
         self.work_peoples = 0
@@ -333,8 +337,8 @@ class Faction:
         """
         try:
             self.cursor.execute('''
-                SELECT city_name, building_type, count 
-                FROM buildings 
+                SELECT city_name, building_type, count
+                FROM buildings
                 WHERE faction = ?
             ''', (self.faction,))
             rows = self.cursor.fetchall()
@@ -343,23 +347,42 @@ class Faction:
             self.cities_buildings = {}
             total_hospitals = 0
             total_factories = 0
+            total_walls = 0
+            total_markets = 0
+            total_smithies = 0
+            total_towers = 0
 
             for row in rows:
                 city_name, building_type, count = row
                 if city_name not in self.cities_buildings:
-                    self.cities_buildings[city_name] = {"Больница": 0, "Фабрика": 0}
+                    self.cities_buildings[city_name] = {
+                        "Больница": 0, "Фабрика": 0,
+                        "Стена": 0, "Рынок": 0, "Кузница": 0, "Вышка": 0
+                    }
 
-                # Обновление данных для конкретного города
+                if building_type in self.cities_buildings.get(city_name, {}):
+                    self.cities_buildings[city_name][building_type] += count
+
                 if building_type == "Больница":
-                    self.cities_buildings[city_name]["Больница"] += count
                     total_hospitals += count
                 elif building_type == "Фабрика":
-                    self.cities_buildings[city_name]["Фабрика"] += count
                     total_factories += count
+                elif building_type == "Стена":
+                    total_walls += count
+                elif building_type == "Рынок":
+                    total_markets += count
+                elif building_type == "Кузница":
+                    total_smithies += count
+                elif building_type == "Вышка":
+                    total_towers += count
 
             # Обновление глобальных показателей
             self.hospitals = total_hospitals
             self.factories = total_factories
+            self.walls = total_walls
+            self.markets = total_markets
+            self.smithies = total_smithies
+            self.towers = total_towers
 
         except sqlite3.Error as e:
             print(f"Ошибка при загрузке зданий: {e}")
@@ -784,11 +807,12 @@ class Faction:
     def max_army_limit(self):
         """
         Динамически рассчитывает максимальный лимит армии
-        на основе базового значения и бонуса от городов.
+        на основе базового значения, бонуса от городов и Вышек.
         """
         base_limit = 4000
         city_bonus = 1000 * self.city_count
-        return base_limit + city_bonus
+        tower_bonus = 500 * self.towers  # +500 за каждую Вышку
+        return base_limit + city_bonus + tower_bonus
 
     def load_relations(self):
         """
@@ -1149,9 +1173,13 @@ class Faction:
         # Выполняем расчеты
         # Изменение свободных рабочих только от разницы рожденных/работающих
         self.free_peoples += self.clear_up_peoples
-        self.money += int(self.calculate_tax_income() - (self.hospitals * coeffs['money_loss']))
+        base_income = int(self.calculate_tax_income() - (self.hospitals * coeffs['money_loss']))
+        # Бонус от Рынков: +10% дохода крон за каждый рынок
+        market_bonus = 1.0 + self.markets * 0.10
+        boosted_income = int(base_income * market_bonus)
+        self.money += boosted_income
         self.money_info = int(self.hospitals * coeffs['money_loss'])
-        self.money_up = int(self.calculate_tax_income() - (self.hospitals * coeffs['money_loss']))
+        self.money_up = boosted_income
         self.taxes_info = int(self.calculate_tax_income())
 
         # Рассчитываем базовый прирост Кристаллов (до бонусов городов)
