@@ -204,9 +204,7 @@ class Faction:
                 for unit_name, unit_count, unit_class in units:
                     if str(unit_class) != '1' or unit_count <= 0:
                         continue
-                    # Север: Стойкость — на 50% меньше потерь от отсутствия снабжения
-                    loss_rate = 0.05 if self.faction == 'Север' else 0.10
-                    loss = max(1, int(unit_count * loss_rate))
+                    loss = max(1, int(unit_count * 0.10))
                     new_count = unit_count - loss
                     if new_count <= 0:
                         self.cursor.execute(

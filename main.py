@@ -2120,20 +2120,6 @@ class KingdomSelectionWidget(MDFloatLayout):
             height=faction_info_container_height,
         )
 
-        info_title = MDLabel(
-            text="Характеристики фракции:",
-            font_style="Body1",
-            theme_text_color="Custom",
-            text_color=(0.40, 0.75, 1.0, 1),
-            size_hint_y=None,
-            height=label_height,
-            halign='left',
-            bold=True,
-            font_size=self.base_font_size * 0.85
-        )
-        info_title.bind(size=info_title.setter('text_size'))
-        self.faction_info_container.add_widget(info_title)
-
         self.stats_labels = {}
         stats_names = ["Доход Крон:", "Доход Кристаллов:", "Армия:"]
 
@@ -2438,7 +2424,7 @@ class KingdomSelectionWidget(MDFloatLayout):
         app.selected_kingdom = kingdom_name
 
     FACTION_ABILITIES = {
-        'Север': '[b]Стойкость[/b] — на 50% меньше потерь от голода и снабжения',
+        'Север': '[b]Закалённые[/b] — +10% атака и защита всех юнитов зимой',
         'Эльфы': '[b]Лесная хитрость[/b] — +10% инициатива всех юнитов в бою',
         'Вампиры': '[b]Вампиризм[/b] — 5% убитых врагов воскресают как ваши юниты',
         'Адепты': '[b]Святое благословение[/b] — +20% защита при обороне городов',

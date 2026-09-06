@@ -507,6 +507,26 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     def_army = new_def_army
 
     # === Фракционные пассивные способности ===
+    # Север: Закалённые — +10% атака и защита зимой
+    try:
+        _cur = conn.cursor()
+        _cur.execute("SELECT season_index FROM season LIMIT 1")
+        _season_row = _cur.fetchone()
+        _current_season = _season_row[0] if _season_row else -1
+    except Exception:
+        _current_season = -1
+
+    if _current_season == 0:  # Зима
+        def _apply_winter_bonus(army, fraction):
+            if fraction != 'Север':
+                return
+            for u in army:
+                stats = u.get('units_stats', {})
+                stats['Урон'] = stats.get('Урон', 0) * 1.10
+                stats['Защита'] = stats.get('Защита', 0) * 1.10
+        _apply_winter_bonus(atk_army, attacking_fraction)
+        _apply_winter_bonus(def_army, defending_fraction)
+
     # Эльфы: Лесная хитрость — +10% инициатива всех юнитов
     if attacking_fraction == 'Эльфы':
         for u in atk_army:
