@@ -2177,6 +2177,22 @@ class KingdomSelectionWidget(MDFloatLayout):
             self.faction_info_container.add_widget(stat_row)
             self.stats_labels[stat_name] = icons_box
 
+        # Описание уникальной способности фракции
+        self.faction_ability_label = MDLabel(
+            text="",
+            font_style="Caption",
+            theme_text_color="Custom",
+            text_color=(0.85, 0.75, 0.4, 1),
+            size_hint_y=None,
+            height=dp(36),
+            halign='left',
+            valign='middle',
+            font_size=self.base_font_size * 0.6,
+            markup=True,
+        )
+        self.faction_ability_label.bind(size=self.faction_ability_label.setter('text_size'))
+        self.faction_info_container.add_widget(self.faction_ability_label)
+
         self.settings_content_container.add_widget(self.faction_info_container)
         self.main_container.add_widget(self.settings_panel_container)
         # ======== ЧЕКБОКС "ОБУЧЕНИЕ" ========
@@ -2421,8 +2437,16 @@ class KingdomSelectionWidget(MDFloatLayout):
         app = App.get_running_app()
         app.selected_kingdom = kingdom_name
 
+    FACTION_ABILITIES = {
+        'Север': '[b]Стойкость[/b] — на 50% меньше потерь от голода и снабжения',
+        'Эльфы': '[b]Лесная хитрость[/b] — +10% инициатива всех юнитов в бою',
+        'Вампиры': '[b]Вампиризм[/b] — 5% убитых врагов воскресают как ваши юниты',
+        'Адепты': '[b]Святое благословение[/b] — +20% защита при обороне городов',
+        'Элины': '[b]Торговая империя[/b] — +15% доход крон (стакается с Рынком)',
+    }
+
     def update_faction_stats(self, kingdom):
-        """Обновляет статистику выбранной фракции"""
+        """Обновляет статистику и способность выбранной фракции"""
         stats = {
             "Север": {"Доход Крон:": 3, "Доход Кристаллов:": 1, "Армия:": 2},
             "Эльфы": {"Доход Крон:": 2, "Доход Кристаллов:": 2, "Армия:": 2},
@@ -2453,6 +2477,11 @@ class KingdomSelectionWidget(MDFloatLayout):
                         size=(dp(16), dp(16))
                     )
                 icons_box.add_widget(img)
+
+        # Обновляем описание уникальной способности
+        ability_text = self.FACTION_ABILITIES.get(kingdom, '')
+        if hasattr(self, 'faction_ability_label'):
+            self.faction_ability_label.text = ability_text
 
     def start_game(self, instance):
         """Начало игры с сохранением выбора игрока"""
