@@ -32,8 +32,14 @@ class EventManager:
         """
         Генерирует случайное событие из базы данных и определяет его тип.
         За один ход происходит максимум одно событие.
+        Сначала проверяет отложенные цепочки событий.
         :param current_turn: Текущий ход игры.
         """
+        # Сначала проверяем отложенные цепочки событий
+        chain_fired = self._check_pending_chains(current_turn)
+        if chain_fired:
+            return
+
         # Проверяем карму и пытаемся сгенерировать событие sequences
         generated = self.check_karma_and_generate_sequence(current_turn)
         if generated:
@@ -286,11 +292,15 @@ class EventManager:
         def on_button_1(instance):
             self.apply_effects_with_economic_module(effects.get("option_1", {}))
             self.update_karma(self.player_faction, 4)
+            # Запускаем цепочку последствий от позитивного выбора
+            self._schedule_chain_event(description, 'positive')
             popup.dismiss()
 
         def on_button_2(instance):
             self.apply_effects_with_economic_module(effects.get("option_2", {}))
             self.update_karma(self.player_faction, -6)
+            # Запускаем цепочку последствий от негативного выбора
+            self._schedule_chain_event(description, 'negative')
             popup.dismiss()
 
         btn_1.bind(on_release=on_button_1)
@@ -353,6 +363,115 @@ class EventManager:
         self.db_connection.commit()
 
         print(f"[DEBUG] Карма для фракции '{faction}' обновлена: {new_karma}")
+
+    # === Система цепочек событий ===
+
+    CHAIN_CONSEQUENCES = {
+        'positive': [
+            {"desc": "Ваше мудрое решение привело к росту торговли! Купцы стекаются в ваши земли.",
+             "effect": {"resource": "Кроны", "kf": 1.15}},
+            {"desc": "Благодарные жители организовали ополчение. Ваша армия пополнилась добровольцами.",
+             "effect": {"resource": "Рабочие", "kf": 1.20}},
+            {"desc": "Слава о вашей справедливости разнеслась по землям. Народ процветает!",
+             "effect": {"resource": "Население", "kf": 1.10}},
+            {"desc": "Ваши рудники заработали на полную мощность благодаря новым порядкам.",
+             "effect": {"resource": "Кристаллы", "kf": 1.12}},
+            {"desc": "Ваша репутация мудрого правителя укрепилась. Дворяне стали лояльнее.",
+             "effect": {"resource": "Кроны", "kf": 1.08}},
+        ],
+        'negative': [
+            {"desc": "Последствия жёсткого решения: часть населения покинула ваши земли в страхе.",
+             "effect": {"resource": "Население", "kf": 0.85}},
+            {"desc": "Недовольство народа вылилось в саботаж на фабриках. Добыча кристаллов упала.",
+             "effect": {"resource": "Кристаллы", "kf": 0.80}},
+            {"desc": "Торговцы опасаются вести дела с вашей фракцией. Доходы казны снизились.",
+             "effect": {"resource": "Кроны", "kf": 0.85}},
+            {"desc": "Дезертиры покинули армию из-за жестокости командования.",
+             "effect": {"resource": "Рабочие", "kf": 0.75}},
+            {"desc": "Ваша жестокость вызвала волну беженцев. Города пустеют.",
+             "effect": {"resource": "Население", "kf": 0.90}},
+        ],
+    }
+
+    def _schedule_chain_event(self, original_desc, choice_type):
+        """Планирует последствие выбора через 3-5 ходов."""
+        try:
+            cursor = self.db_connection.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS event_chains (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    faction TEXT,
+                    trigger_turn INTEGER,
+                    choice_type TEXT,
+                    original_event TEXT,
+                    fired INTEGER DEFAULT 0
+                )
+            """)
+            # Получаем текущий ход
+            cursor.execute("SELECT turn_count FROM turn WHERE faction = ?", (self.player_faction,))
+            row = cursor.fetchone()
+            current_turn = row[0] if row else 1
+            trigger_turn = current_turn + random.randint(3, 5)
+
+            cursor.execute("""
+                INSERT INTO event_chains (faction, trigger_turn, choice_type, original_event)
+                VALUES (?, ?, ?, ?)
+            """, (self.player_faction, trigger_turn, choice_type, original_desc[:100]))
+            self.db_connection.commit()
+            print(f"[CHAIN] Запланировано последствие '{choice_type}' на ход {trigger_turn}")
+        except Exception as e:
+            print(f"[CHAIN] Ошибка планирования: {e}")
+
+    def _check_pending_chains(self, current_turn):
+        """Проверяет и запускает отложенные цепочки событий."""
+        try:
+            cursor = self.db_connection.cursor()
+            # Проверяем существование таблицы
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='event_chains'")
+            if not cursor.fetchone():
+                return False
+
+            cursor.execute("""
+                SELECT id, choice_type, original_event FROM event_chains
+                WHERE faction = ? AND trigger_turn <= ? AND fired = 0
+                ORDER BY trigger_turn ASC LIMIT 1
+            """, (self.player_faction, current_turn))
+            row = cursor.fetchone()
+            if not row:
+                return False
+
+            chain_id, choice_type, original_event = row
+
+            # Выбираем случайное последствие
+            consequences = self.CHAIN_CONSEQUENCES.get(choice_type, [])
+            if not consequences:
+                return False
+
+            consequence = random.choice(consequences)
+
+            # Применяем эффект
+            resource = consequence['effect']['resource']
+            kf = consequence['effect']['kf']
+            current_value = self.get_resource_amount(resource)
+            new_value = int(current_value * kf)
+            self.economics.update_resource_now(resource, new_value)
+
+            # Формируем описание
+            change = new_value - current_value
+            change_text = f"+{format_number(change)}" if change > 0 else format_number(change)
+            full_desc = f"{consequence['desc']} ({resource}: {change_text})"
+
+            # Помечаем как сработавшее
+            cursor.execute("UPDATE event_chains SET fired = 1 WHERE id = ?", (chain_id,))
+            self.db_connection.commit()
+
+            # Показываем как бегущую строку
+            self.show_temporary_build(full_desc, "sequences")
+            print(f"[CHAIN] Последствие '{choice_type}': {consequence['desc']}")
+            return True
+        except Exception as e:
+            print(f"[CHAIN] Ошибка проверки: {e}")
+            return False
 
     def show_temporary_build(self, description, event_type):
         """
