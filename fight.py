@@ -491,7 +491,10 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
 
         all_combatants = [(get_initiative(u), 'A', u) for u in atk_alive] + \
                          [(get_initiative(u), 'D', u) for u in def_alive]
-        all_combatants.sort(key=lambda t: -t[0])
+        # Сортировка: сначала по инициативе (убывание), затем по атаке (убывание).
+        # Это обеспечивает, что при равной инициативе юниты с большей атакой
+        # (например, пленные юниты другой фракции) вступают в бой первыми.
+        all_combatants.sort(key=lambda t: (-t[0], -_get_stat(t[2], 'Урон', 0)))
 
         for _, side, unit in all_combatants:
             if unit['unit_count'] <= 0:
@@ -794,7 +797,7 @@ def show_battle_report(report_data, is_user_involved=False, user_faction=None, c
     # Цвета фракций для заголовков
     _FACTION_HEX = {
         'Север': '#4085EB', 'Эльфы': '#38C252', 'Вампиры': '#C71A28',
-        'Адепты': '#9E38E0', 'Элины': '#EBB31A',
+        'Адепты': '#5A5A61', 'Элины': '#F28014',
     }
     atk_col = _FACTION_HEX.get(attacking_fraction, '#4CAF50')
     def_col = _FACTION_HEX.get(defending_fraction, '#F44336')
@@ -1440,6 +1443,14 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
                     ))
             cursor.execute("UPDATE cities SET faction = ? WHERE name = ?", (attacking_fraction, defending_city))
             cursor.execute("UPDATE buildings SET faction = ? WHERE city_name = ?", (attacking_fraction, defending_city))
+            # Обновляем цвет фракции города
+            _faction_hex_colors = {
+                'Север': '#4085EB', 'Эльфы': '#38C252', 'Вампиры': '#C71A28',
+                'Адепты': '#5A5A61', 'Элины': '#F28014', 'Нежить': '#33BF99',
+                'Мятежники': '#888888', 'Нейтрал': '#AAAAAA'
+            }
+            _new_color = _faction_hex_colors.get(attacking_fraction, '#AAAAAA')
+            cursor.execute("UPDATE cities SET color_faction = ? WHERE name = ?", (_new_color, defending_city))
 
         else:
             # Победила обороняющаяся сторона

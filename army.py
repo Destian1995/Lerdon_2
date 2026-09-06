@@ -1,6 +1,6 @@
 
 from db_lerdon_connect import *
-from economic import format_number
+from utils.helpers import format_number
 
 
 PRIMARY_COLOR = get_color_from_hex('#2E7D32')

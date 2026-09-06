@@ -25,13 +25,15 @@ FACTION_COLORS = {
     'Север': 'files/buildings/arkadia.png',
     'Эльфы': 'files/buildings/celestia.png',
     'Адепты': 'files/buildings/eteria.png',
-    'Элины': 'files/buildings/halidon.png'
+    'Элины': 'files/buildings/halidon.png',
+    'Нежить': 'files/buildings/default.png'
 }
 
 # Константы
-TOTAL_CITIES = 23
+UNDEAD_CITIES = 3  # Города Нежити (появляются скрытыми до хода 25-35)
+TOTAL_CITIES = 26  # 23 обычных + 3 города нежити
 FACTION_CITIES = 5
-NEUTRAL_CITIES = TOTAL_CITIES - FACTION_CITIES
+NEUTRAL_CITIES = TOTAL_CITIES - FACTION_CITIES - UNDEAD_CITIES
 ALL_CITIES = FACTION_CITIES + TOTAL_CITIES
 # Константы перемещения (синхронизированы с правилами движения = 280 Manhattan)
 MAX_NEIGHBOURS = 4  # Максимум 4 соседа для лучшей связности
@@ -185,15 +187,27 @@ def build_city_graph(cities):
         return False
 
     mst_edges = set()
-    # Добавляем ребра MST
+    # Добавляем ребра MST — гарантируем связность всего графа
     for manhattan_dist, u, v in edges:
-        if union(u, v):
-            # Проверяем: не соединяем две фракции напрямую
-            if not (cities[u]["type"] == "faction" and cities[v]["type"] == "faction"):
+        if find(u) != find(v):
+            # Фракции предпочтительно не соединяем напрямую,
+            # но если это единственный путь — соединяем (связность важнее)
+            both_factions = cities[u]["type"] == "faction" and cities[v]["type"] == "faction"
+            if not both_factions:
+                union(u, v)
                 graph[u].append(v)
                 graph[v].append(u)
                 mst_edges.add((u, v))
                 mst_edges.add((v, u))
+
+    # Второй проход: если граф не связный — добавляем пропущенные рёбра (даже между фракциями)
+    for manhattan_dist, u, v in edges:
+        if find(u) != find(v):
+            union(u, v)
+            graph[u].append(v)
+            graph[v].append(u)
+            mst_edges.add((u, v))
+            mst_edges.add((v, u))
 
     # Добавляем промежуточные дороги для естественности и разнообразия маршрутов
     # Каждый город должен иметь минимум 2 и максимум MAX_NEIGHBOURS соседей
@@ -241,26 +255,27 @@ def build_city_graph(cities):
                     graph[faction_idx].append(neutral_idx)
                     graph[neutral_idx].append(faction_idx)
 
-    # Ограничиваем максимальное число соседей для визуальной ясности
+    # Ограничиваем максимальное число соседей, но сохраняем рёбра MST (для связности)
     for i in range(TOTAL_CITIES):
         if len(graph[i]) > MAX_NEIGHBOURS:
-            # Оставляем только ближайшие соседи
             neighbors_with_dist = []
             for neighbor_idx in graph[i]:
+                is_mst = (i, neighbor_idx) in mst_edges
                 manhattan_dist = abs(positions[i][0] - positions[neighbor_idx][0]) + abs(positions[i][1] - positions[neighbor_idx][1])
-                neighbors_with_dist.append((manhattan_dist, neighbor_idx))
+                neighbors_with_dist.append((0 if is_mst else 1, manhattan_dist, neighbor_idx))
+            # Сортируем: MST рёбра первые, потом по расстоянию
             neighbors_with_dist.sort()
-            graph[i] = [neighbor_idx for _, neighbor_idx in neighbors_with_dist[:MAX_NEIGHBOURS]]
+            graph[i] = [neighbor_idx for _, _, neighbor_idx in neighbors_with_dist[:MAX_NEIGHBOURS]]
 
     return graph
 
 def assign_factions_to_cities(positions):
-    """Назначает фракции 5 наиболее удалённым городам, остальным — нейтралитет"""
+    """Назначает фракции 5 наиболее удалённым городам, 3 — нежити (скрытой), остальным — нейтралитет"""
     cities = []
     available_names = CITY_NAMES_POOL.copy()
     random.shuffle(available_names)
 
-    # Шаг 1: Выбираем 5 наиболее удалённых городов
+    # Шаг 1: Выбираем 5 наиболее удалённых городов для фракций
     faction_indices = select_faction_cities(positions)
 
     # Шаг 2: Назначаем им фракции
@@ -293,8 +308,27 @@ def assign_factions_to_cities(positions):
         faction_assignments[idx] = city
         assigned += 1
 
+    # Шаг 2.5: Выбираем 3 города для Нежити (случайные из оставшихся)
+    remaining_indices = [i for i in range(len(positions)) if i not in faction_assignments]
+    undead_indices = random.sample(remaining_indices, min(UNDEAD_CITIES, len(remaining_indices)))
+    undead_names = ["Некрополь", "Горгум", "Морготар"]
+
+    for i, idx in enumerate(undead_indices):
+        name = undead_names[i] if i < len(undead_names) else f"Проклятый город {i + 1}"
+        used_names.add(name)
+
+        city = {
+            "type": "undead",
+            "name": name,
+            "position": positions[idx],
+            "faction": None,  # До инвазии выглядят как нейтральные
+            "color_faction": "#AAAAAA",  # Серый пока скрыты
+            "is_undead": True  # Метка для системы инвазии
+        }
+        cities.append(city)
+        faction_assignments[idx] = city
+
     # Шаг 3: Добавляем оставшиеся города как нейтралы
-    neutral_cities = []
     for idx in range(len(positions)):
         if idx in faction_assignments:
             continue
@@ -332,15 +366,22 @@ def save_to_database(conn, cities, graph):
     cursor.execute("DELETE FROM cities")
     cursor.execute("DELETE FROM roads")
 
+    # Добавляем колонку is_undead если её нет
+    try:
+        cursor.execute("ALTER TABLE cities ADD COLUMN is_undead INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass  # Колонка уже существует
+
     # Сохраняем города
     for i, city in enumerate(cities):
         faction = city["faction"] if city["faction"] else "Нейтрал"
+        is_undead = 1 if city.get("is_undead", False) else 0
         coords = str(list(city["position"]))
         icon_coords = str([city["position"][0], city["position"][1]])
         label_coords = str([city["position"][0], city["position"][1] - 30])
         cursor.execute(
-            "INSERT INTO cities (id, name, coordinates, faction, icon_coordinates, label_coordinates, color_faction) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (i + 1, city["name"], coords, faction, icon_coords, label_coords, city["color_faction"])
+            "INSERT INTO cities (id, name, coordinates, faction, icon_coordinates, label_coordinates, color_faction, is_undead) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (i + 1, city["name"], coords, faction, icon_coords, label_coords, city["color_faction"], is_undead)
         )
 
     # Сохраняем дороги
@@ -358,42 +399,41 @@ def save_to_database(conn, cities, graph):
             )
             road_id += 1
 
-    # --- НОВАЯ ЛОГИКА: Генерация значений kf_crystal по заданному распределению ---
+    # --- Генерация значений kf_crystal по заданному распределению ---
     total_cities_count = len(cities)
-    # Проверяем, что общее количество городов соответствует
-    assert total_cities_count == 23, f"Ожидается 23 города, получено {total_cities_count}"
 
     kf_crystal_values = []
-
-    # 1. Генерируем 15 значений для диапазона [1.0, 1.2)
-    for _ in range(15):
+    # Базовое распределение для обычных городов
+    normal_count = total_cities_count - UNDEAD_CITIES
+    # 1. ~65% городов: диапазон [1.0, 1.2)
+    tier1_count = int(normal_count * 0.65)
+    for _ in range(tier1_count):
         kf_crystal_values.append(round(random.uniform(1.0, 1.2), 2))
-
-    # 2. Генерируем 6 значений для диапазона [1.8, 2.3)
-    for _ in range(6):
+    # 2. ~26% городов: диапазон [1.8, 2.3)
+    tier2_count = int(normal_count * 0.26)
+    for _ in range(tier2_count):
         kf_crystal_values.append(round(random.uniform(1.8, 2.3), 2))
-
-    # 3. Генерируем 2 значений для диапазона [5.3, 7.75]
-    for _ in range(2):
+    # 3. Остальные: диапазон [5.3, 7.75]
+    tier3_count = normal_count - tier1_count - tier2_count
+    for _ in range(tier3_count):
         kf_crystal_values.append(round(random.uniform(5.3, 7.75), 2))
+    # Для городов нежити — низкий kf_crystal
+    for _ in range(UNDEAD_CITIES):
+        kf_crystal_values.append(round(random.uniform(1.0, 1.1), 2))
 
-    # Перемешиваем список, чтобы распределение было случайным по городам
     random.shuffle(kf_crystal_values)
 
-    # --- КОНЕЦ НОВОЙ ЛОГИКИ ---
-
     # Обновляем таблицу cities, устанавливая kf_crystal для каждого id
-    for i, kf_val in enumerate(kf_crystal_values):
-        city_id = i + 1  # Предполагаем, что id города начинаются с 1
+    for i in range(min(len(kf_crystal_values), total_cities_count)):
+        city_id = i + 1
         cursor.execute(
             "UPDATE cities SET kf_crystal = ? WHERE id = ?",
-            (kf_val, city_id)
+            (kf_crystal_values[i], city_id)
         )
 
     conn.commit()
     print(f"[INFO] Сохранено {len(cities)} городов и {road_id - 1} дорог.")
-    # Опционально: сообщить о заполнении kf_crystal
-    print(f"[INFO] Столбец kf_crystal заполнен по заданному распределению: 10 значений [1.0, 1.7), 7 значений [1.7, 2.9), 6 значений [2.9, 4.8].")
+    print(f"[INFO] Из них {UNDEAD_CITIES} городов нежити (скрыты до инвазии).")
 
 
 

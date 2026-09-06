@@ -4,6 +4,7 @@ from kivy.uix.image import Image
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.widget import Widget
+from kivy.app import App
 from kivy.clock import Clock
 from kivy.animation import Animation
 from kivy.core.window import Window
@@ -20,7 +21,7 @@ from kivy.utils import get_color_from_hex
 from kivy.properties import ListProperty, NumericProperty
 
 # Импорт дизайн-системы
-from design_system import PRIMARY_COLORS, THEMES, TYPOGRAPHY
+from design_system import PRIMARY_COLORS, THEMES, TYPOGRAPHY, FACTION_COLORS, SEMANTIC_COLORS, FONT, SPACING, ANIMATION
 
 class ModernButton(Button):
     normal_color = ListProperty([0.3, 0.7, 0.3, 1])   # зелёный
@@ -310,63 +311,6 @@ class TabButton(Button):
                 self.bg_rect.source.color = (0.3, 0.6, 0.9, 1)
             else:
                 self.bg_rect.source.color = (0.2, 0.2, 0.2, 0.5)
-
-class ModernButton(Button):
-    normal_color = ListProperty([0.3, 0.7, 0.3, 1])   # зелёный
-    pressed_color = ListProperty([0.2, 0.5, 0.2, 1]) # тёмно-зелёный
-    shadow_color = ListProperty([0, 0, 0, 0.2])
-    radius = NumericProperty(dp(24))
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.background_color = (0, 0, 0, 0)
-        self.background_normal = ''
-        self.background_down = ''
-        self.border = (0, 0, 0, 0)
-        self.font_size = dp(18)
-        self.bold = True
-        self.color = (1, 1, 1, 1)
-
-        with self.canvas.before:
-            # Тень
-            Color(*self.shadow_color)
-            self.shadow_rect = RoundedRectangle(
-                pos=(self.x + dp(2), self.y - dp(2)),
-                size=self.size,
-                radius=[self.radius]
-            )
-            # Основной цвет (normal)
-            self.bg_color = Color(*self.normal_color)
-            self.bg_rect = RoundedRectangle(
-                pos=self.pos,
-                size=self.size,
-                radius=[self.radius]
-            )
-
-        self.bind(pos=self._update_graphics, size=self._update_graphics,
-                  normal_color=self._update_bg_color, pressed_color=self._update_bg_color)
-
-    def _update_graphics(self, *args):
-        self.bg_rect.pos = self.pos
-        self.bg_rect.size = self.size
-        self.shadow_rect.pos = (self.x + dp(2), self.y - dp(2))
-        self.shadow_rect.size = self.size
-
-    def _update_bg_color(self, *args):
-        # При смене цвета обновляем Color инструкцию, если не нажата
-        if not self.state == 'down':
-            self.bg_color.rgba = self.normal_color
-
-    def on_touch_down(self, touch):
-        if self.collide_point(*touch.pos):
-            self.bg_color.rgba = self.pressed_color
-        return super().on_touch_down(touch)
-
-    def on_touch_up(self, touch):
-        if self.collide_point(*touch.pos):
-            self.bg_color.rgba = self.normal_color
-        return super().on_touch_up(touch)
-
 
 class SkipButton(ModernButton):
     def __init__(self, **kwargs):
@@ -696,3 +640,487 @@ class AnimatedHealthBar(Widget):
         """Плавно анимирует полосу к новому значению."""
         Animation.cancel_all(self, 'ratio')
         Animation(ratio=max(0.0, new_ratio), duration=duration, t='out_cubic').start(self)
+
+
+# ─── Система дипломатических уведомлений (иконки + popup) ─────────
+
+# Маппинг фракций на файлы иконок
+FACTION_ICON_MAP = {
+    'Север': 'files/sov/people.jpg',
+    'Эльфы': 'files/sov/elfs.jpg',
+    'Вампиры': 'files/sov/vampire.jpg',
+    'Адепты': 'files/sov/adept.jpg',
+    'Элины': 'files/sov/poly.jpg',
+}
+
+
+class DiplomacyMailbox(FloatLayout):
+    """
+    Панель дипломатических иконок-уведомлений.
+    Иконки фракций выстраиваются в ряд, не перекрывая друг друга.
+    При нажатии — открывается popup с полным сообщением и кнопками ответа.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint = (None, None)
+        self.size = (Window.width, dp(60))
+        self.pos = (0, Window.height - dp(110))
+        self._icons = {}  # faction_name -> DiplomacyIcon widget
+        self._messages = {}  # faction_name -> list of messages
+
+    def add_message(self, faction_name, message, message_type='info', on_respond=None):
+        """Добавляет сообщение. Если иконка фракции уже есть — добавляет к ней."""
+        if faction_name not in self._messages:
+            self._messages[faction_name] = []
+        self._messages[faction_name].append({
+            'text': message,
+            'type': message_type,
+            'on_respond': on_respond,
+        })
+
+        if faction_name not in self._icons:
+            self._create_icon(faction_name)
+        else:
+            # Обновляем счётчик
+            self._icons[faction_name].update_badge(len(self._messages[faction_name]))
+
+    def _create_icon(self, faction_name):
+        """Создаёт анимированную иконку фракции."""
+        icon_size = dp(50)
+        idx = len(self._icons)
+        x_pos = dp(130) + idx * (icon_size + dp(8))
+
+        icon = DiplomacyIcon(
+            faction_name=faction_name,
+            pos=(x_pos, self.y + dp(5)),
+            on_tap=lambda name=faction_name: self._open_message(name),
+        )
+
+        # Анимация появления
+        icon.opacity = 0
+        icon_final_y = icon.y
+        icon.y = icon_final_y + dp(40)
+        anim = Animation(opacity=1, y=icon_final_y, duration=0.4, t='out_back')
+        anim.start(icon)
+
+        self._icons[faction_name] = icon
+        self.add_widget(icon)
+
+    def _open_message(self, faction_name):
+        """Открывает popup с сообщениями от фракции."""
+        messages = self._messages.get(faction_name, [])
+        if not messages:
+            return
+
+        last_msg = messages[-1]
+        popup = DiplomacyMessagePopup(
+            faction_name=faction_name,
+            message=last_msg['text'],
+            message_type=last_msg['type'],
+            on_respond=last_msg.get('on_respond'),
+        )
+        popup.open()
+
+        # Убираем иконку после открытия
+        self._remove_icon(faction_name)
+
+    def _remove_icon(self, faction_name):
+        """Убирает иконку с анимацией."""
+        icon = self._icons.pop(faction_name, None)
+        self._messages.pop(faction_name, None)
+        if icon:
+            anim = Animation(opacity=0, y=icon.y + dp(30), duration=0.25)
+            anim.bind(on_complete=lambda *a: self.remove_widget(icon))
+            anim.start(icon)
+            # Сдвигаем оставшиеся иконки
+            Clock.schedule_once(lambda dt: self._reposition_icons(), 0.3)
+
+    def _reposition_icons(self):
+        """Перевыстраивает иконки после удаления."""
+        icon_size = dp(50)
+        for i, (name, icon) in enumerate(self._icons.items()):
+            target_x = dp(130) + i * (icon_size + dp(8))
+            Animation(x=target_x, duration=0.2, t='out_quad').start(icon)
+
+
+class DiplomacyIcon(FloatLayout):
+    """Иконка фракции с badge-счётчиком непрочитанных."""
+
+    def __init__(self, faction_name, on_tap=None, **kwargs):
+        super().__init__(**kwargs)
+        self.faction_name = faction_name
+        self.on_tap = on_tap
+        self.size_hint = (None, None)
+        self.size = (dp(50), dp(50))
+
+        icon_path = FACTION_ICON_MAP.get(faction_name, '')
+        faction_data = FACTION_COLORS.get(faction_name)
+        border_color = faction_data['primary'] if faction_data else (0.5, 0.5, 0.5, 1)
+
+        # Фон (граница фракции)
+        with self.canvas.before:
+            Color(*border_color)
+            self._border = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(25)])
+            Color(0.12, 0.12, 0.18, 1)
+            self._inner = RoundedRectangle(
+                pos=(self.x + dp(3), self.y + dp(3)),
+                size=(self.width - dp(6), self.height - dp(6)),
+                radius=[dp(22)]
+            )
+
+        self.bind(pos=self._update_gfx, size=self._update_gfx)
+
+        # Иконка фракции
+        self.icon_img = Image(
+            source=icon_path,
+            size_hint=(None, None),
+            size=(dp(40), dp(40)),
+            pos=(self.x + dp(5), self.y + dp(5)),
+            allow_stretch=True,
+            keep_ratio=True,
+        )
+        self.add_widget(self.icon_img)
+
+        # Badge (счётчик сообщений)
+        self.badge_label = Label(
+            text='1',
+            font_size=sp(10),
+            bold=True,
+            color=(1, 1, 1, 1),
+            size_hint=(None, None),
+            size=(dp(18), dp(18)),
+            pos=(self.right - dp(14), self.top - dp(14)),
+        )
+        with self.badge_label.canvas.before:
+            Color(0.9, 0.15, 0.15, 1)
+            self._badge_bg = RoundedRectangle(
+                pos=self.badge_label.pos, size=self.badge_label.size, radius=[dp(9)]
+            )
+        self.badge_label.bind(pos=lambda *a: setattr(self._badge_bg, 'pos', self.badge_label.pos))
+        self.add_widget(self.badge_label)
+
+        # Пульсация для привлечения внимания
+        self._start_pulse()
+
+    def _start_pulse(self):
+        anim = (Animation(size=(dp(54), dp(54)), pos=(self.x - dp(2), self.y - dp(2)),
+                          duration=0.6, t='out_quad') +
+                Animation(size=(dp(50), dp(50)), pos=(self.x, self.y),
+                          duration=0.6, t='out_quad'))
+        anim.repeat = True
+        anim.start(self)
+
+    def update_badge(self, count):
+        self.badge_label.text = str(count)
+
+    def _update_gfx(self, *args):
+        self._border.pos = self.pos
+        self._border.size = self.size
+        self._inner.pos = (self.x + dp(3), self.y + dp(3))
+        self._inner.size = (self.width - dp(6), self.height - dp(6))
+        self.icon_img.pos = (self.x + dp(5), self.y + dp(5))
+        self.badge_label.pos = (self.right - dp(14), self.top - dp(14))
+
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            Animation.cancel_all(self)
+            if self.on_tap:
+                self.on_tap()
+            return True
+        return super().on_touch_down(touch)
+
+
+class DiplomacyMessagePopup(FloatLayout):
+    """
+    Popup-свиток с полным дипломатическим сообщением.
+    Кнопки: Принять / Отклонить / Написать ответ.
+    """
+
+    def __init__(self, faction_name, message, message_type='info',
+                 on_respond=None, **kwargs):
+        super().__init__(**kwargs)
+        self.faction_name = faction_name
+        self.message = message
+        self.on_respond = on_respond
+        self.size_hint = (1, 1)
+
+        faction_data = FACTION_COLORS.get(faction_name)
+        accent = faction_data['primary'] if faction_data else (0.4, 0.4, 0.5, 1)
+
+        # Затемнение фона
+        with self.canvas.before:
+            Color(0, 0, 0, 0.6)
+            self._overlay = Rectangle(pos=(0, 0), size=Window.size)
+
+        # Карточка сообщения
+        card_w = min(dp(500), Window.width - dp(40))
+        card_h = dp(340)
+        card_x = Window.width / 2 - card_w / 2
+        card_y = Window.height / 2 - card_h / 2
+
+        self.card = FloatLayout(
+            size_hint=(None, None),
+            size=(card_w, card_h),
+            pos=(card_x, card_y),
+        )
+
+        with self.card.canvas.before:
+            # Тень
+            Color(0, 0, 0, 0.4)
+            RoundedRectangle(pos=(card_x + dp(4), card_y - dp(4)),
+                             size=(card_w, card_h), radius=[dp(16)])
+            # Фон
+            Color(0.11, 0.13, 0.19, 0.97)
+            self._card_bg = RoundedRectangle(pos=(card_x, card_y),
+                                             size=(card_w, card_h), radius=[dp(16)])
+            # Акцент сверху
+            Color(*accent[:3], 1)
+            RoundedRectangle(pos=(card_x, card_y + card_h - dp(4)),
+                             size=(card_w, dp(4)), radius=[dp(16), dp(16), 0, 0])
+
+        # Заголовок: иконка + имя фракции
+        icon_path = FACTION_ICON_MAP.get(faction_name, '')
+        header = BoxLayout(
+            orientation='horizontal', spacing=dp(10),
+            size_hint=(None, None), size=(card_w - dp(32), dp(44)),
+            pos=(card_x + dp(16), card_y + card_h - dp(56)),
+        )
+        if icon_path:
+            header.add_widget(Image(
+                source=icon_path, size_hint=(None, None),
+                size=(dp(40), dp(40)), allow_stretch=True, keep_ratio=True,
+            ))
+        header.add_widget(Label(
+            text=f'[b]{faction_name}[/b]', markup=True,
+            font_size=sp(18), color=(1, 1, 1, 1),
+            halign='left', valign='middle',
+            size_hint=(1, None), height=dp(40),
+        ))
+
+        # Текст сообщения
+        # Убираем теги типа [ТОРГОВЛЯ] из отображения
+        clean_msg = message
+        for tag in ['[СОЮЗ]', '[ТОРГОВЛЯ]', '[УГРОЗА]', '[ПРЕДУПРЕЖДЕНИЕ]',
+                     '[ПОЩАДА]', '[УМОЛЯЮ]', '[ПОМОЩЬ]', '[ПРОСЬБА]', '[ДРУЖБА]']:
+            clean_msg = clean_msg.replace(tag, '').strip()
+
+        msg_label = Label(
+            text=clean_msg,
+            font_size=sp(14),
+            color=(0.9, 0.9, 0.9, 1),
+            halign='left', valign='top',
+            size_hint=(None, None),
+            size=(card_w - dp(32), dp(160)),
+            pos=(card_x + dp(16), card_y + dp(70)),
+            text_size=(card_w - dp(40), dp(160)),
+        )
+
+        # Кнопки — зависят от типа сообщения
+        btn_row = BoxLayout(
+            orientation='horizontal', spacing=dp(10),
+            size_hint=(None, None), size=(card_w - dp(32), dp(44)),
+            pos=(card_x + dp(16), card_y + dp(14)),
+        )
+
+        # Типы с предложениями (торговля, союз, пощада, помощь) — Принять/Отклонить/Ответить
+        actionable_types = ('trade', 'alliance', 'mercy', 'help')
+        if message_type in actionable_types:
+            btn_accept = Button(
+                text='Принять', font_size=sp(14), bold=True,
+                background_normal='', background_color=(0.2, 0.6, 0.3, 1),
+                color=(1, 1, 1, 1), size_hint=(1, 1),
+            )
+            btn_accept.bind(on_release=lambda *a: self._respond('да'))
+
+            btn_decline = Button(
+                text='Отклонить', font_size=sp(14), bold=True,
+                background_normal='', background_color=(0.6, 0.2, 0.2, 1),
+                color=(1, 1, 1, 1), size_hint=(1, 1),
+            )
+            btn_decline.bind(on_release=lambda *a: self._respond('нет'))
+
+            btn_reply = Button(
+                text='Ответить...', font_size=sp(14), bold=True,
+                background_normal='', background_color=(0.25, 0.35, 0.55, 1),
+                color=(1, 1, 1, 1), size_hint=(1, 1),
+            )
+            btn_reply.bind(on_release=lambda *a: self._open_chat())
+
+            btn_row.add_widget(btn_accept)
+            btn_row.add_widget(btn_decline)
+            btn_row.add_widget(btn_reply)
+        else:
+            # Информационные/предупреждения (info, warning, дружба) — Ясно/Ответить
+            btn_ok = Button(
+                text='Ясно', font_size=sp(14), bold=True,
+                background_normal='', background_color=(0.3, 0.4, 0.55, 1),
+                color=(1, 1, 1, 1), size_hint=(1, 1),
+            )
+            btn_ok.bind(on_release=lambda *a: self.close())
+
+            btn_reply = Button(
+                text='Ответить...', font_size=sp(14), bold=True,
+                background_normal='', background_color=(0.25, 0.35, 0.55, 1),
+                color=(1, 1, 1, 1), size_hint=(1, 1),
+            )
+            btn_reply.bind(on_release=lambda *a: self._open_chat())
+
+            btn_row.add_widget(btn_ok)
+            btn_row.add_widget(btn_reply)
+
+        self.card.add_widget(header)
+        self.card.add_widget(msg_label)
+        self.card.add_widget(btn_row)
+        self.add_widget(self.card)
+
+        # Анимация
+        self.opacity = 0
+        self.card.y = card_y + dp(60)
+        Animation(opacity=1, duration=0.2).start(self)
+        Animation(y=card_y, duration=0.35, t='out_back').start(self.card)
+
+    def _respond(self, answer):
+        """Отправляет ответ (да/нет) через callback."""
+        if self.on_respond:
+            self.on_respond(self.faction_name, answer, self.message)
+        self.close()
+
+    def _open_chat(self):
+        """Открывает полный чат с этой фракцией."""
+        if self.on_respond:
+            self.on_respond(self.faction_name, '__open_chat__', self.message)
+        self.close()
+
+    def open(self):
+        app = App.get_running_app()
+        if app and app.root:
+            app.root.add_widget(self)
+
+    def close(self):
+        anim = Animation(opacity=0, duration=0.2)
+        anim.bind(on_complete=lambda *a: self._cleanup())
+        anim.start(self)
+
+    def _cleanup(self):
+        if self.parent:
+            self.parent.remove_widget(self)
+
+    def on_touch_down(self, touch):
+        if self.card.collide_point(*touch.pos):
+            return super().on_touch_down(touch)
+        # Нажатие вне карточки закрывает popup
+        self.close()
+        return True
+
+
+# Обратная совместимость
+class DiplomacyNotification:
+    """Legacy wrapper — теперь используется DiplomacyMailbox."""
+    pass
+
+
+# ─── Единый стильный Popup для всей игры ──────────────────────────
+
+def show_message(title, message):
+    """Стильное всплывающее окно в едином дизайне Lerdon."""
+    from kivy.uix.popup import Popup
+
+    lines = message.count('\n') + 1
+    text_height = max(dp(80), dp(lines * 28))
+    popup_height = text_height + dp(130)
+
+    # Контейнер
+    content = FloatLayout(size_hint=(1, 1))
+
+    # Фон с градиентом
+    with content.canvas.before:
+        Color(0.08, 0.09, 0.14, 1)
+        content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(16)])
+    content.bind(
+        pos=lambda i, v: setattr(i._bg, 'pos', v),
+        size=lambda i, v: setattr(i._bg, 'size', v)
+    )
+
+    # Заголовок
+    title_label = Label(
+        text=f"[b]{title}[/b]",
+        markup=True,
+        font_size=sp(18),
+        color=(0.85, 0.78, 0.55, 1),
+        size_hint=(1, None),
+        height=dp(36),
+        pos_hint={'center_x': 0.5, 'top': 0.95},
+        halign='center',
+    )
+    title_label.bind(size=title_label.setter('text_size'))
+
+    # Разделитель
+    separator = Widget(size_hint=(0.9, None), height=dp(1), pos_hint={'center_x': 0.5, 'top': 0.78})
+    with separator.canvas:
+        Color(0.85, 0.78, 0.55, 0.4)
+        separator._line = Rectangle(pos=separator.pos, size=separator.size)
+    separator.bind(
+        pos=lambda i, v: setattr(i._line, 'pos', v),
+        size=lambda i, v: setattr(i._line, 'size', v)
+    )
+
+    # Текст сообщения
+    msg_label = Label(
+        text=message,
+        font_size=sp(14),
+        color=(0.85, 0.87, 0.92, 1),
+        size_hint=(0.9, None),
+        height=text_height,
+        pos_hint={'center_x': 0.5, 'center_y': 0.52},
+        halign='center',
+        valign='middle',
+    )
+    msg_label.bind(size=msg_label.setter('text_size'))
+
+    # Кнопка закрыть
+    close_btn = Button(
+        text="Закрыть",
+        size_hint=(0.85, None),
+        height=dp(42),
+        pos_hint={'center_x': 0.5, 'y': 0.04},
+        background_normal='',
+        background_color=(0, 0, 0, 0),
+        color=(1, 1, 1, 1),
+        font_size=sp(15),
+        bold=True,
+    )
+    with close_btn.canvas.before:
+        Color(0.22, 0.45, 0.65, 1)
+        close_btn._bg = RoundedRectangle(pos=close_btn.pos, size=close_btn.size, radius=[dp(10)])
+    close_btn.bind(
+        pos=lambda i, v: setattr(i._bg, 'pos', v),
+        size=lambda i, v: setattr(i._bg, 'size', v)
+    )
+
+    content.add_widget(title_label)
+    content.add_widget(separator)
+    content.add_widget(msg_label)
+    content.add_widget(close_btn)
+
+    popup = Popup(
+        title='',
+        separator_height=0,
+        content=content,
+        size_hint=(0.55, None),
+        height=popup_height,
+        auto_dismiss=True,
+        background='',
+        background_color=(0, 0, 0, 0.5),
+    )
+    close_btn.bind(on_release=popup.dismiss)
+
+    # Анимация появления
+    popup.opacity = 0
+    popup.open()
+    Animation(opacity=1, duration=0.2).start(popup)
+
+
+def show_error_message(message):
+    """Стильное окно ошибки."""
+    show_message("Ошибка", message)

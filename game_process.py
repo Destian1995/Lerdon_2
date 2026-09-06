@@ -13,48 +13,24 @@ from results_game import ResultsGame
 from seasons import SeasonManager
 from nobles_generator import generate_initial_nobles
 from nobles_generator import process_nobles_turn
-from ui_components import TutorialHint
+from ui_components import TutorialHint, DiplomacyMailbox
 
 
-# Новые кастомные виджеты
-class ModernButton(Button):
-    bg_color = ListProperty([0.11, 0.15, 0.21, 1])
+from utils.helpers import parse_formatted_number
+from undead_invasion import (
+    initialize_undead_invasion, check_and_trigger_invasion,
+    process_undead_turn, is_invasion_active, UNDEAD_FACTION_NAME
+)
 
+# Глобальная ссылка на активный GameScreen для обновления карты из других модулей
+_active_game_screen = None
 
-class ResourceCard(BoxLayout):
-    text = StringProperty('')
-    icon = StringProperty('')
-    bg_color = ListProperty([0.16, 0.20, 0.27, 0.9])
-
-
-def parse_formatted_number(formatted_str):
-    """Преобразует отформатированную строку с приставкой обратно в число"""
-    # Словарь множителей для приставок
-    multipliers = {
-        'тыс': 1e3,
-        'млн': 1e6,
-        'млрд': 1e9,
-        'трлн': 1e12
-    }
-
-    try:
-        # Удаляем лишние символы и разбиваем на части
-        parts = formatted_str.replace(',', '.').replace('.', '', 1).split()
-        number_part = parts[0]
-        suffix = parts[1].rstrip('.').lower() if len(parts) > 1 else ''
-
-        # Парсим числовую часть
-        base_value = float(number_part)
-
-        # Находим соответствующий множитель
-        for key in multipliers:
-            if suffix.startswith(key.lower()):
-                return base_value * multipliers[key]
-
-        return base_value
-
-    except (ValueError, IndexError, AttributeError):
-        return float('nan')  # Возвращаем NaN при ошибке парсинга
+def refresh_map():
+    """Принудительное обновление карты и индикаторов. Вызывать после боя/перемещения."""
+    gs = _active_game_screen
+    if gs:
+        gs._prev_star_levels = None
+        gs.update_army_rating()
 
 
 # Список всех фракций
@@ -599,6 +575,8 @@ class GameScreen(Screen):
     def __init__(self, selected_faction, cities, conn=None, player_ideology=None,
                  player_allies=None, tutorial_enabled=False, **kwargs):
         super(GameScreen, self).__init__(**kwargs)
+        global _active_game_screen
+        _active_game_screen = self
         self.selected_faction = selected_faction
         self.cities = cities
         self.conn = conn
@@ -654,6 +632,9 @@ class GameScreen(Screen):
         self.ai_controllers = {}
         self.init_ai_controllers()
 
+        # 3.5. Инициализация системы нашествия нежити
+        initialize_undead_invasion(self.conn)
+
         # 4. Инициализация EventManager
         self.event_manager = EventManager(self.selected_faction, self, self.game_state_manager.faction, self.conn)
 
@@ -673,8 +654,12 @@ class GameScreen(Screen):
         self.initialize_nobles()
 
         # --- Сохраняем объекты таймеров ---
-        self.scheduled_events['update_cash'] = Clock.schedule_interval(self.update_cash, 1)
-        self.scheduled_events['update_army_rating'] = Clock.schedule_interval(self.update_army_rating, 1)
+        self._prev_star_levels = None  # Кэш для отслеживания изменений карты
+        # Немедленный первый вызов (после layout) + периодическое обновление
+        Clock.schedule_once(lambda dt: self.update_cash(dt), 0)
+        Clock.schedule_once(lambda dt: self.update_army_rating(dt), 0)
+        self.scheduled_events['update_cash'] = Clock.schedule_interval(self.update_cash, 5)
+        self.scheduled_events['update_army_rating'] = Clock.schedule_interval(self.update_army_rating, 3)
         self.diplomacy_ai_factory = None
 
         # === Отслеживание дипломатии ===
@@ -685,7 +670,10 @@ class GameScreen(Screen):
         """Создание контроллеров ИИ для каждой фракции кроме выбранной"""
         for faction in FACTIONS:
             if faction != self.selected_faction:
-                self.ai_controllers[faction] = AIController(faction, self.conn, self.season_manager)
+                self.ai_controllers[faction] = AIController(
+                    faction, self.conn, self.season_manager,
+                    player_faction=self.selected_faction
+                )
 
     def check_diplomacy_changes(self):
         """
@@ -694,9 +682,10 @@ class GameScreen(Screen):
         """
         try:
             cursor = self.conn.cursor()
+            # Загружаем все дипломатические отношения с игроком
             cursor.execute("""
-                SELECT faction1, faction2, relationship 
-                FROM diplomacies 
+                SELECT faction1, faction2, relationship
+                FROM diplomacies
                 WHERE faction1 = ? OR faction2 = ?
             """, (self.selected_faction, self.selected_faction))
 
@@ -705,18 +694,22 @@ class GameScreen(Screen):
 
             for row in cursor.fetchall():
                 faction1, faction2, relationship = row
-                # Определяем кто является другой фракцией
                 other_faction = faction2 if faction1 == self.selected_faction else faction1
                 key = f"{self.selected_faction}_{other_faction}"
 
                 current_state[key] = relationship
 
-                # Проверяем не появилось ли новое состояние "война"
-                if relationship == 'война':
+                # Война засчитывается только если ВРАГ объявил войну игроку
+                # (faction1 = враг, faction2 = игрок), а не наоборот
+                if relationship == 'война' and faction2 == self.selected_faction:
                     prev_state = self.prev_diplomacy_state.get(key)
-                    # Если раньше не было войны или было другое отношение
                     if prev_state != 'война':
                         new_wars.append(other_faction)
+
+            # Нежить и Мятежники не показывают уведомления, уничтоженные тоже
+            cursor.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал'")
+            alive = {r[0] for r in cursor.fetchall()}
+            new_wars = [f for f in new_wars if f not in ('Нежить', 'Мятежники') and f in alive]
 
             # Если есть новые войны - показываем уведомление
             if new_wars and not self.war_notification_shown:
@@ -732,6 +725,306 @@ class GameScreen(Screen):
     def reset_war_notification_flag(self):
         """Сбрасывает флаг уведомления (вызывать при начале нового хода)"""
         self.war_notification_shown = False
+
+    def check_new_diplomatic_messages(self):
+        """
+        Проверяет новые дипломатические сообщения от AI фракций.
+        Добавляет иконки фракций в DiplomacyMailbox.
+        """
+        try:
+            cursor = self.conn.cursor()
+            if not hasattr(self, '_last_checked_msg_id'):
+                self._last_checked_msg_id = 0
+                cursor.execute("SELECT MAX(id) FROM negotiation_history")
+                result = cursor.fetchone()
+                if result and result[0]:
+                    self._last_checked_msg_id = result[0]
+                return
+
+            # Только сообщения от живых фракций (имеющих хотя бы 1 город)
+            cursor.execute("""
+                SELECT id, faction1, message FROM negotiation_history
+                WHERE id > ? AND faction2 = ? AND is_player = 0
+                  AND faction1 IN (SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал')
+                  AND faction1 NOT IN ('Мятежники', 'Нежить')
+                ORDER BY id ASC
+            """, (self._last_checked_msg_id, self.selected_faction))
+
+            new_messages = cursor.fetchall()
+            if not new_messages:
+                return
+
+            self._last_checked_msg_id = new_messages[-1][0]
+
+            # Создаём mailbox если ещё нет
+            if not hasattr(self, '_diplomacy_mailbox') or not self._diplomacy_mailbox.parent:
+                self._diplomacy_mailbox = DiplomacyMailbox()
+                app = App.get_running_app()
+                if app and app.root:
+                    app.root.add_widget(self._diplomacy_mailbox)
+
+            for msg_id, faction, message in new_messages:
+                msg_type = 'info'
+                if '[СОЮЗ]' in message:
+                    msg_type = 'alliance'
+                elif '[ТОРГОВЛЯ]' in message:
+                    msg_type = 'trade'
+                elif '[УГРОЗА]' in message or '[ПРЕДУПРЕЖДЕНИЕ]' in message:
+                    msg_type = 'warning'
+                elif '[ПОЩАДА]' in message or '[УМОЛЯЮ]' in message:
+                    msg_type = 'mercy'
+                elif '[ПОМОЩЬ]' in message or '[ПРОСЬБА]' in message:
+                    msg_type = 'help'
+
+                self._diplomacy_mailbox.add_message(
+                    faction_name=faction,
+                    message=message,
+                    message_type=msg_type,
+                    on_respond=self._handle_diplomacy_response,
+                )
+
+        except Exception as e:
+            import traceback
+            print(f"[ERROR] Ошибка при проверке дипломатических сообщений: {e}")
+            traceback.print_exc()
+
+    def _handle_diplomacy_response(self, faction_name, answer, original_message):
+        """Обработка ответа игрока на дипломатическое сообщение с реальными игровыми эффектами."""
+        try:
+            if answer == '__open_chat__':
+                self.show_advisor(None, preselect_faction=faction_name)
+                return
+
+            cursor = self.conn.cursor()
+            player_text = "Согласен" if answer == 'да' else "Отказываюсь"
+
+            # Определяем тип предложения
+            is_trade = '[ТОРГОВЛЯ]' in original_message
+            is_alliance = '[СОЮЗ]' in original_message
+            is_mercy = '[ПОЩАДА]' in original_message or '[УМОЛЯЮ]' in original_message
+            is_help = '[ПОМОЩЬ]' in original_message or '[ПРОСЬБА]' in original_message
+
+            result_msg = ""
+
+            if answer == 'да':
+                # === ТОРГОВЛЯ: реальный обмен ресурсов ===
+                if is_trade:
+                    result_msg = self._execute_trade_deal(faction_name, original_message, cursor)
+
+                # === СОЮЗ: меняем статус + улучшаем отношения ===
+                elif is_alliance:
+                    cursor.execute("""
+                        UPDATE diplomacies SET relationship = 'союз'
+                        WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+                    """, (faction_name, self.selected_faction, self.selected_faction, faction_name))
+                    cursor.execute("""
+                        UPDATE relations SET relationship = MIN(100, relationship + 15)
+                        WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+                    """, (faction_name, self.selected_faction, self.selected_faction, faction_name))
+                    result_msg = f"Союз с {faction_name} заключён! Статус: союз. Отношения +15%."
+
+                # === ПОЩАДА: заключаем мир + передаём ресурсы победителю ===
+                elif is_mercy:
+                    cursor.execute("""
+                        UPDATE diplomacies SET relationship = 'нейтралитет'
+                        WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+                    """, (faction_name, self.selected_faction, self.selected_faction, faction_name))
+                    cursor.execute("""
+                        UPDATE relations SET relationship = MAX(relationship, 25)
+                        WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+                    """, (faction_name, self.selected_faction, self.selected_faction, faction_name))
+
+                    # Передача ресурсов проигравшего → победителю
+                    resource_msg = self._transfer_peace_resources(faction_name, original_message, cursor)
+
+                    # Записываем перемирие на 3 хода
+                    self._set_truce(faction_name, cursor)
+
+                    result_msg = f"Мир с {faction_name} заключён! Статус: нейтралитет. {resource_msg}"
+
+                # === ПРОСЬБА: улучшаем отношения ===
+                elif is_help:
+                    cursor.execute("""
+                        UPDATE relations SET relationship = MIN(100, relationship + 8)
+                        WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+                    """, (faction_name, self.selected_faction, self.selected_faction, faction_name))
+                    result_msg = f"Вы помогли {faction_name}. Отношения +8%."
+
+                # === Прочее (дружба, приветствие): маленький бонус ===
+                else:
+                    cursor.execute("""
+                        UPDATE relations SET relationship = MIN(100, relationship + 3)
+                        WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+                    """, (faction_name, self.selected_faction, self.selected_faction, faction_name))
+                    result_msg = f"Отношения с {faction_name} улучшились +3%."
+
+            else:  # Отказ
+                if is_alliance or is_trade:
+                    cursor.execute("""
+                        UPDATE relations SET relationship = MAX(0, relationship - 3)
+                        WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+                    """, (faction_name, self.selected_faction, self.selected_faction, faction_name))
+                    result_msg = f"Вы отклонили предложение {faction_name}. Отношения -3%."
+                elif is_mercy:
+                    result_msg = f"Вы отклонили мольбу {faction_name} о пощаде. Война продолжается."
+                else:
+                    result_msg = f"Вы отклонили предложение {faction_name}."
+
+            self.conn.commit()
+
+            # Сохраняем ответ + результат в историю
+            full_player_text = f"{player_text}. {result_msg}"
+            cursor.execute("""
+                INSERT INTO negotiation_history (faction1, faction2, message, is_player, is_incoming, timestamp)
+                VALUES (?, ?, ?, 1, 0, datetime('now'))
+            """, (self.selected_faction, faction_name, full_player_text))
+            self.conn.commit()
+
+            # Обновляем UI ресурсов
+            self.faction.load_resources()
+            self.resource_box.update_resources()
+
+        except Exception as e:
+            import traceback
+            print(f"[ERROR] Ошибка при обработке ответа дипломатии: {e}")
+            traceback.print_exc()
+
+    def _execute_trade_deal(self, faction_name, original_message, cursor):
+        """Выполняет реальный обмен ресурсов при принятии торговой сделки."""
+        import re
+
+        # Парсим из сообщения: "Мы отдаём X Кристаллов, вы — Y Крон."
+        # или "Мы отдаём X Крон, вы — Y Кристаллов."
+        give_match = re.search(r'[Мм]ы отда[её]м\s+([\d.,]+\s*(?:тыс\.|млн\.|млрд\.)?)\s*(Крон|Кристаллов|Кроны|Кристаллы)', original_message)
+        want_match = re.search(r'вы\s*[—–-]\s*([\d.,]+\s*(?:тыс\.|млн\.|млрд\.)?)\s*(Крон|Кристаллов|Кроны|Кристаллы)', original_message)
+
+        if not give_match or not want_match:
+            # Fallback: просто улучшаем отношения
+            cursor.execute("""
+                UPDATE relations SET relationship = MIN(100, relationship + 5)
+                WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+            """, (faction_name, self.selected_faction, self.selected_faction, faction_name))
+            return f"Торговое соглашение с {faction_name} заключено. Отношения +5%."
+
+        from utils.helpers import parse_formatted_number
+
+        ai_gives_amount = int(parse_formatted_number(give_match.group(1).strip()))
+        ai_gives_type = give_match.group(2).strip()
+        player_gives_amount = int(parse_formatted_number(want_match.group(1).strip()))
+        player_gives_type = want_match.group(2).strip()
+
+        # Нормализуем названия ресурсов
+        type_map = {'Крон': 'Кроны', 'Кроны': 'Кроны', 'Кристаллов': 'Кристаллы', 'Кристаллы': 'Кристаллы'}
+        ai_gives_type = type_map.get(ai_gives_type, ai_gives_type)
+        player_gives_type = type_map.get(player_gives_type, player_gives_type)
+
+        # Проверяем хватает ли у игрока ресурсов
+        player_has = self.faction.resources.get(player_gives_type, 0)
+        if player_has < player_gives_amount:
+            return f"Недостаточно {player_gives_type}! Нужно {player_gives_amount}, у вас {int(player_has)}."
+
+        # Выполняем обмен: игрок отдаёт → AI получает, AI отдаёт → игрок получает
+        # Игрок
+        self.faction.resources[player_gives_type] -= player_gives_amount
+        self.faction.resources[ai_gives_type] = self.faction.resources.get(ai_gives_type, 0) + ai_gives_amount
+
+        # Обновляем внутренние поля Faction
+        if player_gives_type == 'Кроны':
+            self.faction.money -= player_gives_amount
+        elif player_gives_type == 'Кристаллы':
+            self.faction.raw_material -= player_gives_amount
+        if ai_gives_type == 'Кроны':
+            self.faction.money += ai_gives_amount
+        elif ai_gives_type == 'Кристаллы':
+            self.faction.raw_material += ai_gives_amount
+
+        self.faction.save_resources_to_db()
+
+        # AI фракция: обратный обмен
+        cursor.execute("UPDATE resources SET amount = amount - ? WHERE faction=? AND resource_type=?",
+                        (ai_gives_amount, faction_name, ai_gives_type))
+        cursor.execute("UPDATE resources SET amount = amount + ? WHERE faction=? AND resource_type=?",
+                        (player_gives_amount, faction_name, player_gives_type))
+
+        # Улучшаем отношения
+        cursor.execute("""
+            UPDATE relations SET relationship = MIN(100, relationship + 5)
+            WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+        """, (faction_name, self.selected_faction, self.selected_faction, faction_name))
+
+        return (f"Сделка заключена! Вы получили {ai_gives_amount} {ai_gives_type}, "
+                f"отдали {player_gives_amount} {player_gives_type}. Отношения +5%.")
+
+    def _transfer_peace_resources(self, faction_name, original_message, cursor):
+        """Извлекает из сообщения о пощаде предложенные ресурсы и передаёт их победителю."""
+        import re
+        from utils.helpers import parse_formatted_number
+
+        # Ищем "Предлагаем: X Кроны, Y Кристаллы." в сообщении
+        offers = re.findall(
+            r'([\d.,]+\s*(?:тыс\.|млн\.|млрд\.)?)\s*(Крон[ыа]?|Кристалл[ыов]*)',
+            original_message
+        )
+
+        if not offers:
+            return ""
+
+        total_msg_parts = []
+        for amount_str, res_type in offers:
+            amount = int(parse_formatted_number(amount_str.strip()))
+            if amount <= 0:
+                continue
+            # Нормализуем тип ресурса
+            if 'Крон' in res_type:
+                res_key = 'Кроны'
+            elif 'Кристалл' in res_type:
+                res_key = 'Кристаллы'
+            else:
+                continue
+
+            # Списываем у проигравшего (AI фракция)
+            cursor.execute(
+                "UPDATE resources SET amount = MAX(0, amount - ?) WHERE faction=? AND resource_type=?",
+                (amount, faction_name, res_key)
+            )
+            # Начисляем победителю (игрок)
+            self.faction.resources[res_key] = self.faction.resources.get(res_key, 0) + amount
+            if res_key == 'Кроны':
+                self.faction.money += amount
+            elif res_key == 'Кристаллы':
+                self.faction.raw_material += amount
+
+            total_msg_parts.append(f"{amount} {res_key}")
+
+        if total_msg_parts:
+            self.faction.save_resources_to_db()
+            return f"Получено контрибуцией: {', '.join(total_msg_parts)}."
+        return ""
+
+    def _set_truce(self, faction_name, cursor):
+        """Устанавливает перемирие на 3 хода между фракциями."""
+        # Создаём таблицу перемирий если её нет
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS truces (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                faction1 TEXT NOT NULL,
+                faction2 TEXT NOT NULL,
+                truce_until_turn INTEGER NOT NULL,
+                UNIQUE(faction1, faction2)
+            )
+        """)
+        truce_end = self.turn_counter + 3
+        cursor.execute("""
+            INSERT INTO truces (faction1, faction2, truce_until_turn)
+            VALUES (?, ?, ?)
+            ON CONFLICT(faction1, faction2) DO UPDATE SET truce_until_turn = excluded.truce_until_turn
+        """, (faction_name, self.selected_faction, truce_end))
+        cursor.execute("""
+            INSERT INTO truces (faction1, faction2, truce_until_turn)
+            VALUES (?, ?, ?)
+            ON CONFLICT(faction1, faction2) DO UPDATE SET truce_until_turn = excluded.truce_until_turn
+        """, (self.selected_faction, faction_name, truce_end))
+        print(f"[TRUCE] Перемирие между {faction_name} и {self.selected_faction} до хода {truce_end}")
 
     def save_selected_faction_to_db(self):
         conn = self.conn
@@ -985,6 +1278,9 @@ class GameScreen(Screen):
         self.resource_box = ResourceBox(resource_manager=self.faction, overlay=self.root_overlay)
         self.root_overlay.add_widget(self.resource_box)
 
+        # Моментальное обновление UI при любом изменении ресурсов
+        self.faction._on_resources_changed = lambda: self.resource_box.update_resources()
+
         # Сохраняем координаты ResourceBox
         self.save_interface_element("ResourceBox", "top_left", self.resource_box)
 
@@ -1065,6 +1361,24 @@ class GameScreen(Screen):
         # Проверяем, есть ли Мятежники в городах, и создаём ИИ для них
         self.ensure_rebellion_ai_controller()
 
+        # === Проверка и запуск инвазии нежити ===
+        invasion_triggered, invasion_msg = check_and_trigger_invasion(
+            self.conn, self.turn_counter, self.selected_faction
+        )
+        if invasion_triggered:
+            # Показываем оповещение о начале мора
+            self._show_invasion_notification(invasion_msg)
+            # Создаём AI контроллер для нежити
+            if UNDEAD_FACTION_NAME not in self.ai_controllers:
+                self.ai_controllers[UNDEAD_FACTION_NAME] = AIController(
+                    UNDEAD_FACTION_NAME, self.conn, self.season_manager,
+                    player_faction=self.selected_faction
+                )
+
+        # Обработка хода нежити (подкрепления, артефакты)
+        if is_invasion_active(self.conn):
+            process_undead_turn(self.conn, self.turn_counter)
+
         # Ход ИИ
         for faction_name, ai_controller in self.ai_controllers.items():
             ai_controller.make_turn()
@@ -1092,7 +1406,8 @@ class GameScreen(Screen):
         # Сбрасываем характеристики отсутствующих юнитов 3 класса
         self.season_manager.reset_absent_third_class_units(self.conn)
 
-        # Обновляем рейтинг армии и отрисовываем звёздочки
+        # Обновляем рейтинг армии и отрисовываем звёздочки (сброс кэша — данные изменились)
+        self._prev_star_levels = None
         self.update_army_rating()
 
         # Генерация случайных событий
@@ -1104,6 +1419,8 @@ class GameScreen(Screen):
         self.check_diplomacy_changes()
         # Сбрасываем флаг уведомления для следующего хода
         self.reset_war_notification_flag()
+        # === ПРОВЕРКА НОВЫХ ДИПЛОМАТИЧЕСКИХ СООБЩЕНИЙ ОТ AI ===
+        self.check_new_diplomatic_messages()
         # Проверяем условие завершения игры
         game_continues, reason = self.faction.end_game()  # Получаем статус и причину завершения
         if not game_continues:
@@ -1872,7 +2189,7 @@ class GameScreen(Screen):
             text="Да",
             size_hint=(1, 1),
             background_normal='',
-            background_color=hex_color('#E53E3E'),
+            background_color=get_color_from_hex('#E53E3E'),
             font_size=sp(16),
             bold=True,
             color=(1, 1, 1, 1)
@@ -1883,7 +2200,7 @@ class GameScreen(Screen):
             text="Нет",
             size_hint=(1, 1),
             background_normal='',
-            background_color=hex_color('#38A169'),
+            background_color=get_color_from_hex('#38A169'),
             font_size=sp(16),
             bold=True,
             color=(1, 1, 1, 1)
@@ -2020,6 +2337,97 @@ class GameScreen(Screen):
         popup.open()
 
 
+
+    def _show_invasion_notification(self, message):
+        """Показывает уведомление о начале нашествия нежити (Приход Мора)."""
+        from kivy.uix.popup import Popup
+        from kivy.uix.boxlayout import BoxLayout
+        from kivy.uix.label import Label
+        from kivy.uix.button import Button
+        from kivy.graphics import Color, RoundedRectangle
+        from kivy.metrics import dp, sp
+
+        print(f"[UNDEAD] Показываем уведомление о начале мора")
+
+        content = BoxLayout(
+            orientation='vertical',
+            padding=[dp(20), dp(20), dp(20), dp(20)],
+            spacing=dp(15),
+            size_hint=(1, 1)
+        )
+
+        # Заголовок
+        title_label = Label(
+            text="[color=#33BF99]ПРИХОД МОРА![/color]",
+            font_size=sp(32),
+            markup=True,
+            halign='center',
+            valign='middle',
+            size_hint_y=None,
+            height=dp(60)
+        )
+        title_label.bind(size=title_label.setter('text_size'))
+        content.add_widget(title_label)
+
+        # Текст сообщения
+        message_label = Label(
+            text=message,
+            font_size=sp(16),
+            markup=True,
+            halign='center',
+            valign='middle',
+            size_hint_y=None,
+            height=dp(150)
+        )
+        message_label.bind(size=message_label.setter('text_size'))
+        content.add_widget(message_label)
+
+        # Кнопка
+        ok_button = Button(
+            text="[b]Мы выстоим![/b]",
+            font_size=sp(18),
+            markup=True,
+            size_hint=(1, None),
+            height=dp(50),
+            background_normal='',
+            background_color=(0.1, 0.5, 0.4, 1),
+            color=(1, 1, 1, 1)
+        )
+
+        popup = Popup(
+            title='',
+            content=content,
+            size_hint=(0.75, 0.65),
+            auto_dismiss=False,
+            background_color=(0.05, 0.15, 0.12, 0.95),
+            separator_height=0
+        )
+
+        def on_ok_pressed(instance):
+            popup.dismiss()
+
+        ok_button.bind(on_press=on_ok_pressed)
+        content.add_widget(ok_button)
+
+        # Рамка с зеленоватым свечением
+        def draw_glow_border(instance, value):
+            instance.canvas.before.clear()
+            with instance.canvas.before:
+                Color(0.2, 0.8, 0.6, 0.3)
+                RoundedRectangle(
+                    pos=(instance.x - 3, instance.y - 3),
+                    size=(instance.width + 6, instance.height + 6),
+                    radius=[15]
+                )
+                Color(0.1, 0.5, 0.4, 0.9)
+                RoundedRectangle(
+                    pos=instance.pos,
+                    size=instance.size,
+                    radius=[12]
+                )
+
+        popup.bind(pos=draw_glow_border, size=draw_glow_border)
+        popup.open()
 
     def initialize_political_data(self):
         """
@@ -2282,14 +2690,15 @@ class GameScreen(Screen):
             self.conn
         )
 
-    def show_advisor(self, instance):
+    def show_advisor(self, instance, preselect_faction=None):
         # Блокируем переключение вкладок во время обучения (кроме текущего шага)
         if self.tutorial_enabled and self.current_tutorial_step != 4:
             return
 
         self.activate_tab('advisor')
         self.clear_game_area()
-        advisor_view = AdvisorView(self.selected_faction, self.conn, game_screen_instance=self)
+        advisor_view = AdvisorView(self.selected_faction, self.conn, game_screen_instance=self,
+                                   preselect_faction=preselect_faction)
         self.game_area.add_widget(advisor_view)
         self.mark_messages_as_read()
 
@@ -2350,10 +2759,11 @@ class GameScreen(Screen):
             """)
             all_factions = {row[0] for row in cursor.fetchall()}
 
-            # Исключаем "Мятежников" из проверки на уничтожение
-            all_factions.discard("Мятежники")
-            factions_with_cities.discard("Мятежники")
-            factions_with_units.discard("Мятежники")
+            # Исключаем "Мятежников" и "Нежить" из проверки на уничтожение
+            for skip in ("Мятежники", "Нежить"):
+                all_factions.discard(skip)
+                factions_with_cities.discard(skip)
+                factions_with_units.discard(skip)
 
             # Шаг 3: Определяем фракции, у которых нет ни одного города
             destroyed_factions = all_factions - factions_with_cities
@@ -2398,41 +2808,32 @@ class GameScreen(Screen):
         self.update_city_military_status()
         self.draw_army_stars_on_map()
 
+    # Кэш проверок существования файлов (проверяем один раз за сессию)
+    _file_exists_cache = {}
+
+    @classmethod
+    def _check_file(cls, path):
+        """Проверяет существование файла с кэшированием."""
+        if path not in cls._file_exists_cache:
+            cls._file_exists_cache[path] = os.path.exists(path)
+        return cls._file_exists_cache[path]
+
     def draw_army_stars_on_map(self):
         """
-        Рисует звёздочки над иконками городов и иконки идеологии справа от иконок.
-        Также рисует иконки бонуса кристаллов (от 1 до 3) справа от иконки города,
-        но левее иконки идеологии.
-        Также рисует увеличенную иконку выбора игрока (в 1.5 раза больше иконки города)
-        по центру иконки города, но только для городов игрока.
-        Использует готовые координаты из self.city_star_levels:
-            { city_name: (star_level, icon_x, icon_y, city_name, has_hero, ideology_icon_path, crystal_icon_count, is_player_city) }
+        Рисует звёздочки над иконками городов и иконки идеологии/кристаллов.
+        Использует кэширование: не перерисовывает если данные не изменились.
         """
-        star_img_path = 'files/status/army_in_city/star.png'
-        red_star_img_path = 'files/status/army_in_city/red_star.png'  # Путь к красной звезде
-        # Путь к иконке бонуса кристаллов (одна иконка для отрисовки 1-3 раз)
-        crystal_icon_path = 'files/status/city_bonus/crystal.png'
-        # Путь к иконке выбора игрока
-        player_choise_icon_path = 'files/status/choise.png' # Путь к иконке
-        # Пути к иконкам идеологии теперь определяются в update_city_military_status
+        # Пропускаем перерисовку если данные не изменились
+        if not hasattr(self, 'city_star_levels') or not self.city_star_levels:
+            return
+        if self._prev_star_levels == self.city_star_levels:
+            return
+        self._prev_star_levels = dict(self.city_star_levels)
 
-        # Проверяем существование файлов звёзд (если они обязательны)
-        if not os.path.exists(star_img_path):
-            print(f"Файл звезды не найден: {star_img_path}")
-            # Можно вернуться, если звезды обязательны, или продолжить с иконками
-            # return
-        if not os.path.exists(red_star_img_path):
-            print(f"Файл красной звезды не найден: {red_star_img_path}")
-            # Можно вернуться, если красная звезда обязательна, или продолжить
-            # return
-        # Проверяем существование файла иконки кристалла
-        if not os.path.exists(crystal_icon_path):
-            print(f"Файл иконки бонуса кристаллов не найден: {crystal_icon_path}")
-            # Игра продолжит выполнение, но иконки кристаллов не будут отрисованы
-        # Проверяем существование файла иконки выбора игрока
-        if not os.path.exists(player_choise_icon_path):
-            print(f"Файл иконки выбора игрока не найден: {player_choise_icon_path}")
-            # Игра продолжит выполнение, но иконки выбора не будут отрисованы
+        star_img_path = 'files/status/army_in_city/star.png'
+        red_star_img_path = 'files/status/army_in_city/red_star.png'
+        crystal_icon_path = 'files/status/city_bonus/crystal.png'
+        player_choise_icon_path = 'files/status/choise.png'
 
         # Параметры отрисовки
         STAR_SIZE = 25
@@ -2457,10 +2858,6 @@ class GameScreen(Screen):
         # Центрируем иконку выбора по центру иконки города
         # PLAYER_CHOISE_ICON_OFFSET_X и PLAYER_CHOISE_ICON_Y_OFFSET не нужны, так как она центрирована
         # --- КОНЕЦ НОВЫХ ПАРАМЕТРОВ ---
-
-        # Если нет данных — ничего не рисуем
-        if not hasattr(self, 'city_star_levels') or not self.city_star_levels:
-            return
 
         # Очищаем прошлые элементы (звезды и иконки)
         self.game_area.canvas.before.clear()
@@ -2492,59 +2889,58 @@ class GameScreen(Screen):
                 icon_center_x = icon_x + CITY_ICON_SIZE / 2
                 icon_center_y = icon_y + CITY_ICON_SIZE / 2
 
-                # --- ОТРИСОВКА ИКОНКИ ВЫБОРА ИГРОКА ---
-                # Проверяем, является ли город городом игрока и существует ли файл
-                if is_player_city and os.path.exists(player_choise_icon_path):
-                    # Центрируем иконку относительно иконки города
-                    choise_x = icon_x + (CITY_ICON_SIZE - PLAYER_CHOISE_ICON_SIZE) / 2
-                    choise_y = icon_y + (CITY_ICON_SIZE - PLAYER_CHOISE_ICON_SIZE) / 2
-                    Rectangle(
-                        source=player_choise_icon_path,
-                        pos=(choise_x, choise_y),
-                        size=(PLAYER_CHOISE_ICON_SIZE, PLAYER_CHOISE_ICON_SIZE)
+                # --- ВЫДЕЛЕНИЕ ГОРОДОВ ИГРОКА (glow-эффект) ---
+                if is_player_city:
+                    from design_system import FACTION_COLORS as _FC
+                    fc = _FC.get(self.selected_faction, {})
+                    glow_color = fc.get('glow', (0.4, 0.7, 1.0, 0.5))
+                    primary = fc.get('primary', (0.3, 0.6, 0.9, 1))
+
+                    # Внешнее мягкое свечение
+                    glow_size = CITY_ICON_SIZE * 1.6
+                    Color(glow_color[0], glow_color[1], glow_color[2], 0.2)
+                    Ellipse(
+                        pos=(icon_center_x - glow_size / 2, icon_center_y - glow_size / 2),
+                        size=(glow_size, glow_size)
                     )
-                elif is_player_city: # Был город игрока, но файл не найден
-                    print(f"Файл иконки выбора игрока не найден при отрисовке: {player_choise_icon_path}")
-                # --- КОНЕЦ ОТРИСОВКИ ИКОНКИ ВЫБОРА ИГРОКА ---
+                    # Среднее свечение
+                    mid_size = CITY_ICON_SIZE * 1.25
+                    Color(primary[0], primary[1], primary[2], 0.25)
+                    Ellipse(
+                        pos=(icon_center_x - mid_size / 2, icon_center_y - mid_size / 2),
+                        size=(mid_size, mid_size)
+                    )
+                    # Тонкая рамка
+                    Color(primary[0], primary[1], primary[2], 0.6)
+                    Line(
+                        ellipse=(icon_center_x - mid_size / 2, icon_center_y - mid_size / 2,
+                                 mid_size, mid_size),
+                        width=1.2
+                    )
 
 
-                # --- Отрисовка иконки идеологии (справа от иконки города) ---
-                if ideology_icon_path:
-                    # Позиция X - справа от правого края иконки города
+                # --- Отрисовка иконки идеологии ---
+                if ideology_icon_path and self._check_file(ideology_icon_path):
                     ideology_x = icon_x + CITY_ICON_SIZE + IDEOLOGY_ICON_OFFSET_X
-                    # Позиция Y - выравнивание по вертикали с центром иконки города
                     ideology_y = icon_center_y - IDEOLOGY_ICON_SIZE / 2
+                    Color(1, 1, 1, 1)
+                    Rectangle(
+                        source=ideology_icon_path,
+                        pos=(ideology_x, ideology_y),
+                        size=(IDEOLOGY_ICON_SIZE, IDEOLOGY_ICON_SIZE)
+                    )
 
-                    # Проверяем существование файла перед отрисовкой (еще раз на всякий)
-                    if os.path.exists(ideology_icon_path):
-                        Rectangle(
-                            source=ideology_icon_path,
-                            pos=(ideology_x, ideology_y),
-                            size=(IDEOLOGY_ICON_SIZE, IDEOLOGY_ICON_SIZE)
-                        )
-                    else:
-                        print(f"Файл иконки идеологии не найден при отрисовке: {ideology_icon_path}")
-
-                # --- ОТРИСОВКА ИКОНОК БОНУСА КРИСТАЛЛОВ ---
-                # Проверяем, есть ли иконки для отрисовки и существует ли файл
-                if crystal_icon_count > 0 and os.path.exists(crystal_icon_path):
-                    # Позиция Y для иконок кристаллов (с небольшим сдвигом вниз)
+                # --- Отрисовка иконок бонуса кристаллов ---
+                if crystal_icon_count > 0 and self._check_file(crystal_icon_path):
                     crystal_y = icon_y + CRYSTAL_ICON_Y_OFFSET
-                    # Рисуем иконки в ряд справа от иконки города
                     for i in range(crystal_icon_count):
-                        # Позиция X для i-й иконки (0-индексированной)
-                        # Первая иконка: CITY_ICON_SIZE + START_OFFSET
-                        # Вторая: CITY_ICON_SIZE + START_OFFSET + (1 * (SIZE + SPACING))
-                        # Третья: CITY_ICON_SIZE + START_OFFSET + (2 * (SIZE + SPACING))
                         crystal_x = icon_x + CITY_ICON_SIZE + CRYSTAL_ICON_START_OFFSET_X + i * (CRYSTAL_ICON_SIZE + CRYSTAL_ICON_SPACING)
+                        Color(1, 1, 1, 1)
                         Rectangle(
                             source=crystal_icon_path,
                             pos=(crystal_x, crystal_y),
                             size=(CRYSTAL_ICON_SIZE, CRYSTAL_ICON_SIZE)
                         )
-                elif crystal_icon_count > 0:  # Были иконки, но файл не найден
-                    print(f"Файл иконки бонуса кристаллов не найден при отрисовке: {crystal_icon_path}")
-                # --- КОНЕЦ ОТРИСОВКИ ИКОНОК БОНУСА КРИСТАЛЛОВ ---
 
 
                 # --- Отрисовка красной звезды (если есть герой) ---
@@ -2628,34 +3024,31 @@ class GameScreen(Screen):
         for city_name, faction, coords_str, kf_crystal_val in raw_cities:
             factions_cities[faction].append((city_name, coords_str, kf_crystal_val, faction))
 
+        # Batch-загрузка героев для всех городов (вместо N запросов)
+        cities_with_heroes = set()
+        try:
+            cursor.execute("""
+                SELECT DISTINCT g.city_name
+                FROM garrisons g
+                JOIN units u ON g.unit_name = u.unit_name
+                WHERE u.unit_class IN (2, 3, 4)
+            """)
+            cities_with_heroes = {row[0] for row in cursor.fetchall()}
+        except sqlite3.Error:
+            pass
+
         new_dict = {}
         for faction, cities_list in factions_cities.items():
             total_strength = self.get_total_army_strength_by_faction(faction)
-            # if total_strength == 0: # Не будем пропускать фракции без армии, так как может быть герой
-            #     continue
-            # --- ИЗМЕНЕНО: Теперь распаковываем faction из списка ---
             for city_name, coords_str, kf_crystal_val, city_faction in cities_list:
                 try:
-                    coords = eval(coords_str) # Лучше использовать ast.literal_eval
+                    coords = eval(coords_str)
                     icon_x, icon_y = coords
                 except Exception as ex:
                     print(f"Ошибка парсинга icon_coordinates для {city_name}: {ex}")
                     continue
 
-                # --- Проверка наличия героя (юнита 2-4 класса) ---
-                has_hero = False
-                try:
-                    cursor.execute("""
-                        SELECT 1
-                        FROM garrisons g
-                        JOIN units u ON g.unit_name = u.unit_name
-                        WHERE g.city_name = ? AND u.unit_class IN (2, 3, 4)
-                        LIMIT 1
-                    """, (city_name,))
-                    if cursor.fetchone():
-                        has_hero = True
-                except sqlite3.Error as e:
-                    print(f"Ошибка при проверке наличия героя в {city_name}: {e}")
+                has_hero = city_name in cities_with_heroes
 
                 # --- Расчет силы армии в городе ---
                 city_strength = self.get_city_army_strength_by_faction(city_name, faction)
@@ -2683,9 +3076,8 @@ class GameScreen(Screen):
                         ideology_icon_path = self.IDEOLOGY_ICONS[self.player_ideology]['different']
 
                     # Проверяем существование файла иконки
-                    if not os.path.exists(ideology_icon_path):
-                        print(f"Файл иконки идеологии не найден: {ideology_icon_path}")
-                        ideology_icon_path = None # Не отрисовываем, если файл не найден
+                    if not self._check_file(ideology_icon_path):
+                        ideology_icon_path = None
 
                 # --- Логика для определения количества иконок бонуса кристаллов ---
                 crystal_icon_count = 0  # По умолчанию - 0 иконок
@@ -2709,7 +3101,7 @@ class GameScreen(Screen):
         self.city_star_levels = new_dict
 
     def get_total_army_strength_by_faction(self, faction):
-        """Возвращает общую мощь армии фракции."""
+        """Возвращает общую мощь армии фракции (все юниты в городах фракции, включая перешедших)."""
         cursor = self.conn.cursor()
         class_coefficients = {
             "1": 1.3,
@@ -2719,13 +3111,14 @@ class GameScreen(Screen):
             "5": 4.0
         }
         try:
+            # Считаем ВСЕ юниты в городах фракции, не только юниты с u.faction = faction.
+            # Перешедшие войска (юниты другой фракции в гарнизоне) тоже учитываются.
             cursor.execute("""
                 SELECT g.unit_name, g.unit_count, u.attack, u.defense, u.durability, u.unit_class
                 FROM garrisons g
                 JOIN units u ON g.unit_name = u.unit_name
-                WHERE u.faction = ?
-                  AND g.city_name IN (SELECT name FROM cities WHERE faction = ?)
-            """, (faction, faction))
+                WHERE g.city_name IN (SELECT name FROM cities WHERE faction = ?)
+            """, (faction,))
             rows = cursor.fetchall()
             total_strength = 0
             for row in rows:
@@ -2739,7 +3132,7 @@ class GameScreen(Screen):
             return 0
 
     def get_city_army_strength_by_faction(self, city_name, faction):
-        """Возвращает мощь армии фракции в конкретном городе."""
+        """Возвращает мощь армии в конкретном городе (ВСЕ юниты гарнизона, не только своей фракции)."""
         cursor = self.conn.cursor()
         class_coefficients = {
             "1": 1.3,
@@ -2749,12 +3142,14 @@ class GameScreen(Screen):
             "5": 4.0
         }
         try:
+            # Считаем ВСЕ юниты в гарнизоне города, а не только юниты фракции-владельца.
+            # Перешедшие на сторону игрока войска (из другой фракции) тоже должны учитываться.
             cursor.execute("""
                 SELECT g.unit_name, g.unit_count, u.attack, u.defense, u.durability, u.unit_class
                 FROM garrisons g
                 JOIN units u ON g.unit_name = u.unit_name
-                WHERE g.city_name = ? AND u.faction = ?
-            """, (city_name, faction))
+                WHERE g.city_name = ?
+            """, (city_name,))
             rows = cursor.fetchall()
             city_strength = 0
             for row in rows:

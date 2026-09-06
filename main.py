@@ -397,67 +397,120 @@ class AuthorScreen(Screen):
 
 
 class LoadingScreen(FloatLayout):
+    """Стильный экран загрузки с анимированными частицами и glow-эффектами."""
+
+    TIPS = [
+        "Стройте больницы для роста населения",
+        "Фабрики — основа экономики, но требуют рабочих",
+        "Следите за потреблением армии — голодные солдаты дезертируют",
+        "Торговля с дружественными фракциями приносит больше выгоды",
+        "Герои усиливают гарнизон города в бою",
+        "Сезоны влияют на производство ресурсов",
+        "Дипломатия может быть сильнее армии",
+        "Кристаллы можно продать за кроны на рынке",
+        "Артефакты дают бонусы вашим героям",
+        "Чем больше городов — тем выше лимит армии",
+    ]
+
     def __init__(self, conn, selected_map=None, **kwargs):
         super(LoadingScreen, self).__init__(**kwargs)
         self.conn = conn
         self.selected_map = selected_map
+        self._particles = []
+        self._particle_event = None
 
         # === Фон ===
         with self.canvas.before:
+            Color(0.04, 0.05, 0.1, 1)
+            self.bg_fill = Rectangle(pos=self.pos, size=self.size)
             self.bg_rect = Rectangle(
                 source='files/menu/loading_bg.jpg',
-                pos=self.pos,
-                size=self.size
+                pos=self.pos, size=self.size
             )
         self.bind(pos=self._update_bg, size=self._update_bg)
 
-        # === Контейнер шкалы ===
-        self.pb_container = FloatLayout(
-            size_hint=(0.8, None),
-            height=dp(30),
-            pos_hint={'center_x': 0.5, 'center_y': 0.2}
+        # === Название игры ===
+        self.title_label = Label(
+            text="[b]LERDON[/b]",
+            markup=True,
+            font_size=sp(52),
+            color=(0.85, 0.78, 0.55, 1),
+            outline_color=(0.15, 0.1, 0.05, 1),
+            outline_width=3,
+            pos_hint={'center_x': 0.5, 'center_y': 0.65},
+            size_hint=(1, None), height=dp(70),
         )
+        self.add_widget(self.title_label)
 
-        with self.pb_container.canvas.before:
-            # === Фон прогресс-бара ===
-            Color(0.1, 0.1, 0.1, 0.8)
-            self.pb_rect = Rectangle(size=self.pb_container.size, pos=self.pb_container.pos)
+        # Подзаголовок
+        self.subtitle = Label(
+            text="[i]Легенды Пяти Королевств[/i]",
+            markup=True,
+            font_size=sp(16),
+            color=(0.6, 0.65, 0.75, 0.8),
+            pos_hint={'center_x': 0.5, 'center_y': 0.58},
+            size_hint=(1, None), height=dp(30),
+        )
+        self.add_widget(self.subtitle)
 
-            # === Заливка прогресса ===
-            Color(1, 1, 1, 1)  # Начальный белый цвет
-            self.pb_fill = Rectangle(size=(0, self.pb_container.height), pos=self.pb_container.pos)
-
-            # === Обводка ===
-            Color(1, 1, 1, 0.9)
-            self.pb_border = Line(
-                rectangle=(
-                    self.pb_container.x - dp(1),
-                    self.pb_container.y - dp(1),
-                    self.pb_container.width + dp(2),
-                    self.pb_container.height + dp(2)
-                ),
-                width=dp(1.3)
-            )
-
-        self.pb_container.bind(pos=self.update_pb_canvas, size=self.update_pb_canvas)
+        # === Прогресс-бар с glow ===
+        self.pb_container = FloatLayout(
+            size_hint=(0.6, None), height=dp(8),
+            pos_hint={'center_x': 0.5, 'center_y': 0.28}
+        )
+        self.pb_container.bind(pos=self._draw_progress, size=self._draw_progress)
         self.add_widget(self.pb_container)
 
-        # === Текст загрузки ===
+        # === Текст прогресса ===
         self.label = Label(
             markup=True,
-            text="[color=#00ccff]Готовим ресурсы... 0%[/color]",
-            font_size='19sp',
-            pos_hint={'center_x': 0.5, 'center_y': 0.11},
-            size_hint=(1, None),
+            text="[color=#8899bb]Инициализация...[/color]",
+            font_size=sp(13),
+            color=(0.55, 0.6, 0.72, 1),
+            pos_hint={'center_x': 0.5, 'center_y': 0.23},
+            size_hint=(1, None), height=dp(24),
             halign='center'
         )
         self.add_widget(self.label)
+
+        # === Процент ===
+        self.percent_label = Label(
+            text="0%",
+            font_size=sp(22),
+            bold=True,
+            color=(0.75, 0.82, 0.95, 1),
+            pos_hint={'center_x': 0.5, 'center_y': 0.33},
+            size_hint=(1, None), height=dp(30),
+        )
+        self.add_widget(self.percent_label)
+
+        # === Подсказка ===
+        import random
+        tip = random.choice(self.TIPS)
+        self.tip_label = Label(
+            text=f"[i]{tip}[/i]",
+            markup=True,
+            font_size=sp(12),
+            color=(0.45, 0.5, 0.6, 0.7),
+            pos_hint={'center_x': 0.5, 'center_y': 0.12},
+            size_hint=(0.8, None), height=dp(30),
+            halign='center',
+        )
+        self.tip_label.bind(size=self.tip_label.setter('text_size'))
+        self.add_widget(self.tip_label)
 
         # === Прогресс ===
         self.current_progress = 0
         self.target_progress = 0
 
         # === Шаги загрузки ===
+        self._step_messages = [
+            "Проверка базы данных...",
+            "Очистка кэша...",
+            "Восстановление данных...",
+            "Загрузка ассетов...",
+            "Финализация...",
+        ]
         self.loading_steps = [
             self.step_check_db,
             self.step_cleanup_cache,
@@ -465,43 +518,112 @@ class LoadingScreen(FloatLayout):
             self.step_load_assets,
             self.step_complete
         ]
-        Clock.schedule_once(self.start_loading)
 
-    # === Обновление заливки и рамки ===
-    def update_pb_canvas(self, *args):
-        self.pb_rect.pos = self.pb_container.pos
-        self.pb_rect.size = self.pb_container.size
+        # Анимация появления
+        self.opacity = 0
+        Animation(opacity=1, duration=0.6).start(self)
 
-        fill_width = (self.current_progress / 100) * self.pb_container.width
-        self.pb_fill.pos = self.pb_container.pos
-        self.pb_fill.size = (fill_width, self.pb_container.height)
+        # Анимация title glow
+        self._animate_title()
 
-        # === Плавный переход цвета от белого → голубого → синего ===
-        progress_ratio = self.current_progress / 100.0
-        if progress_ratio <= 0.5:
-            # От белого к голубому (0–50%)
-            r = 1 - progress_ratio * 0.5  # 1 → 0.75
-            g = 1 - progress_ratio * 0.3  # 1 → 0.85
-            b = 1  # остаётся бело-голубым
-        else:
-            # От голубого к насыщенно-синему (50–100%)
-            t = (progress_ratio - 0.5) * 2  # нормализуем вторую половину
-            r = 0.75 - t * 0.55  # 0.75 → 0.2
-            g = 0.85 - t * 0.65  # 0.85 → 0.2
-            b = 1 - t * 0.3  # 1 → 0.7
+        # Частицы
+        self._particle_event = Clock.schedule_interval(self._spawn_particle, 0.15)
+
+        Clock.schedule_once(self.start_loading, 0.3)
+
+    def _animate_title(self):
+        """Пульсация названия игры."""
+        anim = (Animation(color=(0.95, 0.88, 0.6, 1), duration=1.5, t='in_out_sine') +
+                Animation(color=(0.75, 0.68, 0.45, 1), duration=1.5, t='in_out_sine'))
+        anim.repeat = True
+        anim.start(self.title_label)
+
+    def _spawn_particle(self, dt):
+        """Генерирует восходящую светящуюся частицу."""
+        if len(self._particles) > 25:
+            return
+        import random
+        w = self.width or Window.width
+        h = self.height or Window.height
+        px = random.uniform(0, w)
+        size = random.uniform(dp(2), dp(5))
+        alpha = random.uniform(0.15, 0.4)
+        speed = random.uniform(dp(20), dp(50))
+
+        particle = {
+            'x': px, 'y': -dp(10), 'size': size,
+            'alpha': alpha, 'speed': speed,
+            'color': random.choice([
+                (0.53, 0.75, 0.92),  # голубой
+                (0.85, 0.78, 0.55),  # золотой
+                (0.65, 0.55, 0.85),  # фиолетовый
+            ])
+        }
+        self._particles.append(particle)
+        if not hasattr(self, '_particle_update_event'):
+            self._particle_update_event = Clock.schedule_interval(self._update_particles, 0.033)
+
+    def _update_particles(self, dt):
+        """Обновляет и рисует частицы."""
+        h = self.height or Window.height
+        alive = []
+        for p in self._particles:
+            p['y'] += p['speed'] * dt
+            p['alpha'] *= 0.995  # Постепенное угасание
+            if p['y'] < h and p['alpha'] > 0.02:
+                alive.append(p)
+        self._particles = alive
+
+        # Перерисовка
+        if hasattr(self, '_particle_group'):
+            self.canvas.after.remove(self._particle_group)
+        from kivy.graphics import InstructionGroup, Ellipse as GlEllipse
+        group = InstructionGroup()
+        for p in self._particles:
+            group.add(Color(*p['color'], p['alpha']))
+            group.add(GlEllipse(pos=(p['x'], p['y']), size=(p['size'], p['size'])))
+        self._particle_group = group
+        self.canvas.after.add(group)
+
+    def _draw_progress(self, *args):
+        """Рисует стильный прогресс-бар с glow."""
+        self.pb_container.canvas.clear()
+        cx, cy = self.pb_container.pos
+        cw, ch = self.pb_container.size
+        fill_w = max(0, (self.current_progress / 100.0) * cw)
+
+        t = self.current_progress / 100.0
+        # Цвет: от тёмно-синего к золотому
+        r = 0.2 + t * 0.65
+        g = 0.3 + t * 0.48
+        b = 0.8 - t * 0.35
 
         with self.pb_container.canvas:
-            Color(r, g, b, 1)
-            self.pb_fill.size = (fill_width, self.pb_container.height)
-            self.pb_fill.pos = self.pb_container.pos
+            # Фоновый трек
+            Color(0.15, 0.17, 0.25, 0.6)
+            RoundedRectangle(pos=(cx, cy), size=(cw, ch), radius=[dp(4)])
 
-        # Обводка
-        self.pb_border.rectangle = (
-            self.pb_container.x - dp(1),
-            self.pb_container.y - dp(1),
-            self.pb_container.width + dp(2),
-            self.pb_container.height + dp(2)
-        )
+            # Glow под баром
+            if fill_w > dp(4):
+                Color(r, g, b, 0.25)
+                RoundedRectangle(
+                    pos=(cx - dp(2), cy - dp(3)),
+                    size=(fill_w + dp(4), ch + dp(6)),
+                    radius=[dp(6)]
+                )
+
+            # Заполнение
+            if fill_w > dp(2):
+                Color(r, g, b, 0.9)
+                RoundedRectangle(pos=(cx, cy), size=(fill_w, ch), radius=[dp(4)])
+
+                # Блик сверху
+                Color(1, 1, 1, 0.15)
+                RoundedRectangle(
+                    pos=(cx + dp(2), cy + ch * 0.55),
+                    size=(max(dp(2), fill_w - dp(4)), ch * 0.3),
+                    radius=[dp(2)]
+                )
 
     # === Логика загрузки ===
     def start_loading(self, dt):
@@ -515,78 +637,90 @@ class LoadingScreen(FloatLayout):
             self.target_progress = 100
             self.smooth_progress_update()
 
-    def update_progress_target(self, delta):
-        self.target_progress += delta
-
     def smooth_progress_update(self, dt=0):
         if abs(self.target_progress - self.current_progress) > 0.5:
-            self.current_progress += (self.target_progress - self.current_progress) * 0.1
+            self.current_progress += (self.target_progress - self.current_progress) * 0.12
             percent = int(self.current_progress)
-            self.label.text = f"[color=#00ccff]Готовим ресурсы... {percent}%[/color]"
-            self.update_pb_canvas()
+            self.percent_label.text = f"{percent}%"
+            self._draw_progress()
             Clock.schedule_once(self.smooth_progress_update, 0.016)
         else:
             self.current_progress = self.target_progress
             percent = int(self.current_progress)
-            self.label.text = f"[color=#00ccff]Готовим ресурсы... {percent}%[/color]"
-            self.update_pb_canvas()
+            self.percent_label.text = f"{percent}%"
+            self._draw_progress()
 
             if self.target_progress >= 100:
-                self.label.text = "[color=#ff0000]НАЧИНАЕМ![/color]"
-                Clock.schedule_once(self.switch_to_menu, 0.8)
+                self.label.text = "[color=#FFD700][b]Готово![/b][/color]"
+                self.percent_label.text = "100%"
+                # Анимация завершения
+                Animation(color=(1, 0.85, 0.3, 1), duration=0.3).start(self.percent_label)
+                Clock.schedule_once(self._fade_to_menu, 1.0)
 
-    def update_progress(self, delta):
-        self.update_progress_target(delta)
+    def _fade_to_menu(self, dt):
+        """Плавный переход к меню."""
+        anim = Animation(opacity=0, duration=0.5)
+        anim.bind(on_complete=lambda *a: self.switch_to_menu(0))
+        anim.start(self)
+
+    def update_progress(self, delta, msg_idx=None):
+        self.target_progress += delta
+        if msg_idx is not None and msg_idx < len(self._step_messages):
+            self.label.text = f"[color=#8899bb]{self._step_messages[msg_idx]}[/color]"
         self.smooth_progress_update()
 
     # === Шаги ===
     def step_check_db(self):
-        print("Шаг 1: Проверка базы данных...")
-        self.update_progress(20)
+        self.update_progress(20, 0)
         Clock.schedule_once(self.run_next_step, 0.5)
 
     def step_cleanup_cache(self):
-        print("Шаг 2: Очистка кэша...")
+        self.update_progress(0, 1)
         from threading import Thread
         def cleanup_task():
             clear_tables(self.conn)
             Clock.schedule_once(self.run_next_step, 0)
-
         Thread(target=cleanup_task, daemon=True).start()
 
     def step_restore_backup(self):
-        print("Шаг 3: Восстановление из бэкапа...")
-        self.update_progress(20)
+        self.update_progress(20, 2)
         restore_from_backup(self.conn)
         Clock.schedule_once(self.run_next_step, 0.5)
 
     def step_load_assets(self):
-        print("Шаг 4: Загрузка ресурсов...")
-        self.update_progress(10)
-
+        self.update_progress(10, 3)
         from threading import Thread
         def load_task():
             time.sleep(0.3)
             Clock.schedule_once(lambda dt: self.update_progress(10), 0)
             time.sleep(0.3)
             Clock.schedule_once(self.run_next_step, 0)
-
         Thread(target=load_task, daemon=True).start()
 
     def step_complete(self):
-        print("Шаг 5: Финализация...")
-        self.update_progress(20)
+        self.update_progress(20, 4)
         Clock.schedule_once(self.run_next_step, 0.3)
 
     # === Вспомогательные ===
     def _update_bg(self, *args):
+        self.bg_fill.pos = self.pos
+        self.bg_fill.size = self.size
         self.bg_rect.pos = self.pos
         self.bg_rect.size = self.size
 
     def switch_to_menu(self, dt):
+        # Останавливаем частицы
+        if self._particle_event:
+            self._particle_event.cancel()
+        if hasattr(self, '_particle_update_event'):
+            self._particle_update_event.cancel()
+        Animation.cancel_all(self.title_label)
+
         self.bg_rect.source = 'files/menu/main_fon.jpg'
         self.bg_rect.texture = CoreImage('files/menu/main_fon.jpg').texture
         self.clear_widgets()
+        self.canvas.after.clear()
+        self.opacity = 1
         self.add_widget(MenuWidget(self.conn, self.selected_map))
 
 
@@ -601,6 +735,9 @@ class MapWidget(Widget):
         self.player_city_icon_widget = None
         self.has_blinked = False
         self.update_cities_event = None
+        self._undead_shield_data = []  # Данные для анимации щитов нежити
+        self._undead_shield_group = None
+        self._undead_anim_event = None
         # === Сезонный оверлей ===
         self.season_overlay = None
         self.add_season_overlay()
@@ -657,6 +794,7 @@ class MapWidget(Widget):
                 pos=self.map_pos,
                 size=(self.base_map_width * self.map_scale, self.base_map_height * self.map_scale)
             )
+        self.draw_territories()
         self.draw_roads()
         self.draw_fortresses()
 
@@ -673,14 +811,225 @@ class MapWidget(Widget):
                 size=(self.base_map_width * self.map_scale, self.base_map_height * self.map_scale)
             )
 
+        self.draw_territories()
         self.draw_roads()
         self.draw_fortresses()
 
         if schedule_blink:
             Clock.schedule_once(self._schedule_blink, 0.2)
 
+    def _compute_voronoi_cells(self, sites, clip_rect):
+        """
+        Вычисляет ячейки Вороного для набора точек (sites) внутри clip_rect.
+        clip_rect = (x_min, y_min, x_max, y_max)
+        Возвращает список полигонов (список точек) для каждого сайта.
+        """
+        x_min, y_min, x_max, y_max = clip_rect
+        cells = []
+
+        for i, (sx, sy) in enumerate(sites):
+            # Начинаем с прямоугольника карты как полигон
+            poly = [
+                (x_min, y_min), (x_max, y_min),
+                (x_max, y_max), (x_min, y_max)
+            ]
+
+            # Обрезаем полигон каждой серединной перпендикулярной линией
+            for j, (ox, oy) in enumerate(sites):
+                if i == j:
+                    continue
+                # Середина отрезка между двумя точками
+                mx = (sx + ox) / 2.0
+                my = (sy + oy) / 2.0
+                # Нормаль от текущего сайта к другому
+                dx = ox - sx
+                dy = oy - sy
+                # Оставляем ту часть полигона, которая ближе к текущему сайту
+                poly = self._clip_polygon_by_halfplane(poly, mx, my, dx, dy)
+                if not poly:
+                    break
+
+            cells.append(poly if poly else [])
+
+        return cells
+
+    def _clip_polygon_by_halfplane(self, polygon, px, py, nx, ny):
+        """
+        Обрезает полигон полуплоскостью.
+        Оставляет часть полигона где dot((point - p), n) <= 0.
+        (т.е. сторону ближе к текущему сайту)
+        """
+        if not polygon:
+            return []
+
+        output = []
+        n = len(polygon)
+        for i in range(n):
+            curr = polygon[i]
+            nxt = polygon[(i + 1) % n]
+            d_curr = (curr[0] - px) * nx + (curr[1] - py) * ny
+            d_next = (nxt[0] - px) * nx + (nxt[1] - py) * ny
+
+            if d_curr <= 0:
+                output.append(curr)
+                if d_next > 0:
+                    # Пересечение: curr внутри, next снаружи
+                    t = d_curr / (d_curr - d_next)
+                    ix = curr[0] + t * (nxt[0] - curr[0])
+                    iy = curr[1] + t * (nxt[1] - curr[1])
+                    output.append((ix, iy))
+            elif d_next <= 0:
+                # curr снаружи, next внутри
+                t = d_curr / (d_curr - d_next)
+                ix = curr[0] + t * (nxt[0] - curr[0])
+                iy = curr[1] + t * (nxt[1] - curr[1])
+                output.append((ix, iy))
+
+        return output
+
+    def _triangulate_polygon(self, polygon, center):
+        """Триангулирует полигон методом веера от центра для Mesh."""
+        if len(polygon) < 3:
+            return [], []
+        # Сортируем вершины по углу от центра
+        import math
+        cx, cy = center
+        def angle_key(p):
+            return math.atan2(p[1] - cy, p[0] - cx)
+        sorted_poly = sorted(polygon, key=angle_key)
+
+        vertices = []
+        indices = []
+        # Центр — вершина 0
+        vertices.extend([cx, cy, 0, 0])
+        for p in sorted_poly:
+            vertices.extend([p[0], p[1], 0, 0])
+
+        # Треугольники: (0, i, i+1) для каждого ребра полигона
+        n = len(sorted_poly)
+        for i in range(n):
+            indices.extend([0, i + 1, ((i + 1) % n) + 1])
+
+        return vertices, indices
+
+    def draw_territories(self):
+        """Рисует секторные зоны территорий фракций на карте (диаграмма Вороного)."""
+        from design_system import FACTION_COLORS
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT name, faction, coordinates FROM cities")
+            cities = cursor.fetchall()
+        except Exception:
+            return
+
+        if not cities:
+            return
+
+        # Собираем все города с их позициями
+        city_list = []  # (drawn_x, drawn_y, faction, name)
+        for name, faction, coords_str in cities:
+            try:
+                coords = ast.literal_eval(coords_str)
+                drawn_x = coords[0] * self.map_scale + self.map_pos[0] + 38
+                drawn_y = coords[1] * self.map_scale + self.map_pos[1] + 38
+                city_list.append((drawn_x, drawn_y, faction, name))
+            except Exception:
+                continue
+
+        if not city_list:
+            return
+
+        # Границы карты для обрезки ячеек Вороного
+        map_x = self.map_pos[0]
+        map_y = self.map_pos[1]
+        map_w = self.base_map_width * self.map_scale
+        map_h = self.base_map_height * self.map_scale
+        clip_rect = (map_x, map_y, map_x + map_w, map_y + map_h)
+
+        # Вычисляем ячейки Вороного для ВСЕХ городов
+        sites = [(c[0], c[1]) for c in city_list]
+        cells = self._compute_voronoi_cells(sites, clip_rect)
+
+        # Строим карту: для каждого ребра определяем, какие фракции граничат
+        # Ключ — отсортированная пара округлённых точек, значение — set фракций
+        edge_factions = {}
+        for idx, (cx, cy, faction, name) in enumerate(city_list):
+            cell = cells[idx]
+            if not cell or len(cell) < 3:
+                continue
+            n_pts = len(cell)
+            for i in range(n_pts):
+                p1 = (round(cell[i][0], 1), round(cell[i][1], 1))
+                p2 = (round(cell[(i + 1) % n_pts][0], 1), round(cell[(i + 1) % n_pts][1], 1))
+                edge_key = (min(p1, p2), max(p1, p2))
+                if edge_key not in edge_factions:
+                    edge_factions[edge_key] = set()
+                edge_factions[edge_key].add(faction)
+
+        with self.canvas:
+            for idx, (cx, cy, faction, name) in enumerate(city_list):
+                cell = cells[idx]
+                if not cell or len(cell) < 3:
+                    continue
+
+                # Определяем цвет по фракции
+                fc = FACTION_COLORS.get(faction)
+                if fc:
+                    color = fc['primary']
+                    # Полупрозрачная заливка сектора (чуть темнее)
+                    Color(color[0], color[1], color[2], 0.25)
+                elif faction == 'Нейтрал':
+                    Color(0.6, 0.6, 0.6, 0.12)
+                else:
+                    Color(0.5, 0.5, 0.5, 0.12)
+
+                # Рисуем заполненный полигон через Mesh (triangle fan)
+                vertices, indices = self._triangulate_polygon(cell, (cx, cy))
+                if vertices and indices:
+                    Mesh(vertices=vertices, indices=indices, mode='triangles')
+
+                # Рисуем границы сектора — жирные для межфракционных, тонкие для своих
+                n_pts = len(cell)
+                for i in range(n_pts):
+                    p1_raw = cell[i]
+                    p2_raw = cell[(i + 1) % n_pts]
+                    p1 = (round(p1_raw[0], 1), round(p1_raw[1], 1))
+                    p2 = (round(p2_raw[0], 1), round(p2_raw[1], 1))
+                    edge_key = (min(p1, p2), max(p1, p2))
+                    factions_on_edge = edge_factions.get(edge_key, set())
+                    is_border = len(factions_on_edge) > 1
+
+                    if is_border:
+                        # Жирная граница между разными фракциями
+                        if fc:
+                            Color(color[0], color[1], color[2], 0.7)
+                        else:
+                            Color(0.7, 0.7, 0.7, 0.5)
+                        Line(points=[p1_raw[0], p1_raw[1], p2_raw[0], p2_raw[1]], width=2.5)
+                    else:
+                        # Тонкая граница внутри фракции
+                        if fc:
+                            Color(color[0], color[1], color[2], 0.35)
+                        elif faction == 'Нейтрал':
+                            Color(0.7, 0.7, 0.7, 0.15)
+                        else:
+                            Color(0.5, 0.5, 0.5, 0.15)
+                        Line(points=[p1_raw[0], p1_raw[1], p2_raw[0], p2_raw[1]], width=1.2)
+
     def draw_fortresses(self):
         """Рисует крепости на карте с анимацией при смене фракции."""
+        # Останавливаем анимацию щитов нежити перед перерисовкой
+        if self._undead_anim_event:
+            self._undead_anim_event.cancel()
+            self._undead_anim_event = None
+        if self._undead_shield_group:
+            try:
+                self.canvas.after.remove(self._undead_shield_group)
+            except Exception:
+                pass
+            self._undead_shield_group = None
+        self._undead_shield_data = []
+
         self.clear_widgets()
         self.fortress_icon_widgets.clear()
         self.fortress_data_for_canvas.clear()
@@ -690,12 +1039,13 @@ class MapWidget(Widget):
             'Север': 'files/buildings/arkadia.png',
             'Эльфы': 'files/buildings/celestia.png',
             'Адепты': 'files/buildings/eteria.png',
-            'Элины': 'files/buildings/halidon.png'
+            'Элины': 'files/buildings/halidon.png',
+            'Нежить': 'files/buildings/castle_death.png'
         }
 
         try:
             cursor = self.conn.cursor()
-            cursor.execute("SELECT name, faction, coordinates FROM cities")
+            cursor.execute("SELECT name, faction, coordinates, COALESCE(is_undead, 0) FROM cities")
             fortresses_data = cursor.fetchall()
         except sqlite3.Error as e:
             print(f"[ERROR] Ошибка при загрузке данных о городах: {e}")
@@ -712,7 +1062,7 @@ class MapWidget(Widget):
         changed_cities = []
 
         for row in fortresses_data:
-            fortress_name, kingdom, coords_str = row
+            fortress_name, kingdom, coords_str, is_undead_city = row
             try:
                 coords = ast.literal_eval(coords_str)
                 if len(coords) != 2:
@@ -727,7 +1077,11 @@ class MapWidget(Widget):
 
             # --- Проверка изменения фракции ---
             previous_faction = self.previous_city_factions.get(fortress_name)
-            image_path = faction_images.get(kingdom, 'files/buildings/default.png')
+            # Города нежити всегда отображаются с иконкой castle_death
+            if is_undead_city:
+                image_path = 'files/buildings/castle_death.png'
+            else:
+                image_path = faction_images.get(kingdom, 'files/buildings/default.png')
 
             if not os.path.exists(image_path):
                 image_path = 'files/buildings/default.png'
@@ -754,6 +1108,12 @@ class MapWidget(Widget):
             )
             self.add_widget(icon_widget)
             self.fortress_icon_widgets[fortress_name] = icon_widget
+
+            # --- Анимация щита для городов нежити ---
+            if is_undead_city:
+                cx = drawn_x + 38.5  # Центр иконки 77x77
+                cy = drawn_y + 38.5
+                self._undead_shield_data.append((cx, cy))
 
             # --- Сохраняем данные для кликов ---
             self.fortress_data_for_canvas.append((fortress_name, kingdom, fort_x, fort_y, drawn_x, drawn_y))  # ← Исправлена скобка
@@ -805,6 +1165,9 @@ class MapWidget(Widget):
                 0.05
             )
 
+        # --- Запуск анимации щитов нежити ---
+        self._start_undead_shield_animation()
+
         # --- Обновляем icon_coordinates в БД ---
         try:
             cursor2 = self.conn.cursor()
@@ -818,6 +1181,148 @@ class MapWidget(Widget):
             print(f"[DB ERROR] Не удалось обновить icon_coordinates: {e}")
         finally:
             cursor2.close()
+
+    def _start_undead_shield_animation(self):
+        """Рисует статичные щиты и анимирует молнии вокруг городов нежити."""
+        if self._undead_anim_event:
+            self._undead_anim_event.cancel()
+            self._undead_anim_event = None
+        if self._undead_shield_group:
+            try:
+                self.canvas.after.remove(self._undead_shield_group)
+            except Exception:
+                pass
+            self._undead_shield_group = None
+        # Очищаем статичный щит
+        if hasattr(self, '_undead_static_group') and self._undead_static_group:
+            try:
+                self.canvas.after.remove(self._undead_static_group)
+            except Exception:
+                pass
+
+        if not self._undead_shield_data:
+            return
+
+        import math
+        import random as _rnd
+        from kivy.graphics import InstructionGroup, Ellipse as GlEllipse, Line as GlLine
+
+        # --- Статичный щит (рисуется один раз) ---
+        static = InstructionGroup()
+        shield_r = 52
+        for cx, cy in self._undead_shield_data:
+            # Внешнее свечение
+            static.add(Color(0.2, 0.0, 0.3, 0.1))
+            static.add(GlEllipse(
+                pos=(cx - shield_r - 6, cy - shield_r - 6),
+                size=(shield_r * 2 + 12, shield_r * 2 + 12)
+            ))
+            # Основной купол
+            static.add(Color(0.06, 0.0, 0.1, 0.15))
+            static.add(GlEllipse(
+                pos=(cx - shield_r, cy - shield_r),
+                size=(shield_r * 2, shield_r * 2)
+            ))
+            # Кольцо
+            static.add(Color(0.3, 0.0, 0.45, 0.3))
+            static.add(GlLine(
+                ellipse=(cx - shield_r, cy - shield_r, shield_r * 2, shield_r * 2),
+                width=1.5
+            ))
+        self._undead_static_group = static
+        self.canvas.after.add(static)
+
+        # --- Молнии (анимируются) ---
+        # Кеш молний: для каждого города свой набор
+        self._lightning_per_city = [[] for _ in self._undead_shield_data]
+
+        def _gen_bolt(cx, cy):
+            """Генерирует одну реалистичную молнию с ветвлением."""
+            angle = _rnd.uniform(0, 2 * math.pi)
+            length = _rnd.uniform(35, 60)
+            # Основной ствол
+            segments = _rnd.randint(5, 8)
+            trunk = []
+            px, py = cx, cy
+            for s in range(segments):
+                t = (s + 1) / segments
+                # Основное направление + случайное отклонение (уменьшается к концу)
+                jitter = (1.0 - t * 0.4) * 6
+                nx = cx + math.cos(angle) * length * t + _rnd.uniform(-jitter, jitter)
+                ny = cy + math.sin(angle) * length * t + _rnd.uniform(-jitter, jitter)
+                trunk.append((px, py, nx, ny))
+                px, py = nx, ny
+
+            # Ветвления (1-2 штуки от случайных точек ствола)
+            branches = []
+            num_branches = _rnd.randint(1, 2)
+            for _ in range(num_branches):
+                if len(trunk) < 3:
+                    break
+                branch_idx = _rnd.randint(1, len(trunk) - 2)
+                bx, by = trunk[branch_idx][2], trunk[branch_idx][3]
+                b_angle = angle + _rnd.uniform(-0.8, 0.8)
+                b_len = length * _rnd.uniform(0.2, 0.4)
+                b_segs = _rnd.randint(2, 3)
+                bpx, bpy = bx, by
+                branch = []
+                for bs in range(b_segs):
+                    bt = (bs + 1) / b_segs
+                    bnx = bx + math.cos(b_angle) * b_len * bt + _rnd.uniform(-4, 4)
+                    bny = by + math.sin(b_angle) * b_len * bt + _rnd.uniform(-4, 4)
+                    branch.append((bpx, bpy, bnx, bny))
+                    bpx, bpy = bnx, bny
+                branches.append(branch)
+
+            return trunk, branches
+
+        def _update_lightning(dt):
+            # Удаляем старые молнии
+            if self._undead_shield_group:
+                try:
+                    self.canvas.after.remove(self._undead_shield_group)
+                except Exception:
+                    pass
+
+            group = InstructionGroup()
+
+            for i, (cx, cy) in enumerate(self._undead_shield_data):
+                # Перегенерируем 2-3 молнии
+                bolts = []
+                for _ in range(_rnd.randint(2, 3)):
+                    bolts.append(_gen_bolt(cx, cy))
+
+                for trunk, branches in bolts:
+                    # Ствол: свечение + основная линия
+                    trunk_pts = []
+                    for x1, y1, x2, y2 in trunk:
+                        trunk_pts.extend([x1, y1, x2, y2])
+
+                    # Свечение (тёмно-фиолетовое, широкое)
+                    group.add(Color(0.15, 0.0, 0.2, 0.35))
+                    group.add(GlLine(points=trunk_pts, width=3.0))
+                    # Основной разряд
+                    group.add(Color(0.02, 0.0, 0.05, 0.9))
+                    group.add(GlLine(points=trunk_pts, width=1.3))
+                    # Яркий центр
+                    group.add(Color(0.2, 0.0, 0.35, 0.5))
+                    group.add(GlLine(points=trunk_pts, width=0.7))
+
+                    # Ветвления (тоньше)
+                    for branch in branches:
+                        b_pts = []
+                        for x1, y1, x2, y2 in branch:
+                            b_pts.extend([x1, y1, x2, y2])
+                        group.add(Color(0.05, 0.0, 0.1, 0.6))
+                        group.add(GlLine(points=b_pts, width=1.0))
+                        group.add(Color(0.2, 0.0, 0.3, 0.3))
+                        group.add(GlLine(points=b_pts, width=0.5))
+
+            self._undead_shield_group = group
+            self.canvas.after.add(group)
+
+        # Молнии обновляются 3 раза в секунду
+        self._undead_anim_event = Clock.schedule_interval(_update_lightning, 0.3)
 
     def animate_city_capture(self, city_data):
         """Анимация вспышки при захвате города."""
@@ -1069,9 +1574,26 @@ class RectangularButton(Button):
 
 
 class FactionButton(Button):
-    """Кнопка выбора фракции с закруглёнными углами через canvas"""
-    _DEFAULT_COLOR = [0.10, 0.16, 0.28, 1]
-    _SELECTED_COLOR = [0.62, 0.42, 0.08, 1]
+    """Кнопка выбора фракции с цветовой полоской и иконкой."""
+    _DEFAULT_COLOR = [0.10, 0.14, 0.24, 0.95]
+    _SELECTED_COLOR = [0.18, 0.22, 0.35, 1]
+
+    # Цвета акцентных полосок
+    _FACTION_ACCENTS = {
+        'Север': (0.25, 0.52, 0.92, 1),
+        'Эльфы': (0.22, 0.76, 0.32, 1),
+        'Вампиры': (0.78, 0.10, 0.16, 1),
+        'Адепты': (0.62, 0.22, 0.88, 1),
+        'Элины': (0.92, 0.70, 0.10, 1),
+    }
+
+    _FACTION_ICONS = {
+        'Север': 'files/sov/people.jpg',
+        'Эльфы': 'files/sov/elfs.jpg',
+        'Вампиры': 'files/sov/vampire.jpg',
+        'Адепты': 'files/sov/adept.jpg',
+        'Элины': 'files/sov/poly.jpg',
+    }
 
     def __init__(self, **kwargs):
         btn_color = list(kwargs.pop('background_color', self._DEFAULT_COLOR))
@@ -1080,13 +1602,54 @@ class FactionButton(Button):
         self.background_down = ''
         self.background_color = (0, 0, 0, 0)
         self._default_color = btn_color
+        self.halign = 'left'
+        self.padding = [dp(48), 0]
+
+        accent = self._FACTION_ACCENTS.get(self.text, (0.4, 0.4, 0.5, 1))
+
         with self.canvas.before:
+            # Тень
+            Color(0, 0, 0, 0.2)
+            self._shadow = RoundedRectangle(
+                pos=(self.x + dp(2), self.y - dp(1)),
+                size=self.size, radius=[dp(10)]
+            )
+            # Фон
             self._ci = Color(*btn_color)
             self._rr = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(10)])
-        self.bind(
-            pos=lambda i, v: setattr(i._rr, 'pos', v),
-            size=lambda i, v: setattr(i._rr, 'size', v)
-        )
+            # Акцентная полоска слева
+            Color(*accent)
+            self._accent = RoundedRectangle(
+                pos=self.pos,
+                size=(dp(5), self.height),
+                radius=[dp(10), 0, 0, dp(10)]
+            )
+
+        # Иконка фракции
+        icon_path = self._FACTION_ICONS.get(self.text, '')
+        if icon_path:
+            self._icon = Image(
+                source=icon_path,
+                size_hint=(None, None),
+                size=(dp(32), dp(32)),
+                pos=(self.x + dp(8), self.center_y - dp(16)),
+                allow_stretch=True, keep_ratio=True,
+            )
+            self.add_widget(self._icon)
+        else:
+            self._icon = None
+
+        self.bind(pos=self._update_gfx, size=self._update_gfx)
+
+    def _update_gfx(self, *args):
+        self._rr.pos = self.pos
+        self._rr.size = self.size
+        self._shadow.pos = (self.x + dp(2), self.y - dp(1))
+        self._shadow.size = self.size
+        self._accent.pos = self.pos
+        self._accent.size = (dp(5), self.height)
+        if self._icon:
+            self._icon.pos = (self.x + dp(8), self.center_y - dp(16))
 
 
 class ModernSpinnerOption(SpinnerOption):
@@ -1625,7 +2188,7 @@ class KingdomSelectionWidget(MDFloatLayout):
         )
 
         # Контейнер для чекбокса и надписи
-        checkbox_row = MDBoxLayoutKivyMD(
+        checkbox_row = MDBoxLayout(
             orientation='horizontal',
             spacing=dp(6),  # УМЕНЬШИЛ spacing
             size_hint=(1, None),
@@ -2436,6 +2999,8 @@ class MenuWidget(FloatLayout):
     def __init__(self, conn, selected_map=None, **kwargs):
         super(MenuWidget, self).__init__(**kwargs)
         self.conn = conn
+        self._particles = []
+        self._particle_event = None
 
         # ======== Фоновое изображение ========
         self.bg_image = Image(
@@ -2447,60 +3012,159 @@ class MenuWidget(FloatLayout):
         )
         self.add_widget(self.bg_image)
 
-        # ======== Логотип с анимированной обводкой ========
+        # ======== Затемнение для читабельности ========
+        overlay = Widget(size_hint=(1, 1))
+        with overlay.canvas:
+            Color(0, 0, 0, 0.35)
+            overlay._rect = Rectangle(pos=overlay.pos, size=overlay.size)
+        overlay.bind(
+            pos=lambda i, v: setattr(i._rect, 'pos', v),
+            size=lambda i, v: setattr(i._rect, 'size', v)
+        )
+        self.add_widget(overlay)
+
+        # ======== Логотип ========
         self.title_label = AnimatedLabel(
-            text="[b]Легенды Лэрдона[/b]",
-            font_size='48sp',
+            text="[b]LERDON[/b]",
+            font_size=sp(56),
             bold=True,
-            color=(1, 0.92, 0.60, 1),
-            outline_color=(0, 0, 0, 1),
+            color=(0.92, 0.82, 0.52, 1),
+            outline_color=(0.1, 0.06, 0.02, 1),
             outline_width=3,
             halign='center',
             valign='middle',
-            size_hint=(0.8, 0.15),
-            pos_hint={'center_x': 0.5, 'top': 0.92},
+            size_hint=(0.8, None),
+            height=dp(70),
+            pos_hint={'center_x': 0.5, 'top': 0.94},
             markup=True
         )
         self.add_widget(self.title_label)
         self.title_label.start_glow_animation()
 
+        # ======== Подзаголовок ========
+        subtitle = Label(
+            text="[i]Легенды Пяти Королевств[/i]",
+            markup=True,
+            font_size=sp(16),
+            color=(0.7, 0.72, 0.8, 0.7),
+            size_hint=(0.8, None),
+            height=dp(24),
+            pos_hint={'center_x': 0.5, 'top': 0.83},
+            halign='center',
+        )
+        self.add_widget(subtitle)
+
+        # ======== Декоративная линия ========
+        deco_line = Widget(size_hint=(0.3, None), height=dp(1), pos_hint={'center_x': 0.5, 'top': 0.80})
+        with deco_line.canvas:
+            Color(0.85, 0.75, 0.45, 0.5)
+            deco_line._r = Rectangle(pos=deco_line.pos, size=deco_line.size)
+        deco_line.bind(
+            pos=lambda i, v: setattr(i._r, 'pos', v),
+            size=lambda i, v: setattr(i._r, 'size', v)
+        )
+        self.add_widget(deco_line)
+
         # ======== Контейнер для кнопок ========
-        self.button_container = FloatLayout(size_hint=(1, 0.7), pos_hint={'center_x': 0.5, 'y': 0.15})
+        self.button_container = FloatLayout(size_hint=(1, 0.65), pos_hint={'center_x': 0.5, 'y': 0.10})
         self.add_widget(self.button_container)
 
-        # ======== Создаём кнопки ========
+        # ======== Кнопки ========
         button_configs = [
-            {"text": "В Лэрдон", "y_pos": 0.75, "type": "start", "action": self.start_game},
-            {"text": "Рейтинг", "y_pos": 0.58, "type": "rating", "action": self.open_dossier},
-            {"text": "История Лэрдона", "y_pos": 0.41, "type": "help", "action": self.open_how_to_play},
-            {"text": "Автор", "y_pos": 0.24, "type": "author", "action": self.open_author},
-            {"text": "Выход", "y_pos": 0.07, "type": "exit", "action": self.exit_game}
+            {"text": "Начать игру",       "y_pos": 0.78, "type": "start",  "action": self.start_game},
+            {"text": "Рейтинг",           "y_pos": 0.60, "type": "rating", "action": self.open_dossier},
+            {"text": "История Лэрдона",   "y_pos": 0.42, "type": "help",   "action": self.open_how_to_play},
+            {"text": "Об авторе",         "y_pos": 0.24, "type": "author", "action": self.open_author},
+            {"text": "Выход",             "y_pos": 0.06, "type": "exit",   "action": self.exit_game}
         ]
 
         self.buttons = []
         self.selected_button = None
 
-        for config in button_configs:
+        for i, config in enumerate(button_configs):
             btn = GameButton(
                 text=config["text"],
                 button_type=config["type"],
-                size_hint=(0.5, 0.12),
+                size_hint=(0.35, 0.11),
                 pos_hint={'center_x': 0.5, 'y': config["y_pos"]},
             )
-            btn.font_size = '22sp'
+            btn.font_size = sp(18)
 
-            # Назначаем обработчики событий
             btn.bind(
                 on_press=lambda instance, b=btn: self.on_button_press(b),
                 on_release=config["action"]
             )
 
+            # Анимация появления с задержкой
+            btn.opacity = 0
+            anim = Animation(opacity=1, duration=0.4, t='out_quad')
+            Clock.schedule_once(lambda dt, b=btn, a=anim: a.start(b), 0.15 * i)
+
             self.buttons.append(btn)
             self.button_container.add_widget(btn)
 
-        # Выбираем первую кнопку по умолчанию
         if self.buttons:
             self.select_button(self.buttons[0])
+
+        # ======== Версия внизу ========
+        version_label = Label(
+            text="v2.0",
+            font_size=sp(11),
+            color=(0.5, 0.5, 0.55, 0.5),
+            size_hint=(None, None),
+            size=(dp(50), dp(16)),
+            pos_hint={'right': 0.98, 'y': 0.01},
+        )
+        self.add_widget(version_label)
+
+        # ======== Частицы ========
+        self._particle_event = Clock.schedule_interval(self._spawn_particle, 0.25)
+
+    def _spawn_particle(self, dt):
+        """Атмосферные частицы на фоне."""
+        if len(self._particles) > 15:
+            return
+        import random as _rnd
+        w = self.width or Window.width
+        h = self.height or Window.height
+        p = {
+            'x': _rnd.uniform(0, w), 'y': -dp(5),
+            'size': _rnd.uniform(dp(1.5), dp(4)),
+            'alpha': _rnd.uniform(0.08, 0.25),
+            'speed': _rnd.uniform(dp(10), dp(30)),
+            'color': _rnd.choice([
+                (0.85, 0.75, 0.45),
+                (0.5, 0.65, 0.9),
+                (0.7, 0.5, 0.8),
+            ])
+        }
+        self._particles.append(p)
+        if not hasattr(self, '_ptcl_evt'):
+            self._ptcl_evt = Clock.schedule_interval(self._update_particles, 0.033)
+
+    def _update_particles(self, dt):
+        h = self.height or Window.height
+        self._particles = [p for p in self._particles if p['y'] < h and p['alpha'] > 0.01]
+        for p in self._particles:
+            p['y'] += p['speed'] * dt
+            p['alpha'] *= 0.997
+
+        if hasattr(self, '_ptcl_group'):
+            self.canvas.after.remove(self._ptcl_group)
+        from kivy.graphics import InstructionGroup, Ellipse as _Ell
+        grp = InstructionGroup()
+        for p in self._particles:
+            grp.add(Color(*p['color'], p['alpha']))
+            grp.add(_Ell(pos=(p['x'], p['y']), size=(p['size'], p['size'])))
+        self._ptcl_group = grp
+        self.canvas.after.add(grp)
+
+    def on_parent(self, widget, parent):
+        if parent is None:
+            if self._particle_event:
+                self._particle_event.cancel()
+            if hasattr(self, '_ptcl_evt'):
+                self._ptcl_evt.cancel()
 
     def select_button(self, button):
         """Выделяет выбранную кнопку"""

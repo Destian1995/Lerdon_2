@@ -1,23 +1,6 @@
 from lerdon_libraries import *
 from db_lerdon_connect import *
-
-def format_number(number):
-    """Форматирует число с добавлением приставок (тыс., млн., млрд., трлн.)"""
-    if not isinstance(number, (int, float)):
-        return str(number)
-    if number == 0:
-        return "0"
-
-    absolute = abs(number)
-    sign = -1 if number < 0 else 1
-    if absolute >= 1_000_000_000:  # 1e9
-        return f"{sign * absolute / 1e9:.1f} млрд."
-    elif absolute >= 1_000_000:  # 1e6
-        return f"{sign * absolute / 1e6:.1f} млн."
-    elif absolute >= 1_000:  # 1e3
-        return f"{sign * absolute / 1e3:.1f} тыс."
-    else:
-        return f"{number}"
+from utils.helpers import format_number
 
 def get_adaptive_font_size(min_size=15, max_size=20):
     """Адаптирует размер шрифта под ширину экрана с учетом Android"""
@@ -225,43 +208,81 @@ class EventManager:
         self.show_temporary_build(description, event_type or "passive")
 
     def show_event_active_popup(self, description, option_1, option_2, effects):
-        """
-        Отображение активного события в виде модального окне с выбором.
-        """
-        content = BoxLayout(orientation="vertical", padding=dp(15), spacing=dp(10))
-        font_size = get_adaptive_font_size()
+        """Отображение активного события — стилизованный popup с выбором."""
+        from kivy.uix.floatlayout import FloatLayout
 
-        # Адаптивный Label с текстом события и переносом слов
-        label = Label(
-            text=description,
-            font_size=font_size*1.1,
-            size_hint=(1, None),
-            halign="center",
-            valign="middle",
-            markup=True,
-            shorten=False,
-            max_lines=0,
-            line_height=1.2,
+        content = FloatLayout()
+
+        # Тёмный фон
+        with content.canvas.before:
+            Color(0.06, 0.07, 0.12, 1)
+            content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(16)])
+        content.bind(
+            pos=lambda i, v: setattr(i._bg, 'pos', v),
+            size=lambda i, v: setattr(i._bg, 'size', v)
         )
 
-        # Обновление размеров label при изменении ширины контента
-        def update_label_size(instance, width):
-            label.text_size = (width - dp(30), None)
-            label.texture_update()
-            if label.texture:
-                label.height = max(dp(100), label.texture_size[1] + dp(10))
+        # Заголовок «Событие»
+        title_lbl = Label(
+            text="[b]Событие[/b]", markup=True,
+            font_size=sp(20), color=(0.92, 0.82, 0.52, 1),
+            size_hint=(0.9, None), height=dp(30),
+            pos_hint={'center_x': 0.5, 'top': 0.96}, halign='center',
+        )
+        title_lbl.bind(size=title_lbl.setter('text_size'))
 
-        content.bind(width=update_label_size)
+        # Золотая линия
+        sep = Widget(size_hint=(0.85, None), height=dp(1), pos_hint={'center_x': 0.5, 'top': 0.86})
+        with sep.canvas:
+            Color(0.85, 0.75, 0.45, 0.5)
+            sep._r = Rectangle(pos=sep.pos, size=sep.size)
+        sep.bind(pos=lambda i, v: setattr(i._r, 'pos', v), size=lambda i, v: setattr(i._r, 'size', v))
 
-        # Кнопки с фиксированной высотой и адаптивной шириной
-        button_1 = self.create_gradient_button(option_1, (0.2, 0.6, 1, 1), (0.1, 0.4, 0.8, 1), font_size)
-        button_2 = self.create_gradient_button(option_2, (1, 0.2, 0.2, 1), (0.8, 0.1, 0.1, 1), font_size)
+        # Текст события
+        desc_lbl = Label(
+            text=description, markup=True,
+            font_size=sp(14), color=(0.85, 0.87, 0.92, 1),
+            size_hint=(0.88, None), height=dp(120),
+            pos_hint={'center_x': 0.5, 'center_y': 0.55},
+            halign='center', valign='middle',
+        )
+        desc_lbl.bind(size=desc_lbl.setter('text_size'))
 
-        # Создаем стилизованное всплывающее окно
-        popup = self.create_styled_popup("", content)
-        popup.bind(on_open=lambda *args: update_label_size(content, content.width))
+        # Кнопки выбора
+        def _make_event_btn(text, color, y_pos):
+            btn = Button(
+                text=text, font_size=sp(13), bold=True, markup=True,
+                size_hint=(0.88, None), height=dp(46),
+                pos_hint={'center_x': 0.5, 'y': y_pos},
+                background_normal='', background_color=(0, 0, 0, 0),
+                color=(1, 1, 1, 1),
+            )
+            with btn.canvas.before:
+                Color(*color)
+                btn._bg = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(10)])
+            btn.bind(
+                pos=lambda i, v: setattr(i._bg, 'pos', v),
+                size=lambda i, v: setattr(i._bg, 'size', v)
+            )
+            return btn
 
-        # Обработчики нажатий
+        btn_1 = _make_event_btn(option_1, (0.15, 0.45, 0.65, 1), 0.18)
+        btn_2 = _make_event_btn(option_2, (0.55, 0.15, 0.15, 1), 0.04)
+
+        content.add_widget(title_lbl)
+        content.add_widget(sep)
+        content.add_widget(desc_lbl)
+        content.add_widget(btn_1)
+        content.add_widget(btn_2)
+
+        popup = Popup(
+            title='', separator_height=0,
+            content=content,
+            size_hint=(0.5, None), height=dp(350),
+            auto_dismiss=False,
+            background='', background_color=(0, 0, 0, 0.55),
+        )
+
         def on_button_1(instance):
             self.apply_effects_with_economic_module(effects.get("option_1", {}))
             self.update_karma(self.player_faction, 4)
@@ -272,83 +293,12 @@ class EventManager:
             self.update_karma(self.player_faction, -6)
             popup.dismiss()
 
-        button_1.bind(on_press=on_button_1)
-        button_2.bind(on_press=on_button_2)
-
-        content.add_widget(label)
-        content.add_widget(button_1)
-        content.add_widget(button_2)
-        popup.open()
-
-    def create_styled_popup(self, title, content):
-        """Создает стилизованное всплывающее окно с анимацией и адаптивным размером"""
-        width = min(Window.width * 0.95, dp(500))
-        height = min(Window.height * 0.75, dp(600))
-
-        popup = Popup(
-            title=title,
-            content=content,
-            size_hint=(None, None),
-            size=(width, height),
-            auto_dismiss=False,
-            title_align="center",
-            separator_height=0
-        )
-
-        def update_rects(instance, value):
-            instance.shadow.pos = (instance.x - dp(5), instance.y - dp(5))
-            instance.shadow.size = (instance.width + dp(10), instance.height + dp(10))
-            instance.bg.pos = (instance.x, instance.y)
-            instance.bg.size = (instance.width, instance.height)
-
-        with popup.canvas.before:
-            Color(0.1, 0.1, 0.1, 0.3)
-            popup.shadow = RoundedRectangle(radius=[dp(20)])
-            Color(1, 1, 1, 1)
-            popup.bg = RoundedRectangle(radius=[dp(15)])
-
-        popup.bind(pos=update_rects, size=update_rects)
-        update_rects(popup, None)
+        btn_1.bind(on_release=on_button_1)
+        btn_2.bind(on_release=on_button_2)
 
         popup.opacity = 0
-        anim = Animation(opacity=1, duration=0.3)
-        anim.start(popup)
-
-        return popup
-
-    def create_gradient_button(self, text, color1, color2, font_size):
-        """Создает кнопку с градиентным фоном и закругленными углами без лишних прямоугольников"""
-        btn = Button(
-            text=text,
-            background_normal='',
-            background_color=(0, 0, 0, 0),
-            color=(1, 1, 1, 1),
-            font_size=font_size,
-            size_hint=(1, None),
-            height=dp(50),
-            padding=(dp(10), dp(5)),
-            markup=True,
-            halign="center",
-            valign="middle"
-        )
-
-        # Очищаем предыдущие графические инструкции
-        btn.canvas.before.clear()
-
-        with btn.canvas.before:
-            Color(*color1)
-            RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(10)])
-
-        def update_graphics(instance, value):
-            btn.canvas.before.clear()
-            with btn.canvas.before:
-                Color(*color1)
-                RoundedRectangle(pos=instance.pos, size=instance.size, radius=[dp(10)])
-
-        btn.bind(pos=update_graphics, size=update_graphics)
-        update_graphics(btn, None)
-
-        return btn
+        popup.open()
+        Animation(opacity=1, duration=0.25).start(popup)
 
     def apply_effects_with_economic_module(self, effects):
         """

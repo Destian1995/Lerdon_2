@@ -92,11 +92,23 @@ class RelationsManager:
         diplomacies_data = self.load_diplomacies()
         print("Загруженные данные из таблицы diplomaties:", diplomacies_data)
 
+        # Получаем список живых фракций (у которых есть хотя бы 1 город)
+        try:
+            self.cursor.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал'")
+            alive_factions = {row[0] for row in self.cursor.fetchall()}
+        except Exception:
+            alive_factions = set()
+
+        # Фракции которые всегда скрываем
+        hidden = {'Мятежники', 'Нежить', self.faction}
+
         # Создаем комбинированный словарь отношений
         combined_relations = {}
 
         # Обрабатываем данные из таблицы relations
         for target_faction, relation_level in relations_data.items():
+            if target_faction in hidden or target_faction not in alive_factions:
+                continue
             combined_relations[target_faction] = {
                 "relation_level": relation_level,
                 "status": "неизвестно"
@@ -104,6 +116,8 @@ class RelationsManager:
 
         # Добавляем/обновляем статусы из таблицы diplomaties
         for target_faction, status in diplomacies_data.items():
+            if target_faction in hidden or target_faction not in alive_factions:
+                continue
             if target_faction in combined_relations:
                 combined_relations[target_faction]["status"] = status
             else:

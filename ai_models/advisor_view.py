@@ -58,13 +58,14 @@ class ClickableImage(ButtonBehavior, Image):
     pass
 
 class AdvisorView(FloatLayout):
-    def __init__(self, faction, conn, game_screen_instance=None, **kwargs):
+    def __init__(self, faction, conn, game_screen_instance=None, preselect_faction=None, **kwargs):
         super(AdvisorView, self).__init__(**kwargs)
 
         self.faction = faction
         self.db_connection = conn
         self.cursor = self.db_connection.cursor()
         self.game_screen = game_screen_instance
+        self.preselect_faction = preselect_faction
 
         # Инициализация менеджеров
         self.relations_manager = RelationsManager(self)

@@ -22,22 +22,7 @@ WARNING_COLOR = get_color_from_hex("#cf6679")
 DISABLED_COLOR = get_color_from_hex("#444444")
 SELECTED_OUTLINE = get_color_from_hex("#bb86fc")
 
-def format_number(number):
-    if not isinstance(number, (int, float)):
-        return str(number)
-    if number == 0:
-        return "0"
-    absolute = abs(number)
-    sign = -1 if number < 0 else 1
-
-    if absolute >= 1_000_000_000:
-        return f"{sign * absolute / 1e9:.1f} млрд."
-    elif absolute >= 1_000_000:
-        return f"{sign * absolute / 1e6:.1f} млн."
-    elif absolute >= 1_000:
-        return f"{sign * absolute / 1e3:.1f} тыс."
-    else:
-        return f"{number}"
+from utils.helpers import format_number
 
 class CalculateCash:
     def __init__(self, faction, class_faction):
@@ -120,7 +105,7 @@ def show_diversion_window(conn, faction, class_faction):
 
     cursor = conn.cursor()
     # Исключаем Мятежников из списка целей
-    cursor.execute("SELECT DISTINCT faction FROM cities WHERE faction != ? AND faction != 'Мятежники'", (player_faction,))
+    cursor.execute("SELECT DISTINCT faction FROM cities WHERE faction != ? AND faction NOT IN ('Мятежники', 'Нежить', 'Нейтрал')", (player_faction,))
     target_factions_result = cursor.fetchall()
     target_factions = [row[0] for row in target_factions_result if row[0]]
 

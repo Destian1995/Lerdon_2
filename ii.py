@@ -1,52 +1,18 @@
 
 from fight import fight
 from db_lerdon_connect import *
-
-def format_number(number):
-    """Форматирует число с добавлением приставок (тыс., млн., млрд., трлн., квадр., квинт., секст., септил., октил., нонил., децил., андец.)"""
-    if not isinstance(number, (int, float)):
-        return str(number)
-    if number == 0:
-        return "0"
-
-    absolute = abs(number)
-    sign = -1 if number < 0 else 1
-
-    if absolute >= 1_000_000_000_000_000_000_000_000_000_000_000_000:  # 1e36
-        return f"{sign * absolute / 1e36:.1f} андец."
-    elif absolute >= 1_000_000_000_000_000_000_000_000_000_000_000:  # 1e33
-        return f"{sign * absolute / 1e33:.1f} децил."
-    elif absolute >= 1_000_000_000_000_000_000_000_000_000_000:  # 1e30
-        return f"{sign * absolute / 1e30:.1f} нонил."
-    elif absolute >= 1_000_000_000_000_000_000_000_000_000:  # 1e27
-        return f"{sign * absolute / 1e27:.1f} октил."
-    elif absolute >= 1_000_000_000_000_000_000_000_000:  # 1e24
-        return f"{sign * absolute / 1e24:.1f} септил."
-    elif absolute >= 1_000_000_000_000_000_000_000:  # 1e21
-        return f"{sign * absolute / 1e21:.1f} секст."
-    elif absolute >= 1_000_000_000_000_000_000:  # 1e18
-        return f"{sign * absolute / 1e18:.1f} квинт."
-    elif absolute >= 1_000_000_000_000_000:  # 1e15
-        return f"{sign * absolute / 1e15:.1f} квадр."
-    elif absolute >= 1_000_000_000_000:  # 1e12
-        return f"{sign * absolute / 1e12:.1f} трлн."
-    elif absolute >= 1_000_000_000:  # 1e9
-        return f"{sign * absolute / 1e9:.1f} млрд."
-    elif absolute >= 1_000_000:  # 1e6
-        return f"{sign * absolute / 1e6:.1f} млн."
-    elif absolute >= 1_000:  # 1e3
-        return f"{sign * absolute / 1e3:.1f} тыс."
-    else:
-        return f"{number}"
+from utils.helpers import format_number
 
 class AIController:
-    def __init__(self, faction, conn=None, season_manager=None):
+    def __init__(self, faction, conn=None, season_manager=None, player_faction=None):
         """
 
         :type season_manager: экземпляр SeasonManager из game_process.py
+        :param player_faction: имя фракции игрока (для дипломатических сообщений)
         """
         self.faction = faction
         self.season_manager = season_manager
+        self.player_faction = player_faction
         self.turn = 0
         self.db_connection = conn
         self.cursor = self.db_connection.cursor()
@@ -521,21 +487,36 @@ class AIController:
         return total_built > 0
 
     def sell_resources(self):
-        if self.resources['Кристаллы'] > 100:
-            amount_to_sell = int(self.resources['Кристаллы'] * 0.95)
-            earned_crowns = int(amount_to_sell * self.raw_material_price)
-            self.resources['Кристаллы'] -= amount_to_sell
-            self.resources['Кроны'] += earned_crowns
-
-            # Рассчитываем эффективность сделки (цена за единицу Кристаллы)
-            price_per_lot = self.raw_material_price / 100
-            self.update_economic_efficiency(price_per_lot)  # Обновляем эффективность
-
-            print(f"Продано {amount_to_sell} Кристаллы за {earned_crowns} крон.")
-            return True
+        # Элины и Адепты — торговые фракции, накапливают кристаллы для обмена
+        # Они продают лишь небольшой процент, сохраняя резерв для дипломатических сделок
+        if self.faction in ('Элины', 'Адепты'):
+            crystal_reserve = max(500, int(self.resources['Кристаллы'] * 0.60))
+            available_to_sell = max(0, int(self.resources['Кристаллы']) - crystal_reserve)
+            if available_to_sell > 50:
+                amount_to_sell = int(available_to_sell * 0.5)  # Продают только 50% от излишка
+                earned_crowns = int(amount_to_sell * self.raw_material_price)
+                self.resources['Кристаллы'] -= amount_to_sell
+                self.resources['Кроны'] += earned_crowns
+                price_per_lot = self.raw_material_price / 100
+                self.update_economic_efficiency(price_per_lot)
+                print(f"[{self.faction}] Продано {amount_to_sell} Кристаллов (резерв: {crystal_reserve}) за {earned_crowns} крон.")
+                return True
+            else:
+                print(f"[{self.faction}] Кристаллы в резерве ({int(self.resources['Кристаллы'])}), продажа не требуется.")
+                return False
         else:
-            print("Недостаточно Кристаллы для продажи.")
-            return False
+            if self.resources['Кристаллы'] > 100:
+                amount_to_sell = int(self.resources['Кристаллы'] * 0.95)
+                earned_crowns = int(amount_to_sell * self.raw_material_price)
+                self.resources['Кристаллы'] -= amount_to_sell
+                self.resources['Кроны'] += earned_crowns
+                price_per_lot = self.raw_material_price / 100
+                self.update_economic_efficiency(price_per_lot)
+                print(f"Продано {amount_to_sell} Кристаллы за {earned_crowns} крон.")
+                return True
+            else:
+                print("Недостаточно Кристаллы для продажи.")
+                return False
 
     def hire_army(self):
         """
@@ -1532,15 +1513,17 @@ class AIController:
             str: Путь к изображению юнита или пустая строка, если не найдено
         """
         try:
+            # Сначала ищем по фракции, потом без фильтра (для перешедших юнитов)
             query = """
-                SELECT image_path 
-                FROM units 
-                WHERE faction = ? AND unit_name = ?
+                SELECT image_path
+                FROM units
+                WHERE unit_name = ?
+                LIMIT 1
             """
-            self.cursor.execute(query, (self.faction, unit_name))
+            self.cursor.execute(query, (unit_name,))
             result = self.cursor.fetchone()
             if result:
-                return result[0]  # Возвращаем путь к изображению
+                return result[0]
             else:
                 print(f"Предупреждение: Изображение для юнита '{unit_name}' не найдено")
                 return ""
@@ -1780,6 +1763,41 @@ class AIController:
         except sqlite3.Error as e:
             print(f"Ошибка при обновлении статуса дипломатии: {e}")
 
+    def _find_staging_city_for_attack(self, target_city):
+        """
+        Находит свой город, из которого есть прямая дорога к целевому городу.
+        Выбирает город с самым сильным гарнизоном среди подходящих.
+        Учитывает только города основной территории (связанные дорогами).
+        """
+        try:
+            # Только города основной территории могут быть базой для атаки
+            main_territory = self._get_main_territory_cities()
+            our_cities = list(main_territory)
+            if not our_cities:
+                return None
+
+            best_city = None
+            best_strength = -1
+
+            for city_name in our_cities:
+                # Проверяем прямую дорогу к цели
+                if not self.has_road_between_cities(city_name, target_city):
+                    continue
+                # Считаем мощь гарнизона
+                self.cursor.execute("""
+                    SELECT COALESCE(SUM(g.unit_count), 0)
+                    FROM garrisons g WHERE g.city_name = ?
+                """, (city_name,))
+                strength = self.cursor.fetchone()[0]
+                if strength > best_strength:
+                    best_strength = strength
+                    best_city = city_name
+
+            return best_city
+        except sqlite3.Error as e:
+            print(f"[ERROR] _find_staging_city_for_attack: {e}")
+            return None
+
     def find_nearest_allied_city(self, faction):
         """
         Находит собственный город для передислокации войск.
@@ -1896,13 +1914,16 @@ class AIController:
 
     def find_nearest_city(self, faction):
         """Находит ближайший город противника для атаки, с которым есть дорога.
+        Учитывает только города основной территории.
         :param faction: Название фракции
         :return: Имя ближайшего города или None, если подходящий город не найден"""
         try:
-            # Получаем координаты всех городов текущей фракции
+            # Только города основной территории
+            main_territory = self._get_main_territory_cities()
             query = "SELECT name, coordinates FROM cities WHERE faction = ?"
             self.cursor.execute(query, (self.faction,))
-            our_cities = self.cursor.fetchall()
+            all_our_cities = self.cursor.fetchall()
+            our_cities = [(n, c) for n, c in all_our_cities if n in main_territory]
 
             # Получаем координаты всех городов противника
             query = "SELECT name, coordinates FROM cities WHERE faction = ?"
@@ -2112,6 +2133,12 @@ class AIController:
         if result["winner"] == "attacker":
             self.army_efficiency_ratio = result["efficiency_ratio"]
 
+            # === AI берёт пленных ===
+            defending_losses = result.get('defending_losses', 0)
+            if defending_losses > 0:
+                captured = max(1, int(defending_losses * 0.10))
+                self._ai_handle_prisoners(captured, target_faction, allied_city)
+
             defensive_units = []
             remaining_units = []
 
@@ -2122,22 +2149,32 @@ class AIController:
                 else:
                     remaining_units.append(unit)
 
-            # Оставшиеся войска остаются в городе или возвращаются
             print(f"Оставшиеся войска возвращаются в союзный город.")
         else:
             print(f"Атака на город {city_name} провалилась.")
 
-    def collect_all_units(self):
-        """Собирает все юниты из всех городов текущей фракции"""
+    def collect_all_units(self, reachable_from=None):
+        """
+        Собирает юниты из городов текущей фракции.
+        Если указан reachable_from — собирает только из городов,
+        связанных по своей территории с указанным городом.
+        """
         try:
             query = """
-            SELECT g.city_name, g.unit_name, g.unit_count, g.unit_image
+            SELECT g.city_name, g.unit_name, g.unit_count,
+                   COALESCE(NULLIF(g.unit_image, ''), u.image_path, '') as unit_image
             FROM garrisons g
-            JOIN units u ON g.unit_name = u.unit_name
-            WHERE u.faction = ?
+            JOIN cities c ON c.name = g.city_name
+            LEFT JOIN units u ON g.unit_name = u.unit_name
+            WHERE c.faction = ?
             """
             self.cursor.execute(query, (self.faction,))
             rows = self.cursor.fetchall()
+
+            # Если указан базовый город — фильтруем по связности
+            if reachable_from:
+                reachable_cities = self._get_reachable_own_cities(reachable_from)
+                rows = [r for r in rows if r[0] in reachable_cities]
 
             all_units = []
             for row in rows:
@@ -2152,6 +2189,113 @@ class AIController:
         except sqlite3.Error as e:
             print(f"[ERROR] Не удалось собрать юниты: {e}")
             return []
+
+    def _get_reachable_own_cities(self, start_city):
+        """
+        BFS: возвращает множество названий городов своей фракции,
+        достижимых из start_city через дороги по своей территории.
+        """
+        try:
+            self.cursor.execute("SELECT id, name, faction FROM cities")
+            all_cities = self.cursor.fetchall()
+            name_to_id = {name: cid for cid, name, _ in all_cities}
+            id_to_name = {cid: name for cid, name, _ in all_cities}
+            id_to_faction = {cid: faction for cid, _, faction in all_cities}
+
+            start_id = name_to_id.get(start_city)
+            if start_id is None:
+                return {start_city}
+
+            # BFS по дорогам, проходя только через города своей фракции
+            visited = {start_id}
+            queue = [start_id]
+            reachable = {start_city}
+
+            while queue:
+                current = queue.pop(0)
+                self.cursor.execute("""
+                    SELECT city1, city2 FROM roads WHERE city1 = ? OR city2 = ?
+                """, (current, current))
+                for c1, c2 in self.cursor.fetchall():
+                    neighbor = c2 if c1 == current else c1
+                    if neighbor in visited:
+                        continue
+                    # Проходим только через свои города
+                    if id_to_faction.get(neighbor) != self.faction:
+                        continue
+                    visited.add(neighbor)
+                    queue.append(neighbor)
+                    reachable.add(id_to_name[neighbor])
+
+            return reachable
+        except Exception as e:
+            print(f"[ERROR] _get_reachable_own_cities: {e}")
+            return {start_city}
+
+    def _get_main_territory_cities(self):
+        """
+        Находит основную территорию фракции — наибольшую связную компоненту
+        городов, соединённых дорогами. Города вне основной территории считаются
+        отрезанными от снабжения.
+        Возвращает множество названий городов основной территории.
+        """
+        try:
+            self.cursor.execute("SELECT id, name, faction FROM cities")
+            all_cities = self.cursor.fetchall()
+            name_to_id = {name: cid for cid, name, _ in all_cities}
+            id_to_name = {cid: name for cid, name, _ in all_cities}
+            id_to_faction = {cid: faction for cid, _, faction in all_cities}
+
+            # Собираем все города фракции
+            own_city_ids = {cid for cid, faction in id_to_faction.items() if faction == self.faction}
+            if not own_city_ids:
+                return set()
+
+            # Загружаем граф дорог
+            self.cursor.execute("SELECT city1, city2 FROM roads")
+            all_roads = self.cursor.fetchall()
+            adjacency = {}
+            for c1, c2 in all_roads:
+                adjacency.setdefault(c1, []).append(c2)
+                adjacency.setdefault(c2, []).append(c1)
+
+            # Находим все связные компоненты среди городов фракции
+            visited = set()
+            components = []
+
+            for start_id in own_city_ids:
+                if start_id in visited:
+                    continue
+                # BFS по своим городам
+                component = set()
+                queue = [start_id]
+                visited.add(start_id)
+                while queue:
+                    current = queue.pop(0)
+                    component.add(current)
+                    for neighbor in adjacency.get(current, []):
+                        if neighbor in visited:
+                            continue
+                        if neighbor not in own_city_ids:
+                            continue
+                        visited.add(neighbor)
+                        queue.append(neighbor)
+                components.append(component)
+
+            # Основная территория — наибольшая компонента
+            if not components:
+                return set()
+            main_component = max(components, key=len)
+            return {id_to_name[cid] for cid in main_component}
+
+        except Exception as e:
+            print(f"[ERROR] _get_main_territory_cities: {e}")
+            # Фоллбэк: все города фракции
+            try:
+                self.cursor.execute("SELECT name FROM cities WHERE faction = ?", (self.faction,))
+                return {r[0] for r in self.cursor.fetchall()}
+            except Exception:
+                return set()
 
     def get_unit_class(self, unit_name):
         """Получает класс юнита из таблицы units"""
@@ -2173,7 +2317,8 @@ class AIController:
         """
         try:
             query = """
-                SELECT g.unit_name, g.unit_count, u.attack, u.defense, u.durability, u.unit_class, g.unit_image
+                SELECT g.unit_name, g.unit_count, u.attack, u.defense, u.durability, u.unit_class,
+                       COALESCE(NULLIF(g.unit_image, ''), u.image_path, '') as unit_image
                 FROM garrisons g
                 JOIN units u ON g.unit_name = u.unit_name
                 WHERE g.city_name = ?
@@ -2204,18 +2349,20 @@ class AIController:
         Организует атаку на указанный город.
         Атака возможна только при наличии юнитов класса 1.
         Герои (2, 3, 4 класс) усиливают атаку, но не могут действовать без базовой армии.
+        AI может атаковать только из своего города, имеющего прямую дорогу к цели.
+        Войска собираются только из городов, связанных по своей территории.
         """
         try:
-            # Находим ближайший союзный город для атаки
-            allied_city = self.find_nearest_allied_city(self.faction)
+            # Находим свой город, из которого есть дорога к цели
+            allied_city = self._find_staging_city_for_attack(city_name)
             if not allied_city:
-                print("Не удалось найти ближайший союзный город.")
+                print(f"Нет своего города с дорогой к {city_name}. Атака невозможна.")
                 return
 
-            print(f"Ближайший союзный город для атаки: {allied_city}")
+            print(f"Город для атаки на {city_name}: {allied_city}")
 
-            # Собираем все доступные юниты из всех городов
-            all_units = self.collect_all_units()
+            # Собираем юниты только из городов, связанных с базой атаки
+            all_units = self.collect_all_units(reachable_from=allied_city)
             if not all_units:
                 print("Нет доступных юнитов для атаки.")
                 return
@@ -2456,24 +2603,43 @@ class AIController:
         except sqlite3.Error as e:
             print(f"Ошибка при обновлении данных о зданиях: {e}")
 
+    def _is_truce_active(self, faction):
+        """Проверяет, действует ли перемирие с указанной фракцией."""
+        try:
+            self.cursor.execute("""
+                SELECT truce_until_turn FROM truces
+                WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
+            """, (self.faction, faction, faction, self.faction))
+            row = self.cursor.fetchone()
+            if row:
+                return self.turn < row[0]
+        except Exception:
+            pass  # Таблица может не существовать
+        return False
+
     def check_and_declare_war(self):
         """
         Проверяет уровень отношений с другими фракциями.
-        Если отношения падают ниже 12% И сила армии потенциального противника
-        ниже в 1.5 раза, чем сила текущей фракции, объявляет войну.
-        Также проверяет, находится ли фракция в состоянии войны, и если да,
-        сразу атакует ближайший город.
+        Условия для объявления войны:
+          - Ход >= 14
+          - Отношения < 30%
+          - Наша армия сильнее в 1.3 раза
+          - НЕ слабее противника на 30%+ (никогда не начинает заведомо проигрышную войну)
+          - Нет действующего перемирия (3 хода после заключения мира)
         """
         try:
-            # Загружаем текущие отношения с другими фракциями
             self.relations = self.load_relations()
-            # Рассчитываем силу армий для всех фракций
             army_strength = self.calculate_army_strength()
             our_strength = army_strength.get(self.faction, 0)
             print("our_strength:", type(our_strength), our_strength)
 
             for faction, relationship in self.relations.items():
-                # Проверяем текущий статус дипломатии с фракцией
+                # Проверяем перемирие
+                if self._is_truce_active(faction):
+                    print(f"{self.faction}: перемирие с {faction} ещё действует. Пропускаем.")
+                    continue
+
+                # Проверяем текущий статус дипломатии
                 query = """
                     SELECT relationship FROM diplomacies
                     WHERE faction1 = ? AND faction2 = ?
@@ -2482,53 +2648,50 @@ class AIController:
                 result = self.cursor.fetchone()
 
                 if result is None:
-                    # Если записи нет, считаем, что статус "мир"
                     diplomacy_status = "мир"
-                    print(f"Дипломатический статус с фракцией {faction} не найден. Установлен статус 'мир'.")
                 else:
                     diplomacy_status = result[0]
 
                 if diplomacy_status == "война":
-                    # Если уже объявлена война, атакуем ближайший город
-                    print(f"Фракция {self.faction} уже находится в состоянии войны с фракцией {faction}.")
+                    # Уже воюем — атакуем ближайший город
+                    print(f"Фракция {self.faction} уже в войне с {faction}.")
                     target_city = self.find_nearest_city(faction)
                     if target_city:
                         print(f"Ближайший вражеский город для атаки: {target_city}")
                         self.attack_city(target_city, faction)
                     else:
-                        print(f"Не удалось найти подходящий город для атаки у фракции {faction}.")
+                        print(f"Не удалось найти город для атаки у {faction}.")
                     continue
 
-                # Если нет войны, проверяем условия для объявления войны
+                # Условия для объявления войны
                 if self.turn < 13:
-                    print(f"{self.faction}: ещё рано объявлять войну (ход {self.turn + 1}). Ждём 14-й ход.")
                     continue
 
-                if int(relationship) < 30:  # Если отношения достаточно плохие
+                if int(relationship) < 30:
                     enemy_strength = army_strength.get(faction, 0)
-                    # Проверяем, что наша сила армии больше в 1.3 раза
+
+                    # НЕ объявляем войну если мы слабее на 30%+
+                    if enemy_strength > 0 and our_strength < enemy_strength * 0.7:
+                        print(f"{self.faction}: слишком слабы для войны с {faction} "
+                              f"(наша: {our_strength}, их: {enemy_strength}). Война не объявлена.")
+                        continue
+
+                    # Объявляем войну только если сильнее в 1.3 раза
                     if our_strength > 1.3 * enemy_strength:
-                        print(f"Отношения с фракцией {faction} упали ниже 30%. "
-                              f"Сила нашей армии: {our_strength}, сила противника: {enemy_strength}. Объявление войны.")
-                        # Обновляем статус дипломатии на "война"
+                        print(f"Отношения с {faction} < 30%. "
+                              f"Сила: {our_strength} vs {enemy_strength}. Объявление войны.")
                         self.update_diplomacy_status(faction, "война")
-                        # Уведомляем игрока о начале войны
                         self.notify_player_about_war(faction)
-                        # Определяем ближайший город для атаки
                         target_city = self.find_nearest_city(faction)
                         if target_city:
-                            print(f"Ближайший вражеский город для атаки: {target_city}")
-                            # Наносим удар по ближайшему городу
                             self.attack_city(target_city, faction)
-                        else:
-                            print(f"Не удалось найти подходящий город для атаки у фракции {faction}.")
                     else:
-                        print(f"Отношения с фракцией {faction} упали ниже 12%, "
-                              f"но сила противника слишком велика. Война не объявлена.")
+                        print(f"Отношения с {faction} < 30%, но сила противника слишком велика.")
+
             if our_strength > 0:
                 target_city = self.find_nearest_neutral_city()
                 if target_city:
-                    print(f"Обнаружен нейтральный город: {target_city}. Начинаем захват.")
+                    print(f"Нейтральный город: {target_city}. Захват.")
                     self.attack_city(target_city, "Нейтрал")
                     self.capture_city(target_city, self.faction, self.attacking_army)
         except Exception as e:
@@ -3076,8 +3239,8 @@ class AIController:
             self.cursor.execute(query, (self.faction,))
             our_cities = self.cursor.fetchall()
 
-            # Получаем все нейтральные города
-            query = "SELECT name, coordinates FROM cities WHERE faction = 'Нейтрал'"
+            # Получаем все нейтральные города (кроме скрытых городов нежити)
+            query = "SELECT name, coordinates FROM cities WHERE faction = 'Нейтрал' AND COALESCE(is_undead, 0) = 0"
             self.cursor.execute(query)
             neutral_cities = self.cursor.fetchall()
 
@@ -3104,13 +3267,22 @@ class AIController:
     def attack_enemy_cities(self):
         """
         Организует атаки на вражеские города.
+        Если активна инвазия нежити — приоритет на атаку нежити всеми силами.
         """
         try:
-            # Получаем список всех фракций, с которыми ведется война
             at_war_with = self.get_factions_at_war()
             if not at_war_with:
                 print("Нет фракций, с которыми ведется война.")
                 return
+
+            # Приоритет: если воюем с Нежитью — атакуем её первой
+            from undead_invasion import is_invasion_active, UNDEAD_FACTION_NAME
+            if is_invasion_active(self.db_connection) and UNDEAD_FACTION_NAME in at_war_with:
+                target_city = self.find_nearest_city(UNDEAD_FACTION_NAME)
+                if target_city:
+                    print(f"[ПРИОРИТЕТ НЕЖИТЬ] {self.faction} атакует {target_city} (Нежить)")
+                    self.attack_city(target_city, UNDEAD_FACTION_NAME)
+                    return  # Все силы на нежить
 
             for enemy_faction in at_war_with:
                 target_city = self.find_nearest_city(enemy_faction)
@@ -3130,9 +3302,13 @@ class AIController:
         - Текущая армия слабее армии противника
         - Отношения с игроком > 40
         """
+        if self.faction == "Нежить":
+            return
         try:
             # 1. Проверяем количество городов
             current_city_count = self.get_city_count_for_faction()
+            if current_city_count == 0:
+                return  # Мёртвая фракция не отправляет сообщений
             if current_city_count > 3:
                 return  # Условие не выполняется
 
@@ -3144,19 +3320,22 @@ class AIController:
             # 3. Рассчитываем нашу силу армии
             our_strength = self._calculate_army_strength(self.faction)
 
-            # 4. Находим самого сильного противника
+            # 4. Находим самого сильного противника (исключая фракцию игрока)
+            player_faction = self._get_player_faction_name()
             strongest_enemy = None
             strongest_enemy_strength = 0
 
             for enemy in enemies:
+                if enemy == player_faction:
+                    continue  # Не просим игрока воевать против себя
                 enemy_strength = self._calculate_army_strength(enemy)
                 if enemy_strength > strongest_enemy_strength:
                     strongest_enemy_strength = enemy_strength
                     strongest_enemy = enemy
 
             # 5. Проверяем, слабее ли мы противника
-            if our_strength >= strongest_enemy_strength:
-                return  # Мы не слабее
+            if not strongest_enemy or our_strength >= strongest_enemy_strength:
+                return  # Нет подходящего врага или мы не слабее
 
             # 6. Получаем отношения с игроком
             cursor = self.db_connection.cursor()
@@ -3164,7 +3343,7 @@ class AIController:
                 SELECT relationship 
                 FROM relations 
                 WHERE faction1 = ? AND faction2 = ?
-            """, (self.faction, "Игрок"))
+            """, (self.faction, self._get_player_faction_name()))
 
             result = cursor.fetchone()
             if not result:
@@ -3181,10 +3360,11 @@ class AIController:
                 message_content = f"[СОЮЗ] {self.faction} предлагает вам военный союз и помощь в войнах."
 
                 # Проверяем, воюет ли игрок с кем-то
+                player = self._get_player_faction_name()
                 cursor.execute("""
-                    SELECT faction2 FROM diplomacies 
-                    WHERE faction1 = 'Игрок' AND relationship = 'война'
-                """)
+                    SELECT faction2 FROM diplomacies
+                    WHERE faction1 = ? AND relationship = 'война'
+                """, (player,))
                 player_enemies = [row[0] for row in cursor.fetchall()]
 
                 if player_enemies:
@@ -3210,7 +3390,7 @@ class AIController:
             # 8. Создаем сообщение в таблице negotiation_history
             self._create_message_in_negotiation_history(
                 faction1=self.faction,
-                faction2="Игрок",
+                faction2=self._get_player_faction_name(),
                 message=message_content,
                 is_player=False,
                 is_incoming=True
@@ -3223,42 +3403,68 @@ class AIController:
 
     def send_mercy_request_if_needed(self):
         """
-        Отправляет сообщение с просьбой о пощаде и мире, если:
-        - ИИ воюет с игроком
-        - У ИИ осталось меньше 3 городов
+        Просьба о пощаде — с учётом характера фракции.
+        Север и Адепты НИКОГДА не сдаются.
+        Элины сдаются быстро. Вампиры — когда совсем плохо.
         """
+        if self.faction == "Нежить":
+            return
         try:
+            if self.get_city_count_for_faction() == 0:
+                return  # Мёртвая фракция не отправляет сообщений
+            traits = self.FACTION_TRAITS.get(self.faction, {})
+            if traits.get('never_surrenders'):
+                # Север и Адепты — вместо сдачи отправляют гордое сообщение
+                cursor = self.db_connection.cursor()
+                cursor.execute("""
+                    SELECT 1 FROM diplomacies
+                    WHERE faction1 = ? AND faction2 = ? AND relationship = 'война'
+                """, (self.faction, self._get_player_faction_name()))
+                if cursor.fetchone():
+                    city_count = self.get_city_count_for_faction()
+                    if city_count <= 2 and not self._recently_messaged_player(cooldown_turns=6):
+                        from utils.helpers import city_word
+                        if self.faction == 'Север':
+                            msg = f"У нас осталось {city_word(city_count)}, но Север не сдаётся. НИКОГДА. "
+                            msg += f"Каждый наш воин стоит десятерых. Мы будем биться до последнего."
+                        else:  # Адепты
+                            msg = f"Осталось {city_word(city_count)}, но Адепты не знают слова «сдаться». "
+                            msg += f"Мы уничтожим вас или погибнем с честью. Пророчества на нашей стороне."
+                        self._send_diplomatic_message("ВОЙНА", msg)
+                return  # Никакой пощады
             # 1. Проверяем, воюем ли мы с игроком
             cursor = self.db_connection.cursor()
             cursor.execute("""
                 SELECT relationship 
                 FROM diplomacies 
                 WHERE faction1 = ? AND faction2 = ? AND relationship = 'война'
-            """, (self.faction, "Игрок"))
+            """, (self.faction, self._get_player_faction_name()))
 
             result = cursor.fetchone()
             if not result:
                 return  # Не воюем с игроком
 
-            # 2. Проверяем количество городов
+            # 2. Проверяем количество городов (Элины сдаются быстрее)
             current_city_count = self.get_city_count_for_faction()
-            if current_city_count >= 3:
-                return  # Условие не выполняется
+            surrender_threshold = 4 if self.faction == 'Элины' else 3
+            if current_city_count >= surrender_threshold:
+                return
 
             # 3. Рассчитываем силу армии
             our_strength = self._calculate_army_strength(self.faction)
-            player_strength = self._calculate_army_strength("Игрок")
+            player_strength = self._calculate_army_strength(self._get_player_faction_name())
 
-            # 4. Проверяем, проигрываем ли мы войну
-            if our_strength >= player_strength * 0.7:  # Если наша сила > 70% от силы игрока
-                return  # Не проигрываем критически
+            # 4. Элины сдаются раньше (при 85% силы врага), остальные — при 70%
+            mercy_threshold = 0.85 if self.faction == 'Элины' else 0.7
+            if our_strength >= player_strength * mercy_threshold:
+                return
 
             # 5. Получаем текущие отношения
             cursor.execute("""
                 SELECT relationship 
                 FROM relations 
                 WHERE faction1 = ? AND faction2 = ?
-            """, (self.faction, "Игрок"))
+            """, (self.faction, self._get_player_faction_name()))
 
             result = cursor.fetchone()
             if not result:
@@ -3280,7 +3486,7 @@ class AIController:
             # 8. Создаем сообщение в таблице negotiation_history
             self._create_message_in_negotiation_history(
                 faction1=self.faction,
-                faction2="Игрок",
+                faction2=self._get_player_faction_name(),
                 message=message_content,
                 is_player=False,
                 is_incoming=True
@@ -3290,6 +3496,101 @@ class AIController:
 
         except Exception as e:
             print(f"Ошибка при отправке сообщения о пощаде: {e}")
+
+    def _ai_handle_prisoners(self, captured_count, enemy_faction, city_name):
+        """AI решает что делать с пленными на основе характера фракции."""
+        import random
+        traits = self.FACTION_TRAITS.get(self.faction, {})
+
+        # Вампиры — казнят (70%) или принимают (30%)
+        # Север — принимают (80%) или отпускают (20%)
+        # Элины — отпускают (60%) или принимают (40%)
+        # Эльфы — отпускают (70%) или принимают (30%)
+        # Адепты — казнят (50%) или принимают (50%)
+        faction_choices = {
+            'Вампиры': [('execute', 0.7), ('recruit', 0.3)],
+            'Север':   [('recruit', 0.8), ('release', 0.2)],
+            'Элины':   [('release', 0.6), ('recruit', 0.4)],
+            'Эльфы':   [('release', 0.7), ('recruit', 0.3)],
+            'Адепты':  [('execute', 0.5), ('recruit', 0.5)],
+        }
+
+        # Нежить превращает всех пленных в призраков
+        if self.faction == 'Нежить':
+            try:
+                from undead_invasion import convert_prisoners_to_ghosts
+                cursor = self.db_connection.cursor()
+                convert_prisoners_to_ghosts(cursor, captured_count, city_name)
+                self.db_connection.commit()
+            except Exception as e:
+                print(f"[UNDEAD PRISONERS] Ошибка: {e}")
+            return
+
+        choices = faction_choices.get(self.faction, [('recruit', 1.0)])
+        roll = random.random()
+        cumulative = 0
+        decision = 'recruit'
+        for choice, prob in choices:
+            cumulative += prob
+            if roll < cumulative:
+                decision = choice
+                break
+
+        try:
+            cursor = self.db_connection.cursor()
+
+            if decision == 'recruit':
+                # Принять в армию — юнит вражеской фракции
+                cursor.execute("SELECT unit_name FROM units WHERE faction=? AND unit_class=1 LIMIT 1",
+                               (enemy_faction,))
+                unit_row = cursor.fetchone()
+                if unit_row:
+                    cursor.execute("""
+                        INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                        VALUES (?, ?, ?, '')
+                        ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
+                    """, (city_name, unit_row[0], captured_count, captured_count))
+                print(f"[AI PRISONERS] {self.faction} принял {captured_count} пленных {enemy_faction} в армию")
+
+            elif decision == 'execute':
+                # Казнить — ухудшаем отношения со всеми
+                cursor.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал' AND faction != ?",
+                               (self.faction,))
+                for row in cursor.fetchall():
+                    cursor.execute("""
+                        UPDATE relations SET relationship = MAX(0, relationship - 5)
+                        WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+                    """, (self.faction, row[0], row[0], self.faction))
+                print(f"[AI PRISONERS] {self.faction} казнил {captured_count} пленных {enemy_faction}")
+
+            else:  # release
+                # Отпустить — улучшаем отношения
+                cursor.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал' AND faction != ?",
+                               (self.faction,))
+                for row in cursor.fetchall():
+                    cursor.execute("""
+                        UPDATE relations SET relationship = MIN(100, relationship + 3)
+                        WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+                    """, (self.faction, row[0], row[0], self.faction))
+                print(f"[AI PRISONERS] {self.faction} отпустил {captured_count} пленных {enemy_faction}")
+
+            self.db_connection.commit()
+        except Exception as e:
+            print(f"[AI PRISONERS ERROR] {e}")
+
+    def _count_army_units(self, faction):
+        """Возвращает общее количество юнитов фракции (для отображения в сообщениях)."""
+        try:
+            cursor = self.db_connection.cursor()
+            cursor.execute("""
+                SELECT COALESCE(SUM(g.unit_count), 0)
+                FROM garrisons g
+                JOIN units u ON g.unit_name = u.unit_name
+                WHERE u.faction = ?
+            """, (faction,))
+            return cursor.fetchone()[0]
+        except Exception:
+            return 0
 
     def _calculate_army_strength(self, faction):
         """
@@ -3335,25 +3636,820 @@ class AIController:
 
     def _generate_resource_offer(self, percentage):
         """
-        Генерирует предложение ресурсов в процентах от текущих запасов
+        Генерирует предложение ресурсов в процентах от текущих запасов (для просьб).
         """
         try:
             resources_to_offer = []
-
-            # Проверяем каждый ресурс
-            for resource_type in ['Кроны', 'Кристаллы', 'Рабочие']:
+            for resource_type in ['Кроны', 'Кристаллы']:
                 if resource_type in self.resources and self.resources[resource_type] > 0:
                     amount = int(self.resources[resource_type] * percentage / 100)
                     if amount > 0:
                         resources_to_offer.append(f"{amount} {resource_type}")
-
             if resources_to_offer:
                 return f"Предлагаем: {', '.join(resources_to_offer)}."
             return ""
+        except Exception:
+            return ""
+
+    def _generate_trade_exchange(self):
+        """
+        Генерирует реальное торговое предложение: обмен одного ресурса на другой.
+        Элины и Адепты — торговые фракции, всегда предлагают кристаллы за кроны.
+        Возвращает (give_type, give_amount, want_type, want_amount, text) или None.
+        """
+        try:
+            crowns = self.resources.get('Кроны', 0)
+            crystals = self.resources.get('Кристаллы', 0)
+
+            # Элины и Адепты — торговые фракции, чаще предлагают кристаллы, но не только
+            if self.faction in ('Элины', 'Адепты'):
+                give_pct = 0.20 if self.faction == 'Элины' else 0.15
+                faction_label = "Элины" if self.faction == 'Элины' else "Адепты"
+
+                if crystals > 200 and crowns > 3000:
+                    # Есть и кристаллы и кроны — случайный выбор что предложить
+                    if random.random() < 0.6:
+                        # Чаще предлагают кристаллы (торговые фракции)
+                        give_amount = max(100, int(crystals * give_pct))
+                        want_amount = max(200, int(give_amount * 2.0))
+                        return ('Кристаллы', give_amount, 'Кроны', want_amount,
+                                f"{faction_label} предлагают {format_number(give_amount)} Кристаллов "
+                                f"в обмен на {format_number(want_amount)} Крон. Выгодная сделка!")
+                    else:
+                        # Иногда предлагают кроны за кристаллы
+                        give_amount = max(500, int(crowns * 0.10))
+                        want_amount = max(50, int(give_amount * 0.3))
+                        return ('Кроны', give_amount, 'Кристаллы', want_amount,
+                                f"{faction_label} предлагают {format_number(give_amount)} Крон "
+                                f"в обмен на {format_number(want_amount)} Кристаллов.")
+                elif crystals > 200:
+                    give_amount = max(100, int(crystals * give_pct))
+                    want_amount = max(200, int(give_amount * 2.0))
+                    return ('Кристаллы', give_amount, 'Кроны', want_amount,
+                            f"{faction_label} предлагают {format_number(give_amount)} Кристаллов "
+                            f"в обмен на {format_number(want_amount)} Крон. Выгодная сделка!")
+                elif crowns > 2000:
+                    give_amount = max(300, int(crowns * 0.08))
+                    want_amount = max(50, int(give_amount * 0.25))
+                    return ('Кроны', give_amount, 'Кристаллы', want_amount,
+                            f"{faction_label} предлагают {format_number(give_amount)} Крон, вы — {format_number(want_amount)} Кристаллов.")
+                return None
+
+            # Остальные фракции — стандартная логика
+            if crystals > 500 and crowns < 5000:
+                give_amount = max(100, int(crystals * 0.1))
+                want_amount = max(200, int(give_amount * 2.5))
+                return ('Кристаллы', give_amount, 'Кроны', want_amount,
+                        f"Мы отдаём {format_number(give_amount)} Кристаллов, вы — {format_number(want_amount)} Крон.")
+            elif crowns > 3000 and crystals < 1000:
+                give_amount = max(500, int(crowns * 0.1))
+                want_amount = max(50, int(give_amount * 0.3))
+                return ('Кроны', give_amount, 'Кристаллы', want_amount,
+                        f"Мы отдаём {format_number(give_amount)} Крон, вы — {format_number(want_amount)} Кристаллов.")
+            elif crowns > 1000:
+                give_amount = max(300, int(crowns * 0.08))
+                want_amount = max(50, int(give_amount * 0.25))
+                return ('Кроны', give_amount, 'Кристаллы', want_amount,
+                        f"Мы отдаём {format_number(give_amount)} Крон, вы — {format_number(want_amount)} Кристаллов.")
+            return None
+        except Exception:
+            return None
+
+    # ─── Проактивная дипломатия AI ──────────────────────────────────
+
+    # Персоналии фракций — определяют стиль общения (множество вариантов)
+    FACTION_PERSONALITIES = {
+        'Север': {
+            'style': 'military',
+            'greetings': [
+                "Приветствую, правитель. Север помнит своих друзей и никогда не забывает врагов.",
+                "Слава Северу! Рады видеть сильного соседа. Надеемся, что наши мечи будут указывать в одном направлении.",
+                "Правитель! Наши дозорные доложили о вашем появлении. Добро пожаловать к границам Севера.",
+                "Холодный ветер несёт вести о вашем народе. Север протягивает руку — крепкую, как наша сталь.",
+            ],
+            'friendships': [
+                "Мы, северяне, ценим верность и стойкость. В вас мы видим и то, и другое.",
+                "Наши кузницы пылают день и ночь. Хороший сосед — половина победы в войне.",
+                "Говорят, враг моего врага — мой друг. Но мы предпочитаем дружить не против кого-то, а ради чего-то.",
+                "Крепкая дружба рождается не за столом переговоров, а на поле битвы. Но начнём с малого.",
+            ],
+            'warnings': [
+                "Наши разведчики перехватили гонцов. Враг собирает силы — будьте начеку.",
+                "Дозорные с южных границ доносят тревожные вести. Надвигается буря.",
+                "На горизонте маршируют чужие знамёна. Время готовить оборону.",
+            ],
+        },
+        'Эльфы': {
+            'style': 'diplomatic',
+            'greetings': [
+                "Да хранят вас звёзды, правитель. Эльфийский народ рад вашему появлению в этих землях.",
+                "Лунный свет осветил ваш путь к нашим лесам. Мы приветствуем вас с открытым сердцем.",
+                "Древние дубы шепчут ваше имя. Это хороший знак — природа благоволит нашей встрече.",
+                "Мудрость веков подсказывает: великие дела начинаются с простого приветствия. Здравствуйте, правитель.",
+            ],
+            'friendships': [
+                "Звёзды предвещают эпоху дружбы между нашими народами. Не будем противиться судьбе.",
+                "Вековые леса учат терпению, а мудрость — выбирать союзников с осторожностью. Вы прошли испытание.",
+                "Как ветви одного древа тянутся к солнцу, так и наши народы могут расти вместе.",
+                "В гармонии с природой и друг с другом — так мы видим наше будущее.",
+            ],
+            'warnings': [
+                "Ветер шепчет предостережение. Тёмные силы пробуждаются у наших границ.",
+                "Лесные духи беспокойны — это верный знак надвигающейся угрозы.",
+                "Наши следопыты обнаружили вражеских лазутчиков в приграничных чащобах.",
+            ],
+        },
+        'Вампиры': {
+            'style': 'intimidating',
+            'greetings': [
+                "Какая... неожиданная встреча. Тьма редко улыбается, но сегодня — исключение.",
+                "Тёмный Двор обратил на вас своё внимание. Считайте это... комплиментом.",
+                "Из тени выходят не только враги. Иногда — и потенциальные союзники. Добрый вечер.",
+                "Ночь длинна, а друзей мало. Приветствую вас, правитель... пока ещё живых земель.",
+            ],
+            'friendships': [
+                "Не каждый удостаивается внимания Тёмного Двора. Вы — исключение. Цените это.",
+                "Дружба с вампирами — это как танец на краю пропасти. Опасно, но... незабываемо.",
+                "Мы не привыкли к сантиментам, но... ваша стойкость вызывает уважение. Даже у нас.",
+                "Тёмный Двор протягивает когтистую руку дружбы. Не бойтесь — мы не кусаем... союзников.",
+            ],
+            'warnings': [
+                "Наши шпионы никогда не ошибаются. Враг точит клинки и строит козни.",
+                "Тени нашептали нам тайну: готовится удар. Вопрос — по кому из нас.",
+                "Кровь наших врагов скоро прольётся. Вопрос — будете вы с нами или против нас.",
+            ],
+        },
+        'Адепты': {
+            'style': 'cunning',
+            'greetings': [
+                "Адепты приветствуют вас, просвещённый правитель. Знание — величайшая сила во вселенной.",
+                "Наши оракулы предвидели эту встречу. Звёзды расположились благоприятно.",
+                "Свитки пророчеств упоминают вашу фракцию. Мы рады наконец встретиться лично.",
+                "Тайное знание открывает двери. Одна из них привела нас к вам, правитель.",
+            ],
+            'friendships': [
+                "Великие открытия совершаются не в одиночку. Наши библиотеки открыты для ваших учёных.",
+                "Знание умножается, когда им делятся. Давайте обменяемся мудростью наших народов.",
+                "Наши алхимики нашли формулу процветания. Одна из переменных — надёжный союзник.",
+                "Пророчества указывают на эпоху великих свершений. Вместе мы сможем приблизить её.",
+            ],
+            'warnings': [
+                "Наши провидцы узрели в кристалле тревожные образы. Враг готовит коварный план.",
+                "Звёзды предвещают конфликт. Мы должны быть готовы.",
+                "Древние руны не лгут: один из наших соседей замышляет недоброе.",
+            ],
+        },
+        'Элины': {
+            'style': 'honorable',
+            'greetings': [
+                "Да озарит солнце ваш путь, правитель! Элины встречают каждого мирного гостя с радостью.",
+                "Пески пустыни помнят всех, кто приходил с миром. Добро пожаловать в наши земли!",
+                "Караваны разносят славу о вашем народе. Элины рады знакомству!",
+                "Жар пустыни закаляет, а не уничтожает. Мы видим в вас закалённого правителя.",
+            ],
+            'friendships': [
+                "Огонь пустыни и ваша решимость — два пламени одного костра. Давайте разгорим его вместе!",
+                "В пустыне выживают только те, кто умеет находить союзников. Мы выбираем вас.",
+                "Наши торговые пути пролегают через полмира. Дружба с нами откроет вам новые горизонты.",
+                "Солнце одинаково светит всем, но греет лишь тех, кто протягивает руку навстречу.",
+            ],
+            'warnings': [
+                "Ветер пустыни приносит не только песок, но и слухи. Враг собирает силы.",
+                "Наши караванщики видели чужие войска у границы. Будьте бдительны!",
+                "Оазис мира может иссякнуть в любой момент. Готовьтесь к буре.",
+            ],
+        },
+    }
+
+    def _get_player_faction_name(self):
+        """Получает имя фракции игрока."""
+        if self.player_faction:
+            return self.player_faction
+        # Fallback: читаем из таблицы turn (всегда содержит фракцию игрока)
+        try:
+            cursor = self.db_connection.cursor()
+            cursor.execute("SELECT faction FROM turn LIMIT 1")
+            row = cursor.fetchone()
+            if row:
+                self.player_faction = row[0]  # Кэшируем
+                return row[0]
+        except Exception:
+            pass
+        return None
+
+    def _get_relations_with_player(self):
+        """Получает текущий уровень отношений с фракцией игрока."""
+        player = self._get_player_faction_name()
+        if not player:
+            return 0
+        try:
+            cursor = self.db_connection.cursor()
+            cursor.execute("""
+                SELECT relationship FROM relations
+                WHERE faction1 = ? AND faction2 = ?
+            """, (self.faction, player))
+            result = cursor.fetchone()
+            return int(result[0]) if result else 0
+        except Exception:
+            return 0
+
+    def _is_at_war_with_player(self):
+        """Проверяет, воюет ли AI с фракцией игрока."""
+        player = self._get_player_faction_name()
+        if not player:
+            return False
+        try:
+            cursor = self.db_connection.cursor()
+            cursor.execute("""
+                SELECT 1 FROM diplomacies
+                WHERE faction1 = ? AND faction2 = ? AND relationship = 'война'
+            """, (self.faction, player))
+            return cursor.fetchone() is not None
+        except Exception:
+            return False
+
+    def _has_same_ideology_as_player(self):
+        """Проверяет, одинаковая ли идеология у AI и игрока."""
+        player = self._get_player_faction_name()
+        if not player:
+            return False
+        try:
+            cursor = self.db_connection.cursor()
+            cursor.execute("SELECT system FROM political_systems WHERE faction = ?", (self.faction,))
+            our = cursor.fetchone()
+            cursor.execute("SELECT system FROM political_systems WHERE faction = ?", (player,))
+            their = cursor.fetchone()
+            if our and their:
+                return our[0] == their[0]
+        except Exception:
+            pass
+        return False
+
+    def _recently_messaged_player(self, cooldown_turns=4):
+        """Проверяет, отправлялось ли сообщение игроку недавно (cooldown по ходам)."""
+        if not hasattr(self, '_last_message_turn'):
+            self._last_message_turn = -99  # Никогда не писали
+        return self.turn - self._last_message_turn < cooldown_turns
+
+    def _send_diplomatic_message(self, message_type, message_text):
+        """Отправляет дипломатическое сообщение фракции игрока и отмечает ход."""
+        player = self._get_player_faction_name()
+        if not player:
+            return False
+        self._create_message_in_negotiation_history(
+            faction1=self.faction,
+            faction2=player,
+            message=message_text,
+            is_player=False,
+            is_incoming=True
+        )
+        self._last_message_turn = self.turn
+        print(f"[AI DIPLOMACY] {self.faction} -> {player} [{message_type}]: {message_text[:80]}...")
+        with open('diplo_debug.log', 'a', encoding='utf-8') as f:
+            f.write(f"SENT: {self.faction} -> {player} [{message_type}]: {message_text[:80]}\n")
+        return True
+
+    # ─── Характеры фракций для принятия дипломатических решений ─────
+    FACTION_TRAITS = {
+        'Вампиры': {
+            # Воинственные, властительные. Требуют подчинения или угрожают.
+            # Склонны к сдаче когда совсем плохо. Разная идеология = "не связывайтесь с нами".
+            'accepts_mercy': True,       # Сдаются когда проигрывают
+            'never_surrenders': False,
+            'trades_with_all': False,     # Торгует только с единомышленниками
+            'aggressive_diplomacy': True, # Угрозы и требования
+            'shares_resources': False,
+            'loves_friendship': False,
+        },
+        'Север': {
+            # Холодные, расчётливые. Никогда не сдаются. Неохотно воюют.
+            # Могут помочь деньгами если не готовы к войне.
+            'accepts_mercy': False,      # НИКОГДА не сдаётся
+            'never_surrenders': True,
+            'trades_with_all': True,
+            'aggressive_diplomacy': False,
+            'shares_resources': True,    # Помогает деньгами
+            'loves_friendship': False,   # Холодные
+        },
+        'Элины': {
+            # Яркие, эмоциональные, любят подраться но быстро сдаются.
+            # Охотно делятся кристаллами с единомышленниками.
+            'accepts_mercy': True,       # Быстро сдаются
+            'never_surrenders': False,
+            'trades_with_all': False,
+            'aggressive_diplomacy': True, # Любят задирать
+            'shares_resources': True,    # Щедры к единомышленникам
+            'loves_friendship': True,
+        },
+        'Эльфы': {
+            # Хитрые, дипломатичные. Любят улучшать отношения со всеми.
+            # Охотно делятся ресурсами.
+            'accepts_mercy': True,
+            'never_surrenders': False,
+            'trades_with_all': True,     # Торгуют со всеми
+            'aggressive_diplomacy': False,
+            'shares_resources': True,    # Щедрые
+            'loves_friendship': True,    # Любят дружить
+        },
+        'Адепты': {
+            # Строгие, мужественные. Один союзник (одна идеология).
+            # Остальные сделки отвергают. Никогда не сдаются.
+            # Не принимают мир пока не уничтожат врага.
+            'accepts_mercy': False,      # НИКОГДА не сдаётся
+            'never_surrenders': True,
+            'trades_with_all': False,    # Торгуют ТОЛЬКО с единомышленниками
+            'aggressive_diplomacy': False,
+            'shares_resources': False,   # Только единомышленникам
+            'loves_friendship': False,   # Строгие
+            'exclusive_ally': True,      # Только один союзник
+        },
+    }
+
+    def send_proactive_diplomacy(self):
+        """
+        Проактивная дипломатия с уникальным характером каждой фракции.
+        Вызывается каждый ход из make_turn().
+        """
+        player = self._get_player_faction_name()
+        if self.faction in ("Мятежники", "Нежить") or not player:
+            return
+        if self.get_city_count_for_faction() == 0:
+            return  # Мёртвая фракция не отправляет сообщений
+        if self._is_at_war_with_player():
+            return
+        if self._recently_messaged_player(cooldown_turns=4):
+            return
+
+        relations = self._get_relations_with_player()
+        personality = self.FACTION_PERSONALITIES.get(self.faction)
+        traits = self.FACTION_TRAITS.get(self.faction, {})
+        if not personality:
+            return
+
+        import random
+        from utils.helpers import city_word, warrior_word
+
+        ctx = self._get_game_context()
+        same_ideology = self._has_same_ideology_as_player()
+        our_strength = ctx.get('our_strength', 0)
+        player_strength = ctx.get('player_strength', 0)
+        we_stronger = our_strength > player_strength * 1.2
+        we_equal = 0.8 < (our_strength / max(1, player_strength)) < 1.2
+
+        sent = False
+
+        # ════════════════════════════════════════════════════════
+        # 1. ПРИВЕТСТВИЕ (ход 2-8) — у всех, но стиль разный
+        # ════════════════════════════════════════════════════════
+        if not sent and 2 <= self.turn <= 8:
+            sent = self._send_faction_greeting(personality, traits, ctx, relations,
+                                                same_ideology, we_stronger)
+
+        # ════════════════════════════════════════════════════════
+        # 2. ФРАКЦИОННАЯ ДИПЛОМАТИЯ — уникальная для каждого
+        # ════════════════════════════════════════════════════════
+
+        if self.faction == 'Вампиры' and not sent:
+            sent = self._vampires_diplomacy(personality, traits, ctx, relations,
+                                             same_ideology, we_stronger, we_equal)
+
+        elif self.faction == 'Север' and not sent:
+            sent = self._north_diplomacy(personality, traits, ctx, relations,
+                                          same_ideology, we_stronger)
+
+        elif self.faction == 'Элины' and not sent:
+            sent = self._elins_diplomacy(personality, traits, ctx, relations,
+                                          same_ideology, we_stronger)
+
+        elif self.faction == 'Эльфы' and not sent:
+            sent = self._elves_diplomacy(personality, traits, ctx, relations,
+                                          same_ideology, we_stronger)
+
+        elif self.faction == 'Адепты' and not sent:
+            sent = self._adepts_diplomacy(personality, traits, ctx, relations,
+                                           same_ideology, we_stronger)
+
+    # ─── Приветствие с учётом характера ───────────────────────────
+
+    def _send_faction_greeting(self, personality, traits, ctx, relations, same_ideology, we_stronger):
+        import random
+        from utils.helpers import city_word
+        greeting = random.choice(personality.get('greetings', ['Приветствуем вас.']))
+        cities = ctx.get('our_cities', 1)
+        msg = f"{greeting} У нас {city_word(cities)}, отношения — {relations}%. "
+
+        if traits.get('aggressive_diplomacy') and we_stronger:
+            msg += "Советуем не становиться нам поперёк дороги."
+        elif same_ideology:
+            msg += "Мы на одном пути — это многое значит."
+        elif relations > 50:
+            msg += "Надеемся на плодотворное сотрудничество."
+        else:
+            msg += "Время покажет, что нас ждёт."
+        return self._send_diplomatic_message("ПРИВЕТСТВИЕ", msg)
+
+    # ─── ВАМПИРЫ: властительные, требуют подчинения ───────────────
+
+    def _vampires_diplomacy(self, p, traits, ctx, rel, same_ideo, stronger):
+        import random
+        from utils.helpers import city_word, warrior_word
+
+        # Если сильнее — требуют подчинения
+        if stronger and not same_ideo and random.random() < 0.5:
+            msg = f"Тёмный Двор контролирует {city_word(ctx['our_cities'])} и {warrior_word(ctx.get('our_units', 0))}. "
+            msg += f"Ваша... дерзость нас забавляет. Подчинитесь — или будете уничтожены. "
+            msg += f"Выбор за вами, но советуем не испытывать наше терпение."
+            return self._send_diplomatic_message("ТРЕБОВАНИЕ", msg)
+
+        # Если одинаковая идеология — хвастаются
+        if same_ideo and random.random() < 0.4:
+            msg = f"Мы идём по одному пути Тьмы. Вам повезло — Тёмный Двор редко признаёт равных. "
+            msg += f"Наши {warrior_word(ctx.get('our_units', 0))} — лучшие воины на этом континенте. "
+            msg += f"Будьте благодарны, что мы на вашей стороне."
+            return self._send_diplomatic_message("ДРУЖБА", msg)
+
+        # Разная идеология + равные силы — предупреждают
+        if not same_ideo and rel < 60 and random.random() < 0.35:
+            msg = f"Наши идеологии несовместимы. У нас {city_word(ctx['our_cities'])} и {warrior_word(ctx.get('our_units', 0))}. "
+            msg += f"Не советуем связываться с Тёмным Двором. Просто... не лезьте к нам."
+            return self._send_diplomatic_message("ПРЕДУПРЕЖДЕНИЕ", msg)
+
+        # Торговля только с единомышленниками — часто
+        if same_ideo and rel > 35 and random.random() < 0.50:
+            return self._try_send_trade_offer(p, rel)
+
+        return False
+
+    # ─── СЕВЕР: холодные, расчётливые, никогда не сдаются ────────
+
+    def _north_diplomacy(self, p, traits, ctx, rel, same_ideo, stronger):
+        import random
+        from utils.helpers import city_word, warrior_word, format_number
+
+        # Торговля — основной способ взаимодействия Севера
+        if rel > 35 and random.random() < 0.45:
+            return self._try_send_trade_offer(p, rel)
+
+        # Помогают деньгами если не готовы к войне
+        if rel > 40 and ctx.get('our_crowns', 0) > 3000 and random.random() < 0.3:
+            crowns = int(ctx['our_crowns'] * 0.08)
+            msg = f"Север не бросает слов на ветер. У нас {city_word(ctx['our_cities'])}. "
+            msg += f"Мы готовы выделить {format_number(crowns)} крон в знак добрососедства. "
+            msg += f"Не ждите благодарности — это расчёт, а не милость."
+            return self._send_diplomatic_message("ТОРГОВЛЯ", msg)
+
+        # Союз — очень неохотно, только при одинаковой идеологии
+        if same_ideo and rel > 60 and random.random() < 0.2:
+            return self._try_send_alliance_proposal(p, rel)
+
+        # Холодная дружба — очень редко
+        if rel > 55 and random.random() < 0.10:
+            msg = random.choice(p.get('friendships', ['...']))
+            msg += f" У Севера {city_word(ctx['our_cities'])} и {warrior_word(ctx.get('our_units', 0))}. "
+            msg += f"Мы предпочитаем дела словам."
+            return self._send_diplomatic_message("ДРУЖБА", msg)
+
+        # Предупреждения — даёт разведданные
+        if rel > 35 and random.random() < 0.2:
+            return self._try_send_threat_warning(p, rel)
+
+        return False
+
+    # ─── ЭЛИНЫ: яркие, эмоциональные, щедрые с единомышленниками ─
+
+    def _elins_diplomacy(self, p, traits, ctx, rel, same_ideo, stronger):
+        import random
+        from utils.helpers import city_word, warrior_word, format_number
+
+        # Задирают врагов (разная идеология)
+        if not same_ideo and stronger and random.random() < 0.3:
+            msg = f"Эй, правитель! Наша армия ({warrior_word(ctx.get('our_units', 0))}) "
+            msg += f"давно не видела настоящего боя! Может, устроим? Шучу... или нет?"
+            return self._send_diplomatic_message("ДРУЖБА", msg)
+
+        # Щедро делятся кристаллами с единомышленниками — очень часто
+        if same_ideo and ctx.get('our_crystals', 0) > 300 and random.random() < 0.65:
+            crystals = int(ctx['our_crystals'] * 0.18)
+            msg = f"Солнце светит для всех единомышленников! "
+            msg += f"Мы предлагаем вам {format_number(crystals)} Кристаллов в обмен на кроны — от чистого сердца! "
+            msg += f"У нас {city_word(ctx['our_cities'])}, и кристаллов в избытке!"
+            return self._send_diplomatic_message("ТОРГОВЛЯ", msg)
+
+        # Торговля кристаллами со всеми — Элины активные торговцы
+        if rel > 25 and ctx.get('our_crystals', 0) > 200 and random.random() < 0.50:
+            return self._try_send_trade_offer(p, rel)
+
+        # Эмоциональная дружба — реже
+        if rel > 40 and random.random() < 0.20:
+            msg = random.choice(p.get('friendships', ['Давайте дружить!']))
+            msg += f" У нас {city_word(ctx['our_cities'])} и {warrior_word(ctx.get('our_units', 0))}! "
+            if same_ideo:
+                msg += "Мы же одна команда!"
+            else:
+                msg += "Давайте хотя бы попробуем!"
+            return self._send_diplomatic_message("ДРУЖБА", msg)
+
+        # Союз с единомышленниками — легко
+        if same_ideo and rel > 35 and random.random() < 0.4:
+            return self._try_send_alliance_proposal(p, rel)
+
+        return False
+
+    # ─── ЭЛЬФЫ: хитрые, дипломатичные, торгуют со всеми ──────────
+
+    def _elves_diplomacy(self, p, traits, ctx, rel, same_ideo, stronger):
+        import random
+        from utils.helpers import city_word, warrior_word
+
+        # Торговля со всеми — главный приоритет
+        if rel > 25 and random.random() < 0.50:
+            return self._try_send_trade_offer(p, rel)
+
+        # Делятся ресурсами — щедро
+        if rel > 35 and random.random() < 0.30:
+            return self._try_send_resource_request(p, rel)
+
+        # Улучшение отношений — реже
+        if rel > 25 and random.random() < 0.20:
+            msg = random.choice(p.get('friendships', ['Давайте дружить.']))
+            msg += f" У нас {city_word(ctx['our_cities'])} и мудрость веков. "
+            msg += f"Отношения {rel}% — давайте сделаем их лучше!"
+            return self._send_diplomatic_message("ДРУЖБА", msg)
+
+        # Союз — с кем угодно при хороших отношениях
+        if rel > 55 and random.random() < 0.25:
+            return self._try_send_alliance_proposal(p, rel)
+
+        # Предупреждения — часто, они хитрые
+        if rel > 25 and random.random() < 0.3:
+            return self._try_send_threat_warning(p, rel)
+
+        return False
+
+    # ─── АДЕПТЫ: строгие, один союзник, никогда не сдаются ────────
+
+    def _adepts_diplomacy(self, p, traits, ctx, rel, same_ideo, stronger):
+        import random
+        from utils.helpers import city_word, warrior_word, format_number
+
+        # Адепты — торговая фракция с кристаллами, предлагают единомышленникам
+        if same_ideo and ctx.get('our_crystals', 0) > 300 and random.random() < 0.60:
+            crystals = int(ctx['our_crystals'] * 0.15)
+            msg = f"Пророчества говорят — делиться с единомышленниками угодно высшим силам. "
+            msg += f"Мы предлагаем {format_number(crystals)} Кристаллов в обмен на кроны. "
+            msg += f"Адепты всегда верны союзникам."
+            return self._send_diplomatic_message("ТОРГОВЛЯ", msg)
+
+        # Торговля ТОЛЬКО с единомышленниками — часто
+        if same_ideo and rel > 30 and random.random() < 0.50:
+            return self._try_send_trade_offer(p, rel)
+
+        # Союз ТОЛЬКО с единомышленниками
+        if same_ideo and rel > 40 and random.random() < 0.40:
+            msg = f"[СОЮЗ] Пророчества ясны: наш путь един. {city_word(ctx['our_cities'])} и "
+            msg += f"{warrior_word(ctx.get('our_units', 0))} — всё это ваше, если вы с нами. "
+            msg += f"Адепты выбирают одного союзника — и стоят за него до конца."
+            return self._send_diplomatic_message("СОЮЗ", msg)
+
+        # Разная идеология — холодный отказ от сотрудничества
+        if not same_ideo and rel > 30 and random.random() < 0.25:
+            msg = f"Адепты уважают силу, но не разделяют ваших убеждений. "
+            msg += f"Торговля между нами невозможна. Мы преданы лишь тем, кто идёт нашим путём. "
+            msg += f"Не принимайте на свой счёт — таков наш Кодекс."
+            return self._send_diplomatic_message("ДРУЖБА", msg)
+
+        # Строгая дружба — только с единомышленниками
+        if same_ideo and rel > 25 and random.random() < 0.2:
+            msg = random.choice(p.get('friendships', ['Знание — сила.']))
+            msg += f" {city_word(ctx['our_cities'])} под знаменем Адептов. "
+            msg += f"Мы выбрали вас как единственного союзника."
+            return self._send_diplomatic_message("ДРУЖБА", msg)
+
+        return False
+
+    def _get_game_context(self):
+        """Собирает реальный контекст игры для осмысленных сообщений."""
+        ctx = {}
+        try:
+            cursor = self.db_connection.cursor()
+            player = self._get_player_faction_name()
+
+            # Наши данные
+            ctx['our_cities'] = self.get_city_count_for_faction()
+            ctx['our_strength'] = self._calculate_army_strength(self.faction)
+            ctx['our_units'] = self._count_army_units(self.faction)  # Количество юнитов
+            ctx['our_crowns'] = self.resources.get('Кроны', 0)
+            ctx['our_crystals'] = self.resources.get('Кристаллы', 0)
+
+            # Данные игрока
+            cursor.execute("SELECT COUNT(*) FROM cities WHERE faction=?", (player,))
+            ctx['player_cities'] = cursor.fetchone()[0]
+            ctx['player_strength'] = self._calculate_army_strength(player)
+            ctx['player_units'] = self._count_army_units(player)
+
+            # Враги AI
+            ctx['our_enemies'] = self.get_factions_at_war()
+
+            # Враги игрока
+            cursor.execute("SELECT faction2 FROM diplomacies WHERE faction1=? AND relationship='война'", (player,))
+            ctx['player_enemies'] = [r[0] for r in cursor.fetchall()]
+
+            # Общие враги
+            ctx['common_enemies'] = list(set(ctx['our_enemies']) & set(ctx['player_enemies']))
+
+            # Самая сильная фракция (не мы и не игрок)
+            all_factions = ['Север', 'Эльфы', 'Вампиры', 'Адепты', 'Элины']
+            strongest, strongest_power = None, 0
+            for f in all_factions:
+                if f == self.faction or f == player:
+                    continue
+                s = self._calculate_army_strength(f)
+                if s > strongest_power:
+                    strongest, strongest_power = f, s
+            ctx['strongest_rival'] = strongest
+            ctx['strongest_rival_power'] = strongest_power
+
+            # Наши города (названия)
+            cursor.execute("SELECT name FROM cities WHERE faction=? LIMIT 3", (self.faction,))
+            ctx['our_city_names'] = [r[0] for r in cursor.fetchall()]
+
+            # Отношения
+            ctx['relations'] = self._get_relations_with_player()
 
         except Exception as e:
-            print(f"Ошибка при генерации предложения ресурсов: {e}")
-            return ""
+            print(f"[AI] Ошибка при сборе контекста: {e}")
+        return ctx
+
+    def _try_send_alliance_proposal(self, personality, relations):
+        """Предложение военного союза — приоритет одинаковой идеологии."""
+        try:
+            ctx = self._get_game_context()
+            if ctx.get('our_strength', 0) < 500:
+                return False
+
+            same_ideology = self._has_same_ideology_as_player()
+
+            # Получаем название идеологии
+            ideology_name = ""
+            try:
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT system FROM political_systems WHERE faction=?", (self.faction,))
+                r = cursor.fetchone()
+                if r:
+                    ideology_name = r[0]
+            except Exception:
+                pass
+
+            msg = f"[СОЮЗ] "
+            if same_ideology:
+                msg += f"Мы разделяем путь «{ideology_name}» — это делает нас естественными союзниками. "
+                if ctx.get('common_enemies'):
+                    enemy = ctx['common_enemies'][0]
+                    msg += f"Тем более что {enemy} угрожает нам обоим (сила: {format_number(self._calculate_army_strength(enemy))}). "
+                msg += f"Наша армия — {format_number(ctx['our_strength'])} воинов, у нас {ctx['our_cities']} городов. "
+                msg += f"Предлагаю союз единомышленников!"
+            elif ctx.get('common_enemies'):
+                enemy = ctx['common_enemies'][0]
+                msg += f"Мы придерживаемся разных идеологий, но {enemy} — общая угроза. "
+                msg += f"Предлагаю временный союз ради выживания."
+            elif ctx.get('strongest_rival'):
+                rival = ctx['strongest_rival']
+                msg += f"{rival} набирает силу ({format_number(ctx['strongest_rival_power'])} воинов). "
+                msg += f"Несмотря на разницу в идеологии, объединение сейчас — мудрый ход."
+            else:
+                msg += personality['alliance_msg']
+
+            return self._send_diplomatic_message("СОЮЗ", msg)
+        except Exception as e:
+            print(f"Ошибка при предложении союза: {e}")
+            return False
+
+    def _try_send_trade_offer(self, personality, relations):
+        """Торговое предложение: обмен ресурсов."""
+        try:
+            trade = self._generate_trade_exchange()
+            if not trade:
+                return False
+
+            give_type, give_amount, want_type, want_amount, exchange_text = trade
+
+            msg = f"[ТОРГОВЛЯ] "
+            msg += f"Предлагаем сделку: {exchange_text} "
+            msg += f"Наши отношения ({relations}%) позволяют торговать на хороших условиях."
+
+            return self._send_diplomatic_message("ТОРГОВЛЯ", msg)
+        except Exception as e:
+            print(f"Ошибка при торговом предложении: {e}")
+            return False
+
+    def _try_send_resource_request(self, personality, relations):
+        """Запрос ресурсов с объяснением и правильным склонением."""
+        try:
+            from utils.helpers import city_word, warrior_word
+            ctx = self._get_game_context()
+            cities = ctx.get('our_cities', 0)
+            strength = ctx.get('our_strength', 0)
+
+            if cities > 5 and strength > 3000:
+                return False
+
+            msg = f"[ПРОСЬБА] "
+            if ctx.get('our_enemies'):
+                enemy = ctx['our_enemies'][0]
+                enemy_str = warrior_word(self._calculate_army_strength(enemy))
+                msg += f"Мы ведём войну с {enemy} (у них {enemy_str}). "
+                msg += f"У нас осталось {city_word(cities)}. "
+                msg += f"Любая помощь поможет нам выстоять — и не допустить усиления {enemy}."
+            elif cities <= 3:
+                msg += f"Тяжёлые времена. Осталось лишь {city_word(cities)}. "
+                msg += f"Наша армия ({warrior_word(strength)}) едва держится. "
+                msg += f"Просим о помощи — кроны или кристаллы, любая поддержка на вес золота."
+            else:
+                msg += f"Мы развиваем наши {city_word(cities)}, но ресурсов не хватает. "
+                msg += f"Помощь кристаллами окупится сторицей — мы не забудем вашу щедрость."
+
+            return self._send_diplomatic_message("ПРОСЬБА", msg)
+        except Exception as e:
+            print(f"Ошибка при запросе ресурсов: {e}")
+            return False
+
+    def _try_send_friendship_message(self, personality, relations):
+        """Дружественное сообщение с привязкой к ситуации и правильным склонением."""
+        try:
+            from utils.helpers import city_word, warrior_word
+            ctx = self._get_game_context()
+            base = random.choice(personality.get('friendships', ['Давайте дружить.']))
+            our_cities = ctx.get('our_cities', 1)
+            player_cities = ctx.get('player_cities', 1)
+
+            msg = f"{base} "
+            if player_cities > our_cities:
+                msg += f"Ваша фракция владеет {city_word(player_cities)} — впечатляющая мощь! "
+                msg += f"У нас пока {city_word(our_cities)}, но вместе мы станем ещё сильнее."
+            elif ctx.get('player_enemies') and not ctx.get('our_enemies'):
+                enemy = ctx['player_enemies'][0]
+                msg += f"Вы ведёте войну с {enemy}. Наши симпатии на вашей стороне. "
+                msg += f"Отношения между нами — {relations}%. Давайте их укрепим."
+            elif relations < 50:
+                msg += f"Между нами пока {relations}% доверия. Но у нас {city_word(our_cities)} "
+                msg += f"и {warrior_word(ctx.get('our_strength', 0))} — мы надёжный сосед."
+            else:
+                msg += f"Отношения {relations}% — хорошая основа! "
+                msg += f"Наши {city_word(our_cities)} процветают, армия крепнет. Давайте расти вместе."
+
+            return self._send_diplomatic_message("ДРУЖБА", msg)
+        except Exception as e:
+            print(f"Ошибка при дружественном сообщении: {e}")
+            return False
+
+    def _try_send_threat_warning(self, personality, relations):
+        """Предупреждение с конкретными данными и правильным склонением."""
+        try:
+            from utils.helpers import city_word, warrior_word
+            ctx = self._get_game_context()
+            cursor = self.db_connection.cursor()
+            player = self._get_player_faction_name()
+
+            cursor.execute("""
+                SELECT d1.faction2
+                FROM diplomacies d1
+                WHERE d1.faction1 = ? AND d1.relationship = 'война'
+                AND d1.faction2 IN (
+                    SELECT faction2 FROM relations
+                    WHERE faction1 = ? AND relationship < 30
+                )
+            """, (self.faction, player))
+            common_threats = [row[0] for row in cursor.fetchall()]
+
+            if not common_threats:
+                rival = ctx.get('strongest_rival')
+                if rival and ctx.get('strongest_rival_power', 0) > ctx.get('player_strength', 0) * 0.8:
+                    threat, threat_strength = rival, ctx['strongest_rival_power']
+                else:
+                    return False
+            else:
+                threat = common_threats[0]
+                threat_strength = self._calculate_army_strength(threat)
+
+            cursor.execute("SELECT COUNT(*) FROM cities WHERE faction=?", (threat,))
+            threat_cities = cursor.fetchone()[0]
+
+            warning = random.choice(personality.get('warnings', ['Враг наращивает силы.']))
+            msg = f"[УГРОЗА] {warning} "
+            threat_units = self._count_army_units(threat)
+            msg += f"{threat} владеет {city_word(threat_cities)}, их армия — {warrior_word(threat_units)}. "
+
+            if threat in ctx.get('our_enemies', []):
+                msg += f"Мы уже воюем с ними. "
+            if threat_strength > ctx.get('player_strength', 0):
+                msg += f"Их мощь превышает вашу! "
+
+            msg += f"Пора объединить усилия."
+
+            return self._send_diplomatic_message("ПРЕДУПРЕЖДЕНИЕ", msg)
+        except Exception as e:
+            print(f"Ошибка при предупреждении об угрозе: {e}")
+            return False
 
     def _create_message_in_negotiation_history(self, faction1, faction2, message, is_player=False, is_incoming=True):
         """
@@ -3376,12 +4472,15 @@ class AIController:
 
     def get_factions_at_war(self):
         """
-        Возвращает список фракций, с которыми текущая фракция находится в состоянии войны.
+        Возвращает список живых фракций, с которыми текущая фракция находится в состоянии войны.
         """
         try:
             cursor = self.db_connection.cursor()
-            query = """SELECT faction2 FROM diplomacies WHERE faction1 = ? AND relationship = 'война'"""
-            cursor.execute(query, (self.faction,))
+            cursor.execute("""
+                SELECT faction2 FROM diplomacies
+                WHERE faction1 = ? AND relationship = 'война'
+                  AND faction2 IN (SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал')
+            """, (self.faction,))
             rows = cursor.fetchall()
             return [row[0] for row in rows]
         except Exception as e:
@@ -3389,6 +4488,229 @@ class AIController:
             return []
 
     # ---------------------------------------------------------------------
+
+    def _undead_direct_attack(self, from_city, target_city, target_faction):
+        """Атака нежити без проверки дорог — армия мёртвых не нуждается в дорогах."""
+        from fight import fight
+        try:
+            # Собираем юниты из города-источника
+            self.cursor.execute(
+                "SELECT unit_name, unit_count, unit_image FROM garrisons WHERE city_name = ?",
+                (from_city,)
+            )
+            garrison = self.cursor.fetchall()
+            if not garrison:
+                print(f"[UNDEAD] Нет войск в {from_city}")
+                return
+
+            # Берём 70% юнитов 1 класса, всех героев
+            attack_units = []
+            for unit_name, unit_count, unit_image in garrison:
+                uc = self.get_unit_class(unit_name)
+                take = int(unit_count * 0.7) if uc == 1 else unit_count
+                if take <= 0:
+                    continue
+                attack_units.append({
+                    "city_name": from_city,
+                    "unit_name": unit_name,
+                    "unit_count": take,
+                    "unit_image": unit_image or ''
+                })
+
+            if not attack_units:
+                return
+
+            # Вычитаем из гарнизона
+            for unit in attack_units:
+                self.cursor.execute(
+                    "UPDATE garrisons SET unit_count = unit_count - ? WHERE city_name = ? AND unit_name = ?",
+                    (unit["unit_count"], from_city, unit["unit_name"])
+                )
+            self.cursor.execute("DELETE FROM garrisons WHERE unit_count <= 0")
+            self.db_connection.commit()
+
+            # Собираем статы для боя
+            attacking_army = []
+            for unit in attack_units:
+                self.cursor.execute(
+                    "SELECT attack, defense, durability, unit_class FROM units WHERE unit_name = ?",
+                    (unit["unit_name"],)
+                )
+                stats = self.cursor.fetchone()
+                if stats:
+                    attacking_army.append({
+                        "unit_name": unit["unit_name"],
+                        "unit_count": unit["unit_count"],
+                        "unit_image": unit["unit_image"],
+                        "units_stats": {
+                            "Урон": stats[0], "Защита": stats[1],
+                            "Живучесть": stats[2], "Класс юнита": stats[3]
+                        }
+                    })
+
+            if not attacking_army:
+                return
+
+            defending_army = self.get_defending_army(target_city)
+
+            # Если гарнизон пуст — захватываем без боя, перемещаем всю армию
+            if not defending_army:
+                # Возвращаем вычтенных обратно (отменяем вычет)
+                for unit in attack_units:
+                    self.cursor.execute("""
+                        INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                        VALUES (?, ?, ?, ?)
+                        ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
+                    """, (from_city, unit["unit_name"], unit["unit_count"], unit["unit_image"], unit["unit_count"]))
+
+                # Захватываем город
+                self.cursor.execute(
+                    "UPDATE cities SET faction = ?, color_faction = ? WHERE name = ?",
+                    (self.faction, '#33BF99', target_city)
+                )
+
+                # Перемещаем ВСЮ армию в захваченный город
+                self.cursor.execute(
+                    "SELECT unit_name, unit_count, unit_image FROM garrisons WHERE city_name = ?",
+                    (from_city,)
+                )
+                all_units = self.cursor.fetchall()
+                self.cursor.execute("DELETE FROM garrisons WHERE city_name = ?", (from_city,))
+                for u_name, u_count, u_image in all_units:
+                    if u_count > 0:
+                        self.cursor.execute("""
+                            INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                            VALUES (?, ?, ?, ?)
+                            ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
+                        """, (target_city, u_name, u_count, u_image or '', u_count))
+
+                self.db_connection.commit()
+                print(f"[UNDEAD] Город {target_city} захвачен без боя! Армия переместилась.")
+                return
+
+            # Бой
+            result = fight(
+                attacking_city=from_city,
+                defending_city=target_city,
+                defending_army=defending_army,
+                attacking_army=attacking_army,
+                attacking_fraction=self.faction,
+                defending_fraction=target_faction,
+                conn=self.db_connection
+            )
+            print(f"[UNDEAD] Атака {from_city} -> {target_city}: {result.get('winner', '?')}")
+
+            if result["winner"] == "attacker":
+                # Пленные -> призраки в город откуда атаковали
+                defending_losses = result.get('defending_losses', 0)
+                if defending_losses > 0:
+                    captured = max(1, int(defending_losses * 0.10))
+                    self._ai_handle_prisoners(captured, target_faction, from_city)
+
+                # Захватываем город
+                self.cursor.execute(
+                    "UPDATE cities SET faction = ?, color_faction = ? WHERE name = ?",
+                    (self.faction, '#33BF99', target_city)
+                )
+
+                # Перемещаем ВСЮ армию (Царь + призраки) из исходного города в захваченный
+                self.cursor.execute(
+                    "SELECT unit_name, unit_count, unit_image FROM garrisons WHERE city_name = ?",
+                    (from_city,)
+                )
+                remaining_garrison = self.cursor.fetchall()
+                # Удаляем из старого города
+                self.cursor.execute("DELETE FROM garrisons WHERE city_name = ?", (from_city,))
+                # Добавляем в новый
+                for u_name, u_count, u_image in remaining_garrison:
+                    if u_count > 0:
+                        self.cursor.execute("""
+                            INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                            VALUES (?, ?, ?, ?)
+                            ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
+                        """, (target_city, u_name, u_count, u_image or '', u_count))
+
+                self.db_connection.commit()
+                print(f"[UNDEAD] Город {target_city} захвачен! Армия переместилась из {from_city}.")
+
+        except Exception as e:
+            print(f"[UNDEAD] Ошибка прямой атаки: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _undead_attack_nearest_cities(self):
+        """
+        Армия мёртвых атакует только из города Царя Мёртвых.
+        Все призраки ходят с Царём как единая армия.
+        """
+        import math
+        import ast
+        from undead_invasion import KING_OF_DEAD_NAME
+        try:
+            # Находим город Царя Мёртвых
+            self.cursor.execute(
+                "SELECT city_name FROM garrisons WHERE unit_name = ?",
+                (KING_OF_DEAD_NAME,)
+            )
+            king_row = self.cursor.fetchone()
+            if not king_row:
+                print("[UNDEAD AI] Царь Мёртвых не найден — нежить не атакует")
+                return
+
+            king_city = king_row[0]
+
+            # Координаты города Царя
+            self.cursor.execute("SELECT coordinates FROM cities WHERE name = ?", (king_city,))
+            coords_row = self.cursor.fetchone()
+            if not coords_row:
+                return
+            try:
+                king_coords = ast.literal_eval(coords_row[0])
+            except Exception:
+                return
+
+            # Проверяем размер гарнизона
+            self.cursor.execute(
+                "SELECT COALESCE(SUM(unit_count), 0) FROM garrisons WHERE city_name = ?",
+                (king_city,)
+            )
+            garrison_size = self.cursor.fetchone()[0]
+            if garrison_size < 100:
+                print("[UNDEAD AI] Слишком мало войск для атаки")
+                return
+
+            # Получаем все вражеские города
+            self.cursor.execute(
+                "SELECT name, coordinates, faction FROM cities WHERE faction != 'Нежить' AND faction != 'Нейтрал'"
+            )
+            target_cities = self.cursor.fetchall()
+            if not target_cities:
+                return
+
+            # Ищем ближайший вражеский город
+            best_dist = float('inf')
+            best_target = None
+            best_faction = None
+
+            for target_name, target_coords_str, target_faction in target_cities:
+                try:
+                    tc = ast.literal_eval(target_coords_str)
+                    dist = math.hypot(king_coords[0] - tc[0], king_coords[1] - tc[1])
+                    if dist < best_dist:
+                        best_dist = dist
+                        best_target = target_name
+                        best_faction = target_faction
+                except Exception:
+                    continue
+
+            if best_target:
+                print(f"[UNDEAD AI] {KING_OF_DEAD_NAME} из {king_city} атакует {best_target} ({best_faction}), дистанция: {best_dist:.0f}")
+                self._undead_direct_attack(king_city, best_target, best_faction)
+
+        except Exception as e:
+            print(f"[UNDEAD AI] Ошибка в логике атаки нежити: {e}")
+            import traceback
+            traceback.print_exc()
 
     # Основная логика хода ИИ
     def make_turn(self):
@@ -3401,11 +4723,14 @@ class AIController:
             # 0. Обнуляем использование героя на этом ходу
             self.hero_used_in_turn = False
 
-            # Проверяем, является ли фракция "Мятежники"
+            # Проверяем, является ли фракция "Мятежники" или "Нежить"
             if self.faction == "Мятежники":
                 print("Фракция 'Мятежники' выполняет только военные действия.")
-                # Выполняем атаки на вражеские города
                 self.attack_enemy_cities()
+            elif self.faction == "Нежить":
+                print("Фракция 'Нежить' — нашествие мёртвых. Атакуем всех!")
+                # Нежить атакует ближайшие города всех фракций
+                self._undead_attack_nearest_cities()
             else:
                 # Для всех других фракций — полный ход
                 # 1. Обновляем ресурсы из базы данных
@@ -3428,7 +4753,9 @@ class AIController:
                     self.hire_army()
                 # 9. Генерация и покупка артефактов ИИ (после 50 хода)
                 self.generate_and_buy_artifacts_for_ai_hero()
-                # 10. Проверяем и отправляем дипломатические сообщения если нужно
+                # 10. Проактивная дипломатия: AI сам инициирует контакт с игроком
+                self.send_proactive_diplomacy()
+                # 11. Экстренные сообщения (помощь / пощада) при критической ситуации
                 self.send_help_request_if_needed()
                 self.send_mercy_request_if_needed()
             # 10. Сохраняем все изменения в базу данных

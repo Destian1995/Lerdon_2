@@ -207,13 +207,22 @@ class EnhancedDiplomacyChat():
                 self.faction_spinner.text = "Нет доступных фракций"
                 self.faction_spinner.disabled = True
         else:
-            # Фолбэк на статический список
-            fallback_factions = ["Север", "Эльфы", "Адепты", "Вампиры", "Элины"]
-            for faction in fallback_factions:
-                if faction != self.faction:
-                    self.faction_spinner.values.append(faction)
+            # Фолбэк — загружаем живые фракции из городов
+            try:
+                _cur = self.db_connection.cursor()
+                _cur.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал' AND faction != 'Мятежники' AND faction != 'Нежить'")
+                for _row in _cur.fetchall():
+                    if _row[0] != self.faction:
+                        self.faction_spinner.values.append(_row[0])
+            except Exception:
+                pass
 
         self.faction_spinner.bind(text=self.on_faction_selected_android)
+
+        # Автовыбор фракции если передана через уведомление
+        preselect = getattr(self.advisor, 'preselect_faction', None)
+        if preselect and preselect in self.faction_spinner.values:
+            self.faction_spinner.text = preselect
 
         faction_row.add_widget(faction_label)
         faction_row.add_widget(self.faction_spinner)
@@ -1195,6 +1204,11 @@ class EnhancedDiplomacyChat():
         if self._is_context_reset(player_message):
             return self._handle_context_reset(player_message, target_faction)
 
+        # 0. Проверяем ответ на AI-инициированное предложение
+        ai_proposal_response = self._check_ai_proposal_response(player_message, target_faction, relation_level)
+        if ai_proposal_response:
+            return ai_proposal_response
+
         # 1. Проверяем контекст переговоров
         context = self.negotiation_context.get(target_faction, {})
 
@@ -2099,11 +2113,15 @@ class EnhancedDiplomacyChat():
                 self.faction_spinner.text = "Нет доступных фракций"
                 self.faction_spinner.disabled = True
         else:
-            # Фолбэк на статический список
-            fallback_factions = ["Север", "Эльфы", "Адепты", "Вампиры", "Элины"]
-            for faction in fallback_factions:
-                if faction != self.faction:
-                    self.faction_spinner.values.append(faction)
+            # Фолбэк — загружаем живые фракции из городов
+            try:
+                _cur = self.db_connection.cursor()
+                _cur.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал' AND faction != 'Мятежники' AND faction != 'Нежить'")
+                for _row in _cur.fetchall():
+                    if _row[0] != self.faction:
+                        self.faction_spinner.values.append(_row[0])
+            except Exception:
+                pass
 
         self.faction_spinner.bind(text=self.on_faction_selected)
 
@@ -4367,6 +4385,276 @@ class EnhancedDiplomacyChat():
 
         return random.choice(farewells)
 
+    def _check_ai_proposal_response(self, message, faction, relation_level):
+        """
+        Проверяет, отвечает ли игрок на предложение AI (торговля, союз, дружба и т.д.).
+        Ищет последнее AI-сообщение в истории и анализирует ответ игрока.
+        """
+        message_lower = message.lower().strip()
+
+        # Слова согласия
+        agree_words = ['да', 'согласен', 'согласна', 'принимаю', 'ок', 'хорошо',
+                       'ладно', 'давай', 'идёт', 'конечно', 'разумеется',
+                       'по рукам', 'договорились', 'принято', 'deal', 'yes',
+                       'годится', 'подходит', 'отлично', 'замечательно', 'одобряю']
+        # Слова отказа
+        refuse_words = ['нет', 'отказываюсь', 'не согласен', 'не хочу', 'не буду',
+                        'не нужно', 'отклоняю', 'не интересно', 'отвали', 'нафиг',
+                        'не надо', 'передумал', 'забудь', 'отстань', 'пошёл',
+                        'no', 'отказ', 'обойдусь', 'не стоит']
+        # Слова уточнения
+        clarify_words = ['что предлагаешь', 'какие условия', 'подробнее', 'что конкретно',
+                         'сколько', 'на каких условиях', 'что взамен', 'поясни',
+                         'что именно', 'расскажи', 'объясни', 'а что', 'что ты имеешь',
+                         'зачем', 'почему', 'как именно']
+        # Слова благодарности
+        thanks_words = ['спасибо', 'благодарю', 'спс', 'thanks', 'мерси',
+                        'ценю', 'признателен']
+
+        is_agree = any(w in message_lower for w in agree_words)
+        is_refuse = any(w in message_lower for w in refuse_words)
+        is_clarify = any(w in message_lower for w in clarify_words)
+        is_thanks = any(w in message_lower for w in thanks_words)
+
+        if not (is_agree or is_refuse or is_clarify or is_thanks):
+            return None  # Не похоже на ответ на предложение
+
+        # Ищем последнее AI-сообщение к этой фракции
+        try:
+            cursor = self.db_connection.cursor()
+            player_faction = None
+            cursor.execute("SELECT faction FROM turn LIMIT 1")
+            row = cursor.fetchone()
+            if row:
+                player_faction = row[0]
+
+            cursor.execute("""
+                SELECT message FROM negotiation_history
+                WHERE faction1 = ? AND faction2 = ? AND is_player = 0
+                ORDER BY id DESC LIMIT 1
+            """, (faction, player_faction))
+            result = cursor.fetchone()
+            if not result:
+                return None  # Нет предложений от AI
+
+            last_ai_msg = result[0]
+        except Exception:
+            return None
+
+        # Определяем тип предложения AI
+        proposal_type = None
+        if '[ТОРГОВЛЯ]' in last_ai_msg:
+            proposal_type = 'trade'
+        elif '[СОЮЗ]' in last_ai_msg:
+            proposal_type = 'alliance'
+        elif '[ПРОСЬБА]' in last_ai_msg:
+            proposal_type = 'resource_request'
+        elif '[УГРОЗА]' in last_ai_msg or '[ПРЕДУПРЕЖДЕНИЕ]' in last_ai_msg:
+            proposal_type = 'warning'
+        elif any(w in last_ai_msg.lower() for w in ['дружб', 'отношени', 'сотрудничеств']):
+            proposal_type = 'friendship'
+        elif any(w in last_ai_msg.lower() for w in ['приветств', 'рад', 'визит']):
+            proposal_type = 'greeting'
+
+        if not proposal_type:
+            return None
+
+        # === Обработка согласия ===
+        if is_agree:
+            return self._handle_proposal_accept(faction, proposal_type, last_ai_msg, relation_level)
+
+        # === Обработка отказа ===
+        if is_refuse:
+            return self._handle_proposal_refuse(faction, proposal_type, relation_level)
+
+        # === Обработка уточнения ===
+        if is_clarify:
+            return self._handle_proposal_clarify(faction, proposal_type, last_ai_msg, relation_level)
+
+        # === Обработка благодарности ===
+        if is_thanks:
+            if relation_level > 50:
+                return f"Не за что! Мы ценим нашу дружбу. Наши отношения ({relation_level}%) — залог процветания."
+            else:
+                return f"Пустяки. Надеюсь, это укрепит наши отношения ({relation_level}%)."
+
+        return None
+
+    def _handle_proposal_accept(self, faction, proposal_type, ai_msg, relation_level):
+        """Обработка согласия игрока на предложение AI."""
+        import re
+
+        if proposal_type == 'trade':
+            # Извлекаем предложенные ресурсы из сообщения AI
+            # Формат: "Предлагаем: 4724 Кроны, 1 Кристаллы."
+            offer_match = re.search(r'Предлагаем?:?\s*(.+?)\.', ai_msg)
+            if offer_match:
+                offer_text = offer_match.group(1)
+                # Пытаемся улучшить отношения
+                try:
+                    cursor = self.db_connection.cursor()
+                    new_rel = min(100, relation_level + 5)
+                    cursor.execute("""
+                        UPDATE relations SET relationship = ?
+                        WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
+                    """, (new_rel, faction, self._get_player_faction(), self._get_player_faction(), faction))
+                    self.db_connection.commit()
+                except Exception:
+                    pass
+
+                responses = [
+                    f"Превосходно! Сделка заключена. {offer_text} уже в пути к вам. Наши отношения улучшились до {min(100, relation_level + 5)}%.",
+                    f"Отлично! Мы рады сотрудничеству. Наши торговцы доставят {offer_text}. Отношения: {min(100, relation_level + 5)}%.",
+                    f"Мудрое решение! {offer_text} будут переданы. Надеемся на дальнейшую торговлю.",
+                ]
+                return random.choice(responses)
+            else:
+                return f"Отлично! Мы рады, что вы согласны на торговлю. Отношения улучшились."
+
+        elif proposal_type == 'alliance':
+            try:
+                cursor = self.db_connection.cursor()
+                new_rel = min(100, relation_level + 10)
+                cursor.execute("""
+                    UPDATE relations SET relationship = ?
+                    WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
+                """, (new_rel, faction, self._get_player_faction(), self._get_player_faction(), faction))
+                self.db_connection.commit()
+            except Exception:
+                pass
+
+            responses = [
+                f"Великолепно! Союз заключён! Вместе мы — несокрушимая сила. Отношения: {min(100, relation_level + 10)}%.",
+                f"Это исторический момент! Наши народы объединяются. Отношения выросли до {min(100, relation_level + 10)}%.",
+                f"Да будет так! Отныне мы союзники. Враги содрогнутся! Отношения: {min(100, relation_level + 10)}%.",
+            ]
+            return random.choice(responses)
+
+        elif proposal_type == 'resource_request':
+            try:
+                cursor = self.db_connection.cursor()
+                new_rel = min(100, relation_level + 3)
+                cursor.execute("""
+                    UPDATE relations SET relationship = ?
+                    WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
+                """, (new_rel, faction, self._get_player_faction(), self._get_player_faction(), faction))
+                self.db_connection.commit()
+            except Exception:
+                pass
+
+            responses = [
+                f"Мы бесконечно благодарны за вашу щедрость! Наш народ не забудет этого. Отношения: {min(100, relation_level + 3)}%.",
+                f"Спасибо! Эта помощь спасёт множество жизней. Мы в долгу перед вами. Отношения: {min(100, relation_level + 3)}%.",
+                f"Ваша поддержка бесценна! Мы обязательно отблагодарим вас, когда окрепнем.",
+            ]
+            return random.choice(responses)
+
+        elif proposal_type == 'friendship':
+            try:
+                cursor = self.db_connection.cursor()
+                new_rel = min(100, relation_level + 5)
+                cursor.execute("""
+                    UPDATE relations SET relationship = ?
+                    WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
+                """, (new_rel, faction, self._get_player_faction(), self._get_player_faction(), faction))
+                self.db_connection.commit()
+            except Exception:
+                pass
+
+            return f"Замечательно! Рады, что наши народы нашли общий язык. Отношения выросли до {min(100, relation_level + 5)}%."
+
+        elif proposal_type == 'warning':
+            return "Благодарим за бдительность! Вместе мы будем следить за угрозой. Если понадобится помощь — обращайтесь."
+
+        elif proposal_type == 'greeting':
+            try:
+                cursor = self.db_connection.cursor()
+                new_rel = min(100, relation_level + 2)
+                cursor.execute("""
+                    UPDATE relations SET relationship = ?
+                    WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
+                """, (new_rel, faction, self._get_player_faction(), self._get_player_faction(), faction))
+                self.db_connection.commit()
+            except Exception:
+                pass
+            return f"Приятно слышать! Надеемся на долгое и плодотворное сотрудничество. Отношения: {min(100, relation_level + 2)}%."
+
+        return "Отлично! Мы рады вашему решению."
+
+    def _handle_proposal_refuse(self, faction, proposal_type, relation_level):
+        """Обработка отказа игрока."""
+        try:
+            cursor = self.db_connection.cursor()
+            penalty = -3 if proposal_type in ('trade', 'alliance') else -1
+            new_rel = max(0, relation_level + penalty)
+            cursor.execute("""
+                UPDATE relations SET relationship = ?
+                WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
+            """, (new_rel, faction, self._get_player_faction(), self._get_player_faction(), faction))
+            self.db_connection.commit()
+        except Exception:
+            pass
+
+        if proposal_type == 'trade':
+            responses = [
+                f"Жаль. Наше предложение было выгодным. Отношения: {max(0, relation_level - 3)}%.",
+                f"Что ж, может в другой раз. Мы не настаиваем.",
+                f"Понимаю. Но если передумаете — наши двери открыты.",
+            ]
+        elif proposal_type == 'alliance':
+            responses = [
+                f"Очень жаль. Мы надеялись на большее... Отношения: {max(0, relation_level - 3)}%.",
+                f"Мы разочарованы, но уважаем ваше решение.",
+                f"Что ж, союз — дело добровольное. Но помните: одиночество — плохой советник.",
+            ]
+        elif proposal_type == 'resource_request':
+            responses = [
+                "Мы понимаем. У каждого свои трудности. Не будем настаивать.",
+                f"Жаль, но мы не в обиде. Отношения: {max(0, relation_level - 1)}%.",
+                "Ничего. Справимся сами. Но помните — мы не просили бы без нужды.",
+            ]
+        else:
+            responses = [
+                "Понятно. Что ж, всякое бывает.",
+                "Принято к сведению.",
+                "Хорошо, забудем об этом.",
+            ]
+        return random.choice(responses)
+
+    def _handle_proposal_clarify(self, faction, proposal_type, ai_msg, relation_level):
+        """Обработка запроса уточнения от игрока."""
+        if proposal_type == 'trade':
+            import re
+            offer_match = re.search(r'Предлагаем?:?\s*(.+?)\.', ai_msg)
+            offer = offer_match.group(1) if offer_match else "ресурсы"
+            return (f"Конкретно: мы предлагаем {offer}. "
+                    f"Это выгодно нам обоим. У нас сейчас отношения на уровне {relation_level}%. "
+                    f"Согласны на обмен?")
+        elif proposal_type == 'alliance':
+            return (f"Военный союз означает: мы поддерживаем друг друга в войнах, "
+                    f"делимся разведданными и не нападаем друг на друга. "
+                    f"Наши отношения ({relation_level}%) позволяют заключить такой союз. Согласны?")
+        elif proposal_type == 'resource_request':
+            return (f"Нам нужны любые ресурсы — кроны или кристаллы. "
+                    f"Даже небольшая помощь будет кстати. "
+                    f"Взамен мы можем улучшить наши отношения. Поможете?")
+        elif proposal_type == 'warning':
+            return (f"Наша разведка обнаружила, что враг наращивает армию. "
+                    f"Если они нападут — нам лучше быть готовыми. "
+                    f"Совместная оборона — лучший вариант. Что скажете?")
+        else:
+            return f"Мы просто хотели наладить контакт. Наши отношения сейчас {relation_level}%. Чего бы вы хотели?"
+
+    def _get_player_faction(self):
+        """Получает фракцию игрока из БД."""
+        try:
+            cursor = self.db_connection.cursor()
+            cursor.execute("SELECT faction FROM turn LIMIT 1")
+            row = cursor.fetchone()
+            return row[0] if row else None
+        except Exception:
+            return None
+
     def _generate_fallback_response(self, message, faction, relation_level):
         """Генерирует ответ, когда не распознан интент, используя память разговора"""
 
@@ -5282,19 +5570,13 @@ class EnhancedDiplomacyChat():
         return main_container
 
     def load_factions_from_db(self):
-        """Загружает список доступных фракций из базы данных"""
+        """Загружает список живых фракций (имеющих хотя бы 1 город)"""
         try:
             cursor = self.db_connection.cursor()
-            query = """
-                SELECT DISTINCT faction 
-                FROM (
-                    SELECT faction1 AS faction, relationship FROM diplomacies
-                    UNION
-                    SELECT faction2 AS faction, relationship FROM diplomacies
-                ) AS all_factions
-                WHERE relationship != 'уничтожена' AND faction != 'Мятежники'
-            """
-            cursor.execute(query)
+            cursor.execute("""
+                SELECT DISTINCT faction FROM cities
+                WHERE faction != 'Нейтрал' AND faction != 'Мятежники' AND faction != 'Нежить'
+            """)
             factions = [row[0] for row in cursor.fetchall()]
             return factions
         except Exception as e:
@@ -5345,13 +5627,22 @@ class EnhancedDiplomacyChat():
                 self.faction_spinner.text = "Нет доступных фракций"
                 self.faction_spinner.disabled = True
         else:
-            # Фолбэк на статический список
-            fallback_factions = ["Север", "Эльфы", "Адепты", "Вампиры", "Элины"]
-            for faction in fallback_factions:
-                if faction != self.faction:
-                    self.faction_spinner.values.append(faction)
+            # Фолбэк — загружаем живые фракции из городов
+            try:
+                _cur = self.db_connection.cursor()
+                _cur.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал' AND faction != 'Мятежники' AND faction != 'Нежить'")
+                for _row in _cur.fetchall():
+                    if _row[0] != self.faction:
+                        self.faction_spinner.values.append(_row[0])
+            except Exception:
+                pass
 
         self.faction_spinner.bind(text=self.on_faction_selected_android)
+
+        # Автовыбор фракции если передана через уведомление
+        preselect = getattr(self.advisor, 'preselect_faction', None)
+        if preselect and preselect in self.faction_spinner.values:
+            self.faction_spinner.text = preselect
 
         faction_row.add_widget(faction_label)
         faction_row.add_widget(self.faction_spinner)

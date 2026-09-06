@@ -497,8 +497,16 @@ def ensure_scout_unit(self):
 
 def find_best_attack_target(self, faction):
     try:
+        # Только города основной территории могут атаковать
+        main_territory = self._get_main_territory_cities()
+        if not main_territory:
+            return None
+
         self.cursor.execute("SELECT name, coordinates FROM cities WHERE faction = ?", (self.faction,))
-        our_cities = self.cursor.fetchall()
+        all_our_cities = self.cursor.fetchall()
+        # Фильтруем: только города основной территории
+        our_cities = [(n, c) for n, c in all_our_cities if n in main_territory]
+
         self.cursor.execute("SELECT name, coordinates FROM cities WHERE faction = ?", (faction,))
         enemy_cities = self.cursor.fetchall()
 
@@ -596,16 +604,16 @@ def attack_city_v2(self, city_name, faction):
         return
 
     try:
-        allied_city = self._find_closest_own_city_in_range(city_name)
+        allied_city = self._find_staging_city_for_attack(city_name)
         if not allied_city:
-            print(f"[AI] attack_city_v2: нет собственного города в радиусе {MAX_MOVE_DISTANCE} от {city_name}")
+            print(f"[AI] attack_city_v2: нет собственного города с дорогой к {city_name}")
             return
     except Exception as e:
-        print(f"[AI] attack_city_v2: find_closest_own_city_in_range упал: {e}")
+        print(f"[AI] attack_city_v2: поиск города для атаки упал: {e}")
         return
 
     try:
-        all_units = self.collect_all_units()
+        all_units = self.collect_all_units(reachable_from=allied_city)
         if not all_units:
             return
 
@@ -712,6 +720,12 @@ def attack_city_v2(self, city_name, faction):
 
         self._action_taken_this_turn = True
 
+        # AI берёт пленных
+        if result.get("winner") == "attacker" and result.get('defending_losses', 0) > 0:
+            captured = max(1, int(result['defending_losses'] * 0.10))
+            if hasattr(self, '_ai_handle_prisoners'):
+                self._ai_handle_prisoners(captured, faction, allied_city)
+
         if result.get("winner") == "attacker":
             self.army_efficiency_ratio = result.get("efficiency_ratio", 0)
             for unit in attacking_army:
@@ -799,8 +813,19 @@ def early_expansion(self):
         return
     _diag(self, f"early_expansion: цель = {target_city}")
 
+    # Сначала находим город для атаки — нужно знать откуда собирать юнитов
     try:
-        all_units = self.collect_all_units()
+        allied_city = self._find_staging_city_for_attack(target_city)
+    except Exception as e:
+        _diag(self, f"early_expansion: поиск города для атаки упал: {e}")
+        return
+    if not allied_city:
+        _diag(self, f"early_expansion: нет своего города с дорогой к {target_city}")
+        return
+
+    # Собираем юниты только из городов, связанных с базой атаки
+    try:
+        all_units = self.collect_all_units(reachable_from=allied_city)
     except Exception as e:
         _diag(self, f"early_expansion: collect_all_units упал: {e}")
         return
@@ -828,14 +853,6 @@ def early_expansion(self):
 
     chosen = cheapest_unit
     _diag(self, f"early_expansion: выбран '{chosen['unit_name']}' из '{chosen['city_name']}'")
-
-    try:
-        allied_city = self._find_closest_own_city_in_range(target_city)
-    except Exception as e:
-        _diag(self, f"early_expansion: _find_closest_own_city_in_range упал: {e}")
-        return
-    if not allied_city:
-        return
 
     if chosen["city_name"] != allied_city:
         try:
@@ -918,7 +935,7 @@ def _find_neutral_in_radius(self, radius):
     try:
         self.cursor.execute("SELECT name, coordinates FROM cities WHERE faction = ?", (self.faction,))
         our_cities = self.cursor.fetchall()
-        self.cursor.execute("SELECT name, coordinates FROM cities WHERE faction = 'Нейтрал'")
+        self.cursor.execute("SELECT name, coordinates FROM cities WHERE faction = 'Нейтрал' AND COALESCE(is_undead, 0) = 0")
         neutral_cities = self.cursor.fetchall()
         if not our_cities or not neutral_cities:
             return None
@@ -1005,6 +1022,9 @@ def make_turn_v2(self):
         if self.faction == "Мятежники":
             print("Фракция 'Мятежники' выполняет только военные действия.")
             self.attack_enemy_cities()
+        elif self.faction == "Нежить":
+            print("Фракция 'Нежить' — нашествие мёртвых. Атакуем всех!")
+            self._undead_attack_nearest_cities()
         else:
             self.update_resources()
             self.process_queries()
@@ -1062,6 +1082,7 @@ def make_turn_v2(self):
 
                 # Шаг 7: артефакты + дипломатия
                 self.generate_and_buy_artifacts_for_ai_hero()
+                self.send_proactive_diplomacy()
                 self.send_help_request_if_needed()
                 self.send_mercy_request_if_needed()
 

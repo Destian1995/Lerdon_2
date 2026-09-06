@@ -1,26 +1,7 @@
 from db_lerdon_connect import *
 
 from fight import fight
-
-
-def format_number(number):
-    """Форматирует число с добавлением приставок (тыс., млн., млрд., трлн., квадр., квинт., секст., септил., октил., нонил., децил., андец.)"""
-    if not isinstance(number, (int, float)):
-        return str(number)
-    if number == 0:
-        return "0"
-
-    absolute = abs(number)
-    sign = -1 if number < 0 else 1
-
-    if absolute >= 1_000_000_000:  # 1e9
-        return f"{sign * absolute / 1e9:.1f} млрд."
-    elif absolute >= 1_000_000:  # 1e6
-        return f"{sign * absolute / 1e6:.1f} млн."
-    elif absolute >= 1_000:  # 1e3
-        return f"{sign * absolute / 1e3:.1f} тыс."
-    else:
-        return f"{number}"
+from utils.helpers import format_number
 
 
 def _show_dark_error_popup(title, message):
@@ -202,16 +183,39 @@ class FortressInfoPopup(Popup):
         left.add_widget(self.attacking_units_list)
         cols.add_widget(left)
 
-        # Правая: Здания
+        # Правая: Здания или картинка нежити
         right = BoxLayout(orientation='vertical', spacing=spc)
-        right.add_widget(_section_header('Здания'))
-        self.buildings_list = ScrollView(size_hint=(1, 1))
-        self.buildings_box = BoxLayout(
-            orientation='vertical', size_hint_y=None, spacing=dp(6), padding=[0, dp(4)]
-        )
-        self.buildings_box.bind(minimum_height=self.buildings_box.setter('height'))
-        self.buildings_list.add_widget(self.buildings_box)
-        right.add_widget(self.buildings_list)
+
+        # Проверяем, город нежити ли это
+        self.cursor.execute("SELECT COALESCE(is_undead, 0) FROM cities WHERE name = ?", (self.city_name,))
+        _undead_row = self.cursor.fetchone()
+        self._is_undead_city = bool(_undead_row and _undead_row[0])
+
+        if self._is_undead_city:
+            right.add_widget(_section_header('Проклятые земли'))
+            # Уникальное изображение для каждого города нежити
+            _undead_images = {
+                'Некрополь': 'files/city/death/nekropolis.png',
+                'Горгум': 'files/city/death/gorgum.png',
+                'Морготар': 'files/city/death/morgotar.png',
+            }
+            _img_src = _undead_images.get(self.city_name, 'files/city/death/city.png')
+            death_img = Image(
+                source=_img_src,
+                size_hint=(1, 1),
+                allow_stretch=True,
+                keep_ratio=True,
+            )
+            right.add_widget(death_img)
+        else:
+            right.add_widget(_section_header('Здания'))
+            self.buildings_list = ScrollView(size_hint=(1, 1))
+            self.buildings_box = BoxLayout(
+                orientation='vertical', size_hint_y=None, spacing=dp(6), padding=[0, dp(4)]
+            )
+            self.buildings_box.bind(minimum_height=self.buildings_box.setter('height'))
+            self.buildings_list.add_widget(self.buildings_box)
+            right.add_widget(self.buildings_list)
         cols.add_widget(right)
 
         root.add_widget(cols)
@@ -257,6 +261,8 @@ class FortressInfoPopup(Popup):
 
     def load_buildings(self):
         """Загружает здания в интерфейс — стилизованные карточки."""
+        if self._is_undead_city:
+            return  # У городов нежити нет зданий
         self.buildings_box.clear_widgets()
         buildings = self.get_buildings()
 
@@ -379,14 +385,13 @@ class FortressInfoPopup(Popup):
                 return
             target_id, target_faction = target_row
 
-            # Получаем все гарнизонные города игрока
+            # Получаем все гарнизонные города игрока (включая перешедших юнитов других фракций)
             cursor.execute("""
                 SELECT DISTINCT c.id, c.name
                 FROM garrisons g
                 JOIN cities c ON c.name = g.city_name
-                JOIN units u ON u.unit_name = g.unit_name
-                WHERE u.faction = ? AND c.faction = ?
-            """, (self.player_fraction, self.player_fraction))
+                WHERE c.faction = ?
+            """, (self.player_fraction,))
             all_garr = cursor.fetchall()  # [(city_id, city_name), ...]
 
             if not all_garr:
@@ -432,15 +437,15 @@ class FortressInfoPopup(Popup):
 
             placeholders = ','.join('?' * len(reachable_garr_ids))
             cursor.execute(f"""
-                SELECT g.city_name, g.unit_name, g.unit_count, g.unit_image,
+                SELECT g.city_name, g.unit_name, g.unit_count,
+                       COALESCE(NULLIF(g.unit_image, ''), u.image_path, '') as unit_image,
                        u.attack, u.defense, u.durability
                 FROM garrisons g
                 JOIN cities c ON c.name = g.city_name
                 JOIN units u ON u.unit_name = g.unit_name
                 WHERE c.id IN ({placeholders})
-                  AND u.faction = ?
                   AND c.faction = ?
-            """, reachable_garr_ids + [self.player_fraction, self.player_fraction])
+            """, reachable_garr_ids + [self.player_fraction])
 
             rows = cursor.fetchall()
 
@@ -898,12 +903,14 @@ class FortressInfoPopup(Popup):
         try:
             cursor = self.conn.cursor()
 
-            # 1. Пересчёт потребления: сумма потребления ВСЕХ юнитов в гарнизонах фракции игрока
+            # 1. Пересчёт потребления: сумма потребления ВСЕХ юнитов в гарнизонах городов фракции игрока
+            #    (включая перешедших юнитов из других фракций)
             cursor.execute("""
                 SELECT g.unit_name, g.unit_count, u.consumption
                 FROM garrisons g
                 JOIN units u ON g.unit_name = u.unit_name
-                WHERE u.faction = ?
+                JOIN cities c ON c.name = g.city_name
+                WHERE c.faction = ?
             """, (self.player_fraction,))
             rows = cursor.fetchall()
 
@@ -960,11 +967,13 @@ class FortressInfoPopup(Popup):
         # Очищаем текущую таблицу
         self.attacking_units_box.clear_widgets()
 
-        # Перезапрашиваем данные из БД
+        # Перезапрашиваем данные из БД (с фолбэком на image_path из units)
         cursor = self.conn.cursor()
         cursor.execute("""
-            SELECT city_name, unit_name, unit_count, unit_image 
-            FROM garrisons
+            SELECT g.city_name, g.unit_name, g.unit_count,
+                   COALESCE(NULLIF(g.unit_image, ''), u.image_path, '') as unit_image
+            FROM garrisons g
+            LEFT JOIN units u ON g.unit_name = u.unit_name
         """)
         all_troops = cursor.fetchall()
 
@@ -1134,10 +1143,13 @@ class FortressInfoPopup(Popup):
         """Получает гарнизон города из таблицы garrisons и отображает его с учетом класса и специализации юнитов."""
         try:
             # Запрос к базе данных для получения гарнизона
+            # Используем COALESCE: если unit_image пустой/NULL — берём image_path из units
             self.cursor.execute("""
-                SELECT unit_name, unit_count, unit_image 
-                FROM garrisons 
-                WHERE city_name = ?
+                SELECT g.unit_name, g.unit_count,
+                       COALESCE(NULLIF(g.unit_image, ''), u.image_path, '') as unit_image
+                FROM garrisons g
+                LEFT JOIN units u ON g.unit_name = u.unit_name
+                WHERE g.city_name = ?
             """, (self.city_name,))
             garrison_data = self.cursor.fetchall()
 
@@ -2043,8 +2055,16 @@ class FortressInfoPopup(Popup):
                     self.conn.commit()
                     return True
 
-                # Нейтральный город — захват без боя
+                # Нейтральный город — захват без боя (кроме скрытых городов нежити до инвазии)
                 elif dest_kingdom == "Нейтрал":
+                    cursor.execute("SELECT COALESCE(is_undead, 0) FROM cities WHERE name = ?",
+                                   (destination_fortress_name,))
+                    undead_row = cursor.fetchone()
+                    if undead_row and undead_row[0]:
+                        from undead_invasion import is_invasion_active
+                        if not is_invasion_active(self.conn):
+                            show_popup_message("Невозможно", "Тёмная сила защищает это место. Город невозможно захватить.")
+                            return False
                     self.capture_city(destination_fortress_name, current_player_kingdom, self.selected_group)
                     cursor.execute("UPDATE turn_check_move SET can_move = ? WHERE faction = ?",
                                    (False, current_player_kingdom))
@@ -2169,6 +2189,7 @@ class FortressInfoPopup(Popup):
 
             self.conn.commit()
             print("Войска успешно перенесены.")
+            refresh_map()
             self.close_current_popup()
 
         except sqlite3.Error as e:
@@ -2295,7 +2316,7 @@ class FortressInfoPopup(Popup):
                     })
 
                 # Запускаем сам бой
-                fight(
+                result = fight(
                     attacking_city=source_fortress_name,
                     defending_city=destination_fortress_name,
                     defending_army=defending_army,
@@ -2305,6 +2326,18 @@ class FortressInfoPopup(Popup):
                     conn=self.conn
                 )
                 self.close_current_popup()
+                refresh_map()  # Моментальное обновление карты
+
+                # === Система пленных: если игрок победил ===
+                # Нежить нельзя взять в плен — призраки рассеиваются
+                if result and result.get('winner') == 'attacker' and result.get('defending_losses', 0) > 0:
+                    if destination_owner != 'Нежить':
+                        captured = max(1, int(result['defending_losses'] * 0.10))
+                        from kivy.clock import Clock
+                        Clock.schedule_once(lambda dt: _show_prisoners_of_war(
+                            self.conn, captured, destination_owner,
+                            source_owner, source_fortress_name  # Город откуда атаковали
+                        ), 0.5)
 
         except sqlite3.Error as e:
             print(f"[ERROR] Ошибка базы данных при запуске боя: {e}")
@@ -2361,6 +2394,12 @@ class FortressInfoPopup(Popup):
 
             show_popup_message("Успех", f"Город {city_name} захвачен!")
             self.update_garrison()
+            # Обновляем количество городов и лимит армии
+            from game_process import _active_game_screen
+            if _active_game_screen:
+                _active_game_screen.faction.load_cities()
+                _active_game_screen.faction._sync_resources()
+            refresh_map()
 
         except sqlite3.Error as e:
             show_popup_message("Ошибка", f"Ошибка при захвате города: {e}")
@@ -2563,110 +2602,191 @@ class FortressInfoPopup(Popup):
         self.clear_widgets()  # Очищаем все виджеты
 
 
-def show_popup_message(title, message):
-    """
-    Отображает всплывающее окно с сообщением,
-    расположенным по центру, белым цветом и размером 18sp.
-    :param title: Заголовок окна.
-    :param message: Текст сообщения (короткий, без прокрутки).
-    """
+from ui_components import show_message as show_popup_message
+from utils.helpers import format_number
+from game_process import refresh_map
 
-    # Основной контейнер: заполняет всё пространство popup
-    content = BoxLayout(
-        orientation='vertical',
-        padding=dp(15),
-        spacing=dp(10),
-        size_hint=(1, 1)
-    )
 
-    # Label с сообщением: белый цвет, 18sp, по центру и внутри
-    message_label = Label(
-        text=message,
-        size_hint=(1, 1),
-        font_size=dp(18),
-        color=(1, 1, 1, 1),  # чисто белый
-        halign='center',
-        valign='middle'
-    )
-    # Чтобы текст правильно оборачивался и центрировался внутри Label:
-    # связываем text_size с размером самой метки
-    message_label.bind(size=lambda instance, value: instance.setter('text_size')(instance, value))
+def _show_prisoners_of_war(conn, captured_count, enemy_faction, player_faction, city_name):
+    """Popup выбора: что делать с пленными после победы."""
+    from kivy.uix.popup import Popup
+    from kivy.uix.floatlayout import FloatLayout
+    from kivy.uix.label import Label
+    from kivy.uix.button import Button
+    from kivy.graphics import Color, RoundedRectangle, Rectangle
+    from kivy.metrics import dp, sp
+    from kivy.animation import Animation
 
-    content.add_widget(message_label)
+    content = FloatLayout()
 
-    # Кнопка «Закрыть» внизу — красная с RoundedRectangle
-    close_button = Button(
-        text="Закрыть",
-        size_hint_y=None,
-        height=dp(50),
-        background_color=(0, 0, 0, 0),
-        color=(1, 1, 1, 1),
-        font_size=sp(16),
-        bold=True
-    )
-    with close_button.canvas.before:
-        close_button._bc = Color(0.55, 0.14, 0.14, 1)
-        close_button._br = RoundedRectangle(pos=close_button.pos, size=close_button.size, radius=[dp(12)])
-    close_button.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
-                      size=lambda i, v: setattr(i._br, 'size', v))
-    content.add_widget(close_button)
-
-    # Тёмный фон контейнера
+    # Тёмный фон
     with content.canvas.before:
-        content._bgc = Color(0.07, 0.08, 0.13, 1)
-        content._bgr = Rectangle(pos=content.pos, size=content.size)
-    content.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
-                 size=lambda i, v: setattr(i._bgr, 'size', v))
+        Color(0.06, 0.07, 0.12, 1)
+        content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(16)])
+    content.bind(
+        pos=lambda i, v: setattr(i._bg, 'pos', v),
+        size=lambda i, v: setattr(i._bg, 'size', v)
+    )
 
-    _is_mobile = platform in ('android', 'ios')
-    # На Android занимаем больше экрана; на ПК — фиксированный максимум
-    if _is_mobile:
-        popup_w_hint = 0.92
-        popup_h_hint = 0.45
-    else:
-        popup_w_hint = None  # используем абсолютный размер
-        popup_h_hint = None
+    # Заголовок
+    title = Label(
+        text=f"[b]Пленные после битвы за {city_name}[/b]",
+        markup=True, font_size=sp(18),
+        color=(0.92, 0.82, 0.52, 1),
+        size_hint=(0.9, None), height=dp(30),
+        pos_hint={'center_x': 0.5, 'top': 0.94},
+        halign='center',
+    )
+    title.bind(size=title.setter('text_size'))
 
-    if _is_mobile:
-        popup = Popup(
-            title=title,
-            title_size=sp(18),
-            title_align='center',
-            title_color=(1, 1, 1, 1),
-            content=content,
-            separator_color=(0.25, 0.52, 0.92, 0.5),
-            separator_height=dp(1),
-            size_hint=(popup_w_hint, popup_h_hint),
-            background_color=(0.07, 0.08, 0.13, 1),
-            overlay_color=(0, 0, 0, 0.5),
-            auto_dismiss=False
+    # Описание
+    desc = Label(
+        text=f"{format_number(captured_count)} воинов {enemy_faction} сдались в плен.\nЧто прикажете с ними сделать?",
+        font_size=sp(14),
+        color=(0.8, 0.82, 0.88, 1),
+        size_hint=(0.85, None), height=dp(50),
+        pos_hint={'center_x': 0.5, 'top': 0.78},
+        halign='center', valign='middle',
+    )
+    desc.bind(size=desc.setter('text_size'))
+
+    def _make_btn(text, color, y_pos):
+        btn = Button(
+            text=text, font_size=sp(13), bold=True,
+            size_hint=(0.85, None), height=dp(44),
+            pos_hint={'center_x': 0.5, 'y': y_pos},
+            background_normal='', background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1),
         )
-    else:
-        popup_width = min(dp(500), Window.width * 0.9)
-        popup_height = min(dp(600), Window.height * 0.7)
-        popup = Popup(
-            title=title,
-            title_size=sp(18),
-            title_align='center',
-            title_color=(1, 1, 1, 1),
-            content=content,
-            separator_color=(0.25, 0.52, 0.92, 0.5),
-            separator_height=dp(1),
-            size_hint=(None, None),
-            size=(popup_width, popup_height),
-            background_color=(0.07, 0.08, 0.13, 1),
-            overlay_color=(0, 0, 0, 0.5),
-            auto_dismiss=False
+        with btn.canvas.before:
+            Color(*color)
+            btn._bg = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(10)])
+        btn.bind(
+            pos=lambda i, v: setattr(i._bg, 'pos', v),
+            size=lambda i, v: setattr(i._bg, 'size', v)
         )
+        return btn
 
-        def update_size(*args):
-            new_w = min(dp(500), Window.width * 0.9)
-            new_h = min(dp(600), Window.height * 0.7)
-            popup.size = (new_w, new_h)
+    btn_release = _make_btn(
+        f"Отпустить (+15% отношений со всеми)",
+        (0.15, 0.55, 0.30, 1), 0.48
+    )
+    btn_recruit = _make_btn(
+        f"Принять в армию ({format_number(captured_count)} бойцов, +5% отношений)",
+        (0.20, 0.40, 0.65, 1), 0.32
+    )
+    btn_execute = _make_btn(
+        f"Казнить (-10% отношений со всеми)",
+        (0.60, 0.15, 0.15, 1), 0.16
+    )
 
-        Window.bind(on_resize=update_size)
-        popup.bind(on_dismiss=lambda *x: Window.unbind(on_resize=update_size))
+    content.add_widget(title)
+    content.add_widget(desc)
+    content.add_widget(btn_release)
+    content.add_widget(btn_recruit)
+    content.add_widget(btn_execute)
 
-    close_button.bind(on_release=popup.dismiss)
+    popup = Popup(
+        title='', separator_height=0,
+        content=content,
+        size_hint=(0.55, None), height=dp(340),
+        auto_dismiss=False,
+        background='', background_color=(0, 0, 0, 0.6),
+    )
 
+    def _apply_choice(choice):
+        popup.dismiss()
+        cursor = conn.cursor()
+
+        # Получаем все живые фракции
+        cursor.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал' AND faction != 'Мятежники'")
+        all_factions = [r[0] for r in cursor.fetchall() if r[0] != player_faction]
+
+        if choice == 'release':
+            # Отпустить: +15% отношений со всеми
+            rel_change = 15
+            for f in all_factions:
+                cursor.execute("""
+                    UPDATE relations SET relationship = MIN(100, relationship + ?)
+                    WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+                """, (rel_change, player_faction, f, f, player_faction))
+
+        elif choice == 'recruit':
+            # Принять в армию: пленные сохраняют тип юнита ВРАЖЕСКОЙ фракции
+            rel_change = 5
+            # Ищем юнита 1 класса ВРАЖЕСКОЙ фракции (тип пленных)
+            cursor.execute("""
+                SELECT unit_name, image_path FROM units
+                WHERE faction = ? AND unit_class = 1 LIMIT 1
+            """, (enemy_faction,))
+            enemy_unit = cursor.fetchone()
+            if enemy_unit:
+                unit_name, unit_image = enemy_unit[0], enemy_unit[1] or ''
+                cursor.execute("""
+                    INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
+                """, (city_name, unit_name, captured_count, unit_image, captured_count))
+            for f in all_factions:
+                cursor.execute("""
+                    UPDATE relations SET relationship = MIN(100, relationship + ?)
+                    WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+                """, (rel_change, player_faction, f, f, player_faction))
+
+        elif choice == 'execute':
+            # Казнить: -10% отношений со всеми
+            rel_change = -10
+            for f in all_factions:
+                cursor.execute("""
+                    UPDATE relations SET relationship = MAX(0, relationship + ?)
+                    WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+                """, (rel_change, player_faction, f, f, player_faction))
+
+        conn.commit()
+        refresh_map()
+
+        # AI-фракции присылают реакции (без тегов типа [ОДОБРЯЕТ])
+        reaction_messages = {
+            'release': [
+                "Благородный поступок! Мы уважаем тех, кто милосерден к пленным.",
+                "Ваше великодушие не останется незамеченным. Мир помнит милосердных.",
+                "Отпустить врагов — поступок достойный великого правителя.",
+            ],
+            'recruit': [
+                "Мудрое решение — дать пленным второй шанс в вашей армии.",
+                "Практичный подход. Лучше использовать воинов, чем терять их.",
+                "Пленники, получившие свободу в обмен на службу — разумный ход.",
+            ],
+            'execute': [
+                "Казнь пленных... Жестоко. Мы это запомним.",
+                "Кровь пленных на ваших руках. Это не останется без последствий.",
+                "Жестокость к побеждённым говорит о правителе больше, чем его победы.",
+            ],
+        }
+
+        import random
+        for f in all_factions[:2]:
+            msgs = reaction_messages.get(choice, [])
+            if msgs:
+                reaction = random.choice(msgs)
+                cursor.execute("""
+                    INSERT INTO negotiation_history (faction1, faction2, message, is_player, is_incoming, timestamp)
+                    VALUES (?, ?, ?, 0, 1, datetime('now'))
+                """, (f, player_faction, reaction))
+        conn.commit()
+
+        # Показать результат
+        result_msgs = {
+            'release': f"Вы отпустили {format_number(captured_count)} пленных. Отношения со всеми фракциями +15%.",
+            'recruit': f"{format_number(captured_count)} бойцов вступили в вашу армию в {city_name}. Отношения +5%.",
+            'execute': f"Пленные казнены. Отношения со всеми фракциями -10%.",
+        }
+        show_popup_message("Решение принято", result_msgs.get(choice, ""))
+
+    btn_release.bind(on_release=lambda *a: _apply_choice('release'))
+    btn_recruit.bind(on_release=lambda *a: _apply_choice('recruit'))
+    btn_execute.bind(on_release=lambda *a: _apply_choice('execute'))
+
+    popup.opacity = 0
     popup.open()
+    Animation(opacity=1, duration=0.25).start(popup)

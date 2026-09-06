@@ -14,76 +14,9 @@ from kivy.metrics import dp, sp
 from kivy.core.window import Window
 import random
 
-def show_message(title, message):
-    # === Оценка высоты текста ===
-    lines = message.count('\n') + 1
-    text_height = max(dp(100), dp(lines * 25))  # минимум 100dp, дальше по строкам
-    popup_height = text_height + dp(110)        # + кнопка и отступы
+from ui_components import show_message
 
-    # === Стилизованный Label с переносом текста и выравниванием по центру ===
-    label = Label(
-        text=message,
-        size_hint_y=None,
-        height=text_height,
-        text_size=(None, None),
-        halign='center',
-        valign='middle',
-        font_size='16sp',
-        padding=(dp(10), dp(10))
-    )
-
-    # Обновляем текстуру после изменения размера
-    def update_label_width(instance, width):
-        instance.text_size = (instance.width * 0.9, None)
-        instance.texture_update()
-
-    label.bind(width=update_label_width)
-
-    # === Кнопка "Закрыть" с минимальной высотой и стилем ===
-    close_btn = Button(
-        text="Закрыть",
-        size_hint=(1, None),
-        height=dp(48),
-        background_color=(0.2, 0.6, 0.8, 1),
-        background_normal='',
-        font_size='16sp'
-    )
-
-    # === Основной макет ===
-    layout = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(10))
-    layout.add_widget(label)
-    layout.add_widget(close_btn)
-
-    # === Всплывающее окно ===
-    popup = Popup(
-        title=title,
-        content=layout,
-        size_hint=(0.7, None),
-        height=popup_height,
-        auto_dismiss=False
-    )
-    close_btn.bind(on_release=popup.dismiss)
-
-    popup.open()
-
-def format_number(number):
-    """Форматирует число с добавлением приставок (тыс., млн., млрд., трлн., квадр., квинт., секст., септил., октил., нонил., децил., андец.)"""
-    if not isinstance(number, (int, float)):
-        return str(number)
-    if number == 0:
-        return "0"
-
-    absolute = abs(number)
-    sign = -1 if number < 0 else 1
-
-    if absolute >= 1_000_000_000:  # 1e9
-        return f"{sign * absolute / 1e9:.1f} млрд."
-    elif absolute >= 1_000_000:  # 1e6
-        return f"{sign * absolute / 1e6:.1f} млн."
-    elif absolute >= 1_000:  # 1e3
-        return f"{sign * absolute / 1e3:.1f} тыс."
-    else:
-        return f"{number}"
+from utils.helpers import format_number
 
 
 def workshop(faction, db_conn):

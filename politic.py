@@ -12,7 +12,7 @@ from kivy.core.window import Window
 import sqlite3
 import threading
 
-from economic import format_number
+from utils.helpers import format_number
 # Глобальная блокировка для работы с БД
 db_lock = threading.Lock()
 from nobles import show_nobles_window
@@ -128,21 +128,12 @@ class DiplomacyManager:
     def get_diplomatic_relations(self):
         """Получает дипломатические отношения текущей фракции с другими"""
         try:
-            # Получаем все активные фракции кроме текущей и Мятежников
-            query = """
-                SELECT DISTINCT faction 
-                FROM (
-                    SELECT faction1 AS faction FROM diplomacies
-                    UNION
-                    SELECT faction2 AS faction FROM diplomacies
-                ) AS all_factions
-                WHERE faction != ? AND faction != 'Мятежники' AND faction IN (
-                    SELECT faction1 FROM diplomacies WHERE relationship != 'уничтожена'
-                    UNION
-                    SELECT faction2 FROM diplomacies WHERE relationship != 'уничтожена'
-                )
-            """
-            self.cursor.execute(query, (self.faction,))
+            # Получаем только живые фракции (имеющие хотя бы 1 город)
+            self.cursor.execute("""
+                SELECT DISTINCT faction FROM cities
+                WHERE faction != ? AND faction != 'Нейтрал'
+                  AND faction != 'Мятежники' AND faction != 'Нежить'
+            """, (self.faction,))
             all_factions = [row[0] for row in self.cursor.fetchall()]
 
             relations = {}
@@ -224,7 +215,7 @@ class DiplomacyManager:
 
         # Создаем таблицу
         table = GridLayout(
-            cols=4,
+            cols=5,
             size_hint_y=None,
             spacing=dp(4),
             row_default_height=dp(45)
@@ -232,7 +223,7 @@ class DiplomacyManager:
         table.bind(minimum_height=table.setter('height'))
 
         # Заголовки таблицы
-        headers = ["Фракция", "Статус", "Уровень", "Отношения"]
+        headers = ["Фракция", "Статус", "Уровень", "Отношения", "Действие"]
         for title in headers:
             table.add_widget(self.create_header(title))
 
@@ -243,12 +234,8 @@ class DiplomacyManager:
             description = data["description"]
             status_color = data["color"]
 
-            highlight = False  # Можно добавить подсветку для особых случаев
+            faction_label = self._create_cell(other_faction)
 
-            # Создаем ячейки
-            faction_label = self._create_cell(other_faction, highlight=highlight)
-
-            # Статус с цветом
             status_label = Label(
                 text=status,
                 font_size='14sp',
@@ -262,10 +249,8 @@ class DiplomacyManager:
                 outline_width=2
             )
 
-            # Уровень отношений
-            level_label = self._create_cell(str(level), highlight=highlight)
+            level_label = self._create_cell(str(level))
 
-            # Описание отношений
             desc_label = Label(
                 text=description,
                 font_size='14sp',
@@ -277,10 +262,14 @@ class DiplomacyManager:
                 height=dp(45)
             )
 
+            # Кнопка действия
+            action_btn = self._create_action_button(other_faction, status, table, relations)
+
             table.add_widget(faction_label)
             table.add_widget(status_label)
             table.add_widget(level_label)
             table.add_widget(desc_label)
+            table.add_widget(action_btn)
 
         # Добавляем таблицу в ScrollView
         scroll = ScrollView(
@@ -412,6 +401,128 @@ class DiplomacyManager:
         label.bind(size=label.setter('text_size'))
 
         return label
+
+    def _create_action_button(self, target_faction, status, table, relations):
+        """Создаёт кнопку действия: Объявить войну / Предложить мир."""
+        if status == 'война':
+            btn_text = "Предложить мир"
+            btn_color = (0.2, 0.6, 0.3, 1)
+        elif status == 'союз':
+            btn_text = "—"
+            # Нельзя объявить войну союзнику — пустая ячейка
+            return self._create_cell("—")
+        else:
+            btn_text = "Объявить войну"
+            btn_color = (0.7, 0.18, 0.18, 1)
+
+        btn = Button(
+            text=btn_text,
+            font_size=sp(12),
+            bold=True,
+            size_hint_y=None,
+            height=dp(45),
+            background_color=(0, 0, 0, 0),
+            background_normal='',
+            color=(1, 1, 1, 1)
+        )
+        with btn.canvas.before:
+            btn._bg_c = Color(*btn_color)
+            btn._bg_r = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(6)])
+        btn.bind(
+            pos=lambda i, v: setattr(i._bg_r, 'pos', v),
+            size=lambda i, v: setattr(i._bg_r, 'size', v)
+        )
+
+        def on_action(instance, faction=target_faction, cur_status=status):
+            if cur_status == 'война':
+                self._propose_peace(faction)
+            else:
+                self._declare_war(faction)
+            # Обновляем попап
+            if hasattr(self, 'popup'):
+                self.popup.dismiss()
+                self.show_diplomatic_relations()
+
+        btn.bind(on_release=on_action)
+        return btn
+
+    def _declare_war(self, target_faction):
+        """Игрок объявляет войну фракции."""
+        try:
+            # Обновляем обе записи в diplomacies
+            self.cursor.execute(
+                "UPDATE diplomacies SET relationship = 'война' WHERE faction1 = ? AND faction2 = ?",
+                (self.faction, target_faction)
+            )
+            self.cursor.execute(
+                "UPDATE diplomacies SET relationship = 'война' WHERE faction1 = ? AND faction2 = ?",
+                (target_faction, self.faction)
+            )
+            # Снижаем отношения
+            self.cursor.execute(
+                "UPDATE relations SET relationship = MAX(0, relationship - 30) WHERE faction1 = ? AND faction2 = ?",
+                (self.faction, target_faction)
+            )
+            self.cursor.execute(
+                "UPDATE relations SET relationship = MAX(0, relationship - 30) WHERE faction1 = ? AND faction2 = ?",
+                (target_faction, self.faction)
+            )
+            self.db_connection.commit()
+            print(f"[ДИПЛОМАТИЯ] {self.faction} объявил войну {target_faction}!")
+
+            from nobles import show_toast
+            show_toast(f"Война с {target_faction} объявлена!")
+        except Exception as e:
+            print(f"Ошибка объявления войны: {e}")
+
+    def _propose_peace(self, target_faction):
+        """Игрок предлагает мир фракции."""
+        try:
+            # Мир стоит денег — 500к крон
+            peace_cost = 500000
+            self.cursor.execute(
+                "SELECT amount FROM resources WHERE faction = ? AND resource_type = 'Кроны'",
+                (self.faction,)
+            )
+            row = self.cursor.fetchone()
+            current_money = row[0] if row else 0
+
+            if current_money < peace_cost:
+                from nobles import show_toast
+                show_toast(f"Недостаточно крон для мира (нужно {peace_cost:,})")
+                return
+
+            # Списываем деньги
+            self.cursor.execute(
+                "UPDATE resources SET amount = amount - ? WHERE faction = ? AND resource_type = 'Кроны'",
+                (peace_cost, self.faction)
+            )
+
+            # Устанавливаем нейтралитет
+            self.cursor.execute(
+                "UPDATE diplomacies SET relationship = 'нейтралитет' WHERE faction1 = ? AND faction2 = ?",
+                (self.faction, target_faction)
+            )
+            self.cursor.execute(
+                "UPDATE diplomacies SET relationship = 'нейтралитет' WHERE faction1 = ? AND faction2 = ?",
+                (target_faction, self.faction)
+            )
+            # Немного улучшаем отношения
+            self.cursor.execute(
+                "UPDATE relations SET relationship = MIN(100, relationship + 10) WHERE faction1 = ? AND faction2 = ?",
+                (self.faction, target_faction)
+            )
+            self.cursor.execute(
+                "UPDATE relations SET relationship = MIN(100, relationship + 10) WHERE faction1 = ? AND faction2 = ?",
+                (target_faction, self.faction)
+            )
+            self.db_connection.commit()
+            print(f"[ДИПЛОМАТИЯ] {self.faction} заключил мир с {target_faction} за {peace_cost} крон")
+
+            from nobles import show_toast
+            show_toast(f"Мир с {target_faction} заключён за {peace_cost:,} крон")
+        except Exception as e:
+            print(f"Ошибка предложения мира: {e}")
 
 
 # Кастомная кнопка с анимациями и эффектами
@@ -630,108 +741,79 @@ def calculate_army_strength(conn):
     return army_strength, formatted_army_strength
 
 def create_army_rating_table(conn):
-    """Создает таблицу с показателями силы: Мощь отряда героя и Общая мощь фракции."""
+    """Создает таблицу рейтинга армий в стиле таблицы отношений (тёмная тема)."""
 
-    # Получаем список всех активных фракций
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT DISTINCT faction 
-        FROM (
-            SELECT faction1 AS faction FROM diplomacies
-            UNION
-            SELECT faction2 AS faction FROM diplomacies
-        ) AS all_factions
-        WHERE faction != 'Мятежники' AND faction IN (
-            SELECT faction1 FROM diplomacies WHERE relationship != 'уничтожена'
-            UNION
-            SELECT faction2 FROM diplomacies WHERE relationship != 'уничтожена'
-        )
+        SELECT DISTINCT faction FROM cities
+        WHERE faction != 'Нейтрал' AND faction != 'Мятежники' AND faction != 'Нежить'
     """)
     all_factions = [row[0] for row in cursor.fetchall()]
 
     if not all_factions:
         return GridLayout()
 
-    # === Расчёт двух показателей для каждой фракции ===
     faction_ratings = []
-
     for faction in all_factions:
-        # Могущество (локальные бонусы)
         local_power = calculate_peace_army_points(conn, faction)
-
-        # Общая мощь (глобальные бонусы)
         global_power = calculate_total_faction_power(conn, faction)
-
         faction_ratings.append({
             "faction": faction,
             "local_power": local_power,
             "global_power": global_power
         })
 
-    # Сортируем по общей мощи (убывание) — рейтинг как таковой больше не нужен
     faction_ratings.sort(key=lambda x: x["global_power"], reverse=True)
 
-    # === Создаём таблицу ===
-    # ИЗМЕНЕНО: cols=3 вместо 4, так как убрали колонку с процентами
     layout = GridLayout(
         cols=3,
         size_hint_y=None,
-        spacing=dp(10),
-        padding=[dp(10), dp(5), dp(10), dp(5)],
-        row_default_height=dp(50),
-        row_force_default=True
+        spacing=dp(4),
+        row_default_height=dp(45)
     )
     layout.bind(minimum_height=layout.setter('height'))
 
-    # Цвета
-    header_color = (0.1, 0.5, 0.9, 1)
-    row_colors = [
-        (1, 1, 1, 1), (0.8, 0.9, 1, 1), (0.6, 0.8, 1, 1),
-        (0.4, 0.7, 1, 1), (0.2, 0.6, 1, 1)
-    ]
-
-    def create_label(text, color, halign="left", valign="middle", bold=False, font_size=14):
+    # Заголовки — стиль как в таблице отношений
+    header_bg = (0.15, 0.35, 0.65, 1)
+    for title in ["Фракция", "Мощь героя", "Общая мощь"]:
         lbl = Label(
-            text=text,
-            color=(0, 0, 0, 1),
-            font_size=sp(font_size),
-            size_hint_y=None,
-            height=dp(50),
-            halign=halign,
-            valign=valign,
-            bold=bold
+            text=f"[b]{title}[/b]", markup=True,
+            font_size=sp(14), color=(1, 1, 1, 1),
+            halign='center', valign='middle',
+            size_hint_y=None, height=dp(45)
         )
         lbl.bind(size=lbl.setter('text_size'))
         with lbl.canvas.before:
-            Color(*color)
-            lbl.rect = RoundedRectangle(pos=lbl.pos, size=lbl.size, radius=[dp(8)])
+            Color(*header_bg)
+            lbl._bg = RoundedRectangle(pos=lbl.pos, size=lbl.size, radius=[dp(4)])
         lbl.bind(
-            pos=lambda _, value: setattr(lbl.rect, 'pos', value),
-            size=lambda _, value: setattr(lbl.rect, 'size', value)
+            pos=lambda i, v: setattr(i._bg, 'pos', v),
+            size=lambda i, v: setattr(i._bg, 'size', v)
+        )
+        layout.add_widget(lbl)
+
+    # Данные — тёмный фон, белый текст
+    def _cell(text, bold=False):
+        lbl = Label(
+            text=text, font_size=sp(14), bold=bold,
+            color=(1, 1, 1, 1), halign='center', valign='middle',
+            size_hint_y=None, height=dp(45)
+        )
+        lbl.bind(size=lbl.setter('text_size'))
+        with lbl.canvas.before:
+            Color(0.1, 0.1, 0.1, 0.2)
+            lbl._bg = RoundedRectangle(pos=lbl.pos, size=lbl.size, radius=[dp(4)])
+        lbl.bind(
+            pos=lambda i, v: setattr(i._bg, 'pos', v),
+            size=lambda i, v: setattr(i._bg, 'size', v)
         )
         return lbl
 
-    # === Заголовки таблицы (3 колонки) ===
-    layout.add_widget(create_label("Раса", header_color, halign="center", bold=True))
-    layout.add_widget(create_label("Мощь отряда героя", header_color, halign="center", bold=True, font_size=12))
-    layout.add_widget(create_label("Общая мощь фракции", header_color, halign="center", bold=True, font_size=12))
-
-    # === Заполнение данными ===
-    for rank, data in enumerate(faction_ratings):
-        faction = data["faction"]
-        local = data["local_power"]
-        global_p = data["global_power"]
-
-        # УДАЛЕНО: расчет rating = (global_p / max_power) * 100
-
-        faction_name = faction_names.get(faction, faction)
-        color = row_colors[rank % len(row_colors)]
-
-        # Ячейки строки (теперь добавляем только 3 виджета)
-        layout.add_widget(create_label(f"  {faction_name}", color, halign="left"))
-        # УДАЛЕНО: layout.add_widget(create_label(f"{rating:.1f}%", ...))
-        layout.add_widget(create_label(format_number(int(local)), color, halign="right", font_size=12))
-        layout.add_widget(create_label(format_number(int(global_p)), color, halign="right", bold=True, font_size=13))
+    for data in faction_ratings:
+        faction_name = faction_names.get(data["faction"], data["faction"])
+        layout.add_widget(_cell(faction_name))
+        layout.add_widget(_cell(format_number(int(data["local_power"]))))
+        layout.add_widget(_cell(format_number(int(data["global_power"])), bold=True))
 
     return layout
 

@@ -3,28 +3,7 @@ from kivy.uix.checkbox import CheckBox
 from db_lerdon_connect import *
 from heroes import open_artifacts_popup
 from create_artifacts import workshop
-
-
-def format_number(number):
-    """Форматирует число с добавлением приставок (тыс., млн., млрд.) и одним знаком после запятой"""
-    if not isinstance(number, (int, float)):
-        return str(number)
-    if number == 0:
-        return "0"
-    absolute = abs(number)
-    sign = -1 if number < 0 else 1
-    # Если абсолютное значение меньше 1000, просто округляем до одного знака после запятой
-    if absolute < 1000:
-        formatted_value = f"{number:.1f}"
-        return formatted_value
-    # Продолжаем форматирование с приставками для чисел >= 1000
-    if absolute >= 1_000_000_000:  # 1e9
-        return f"{sign * absolute / 1e9:.1f} млрд."
-    elif absolute >= 1_000_000:  # 1e6
-        return f"{sign * absolute / 1e6:.1f} млн."
-    elif absolute >= 1000:  # 1e3 (исправлено с 1_000 на 1000 для ясности, они равны)
-        return f"{sign * absolute / 1e3:.1f} тыс."
-    return f"{number:.1f}"
+from utils.helpers import format_number
 
 
 def save_building_change(faction_name, city, building_type, delta, conn):
@@ -110,14 +89,15 @@ class Faction:
             'Лимит Армии': self.max_army_limit
         }
         self.economic_params = {
-            "Север": {"tax_rate": 0.06},
-            "Эльфы": {"tax_rate": 0.03},
-            "Вампиры": {"tax_rate": 0.02},
-            "Адепты": {"tax_rate": 0.017},
-            "Элины": {"tax_rate": 0.01},
+            "Север": {"tax_rate": 0.12},
+            "Эльфы": {"tax_rate": 0.08},
+            "Вампиры": {"tax_rate": 0.06},
+            "Адепты": {"tax_rate": 0.04},
+            "Элины": {"tax_rate": 0.03},
         }
 
         self.is_first_run = True  # Флаг для первого запуска
+        self._on_resources_changed = None  # Callback для моментального обновления UI
         self.generate_raw_material_price()  # Генерация начальной цены на еду
 
     def load_data(self, table, columns, condition=None, params=None):
@@ -137,6 +117,62 @@ class Faction:
             return self.cursor.fetchall()
         except sqlite3.Error as e:
             return []
+
+    def _get_supplied_cities(self):
+        """
+        Возвращает множество названий городов фракции, которые связаны
+        дорогами с основной территорией (наибольшая связная компонента).
+        Города вне основной территории считаются отрезанными от снабжения.
+        """
+        try:
+            self.cursor.execute("SELECT id, name, faction FROM cities")
+            all_cities = self.cursor.fetchall()
+            id_to_name = {cid: name for cid, name, _ in all_cities}
+            id_to_faction = {cid: faction for cid, _, faction in all_cities}
+            own_city_ids = {cid for cid, faction in id_to_faction.items() if faction == self.faction}
+
+            if not own_city_ids:
+                return set()
+
+            self.cursor.execute("SELECT city1, city2 FROM roads")
+            all_roads = self.cursor.fetchall()
+            adjacency = {}
+            for c1, c2 in all_roads:
+                adjacency.setdefault(c1, []).append(c2)
+                adjacency.setdefault(c2, []).append(c1)
+
+            # Находим все связные компоненты среди городов фракции
+            visited = set()
+            components = []
+            for start_id in own_city_ids:
+                if start_id in visited:
+                    continue
+                component = set()
+                queue = [start_id]
+                visited.add(start_id)
+                while queue:
+                    current = queue.pop(0)
+                    component.add(current)
+                    for neighbor in adjacency.get(current, []):
+                        if neighbor in visited or neighbor not in own_city_ids:
+                            continue
+                        visited.add(neighbor)
+                        queue.append(neighbor)
+                components.append(component)
+
+            if not components:
+                return set()
+
+            main_component = max(components, key=len)
+            return {id_to_name[cid] for cid in main_component}
+        except Exception as e:
+            print(f"[ERROR] _get_supplied_cities: {e}")
+            # Фоллбэк: все города фракции
+            try:
+                self.cursor.execute("SELECT name FROM cities WHERE faction = ?", (self.faction,))
+                return {r[0] for r in self.cursor.fetchall()}
+            except Exception:
+                return set()
 
     def load_resources(self):
         """Загружает ресурсы из таблицы resources."""
@@ -285,6 +321,9 @@ class Faction:
                 if buildings["Фабрика"] > 0:
                     self.build_factory(city, quantity=buildings["Фабрика"])
 
+            # Пересчитываем общие показатели один раз после всех построек
+            self.load_buildings()
+
         except Exception as e:
             print(f"Ошибка в авто-строительстве: {e}")
 
@@ -380,9 +419,8 @@ class Faction:
         """Увеличить количество фабрик в указанном городе на заданное количество."""
         if city not in self.cities_buildings:
             self.cities_buildings[city] = {'Больница': 0, 'Фабрика': 0}
-        self.cities_buildings[city]['Фабрика'] += quantity  # Обновляем локальные данные
-        save_building_change(self.faction, city, "Фабрика", quantity, self.conn)  # Передаем изменение
-        self.load_buildings()  # Пересчитываем общие показатели
+        self.cities_buildings[city]['Фабрика'] += quantity
+        save_building_change(self.faction, city, "Фабрика", quantity, self.conn)
 
     def build_hospital(self, city, quantity=1):
         """Увеличить количество больниц в указанном городе на заданное количество."""
@@ -390,12 +428,12 @@ class Faction:
             self.cities_buildings[city] = {'Больница': 0, 'Фабрика': 0}
         self.cities_buildings[city]['Больница'] += quantity
         save_building_change(self.faction, city, "Больница", quantity, self.conn)
-        self.load_buildings()  # Пересчитываем общие показатели
 
     def cash_build(self, money):
         """Списывает деньги, если их хватает, и возвращает True, иначе False."""
         if self.money >= money:
             self.money -= money
+            self._sync_resources()
             self.save_resources_to_db()
             return True
         else:
@@ -520,19 +558,11 @@ class Faction:
 
     def update_cash(self):
         """
-        Обновляет ресурсы и сохраняет их в БД.
-        Пересчитывает потребление перед сохранением.
+        Синхронизирует и сохраняет ресурсы в БД.
+        НЕ перезагружает из БД — использует актуальные in-memory значения.
         """
-        self.load_resources()  # Загружаем актуальные значения из БД
         self.recalculate_consumption()
-
-        # Обновляем остальные ресурсы
-        self.resources['Кроны'] = self.money
-        self.resources['Рабочие'] = self.free_peoples
-        self.resources['Кристаллы'] = self.raw_material
-        self.resources['Население'] = self.population
-        self.resources['Лимит Армии'] = self.max_army_limit
-
+        self._sync_resources()
         self.save_resources_to_db()
         return self.resources
 
@@ -734,29 +764,18 @@ class Faction:
     def save_resources_to_db(self):
         """
         Сохраняет текущие ресурсы фракции в таблицу resources.
-        Обновляет только существующие записи, не добавляет новые.
+        Использует batch UPDATE для минимизации обращений к БД.
         """
         try:
-            for resource_type, amount in self.resources.items():
-                # Проверяем, существует ли запись
-                self.cursor.execute('''
-                    SELECT amount
-                    FROM resources
-                    WHERE faction = ? AND resource_type = ?
-                ''', (self.faction, resource_type))
-                existing_record = self.cursor.fetchone()
-
-                if existing_record:
-                    # Обновляем существующую запись
-                    self.cursor.execute('''
-                        UPDATE resources
-                        SET amount = ?
-                        WHERE faction = ? AND resource_type = ?
-                    ''', (amount, self.faction, resource_type))
-                else:
-                    pass
-
-            # Сохраняем изменения в базе данных
+            update_data = [
+                (amount, self.faction, resource_type)
+                for resource_type, amount in self.resources.items()
+            ]
+            self.cursor.executemany('''
+                UPDATE resources
+                SET amount = ?
+                WHERE faction = ? AND resource_type = ?
+            ''', update_data)
             self.conn.commit()
         except sqlite3.Error as e:
             print(f"Ошибка при сохранении ресурсов: {e}")
@@ -805,6 +824,40 @@ class Faction:
             print(f"Ошибка при загрузке политической системы: {e}")
             return "Смирение"
 
+    def _get_council_bonuses(self):
+        """Рассчитывает бонусы от советников с лояльностью > 50%."""
+        import json
+        crowns_pct = 0
+        crystals_pct = 0
+        try:
+            self.cursor.execute("SELECT loyalty, ideology FROM nobles WHERE status = 'active'")
+            for loyalty, ideology_str in self.cursor.fetchall():
+                if loyalty < 50:
+                    continue
+                bonus_pct = min(int((loyalty - 50) / 5), 10)
+
+                try:
+                    if isinstance(ideology_str, str) and ideology_str.startswith('{'):
+                        traits = json.loads(ideology_str)
+                    elif isinstance(ideology_str, str) and ideology_str.startswith("Любит "):
+                        traits = {'type': 'race_love'}
+                    else:
+                        traits = {'type': 'ideology', 'value': ideology_str}
+                except Exception:
+                    continue
+
+                if traits.get('type') == 'ideology':
+                    if traits.get('value') == 'Борьба':
+                        crystals_pct += bonus_pct
+                    else:
+                        crowns_pct += bonus_pct
+                elif traits.get('type') == 'greed':
+                    crowns_pct += bonus_pct // 2
+                    crystals_pct += bonus_pct // 2
+        except Exception as e:
+            print(f"[Совет] Ошибка расчёта бонусов: {e}")
+        return crowns_pct, crystals_pct
+
     def apply_player_bonuses(self):
         bonuses = {}
         try:
@@ -820,9 +873,22 @@ class Faction:
                     self.raw_material += raw_material_bonus
                     bonuses["Кристаллы"] = raw_material_bonus
 
+            # Бонусы от советников
+            council_crowns_pct, council_crystals_pct = self._get_council_bonuses()
+            if council_crowns_pct > 0 and self.money_up > 0:
+                council_crowns = int(self.money_up * council_crowns_pct / 100)
+                self.money += council_crowns
+                bonuses["Кроны"] = bonuses.get("Кроны", 0) + council_crowns
+            if council_crystals_pct > 0 and self.food_info > 0:
+                council_crystals = int(self.food_info * council_crystals_pct / 100)
+                self.raw_material += council_crystals
+                bonuses["Кристаллы"] = bonuses.get("Кристаллы", 0) + council_crystals
+
             if self.turn % 3 == 0:
                 self.update_relations_based_on_political_system()
 
+            # Синхронизируем resources dict чтобы UI сразу отображал бонус
+            self._sync_resources()
             return bonuses
         except Exception as e:
             print(f"Ошибка при применении бонусов игроку: {e}")
@@ -892,25 +958,28 @@ class Faction:
         """
         try:
             self.current_consumption = 0
-            # Шаг 1: Выгрузка всех гарнизонов
+            # Шаг 1: Получаем города текущей фракции
+            self.cursor.execute("SELECT name FROM cities WHERE faction = ?", (self.faction,))
+            own_cities = {row[0] for row in self.cursor.fetchall()}
+
+            # Шаг 2: Выгрузка гарнизонов только из своих городов
             self.cursor.execute("SELECT city_name, unit_name, unit_count FROM garrisons")
             garrisons = self.cursor.fetchall()
 
-            # Шаг 2: Для каждого гарнизона получаем данные юнита
-            faction_units = {}
+            # Шаг 3: Batch-загрузка всех юнитов за один запрос
+            self.cursor.execute("SELECT unit_name, consumption, faction FROM units")
+            faction_units = {
+                row[0]: {'consumption': row[1], 'faction': row[2]}
+                for row in self.cursor.fetchall()
+            }
+
+            # Потребление считается по принадлежности города, а не юнита:
+            # все юниты в городах фракции (включая пленных) потребляют её кристаллы
             for garrison in garrisons:
                 city_name, unit_name, unit_count = garrison
-
                 if unit_name not in faction_units:
-                    self.cursor.execute("SELECT consumption, faction FROM units WHERE unit_name = ?", (unit_name,))
-                    unit_data = self.cursor.fetchone()
-                    if unit_data:
-                        consumption, unit_faction = unit_data
-                        faction_units[unit_name] = {'consumption': consumption, 'faction': unit_faction}
-                    else:
-                        continue
-
-                if faction_units[unit_name]['faction'] == self.faction:
+                    continue
+                if city_name in own_cities:
                     self.current_consumption += faction_units[unit_name]['consumption'] * unit_count
 
             starving_units = []
@@ -920,7 +989,7 @@ class Faction:
                 for garrison in garrisons:
                     city_name, unit_name, unit_count = garrison
 
-                    if unit_count <= 0 or faction_units[unit_name]['faction'] != self.faction:
+                    if unit_count <= 0 or city_name not in own_cities:
                         continue
 
                     reduction = max(1, int(unit_count * 0.15))
@@ -1056,11 +1125,11 @@ class Faction:
 
         # Коэффициенты для каждой фракции
         faction_coefficients = {
-            'Север': {'money_loss': 14, 'food_loss': 0.5},
-            'Эльфы': {'money_loss': 17, 'food_loss': 0.19},
-            'Вампиры': {'money_loss': 20, 'food_loss': 0.1},
-            'Адепты': {'money_loss': 22, 'food_loss': 0.03},
-            'Элины': {'money_loss': 24, 'food_loss': 0.007},
+            'Север': {'money_loss': 5, 'food_loss': 0.3},
+            'Эльфы': {'money_loss': 6, 'food_loss': 0.15},
+            'Вампиры': {'money_loss': 7, 'food_loss': 0.08},
+            'Адепты': {'money_loss': 8, 'food_loss': 0.02},
+            'Элины': {'money_loss': 9, 'food_loss': 0.005},
         }
 
         # Получение коэффициентов для текущей фракции
@@ -1088,21 +1157,25 @@ class Faction:
         # Рассчитываем базовый прирост Кристаллов (до бонусов городов)
         base_raw_material_production = (self.factories * 105) - (self.population * coeffs['food_loss'])
 
-        # Загружаем коэффициенты kf_crystal для городов фракции
+        # Загружаем коэффициенты kf_crystal только для городов,
+        # связанных дорогами с основной территорией (снабжение)
         city_raw_material_bonus = 0.0
         try:
+            supplied_cities = self._get_supplied_cities()
             self.cursor.execute('''
-                SELECT kf_crystal
+                SELECT name, kf_crystal
                 FROM cities
                 WHERE faction = ?
             ''', (self.faction,))
             rows = self.cursor.fetchall()
             for row in rows:
-                kf_val = row[0]
-                if kf_val is not None:  # Проверяем, что значение не NULL
-                    city_raw_material_bonus += float(kf_val)  # Суммируем коэффициенты
-                else:
-                    print(f"Предупреждение: kf_crystal для города фракции {self.faction} равен NULL, пропущено.")
+                city_name, kf_val = row
+                if kf_val is None:
+                    continue
+                if city_name not in supplied_cities:
+                    print(f"[Снабжение] Город {city_name} ({self.faction}) отрезан от снабжения — ресурсы не учитываются.")
+                    continue
+                city_raw_material_bonus += float(kf_val)
         except sqlite3.Error as e:
             print(f"Ошибка при загрузке kf_crystal из таблицы cities: {e}")
 
@@ -1159,17 +1232,20 @@ class Faction:
                 self.population -= loss
             self.free_peoples = 0  # Все рабочие обнуляются, так как Кристаллы нет
 
-        # Проверка, чтобы население не опускалось ниже 0
-        self.population = max(0, self.population)
+        # Принудительные лимиты на сами поля (а не только на dict)
+        self.money = max(min(round(self.money, 2), 10_000_000), 0)
+        self.free_peoples = max(min(round(self.free_peoples, 2), 500_000), 0)
+        self.raw_material = max(min(round(self.raw_material, 2), 10_000_000), 0)
+        self.population = max(min(round(self.population, 2), 100_000_000), 0)
 
-        # Проверка, чтобы ресурсы не опускались ниже 0 и не превышали максимальные значения
+        # Синхронизируем dict ресурсов
         self.resources.update({
-            "Кроны": max(min(round(self.money, 2), 10_000_000), 0),  # Не более 10 млн, 2 знака
-            "Рабочие": max(min(round(self.free_peoples, 2), 500_000), 0),  # Не более 500 тыс, 2 знака
-            "Кристаллы": max(min(round(self.raw_material, 2), 10_000_000), 0),  # Не более 10 млн, 2 знака
-            "Население": max(min(round(self.population, 2), 1_000_000), 0),  # Не более 1 млн, 2 знака
-            "Потребление": round(self.current_consumption, 2),  # 2 знака
-            "Лимит Армии": round(self.max_army_limit, 2)  # 2 знака
+            "Кроны": self.money,
+            "Рабочие": self.free_peoples,
+            "Кристаллы": self.raw_material,
+            "Население": self.population,
+            "Потребление": round(self.current_consumption, 2),
+            "Лимит Армии": round(self.max_army_limit, 2)
         })
 
         # Рассчитываем чистую прибыль (разница после *всех* изменений)
@@ -1179,14 +1255,13 @@ class Faction:
         # Обновляем средние значения чистой прибыли в таблице results
         self.update_average_net_profit(net_profit_coins, net_profit_raw)
         self.calculate_and_deduct_consumption()
-        # Сохраняем обновленные ресурсы в базу данных
+        # Синхронизируем и сохраняем
+        self._sync_resources()
         self.save_resources_to_db()
 
         print(f"Ресурсы обновлены: {self.resources}, Больницы: {self.hospitals}, Фабрики: {self.factories}")
 
-        # Профит от бонусов - теперь вызывается *после* всех расчетов ресурсов
-        # Внутри apply_player_bonuses используется self.food_info (базовый прирост) для расчета бонуса "Борьба"
-        self.apply_player_bonuses()  # Вызываем здесь, после обновления ресурсов
+        # apply_player_bonuses вызывается из game_process.py после update_resources()
 
         # profit_details для UI может включать базовую прибыль и бонусы, если нужно отображать отдельно.
         # В текущем виде, profit_details отражает чистое изменение ресурса за ход до бонусов UI.
@@ -1284,6 +1359,7 @@ class Faction:
                   AND (d.relationship IS NULL OR d.relationship != 'уничтожена')  -- неуничтоженные или без статуса
                   AND r.faction2 != r.faction1        -- исключаем саму себя
                   AND r.faction2 != 'Мятежники'       -- исключаем Мятежников
+                  AND r.faction2 != 'Нежить'          -- исключаем Нежить
             ''', (self.faction,))
             rows = self.cursor.fetchall()
 
@@ -1312,13 +1388,14 @@ class Faction:
         try:
             # Используем JOIN для проверки статуса фракции [[6]]
             self.cursor.execute('''
-                SELECT DISTINCT r.faction2 
+                SELECT DISTINCT r.faction2
                 FROM relations r
-                LEFT JOIN diplomacies f ON r.faction2 = f.faction2 
+                LEFT JOIN diplomacies f ON r.faction2 = f.faction2
                 WHERE r.faction1 = ?
-                  AND f.relationship != 'уничтожена'  -- фильтруем уничтоженные [[2]]
+                  AND f.relationship != 'уничтожена'  -- фильтруем уничтоженные
                   AND r.faction2 != r.faction1   -- исключаем текущую фракцию
                   AND r.faction2 != 'Мятежники'      -- исключаем Мятежников
+                  AND r.faction2 != 'Нежить'         -- исключаем Нежить
             ''', (self.faction,))
 
             rows = self.cursor.fetchall()
@@ -1478,44 +1555,59 @@ class Faction:
         # Обновляем значение последнего загруженного хода
         self.last_turn_loaded = current_turn
 
+    def _sync_resources(self):
+        """Синхронизирует self.resources dict с внутренними полями и обновляет UI."""
+        # Принудительные лимиты перед синхронизацией
+        self.money = max(min(self.money, 10_000_000), 0)
+        self.raw_material = max(min(self.raw_material, 10_000_000), 0)
+        self.population = max(min(self.population, 100_000_000), 0)
+        self.free_peoples = max(min(self.free_peoples, 500_000), 0)
+
+        self.resources['Кроны'] = self.money
+        self.resources['Рабочие'] = self.free_peoples
+        self.resources['Кристаллы'] = self.raw_material
+        self.resources['Население'] = self.population
+        self.resources['Потребление'] = self.current_consumption
+        self.resources['Лимит Армии'] = self.max_army_limit
+        # Моментальное обновление UI
+        if self._on_resources_changed:
+            try:
+                self._on_resources_changed()
+            except Exception:
+                pass
+
     def trade_raw_material(self, action, quantity):
         """
-        Торговля Кристаллым через таблицу resources.
+        Торговля Кристаллами через таблицу resources.
         :param action: Действие ('buy' для покупки, 'sell' для продажи).
         :param quantity: Количество лотов (1 лот = 100 единиц Кристаллы).
         """
-        # Преобразуем количество лотов в единицы Кристаллы
         total_quantity = quantity * 100
-        # ✅ Округляем стоимость до 2 знаков после запятой
         total_cost = round(self.current_raw_material_price * quantity, 2)
 
-        if action == 'buy':  # Покупка Кристаллы
-            # Проверяем, достаточно ли денег для покупки
+        if action == 'buy':
             if self.money >= total_cost:
-                # Обновляем ресурсы
                 self.money -= total_cost
                 self.raw_material += total_quantity
-                # Сохраняем изменения в базе данных
+                self._sync_resources()
                 self.save_resources_to_db()
-                return True  # Операция успешна
+                return True
             else:
-                show_message("Недостаточно денег", "У вас недостаточно денег для покупки Кристаллы.")
+                show_message("Недостаточно денег", "У вас недостаточно денег для покупки Кристаллов.")
                 return False
 
-        elif action == 'sell':  # Продажа Кристаллы
-            # Проверяем, достаточно ли Кристаллы для продажи
+        elif action == 'sell':
             if self.raw_material >= total_quantity:
-                # Обновляем ресурсы
                 self.money += total_cost
                 self.raw_material -= total_quantity
-                # Сохраняем изменения в базе данных
+                self._sync_resources()
                 self.save_resources_to_db()
-                return True  # Операция успешна
+                return True
             else:
-                show_message("Недостаточно Кристаллы", "У вас недостаточно Кристаллы для продажи.")
+                show_message("Недостаточно Кристаллов", "У вас недостаточно Кристаллов для продажи.")
                 return False
 
-        return False  # Операция не удалась
+        return False
 
     def get_raw_material_price_history(self):
         """Получение табличного представления истории цен на Кристаллы"""
@@ -1530,63 +1622,7 @@ class Faction:
         return self.raw_material // 100
 
 
-def show_message(title, message):
-    # === Оценка высоты текста ===
-    lines = message.count('\n') + 1
-    text_height = max(dp(100), dp(lines * 25))  # минимум 100dp, дальше по строкам
-    popup_height = text_height + dp(110)  # + кнопка и отступы
-
-    # === Стилизованный Label с переносом текста и выравниванием по центру ===
-    label = Label(
-        text=message,
-        size_hint_y=None,
-        height=text_height,
-        text_size=(None, None),
-        halign='center',
-        valign='middle',
-        font_size='16sp',
-        padding=(dp(10), dp(10))
-    )
-
-    # Обновляем текстуру после изменения размера
-    def update_label_width(instance, width):
-        instance.text_size = (instance.width * 0.9, None)
-        instance.texture_update()
-
-    label.bind(width=update_label_width)
-
-    # === Кнопка "Закрыть" с минимальной высотой и стилем ===
-    close_btn = Button(
-        text="Закрыть",
-        size_hint=(1, None),
-        height=dp(48),
-        background_color=(0.2, 0.6, 0.8, 1),
-        background_normal='',
-        font_size='16sp'
-    )
-
-    # === Основной макет ===
-    layout = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(10))
-    layout.add_widget(label)
-    layout.add_widget(close_btn)
-
-    # === Всплывающее окно ===
-    popup = Popup(
-        title=title,
-        content=layout,
-        size_hint=(0.7, None),
-        height=popup_height,
-        auto_dismiss=False
-    )
-    close_btn.bind(on_release=popup.dismiss)
-
-    popup.open()
-
-
-# Логика для отображения сообщения об ошибке средств
-def show_error_message(message):
-    error_popup = Popup(title="Ошибка", content=Label(text=message), size_hint=(0.5, 0.5))
-    error_popup.open()
+from ui_components import show_message, show_error_message
 
 
 def open_build_popup(faction):
@@ -1929,10 +1965,15 @@ def open_trade_popup(game_instance):
 
         val = int(value)
         if val > 0:
-            trade_info_label.text = f"Купить {val} лотов"
+            crystals_gain = val * 100
+            cost = int(val * current_price)
+            trade_info_label.text = f"Купить {format_number(crystals_gain)} кристаллов за {format_number(cost)} крон"
             trade_info_label.color = (0, 1, 0, 1)
         elif val < 0:
-            trade_info_label.text = f"Продать: {abs(val)} лотов"
+            lots = abs(val)
+            crystals_spent = lots * 100
+            income = int(lots * current_price)
+            trade_info_label.text = f"Продать {format_number(crystals_spent)} кристаллов за {format_number(income)} крон"
             trade_info_label.color = (1, 0, 0, 1)
         else:
             trade_info_label.text = "Нет операции"
@@ -1947,8 +1988,10 @@ def open_trade_popup(game_instance):
         if value:
             # Активирована продажа всех лотов
             trade_slider.disabled = True
-            trade_slider.value = -max_sell_lots  # Устанавливаем на максимум продажи
-            trade_info_label.text = f"Продать ВСЁ: {max_sell_lots} лотов"
+            trade_slider.value = -max_sell_lots
+            crystals_spent = max_sell_lots * 100
+            income = int(max_sell_lots * current_price)
+            trade_info_label.text = f"Продать ВСЁ: {format_number(crystals_spent)} кристаллов за {format_number(income)} крон"
             trade_info_label.color = (1, 0, 0, 1)
             buy_btn.disabled = True
             sell_btn.disabled = False
