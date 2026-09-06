@@ -1422,35 +1422,35 @@ class Faction:
 
     def check_all_relations_high(self):
         """
-        Проверяет, превышают ли все отношения текущей фракции с НЕУНИЧТОЖЕННЫМИ фракциями 93%.
-        Мятежники исключаются из проверки.
-        :return: True, если все активные отношения > 93% или если других фракций нет, иначе False.
+        Проверяет, превышают ли все отношения с ЖИВЫМИ фракциями (имеющими города) 93%.
+        :return: True, если все отношения > 93% или живых фракций нет, иначе False.
         """
         try:
-            # Используем LEFT JOIN, чтобы включить фракции без статуса
-            self.cursor.execute('''
-                SELECT r.faction2, r.relationship, d.relationship AS diplomacy_status
-                FROM relations r
-                LEFT JOIN diplomacies d ON r.faction2 = d.faction2
-                WHERE r.faction1 = ?
-                  AND (d.relationship IS NULL OR d.relationship != 'уничтожена')  -- неуничтоженные или без статуса
-                  AND r.faction2 != r.faction1        -- исключаем саму себя
-                  AND r.faction2 != 'Мятежники'       -- исключаем Мятежников
-                  AND r.faction2 != 'Нежить'          -- исключаем Нежить
-            ''', (self.faction,))
-            rows = self.cursor.fetchall()
+            # Получаем живые фракции (имеющие хотя бы 1 город)
+            self.cursor.execute("""
+                SELECT DISTINCT faction FROM cities
+                WHERE faction != 'Нейтрал' AND faction != ? AND faction != 'Мятежники' AND faction != 'Нежить'
+            """, (self.faction,))
+            alive_factions = [row[0] for row in self.cursor.fetchall()]
 
-            if not rows:
-                print("Нет активных фракций для проверки отношений. Условие выполнено.")
-                return True  # Если других фракций нет, условие выполнено
+            if not alive_factions:
+                print("Нет живых фракций для проверки. Условие 'Мир во всём мире' выполнено.")
+                return True
 
-            # Проверяем каждое отношение
-            for faction2, relationship, diplomacy_status in rows:
-                if int(relationship) <= 93:
-                    print(f"Отношение с {faction2} <= 93% ({relationship}%)")
-                    return False  # Если хотя бы одно отношение <= 93, игра не завершается
+            # Проверяем отношения с каждой живой фракцией
+            for other_faction in alive_factions:
+                self.cursor.execute("""
+                    SELECT relationship FROM relations
+                    WHERE faction1 = ? AND faction2 = ?
+                """, (self.faction, other_faction))
+                row = self.cursor.fetchone()
+                relation = int(row[0]) if row else 0
 
-            print("Все активные отношения > 93%. Условие завершения игры выполнено.")
+                if relation <= 93:
+                    print(f"Отношение с {other_faction} = {relation}% (<= 93%)")
+                    return False
+
+            print(f"Все отношения > 93% с {len(alive_factions)} фракциями. Мир во всём мире!")
             return True
 
         except sqlite3.Error as e:
@@ -1459,27 +1459,18 @@ class Faction:
 
     def check_remaining_factions(self):
         """
-        Проверяет, остались ли активные фракции (не уничтоженные и не 'Мятежники') в таблице relations.
-        :return: True, если есть активные фракции, кроме Мятежников, False, если все (кроме Мятежников) уничтожены/отсутствуют.
+        Проверяет, остались ли живые фракции (имеющие хотя бы 1 город).
+        :return: True если есть живые фракции, False если все уничтожены.
         """
         try:
-            # Используем JOIN для проверки статуса фракции [[6]]
-            self.cursor.execute('''
-                SELECT DISTINCT r.faction2
-                FROM relations r
-                LEFT JOIN diplomacies f ON r.faction2 = f.faction2
-                WHERE r.faction1 = ?
-                  AND f.relationship != 'уничтожена'  -- фильтруем уничтоженные
-                  AND r.faction2 != r.faction1   -- исключаем текущую фракцию
-                  AND r.faction2 != 'Мятежники'      -- исключаем Мятежников
-                  AND r.faction2 != 'Нежить'         -- исключаем Нежить
-            ''', (self.faction,))
-
-            rows = self.cursor.fetchall()
-            remaining_factions = {faction2 for (faction2,) in rows}
+            self.cursor.execute("""
+                SELECT DISTINCT faction FROM cities
+                WHERE faction != 'Нейтрал' AND faction != ? AND faction != 'Мятежники' AND faction != 'Нежить'
+            """, (self.faction,))
+            remaining_factions = [row[0] for row in self.cursor.fetchall()]
 
             if not remaining_factions:
-                print("Все фракции уничтожены или отсутствуют.")
+                print("Все фракции уничтожены (0 городов).")
                 return False
 
             return True
