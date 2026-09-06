@@ -957,6 +957,231 @@ def show_diplomacy_window(faction, conn):
 
 
 #------------------------------------------------------------------
+def show_faction_bonuses_popup(conn, faction):
+    """Показывает попап с подробной информацией о бонусах фракции в цифрах."""
+    from kivy.uix.popup import Popup
+    from kivy.metrics import dp, sp
+    from kivy.graphics import Color, RoundedRectangle, Rectangle
+
+    cursor = conn.cursor()
+
+    # === Собираем данные ===
+    # Здания
+    cursor.execute("SELECT building_type, SUM(count) FROM buildings WHERE faction = ? GROUP BY building_type", (faction,))
+    buildings = {row[0]: row[1] for row in cursor.fetchall()}
+    walls = buildings.get('Стена', 0)
+    markets = buildings.get('Рынок', 0)
+    smithies = buildings.get('Кузница', 0)
+    towers = buildings.get('Вышка', 0)
+
+    # Базовый урон юнитов 1 класса
+    cursor.execute("SELECT unit_name, attack FROM units WHERE faction = ? AND unit_class = '1' LIMIT 1", (faction,))
+    unit_row = cursor.fetchone()
+    base_unit_atk = unit_row[1] if unit_row else 0
+    unit_name = unit_row[0] if unit_row else "—"
+
+    # Герои — суммарный бонус от героев 2-3 класса
+    cursor.execute("""
+        SELECT SUM(u.attack) FROM garrisons g
+        JOIN units u ON g.unit_name = u.unit_name
+        WHERE u.faction = ? AND u.unit_class IN ('2', '3')
+    """, (faction,))
+    hero_atk_bonus = cursor.fetchone()[0] or 0
+
+    # Итоговый урон юнита с героем
+    total_unit_atk = base_unit_atk + hero_atk_bonus
+
+    # Сезон
+    cursor.execute("SELECT season_index FROM season LIMIT 1")
+    season_row = cursor.fetchone()
+    season_idx = season_row[0] if season_row else 0
+    season_names = {0: "Зима", 1: "Весна", 2: "Лето", 3: "Осень"}
+
+    # Количество советников с бонусом
+    try:
+        cursor.execute("SELECT COUNT(*) FROM nobles WHERE status = 'active' AND loyalty > 50")
+        loyal_nobles = cursor.fetchone()[0]
+    except Exception:
+        loyal_nobles = 0
+
+    # === Формируем строки бонусов ===
+    FACTION_DATA = {
+        'Север': {
+            'name': 'Шквал',
+            'desc': 'Если бонусы увеличили урон в 5+ раз → ещё +60%',
+            'color': (0.25, 0.52, 0.92, 1),
+            'calc': lambda: _calc_shkval(base_unit_atk, total_unit_atk),
+        },
+        'Эльфы': {
+            'name': 'Лесная хитрость',
+            'desc': '+10% инициатива всех юнитов в бою',
+            'color': (0.22, 0.76, 0.32, 1),
+            'calc': lambda: [("Бонус инициативы", "+10%", "Всегда активен")],
+        },
+        'Вампиры': {
+            'name': 'Вампиризм',
+            'desc': '5% убитых врагов воскресают как ваши юниты',
+            'color': (0.78, 0.10, 0.16, 1),
+            'calc': lambda: [("Воскрешение врагов", "5%", "После каждого боя")],
+        },
+        'Адепты': {
+            'name': 'Святое благословение',
+            'desc': '+20% защита при обороне своих городов',
+            'color': (0.62, 0.22, 0.88, 1),
+            'calc': lambda: [("Бонус защиты (оборона)", "+20%", "При защите городов")],
+        },
+        'Элины': {
+            'name': 'Торговая империя',
+            'desc': '+15% доход крон (стакается с Рынком)',
+            'color': (0.92, 0.70, 0.10, 1),
+            'calc': lambda: [("Бонус торговли", f"+{15 + markets * 10}%", f"15% фракция + {markets * 10}% от {markets} рынков")],
+        },
+    }
+
+    def _calc_shkval(base, total):
+        ratio = total / base if base > 0 else 0
+        active = ratio >= 5.0
+        bonus_dmg = int(total * 0.60) if active else 0
+        status = f"[color=00ff00]АКТИВЕН (+{bonus_dmg} урона)[/color]" if active else f"[color=ff8800]Не активен (x{ratio:.1f}, нужно x5.0)[/color]"
+        return [
+            ("Базовый урон", str(base_unit_atk), unit_name),
+            ("Бонус от героев", f"+{hero_atk_bonus}", f"Итого: {total}"),
+            ("Множитель", f"x{ratio:.1f}", f"Нужно x5.0"),
+            ("Шквал", f"+{bonus_dmg}" if active else "—", status),
+        ]
+
+    faction_info = FACTION_DATA.get(faction)
+    if not faction_info:
+        return
+
+    bonus_rows = faction_info['calc']()
+
+    # === UI ===
+    content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(12))
+    with content.canvas.before:
+        Color(0.07, 0.08, 0.13, 1)
+        content._bg = Rectangle(pos=content.pos, size=content.size)
+    content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                 size=lambda i, v: setattr(i._bg, 'size', v))
+
+    # Заголовок способности
+    accent = faction_info['color']
+    title = Label(
+        text=f"[b]{faction_info['name']}[/b]", markup=True,
+        font_size=sp(18), color=accent,
+        size_hint_y=None, height=dp(30), halign='center', valign='middle'
+    )
+    title.bind(size=title.setter('text_size'))
+    content.add_widget(title)
+
+    desc = Label(
+        text=faction_info['desc'], font_size=sp(13),
+        color=(0.7, 0.7, 0.7, 1), size_hint_y=None, height=dp(22),
+        halign='center', valign='middle'
+    )
+    desc.bind(size=desc.setter('text_size'))
+    content.add_widget(desc)
+
+    # Разделитель
+    sep = Widget(size_hint_y=None, height=dp(1))
+    with sep.canvas:
+        Color(*accent[:3], 0.4)
+        sep._r = Rectangle(pos=sep.pos, size=sep.size)
+    sep.bind(pos=lambda i, v: setattr(i._r, 'pos', v), size=lambda i, v: setattr(i._r, 'size', v))
+    content.add_widget(sep)
+
+    # Строки бонусов
+    for label_text, value_text, detail_text in bonus_rows:
+        row = BoxLayout(size_hint_y=None, height=dp(28), spacing=dp(4))
+        lbl = Label(text=label_text, font_size=sp(13), color=(0.85, 0.85, 0.85, 1),
+                    halign='left', valign='middle', size_hint_x=0.35)
+        lbl.bind(size=lbl.setter('text_size'))
+        val = Label(text=f"[b]{value_text}[/b]", markup=True, font_size=sp(14),
+                    color=accent, halign='center', valign='middle', size_hint_x=0.2)
+        val.bind(size=val.setter('text_size'))
+        det = Label(text=detail_text, markup=True, font_size=sp(11),
+                    color=(0.6, 0.6, 0.6, 1), halign='left', valign='middle', size_hint_x=0.45)
+        det.bind(size=det.setter('text_size'))
+        row.add_widget(lbl)
+        row.add_widget(val)
+        row.add_widget(det)
+        content.add_widget(row)
+
+    # Разделитель
+    sep2 = Widget(size_hint_y=None, height=dp(1))
+    with sep2.canvas:
+        Color(0.3, 0.3, 0.3, 0.3)
+        sep2._r = Rectangle(pos=sep2.pos, size=sep2.size)
+    sep2.bind(pos=lambda i, v: setattr(i._r, 'pos', v), size=lambda i, v: setattr(i._r, 'size', v))
+    content.add_widget(sep2)
+
+    # Общие бонусы от зданий
+    building_bonuses = [
+        ("Стены", walls, f"+{walls * 15}% защита гарнизона"),
+        ("Рынки", markets, f"+{markets * 10}% доход крон"),
+        ("Кузницы", smithies, f"+{smithies * 5}% атака обороны"),
+        ("Вышки", towers, f"+{towers * 500} лимит армии"),
+        ("Советники", loyal_nobles, f"Лояльные (>50%) дают бонусы"),
+    ]
+
+    bld_title = Label(
+        text="[b]Бонусы от зданий и советников[/b]", markup=True,
+        font_size=sp(14), color=(0.85, 0.75, 0.4, 1),
+        size_hint_y=None, height=dp(24), halign='left', valign='middle'
+    )
+    bld_title.bind(size=bld_title.setter('text_size'))
+    content.add_widget(bld_title)
+
+    for name, count, effect in building_bonuses:
+        if count == 0:
+            continue
+        row = BoxLayout(size_hint_y=None, height=dp(24), spacing=dp(4))
+        n_lbl = Label(text=f"{name}: {count}", font_size=sp(12),
+                      color=(0.8, 0.8, 0.8, 1), halign='left', size_hint_x=0.4)
+        n_lbl.bind(size=n_lbl.setter('text_size'))
+        e_lbl = Label(text=effect, font_size=sp(12),
+                      color=(0.6, 0.85, 0.5, 1), halign='left', size_hint_x=0.6)
+        e_lbl.bind(size=e_lbl.setter('text_size'))
+        row.add_widget(n_lbl)
+        row.add_widget(e_lbl)
+        content.add_widget(row)
+
+    # Сезон
+    season_lbl = Label(
+        text=f"Сезон: {season_names.get(season_idx, '?')}", font_size=sp(12),
+        color=(0.5, 0.7, 0.9, 1), size_hint_y=None, height=dp(20),
+        halign='center', valign='middle'
+    )
+    season_lbl.bind(size=season_lbl.setter('text_size'))
+    content.add_widget(season_lbl)
+
+    # Кнопка закрыть
+    close_btn = Button(
+        text="Закрыть", size_hint_y=None, height=dp(44), font_size=sp(14), bold=True,
+        background_color=(0, 0, 0, 0), background_normal='', color=(1, 1, 1, 1)
+    )
+    with close_btn.canvas.before:
+        Color(0.5, 0.2, 0.2, 1)
+        close_btn._r = RoundedRectangle(pos=close_btn.pos, size=close_btn.size, radius=[dp(10)])
+    close_btn.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
+                   size=lambda i, v: setattr(i._r, 'size', v))
+
+    popup = Popup(
+        title=f"Бонусы — {faction}",
+        content=content,
+        size_hint=(0.7, 0.75),
+        auto_dismiss=False,
+        background_color=(0.07, 0.08, 0.13, 1),
+        separator_color=accent[:3] + (0.7,),
+        title_color=accent,
+        title_size=sp(16),
+        title_align='center'
+    )
+    close_btn.bind(on_release=lambda x: popup.dismiss())
+    content.add_widget(close_btn)
+    popup.open()
+
+
 def start_politic_mode(faction, game_area, class_faction, conn):
     """Инициализация политического режима для выбранной фракции"""
 
@@ -1007,10 +1232,12 @@ def start_politic_mode(faction, game_area, class_faction, conn):
     btn_diplomacy = styled_btn("Отношения", lambda btn: show_diplomacy_window(faction, conn))
     btn_nobles = styled_btn("Совет", lambda btn: show_nobles_window(conn, faction, class_faction))
     btn_diversion = styled_btn("Диверсия", lambda btn: show_diversion_window(conn, faction, class_faction))
+    btn_bonuses = styled_btn("Бонусы", lambda btn: show_faction_bonuses_popup(conn, faction))
 
     politics_layout.add_widget(btn_army)
     politics_layout.add_widget(btn_diplomacy)
     politics_layout.add_widget(btn_nobles)
     politics_layout.add_widget(btn_diversion)
+    politics_layout.add_widget(btn_bonuses)
 
     game_area.add_widget(politics_layout)
