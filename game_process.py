@@ -1410,9 +1410,8 @@ class GameScreen(Screen):
         self._prev_star_levels = None
         self.update_army_rating()
 
-        # Генерация случайных событий
-        self.event_now = random.randint(1, 100)
-        if self.turn_counter % self.event_now == 0:
+        # Генерация событий каждые 3-5 ходов
+        if self.turn_counter % random.randint(3, 5) == 0:
             print("Генерация события...")
             self.event_manager.generate_event(self.turn_counter)
         # === ПРОВЕРКА НОВЫХ ОБЪЯВЛЕНИЙ ВОЙНЫ ===

@@ -475,90 +475,106 @@ class EventManager:
 
     def show_temporary_build(self, description, event_type):
         """
-        Отображает бегущую строку: появляется Label с черным фоном на всю ширину,
-        по которому скользит текст события целиком, не обрезаясь.
-        Label исчезает только после того, как текст полностью выйдет за левый край.
+        Стильная бегущая строка с градиентным фоном, иконкой типа и плавной анимацией.
         """
-
-        # Проверяем, есть ли уже активная бегущая строка
         if hasattr(self, '_running_marquee') and self._running_marquee:
-            Clock.schedule_once(lambda dt: self.show_temporary_build(description, event_type), 1)
+            Clock.schedule_once(lambda dt: self.show_temporary_build(description, event_type), 2)
             return
 
-        # === Цвет текста в зависимости от типа события ===
-        if event_type == "passive":
-            text_color = (1, 1, 1, 1)  # Белый
-        elif event_type == "sequences":
-            text_color = (0.5, 0.8, 1, 1)  # Светло-синий
-        else:
-            text_color = (1, 1, 1, 1)
+        # Стили по типу события
+        styles = {
+            'passive':   {'color': (0.9, 0.9, 0.9, 1),   'bg': (0.08, 0.10, 0.18, 0.85), 'accent': (0.3, 0.5, 0.7, 1),  'icon': '📜'},
+            'active':    {'color': (1.0, 0.95, 0.7, 1),   'bg': (0.15, 0.12, 0.05, 0.85), 'accent': (0.85, 0.7, 0.3, 1), 'icon': '⚔'},
+            'sequences': {'color': (0.7, 0.9, 1.0, 1),    'bg': (0.05, 0.08, 0.15, 0.85), 'accent': (0.3, 0.6, 0.9, 1),  'icon': '🔮'},
+        }
+        style = styles.get(event_type, styles['passive'])
 
-        font_size = get_adaptive_font_size(min_size=14, max_size=20)
-
-        # === Ширина контейнера — вся доступная область между панелью и правым краем экрана ===
-        mode_panel_width = dp(90)  # ширина панели с кнопками режимов
+        font_size = get_adaptive_font_size(min_size=14, max_size=18)
         screen_width = Window.width
-        label_height = dp(36)
-        start_y = Window.height * 0.15  # ~15% от низа экрана
+        bar_height = dp(42)
+        start_y = Window.height * 0.13
 
-        # Создаем Label с полной длиной текста
+        # Текст с иконкой
+        display_text = f"  {style['icon']}  {description}  "
+
+        # Измеряем ширину текста
         build_label = Label(
-            text=description,
-            font_size=font_size,
-            color=text_color,
-            halign="left",
-            valign="middle",
-            size_hint=(None, None),
-            height=label_height,
-            width=screen_width - mode_panel_width * 2,
-            text_size=(None, label_height),
-            shorten=False,
-            markup=True
+            text=display_text, font_size=font_size, markup=True,
+            size_hint=(None, None), height=bar_height,
+            text_size=(None, bar_height), shorten=False
         )
         build_label.texture_update()
-        text_width = build_label.texture_size[0] + dp(20)
+        text_width = build_label.texture_size[0] + dp(40)
 
-        # === Контейнер для Label (начинается за правым краем экрана) ===
-        container_width = screen_width - mode_panel_width * 2
-        container = BoxLayout(
-            orientation='horizontal',
+        # Контейнер
+        from kivy.uix.floatlayout import FloatLayout
+        container = FloatLayout(
             size_hint=(None, None),
-            size=(text_width, label_height),
+            size=(text_width, bar_height),
             pos=(screen_width, start_y)
         )
 
-        # === Устанавливаем Label в контейнер и выравниваем по левому краю ===
-        build_label.pos = (0, 0)
-        build_label.size = (text_width, label_height)
-        container.add_widget(build_label)
-
-        # === Черный фон с прозрачностью вокруг контейнера ===
+        # Фон с градиентом (основной + акцентная полоса сверху)
+        bg_color = style['bg']
+        accent_color = style['accent']
         with container.canvas.before:
-            Color(0, 0, 0, 0.7)
-            container.rect = Rectangle(pos=container.pos, size=container.size)
+            # Основной фон
+            Color(*bg_color)
+            container._bg = RoundedRectangle(
+                pos=container.pos, size=container.size, radius=[dp(6)]
+            )
+            # Акцентная полоска снизу
+            Color(*accent_color[:3], 0.7)
+            container._accent = Rectangle(
+                pos=(container.x, container.y),
+                size=(container.width, dp(2))
+            )
+            # Акцентная полоска сверху
+            Color(*accent_color[:3], 0.4)
+            container._accent_top = Rectangle(
+                pos=(container.x, container.y + bar_height - dp(2)),
+                size=(container.width, dp(2))
+            )
 
-        def update_rect(instance, value):
-            instance.rect.pos = instance.pos
-            instance.rect.size = instance.size
+        def update_bg(inst, val):
+            inst._bg.pos = inst.pos
+            inst._bg.size = inst.size
+            inst._accent.pos = (inst.x, inst.y)
+            inst._accent.size = (inst.width, dp(2))
+            inst._accent_top.pos = (inst.x, inst.y + bar_height - dp(2))
+            inst._accent_top.size = (inst.width, dp(2))
 
-        container.bind(pos=update_rect, size=update_rect)
+        container.bind(pos=update_bg, size=update_bg)
 
-        # Добавляем контейнер на экран
+        # Текст
+        text_label = Label(
+            text=display_text, font_size=font_size,
+            color=style['color'], markup=True,
+            size_hint=(1, 1), halign='left', valign='middle',
+            text_size=(text_width, bar_height),
+            bold=True
+        )
+        container.add_widget(text_label)
+
         self.game_screen.add_widget(container)
 
-        # === Анимация движения текста внутри контейнера ===
-        move_distance = text_width + container_width  # полное перемещение текста через контейнер
-        duration = move_distance / dp(180)  # скорость движения (можно регулировать)
+        # Анимация: появление + движение + исчезновение
+        total_distance = text_width + screen_width
+        duration = total_distance / dp(160)
 
-        # === Анимация всего контейнера ===
-        anim_container = Animation(pos=(-text_width, start_y), duration=duration, t='linear')
+        # Плавное появление
+        container.opacity = 0
+        anim_fade_in = Animation(opacity=1, duration=0.3)
+        anim_move = Animation(pos=(-text_width, start_y), duration=duration, t='linear')
+        anim = anim_fade_in + anim_move
 
-        # === Привязка завершения анимации ===
-        def on_animation_complete(*args):
-            self.game_screen.remove_widget(container)
+        def on_complete(*args):
+            try:
+                self.game_screen.remove_widget(container)
+            except Exception:
+                pass
             self._running_marquee = False
 
-        # Запуск анимации
         self._running_marquee = True
-        anim_container.bind(on_complete=on_animation_complete)
-        anim_container.start(container)
+        anim.bind(on_complete=on_complete)
+        anim.start(container)
