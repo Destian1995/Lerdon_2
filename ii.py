@@ -1525,6 +1525,8 @@ class AIController:
             self.total_consumption = self.resources['Текущее потребление']
             # Потребление армии
             self.calculate_and_deduct_consumption()
+            # Потери гарнизонов в отрезанных от снабжения городах
+            self._apply_supply_line_losses()
             self.save_resources_to_db()
             print(f"Ресурсы обновлены: {self.resources}, Больницы: {self.hospitals}, Фабрики: {self.factories}")
 
@@ -2269,6 +2271,40 @@ class AIController:
         except Exception as e:
             print(f"[ERROR] _get_reachable_own_cities: {e}")
             return {start_city}
+
+    def _apply_supply_line_losses(self):
+        """Гарнизоны в городах вне основной территории теряют 10% юнитов/ход."""
+        try:
+            supplied = self._get_main_territory_cities()
+            self.cursor.execute("SELECT name FROM cities WHERE faction = ?", (self.faction,))
+            all_cities = {r[0] for r in self.cursor.fetchall()}
+            cut_off = all_cities - supplied
+            if not cut_off:
+                return
+            for city_name in cut_off:
+                self.cursor.execute("""
+                    SELECT g.unit_name, g.unit_count, COALESCE(u.unit_class, '1')
+                    FROM garrisons g
+                    LEFT JOIN units u ON g.unit_name = u.unit_name
+                    WHERE g.city_name = ?
+                """, (city_name,))
+                for unit_name, unit_count, unit_class in self.cursor.fetchall():
+                    if str(unit_class) != '1' or unit_count <= 0:
+                        continue
+                    loss = max(1, int(unit_count * 0.10))
+                    new_count = unit_count - loss
+                    if new_count <= 0:
+                        self.cursor.execute(
+                            "DELETE FROM garrisons WHERE city_name = ? AND unit_name = ?",
+                            (city_name, unit_name))
+                    else:
+                        self.cursor.execute(
+                            "UPDATE garrisons SET unit_count = ? WHERE city_name = ? AND unit_name = ?",
+                            (new_count, city_name, unit_name))
+                    print(f"[Снабжение AI] {self.faction}/{city_name}: -{loss} {unit_name}")
+            self.db_connection.commit()
+        except Exception as e:
+            print(f"[Снабжение AI] Ошибка: {e}")
 
     def _get_main_territory_cities(self):
         """

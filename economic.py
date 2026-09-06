@@ -178,6 +178,50 @@ class Faction:
             except Exception:
                 return set()
 
+    def _apply_supply_line_losses(self):
+        """
+        Гарнизоны в городах, отрезанных от снабжения, теряют 10% юнитов каждый ход.
+        Герои (классы 2+) не погибают от голода.
+        """
+        try:
+            supplied = self._get_supplied_cities()
+            self.cursor.execute("SELECT name FROM cities WHERE faction = ?", (self.faction,))
+            all_cities = {r[0] for r in self.cursor.fetchall()}
+            cut_off = all_cities - supplied
+
+            if not cut_off:
+                return
+
+            for city_name in cut_off:
+                self.cursor.execute("""
+                    SELECT g.unit_name, g.unit_count, COALESCE(u.unit_class, '1')
+                    FROM garrisons g
+                    LEFT JOIN units u ON g.unit_name = u.unit_name
+                    WHERE g.city_name = ?
+                """, (city_name,))
+                units = self.cursor.fetchall()
+
+                for unit_name, unit_count, unit_class in units:
+                    if str(unit_class) != '1' or unit_count <= 0:
+                        continue
+                    loss = max(1, int(unit_count * 0.10))
+                    new_count = unit_count - loss
+                    if new_count <= 0:
+                        self.cursor.execute(
+                            "DELETE FROM garrisons WHERE city_name = ? AND unit_name = ?",
+                            (city_name, unit_name)
+                        )
+                    else:
+                        self.cursor.execute(
+                            "UPDATE garrisons SET unit_count = ? WHERE city_name = ? AND unit_name = ?",
+                            (new_count, city_name, unit_name)
+                        )
+                    print(f"[Снабжение] {city_name}: {unit_name} потерял {loss} из-за отсутствия снабжения")
+
+            self.conn.commit()
+        except Exception as e:
+            print(f"[Снабжение] Ошибка: {e}")
+
     def load_resources(self):
         """Загружает ресурсы из таблицы resources."""
         rows = self.load_data("resources", ["resource_type", "amount"], "faction = ?", (self.faction,))
@@ -1283,6 +1327,8 @@ class Faction:
         # Обновляем средние значения чистой прибыли в таблице results
         self.update_average_net_profit(net_profit_coins, net_profit_raw)
         self.calculate_and_deduct_consumption()
+        # Потери гарнизонов в отрезанных от снабжения городах
+        self._apply_supply_line_losses()
         # Синхронизируем и сохраняем
         self._sync_resources()
         self.save_resources_to_db()
