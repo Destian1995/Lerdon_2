@@ -21,11 +21,11 @@ import sqlite3
 INVASION_TURN_MIN = 22
 INVASION_TURN_MAX = 26
 
-# Начальная армия нежити
-UNDEAD_INITIAL_ARMY = 75000
+# Начальная армия нежити — 250к разово
+UNDEAD_INITIAL_ARMY = 250000
 
-# Подкрепления за первые 3 хода: (250000 - 75000) / 3 ≈ 58333 за ход
-UNDEAD_SURGE_TURNS = 3
+# Набор отключён (вся армия спавнится сразу)
+UNDEAD_SURGE_TURNS = 0
 UNDEAD_SURGE_TARGET = 250000
 # Обычные подкрепления после набора
 UNDEAD_REINFORCEMENTS_MIN = 2000
@@ -224,7 +224,7 @@ def check_and_trigger_invasion(conn, current_turn, player_faction):
     invasion_message = (
         f"ПРИХОД МОРА!\n\n"
         f"Из древнего некрополя восстала армия мёртвых!\n"
-        f"{KING_OF_DEAD_NAME} ведёт 75 000 призраков.\n\n"
+        f"{KING_OF_DEAD_NAME} ведёт 250 000 призраков.\n\n"
         f"Город {chosen_city_name} захвачен нежитью.\n"
         f"Мор распространяется — армия мёртвых будет расти!"
     )
