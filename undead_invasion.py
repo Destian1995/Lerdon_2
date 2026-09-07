@@ -339,12 +339,19 @@ def _respawn_king_if_dead(cursor):
     else:
         respawn_city = best[0]
 
+    # Царь возрождается с 10 000 призраков
     cursor.execute("""
         INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
         VALUES (?, ?, 1, ?)
     """, (respawn_city, KING_OF_DEAD_NAME, 'files/army/death/king_.png'))
+    cursor.execute("""
+        INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+        VALUES (?, ?, 10000, ?)
+        ON CONFLICT(city_name, unit_name) DO UPDATE SET
+            unit_count = unit_count + 10000
+    """, (respawn_city, UNDEAD_UNIT_NAME, 'files/army/death/solder.png'))
 
-    print(f"[UNDEAD] {KING_OF_DEAD_NAME} возродился в {respawn_city}!")
+    print(f"[UNDEAD] {KING_OF_DEAD_NAME} возродился в {respawn_city} с 10 000 призраков!")
 
 
 def process_undead_turn(conn, current_turn):
