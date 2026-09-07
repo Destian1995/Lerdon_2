@@ -24,10 +24,10 @@ INVASION_TURN_MAX = 26
 # Начальная армия нежити — 250к разово
 UNDEAD_INITIAL_ARMY = 250000
 
-# Набор отключён (вся армия спавнится сразу)
-UNDEAD_SURGE_TURNS = 0
-UNDEAD_SURGE_TARGET = 250000
-# Обычные подкрепления после набора
+# Подкрепления: 40к/ход в течение 10 ходов после инвазии
+UNDEAD_SURGE_TURNS = 10
+UNDEAD_SURGE_PER_TURN = 40000
+# Обычные подкрепления после 10 ходов
 UNDEAD_REINFORCEMENTS_MIN = 2000
 UNDEAD_REINFORCEMENTS_MAX = 5000
 
@@ -409,20 +409,16 @@ def process_undead_turn(conn, current_turn):
 
     # Все подкрепления идут в город Царя
     if turns_since_invasion <= UNDEAD_SURGE_TURNS:
-        # Массивный набор до 250к за 3 хода
-        remaining_to_target = max(0, UNDEAD_SURGE_TARGET - current_army)
-        remaining_turns = max(1, UNDEAD_SURGE_TURNS - turns_since_invasion + 1)
-        surge = remaining_to_target // remaining_turns
-
+        # 40к призраков каждый ход в течение 10 ходов
         cursor.execute("""
             INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
             VALUES (?, ?, ?, ?)
             ON CONFLICT(city_name, unit_name) DO UPDATE SET
                 unit_count = unit_count + excluded.unit_count
-        """, (king_city, UNDEAD_UNIT_NAME, surge, 'files/army/death/solder.png'))
+        """, (king_city, UNDEAD_UNIT_NAME, UNDEAD_SURGE_PER_TURN, 'files/army/death/solder.png'))
 
-        print(f"[UNDEAD] Набор армии в {king_city}: +{surge} призраков "
-              f"(ход {turns_since_invasion}/{UNDEAD_SURGE_TURNS}, всего ~{current_army + surge})")
+        print(f"[UNDEAD] Подкрепление в {king_city}: +{UNDEAD_SURGE_PER_TURN} призраков "
+              f"(ход {turns_since_invasion}/{UNDEAD_SURGE_TURNS})")
     else:
         reinforcements = random.randint(UNDEAD_REINFORCEMENTS_MIN, UNDEAD_REINFORCEMENTS_MAX)
         cursor.execute("""
