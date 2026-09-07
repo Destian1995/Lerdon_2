@@ -1,6 +1,11 @@
 APP_VERSION="6.0.0"
 
-rm -rf bin && buildozer android clean && git pull && clear && buildozer android release
+# Обновляем код (без clean — сохраняем скачанные пакеты)
+git pull
+rm -rf bin
+
+# Сборка (используем кеш скачанных зависимостей)
+buildozer android release
 
 cd ~/Lerdon_2/bin
 ANDROID_BUILD_TOOLS="$HOME/.buildozer/android/platform/android-sdk/build-tools/36.0.0"
