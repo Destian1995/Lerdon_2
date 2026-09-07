@@ -23,17 +23,21 @@ author = Vladislav Lerdon Team
 # Python / Kivy / зависимости
 # ---------------------------------
 
-requirements = python3==3.10.13, kivy==2.3.0, kivymd==1.2.0, pyjnius, cython==3.0.10, pillow, sdl2_ttf==2.20.2, sdl2_mixer==2.6.3, sdl2_image==2.6.3
+requirements = python3==3.11.0, kivy==2.2.0, kivymd, pyjnius==1.5.0, cython==0.29.36, pillow, sdl2, sdl2_image, sdl2_mixer, sdl2_ttf
+
+# Для python-for-android (p4a)
+p4a.python_version = 3.11.0
 
 # ---------------------------------
 # Android / SDL2
 # ---------------------------------
 
-android.api = 34
+android.api = 33
 android.minapi = 21
-android.ndk = 25c
+android.ndk = 25b
 android.ndk_api = 21
-android.sdk = 34
+android.sdk = 33
+android.build_tools = 33.0.0
 android.archs = arm64-v8a, armeabi-v7a
 android.bundle = False
 fullscreen = 1
