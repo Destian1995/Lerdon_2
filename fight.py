@@ -314,14 +314,13 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     def_attack *= (1 + def_aura_atk / 100.0)
     def_defense *= (1 + def_aura_def / 100.0)
 
-    # Север: Шквал — если итоговый урон юнита >= 5x от базового (от артефактов/героев),
-    # то урон ещё +60%
+    # Север: Шквал — если итоговый урон юнита >= 20x от базового, урон x1.7
     if atk_fraction == 'Север' and get_unit_class(attacker) == 1 and atk_base_attack > 0:
-        if atk_attack / atk_base_attack >= 5.0:
-            atk_attack *= 1.60
+        if atk_attack / atk_base_attack >= 20.0:
+            atk_attack = int(atk_attack * 1.70)
     if def_fraction == 'Север' and get_unit_class(defender) == 1 and def_base_attack > 0:
-        if def_attack / def_base_attack >= 5.0:
-            def_attack *= 1.60
+        if def_attack / def_base_attack >= 20.0:
+            def_attack = int(def_attack * 1.70)
 
     # Тип-преимущество
     atk_type = get_unit_type(attacker)

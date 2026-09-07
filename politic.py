@@ -1008,7 +1008,7 @@ def show_faction_bonuses_popup(conn, faction):
     FACTION_DATA = {
         'Север': {
             'name': 'Шквал',
-            'desc': 'Если бонусы увеличили урон в 5+ раз, ещё +60%',
+            'desc': 'Если бонусы увеличили урон в 20+ раз, x1.7 к урону',
             'color': (0.25, 0.52, 0.92, 1),
             'calc': lambda: _calc_shkval(base_unit_atk, total_unit_atk),
         },
@@ -1040,14 +1040,15 @@ def show_faction_bonuses_popup(conn, faction):
 
     def _calc_shkval(base, total):
         ratio = total / base if base > 0 else 0
-        active = ratio >= 5.0
-        bonus_dmg = int(total * 0.60) if active else 0
-        status = f"[color=00ff00]АКТИВЕН (+{bonus_dmg} урона)[/color]" if active else f"[color=ff8800]Не активен (x{ratio:.1f}, нужно x5.0)[/color]"
+        active = ratio >= 20.0
+        final_dmg = int(total * 1.70) if active else total
+        bonus_dmg = final_dmg - total if active else 0
+        status = f"[color=00ff00]АКТИВЕН (итого {final_dmg})[/color]" if active else f"[color=ff8800]Не активен (x{ratio:.1f}, нужно x20)[/color]"
         return [
             ("Базовый урон", str(base_unit_atk), unit_name),
             ("Бонус от героев", f"+{hero_atk_bonus}", f"Итого: {total}"),
-            ("Множитель", f"x{ratio:.1f}", f"Нужно x5.0"),
-            ("Шквал", f"+{bonus_dmg}" if active else "—", status),
+            ("Множитель", f"x{ratio:.1f}", f"Нужно x20"),
+            ("Шквал (x1.7)", f"+{bonus_dmg}" if active else "---", status),
         ]
 
     faction_info = FACTION_DATA.get(faction)
