@@ -23,7 +23,7 @@ author = Vladislav Lerdon Team
 # Python / Kivy / зависимости
 # ---------------------------------
 
-requirements = python3, kivy==2.3.1, kivymd==1.2.0, pyjnius, cython==3.0.11, sdl2, sdl2_image, sdl2_mixer, sdl2_ttf
+requirements = python3==3.11.0, kivy==2.2.0, kivymd, pyjnius==1.5.0, cython==0.29.36, sdl2, sdl2_image, sdl2_mixer, sdl2_ttf
 
 # ---------------------------------
 # Android / SDL2
