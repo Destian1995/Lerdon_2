@@ -1043,24 +1043,23 @@ class MapWidget(Widget):
             self._start_player_pulse()
 
     def _start_player_pulse(self):
-        """Плавная пульсация территории игрока: от полной яркости до 20% за 3 секунды."""
+        """Плавная пульсация территории: появление и исчезновение за 1.5 сек (ease in-out)."""
         import math
         self._player_pulse_phase = 0.0
-        # Запоминаем начальную альфу каждого Color
         self._player_base_alphas = [c.a for c in self._player_territory_colors]
 
         def _pulse(dt):
             self._player_pulse_phase += dt
-            # Полный цикл = 3 секунды (туда-обратно)
-            # sin: 0→1→0 за pi, нам нужно 0→1→0 за 3 сек
-            t = (math.sin(self._player_pulse_phase * 2.0 * math.pi / 3.0) + 1.0) / 2.0
-            # t: 0.0 → 1.0 → 0.0 за 3 секунды
-            # Множитель альфы: от 1.0 (полная) до 0.2 (угасание на 80%)
+            # Полный цикл = 1.5 секунды
+            # cos даёт плавный ease in-out: 1 → -1 → 1
+            t = (math.cos(self._player_pulse_phase * 2.0 * math.pi / 1.5) + 1.0) / 2.0
+            # t: 1.0 → 0.0 → 1.0 плавно (cosine easing)
+            # Множитель: от 1.0 (яркий) до 0.2 (почти невидимый)
             factor = 0.2 + 0.8 * t
             for i, c_instr in enumerate(self._player_territory_colors):
                 c_instr.a = self._player_base_alphas[i] * factor
 
-        self._player_pulse_event = Clock.schedule_interval(_pulse, 1 / 24.0)
+        self._player_pulse_event = Clock.schedule_interval(_pulse, 1 / 30.0)
 
     def draw_fortresses(self):
         """Рисует крепости на карте с анимацией при смене фракции."""
