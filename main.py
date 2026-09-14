@@ -738,6 +738,9 @@ class MapWidget(Widget):
         self._undead_shield_data = []  # Данные для анимации щитов нежити
         self._undead_shield_group = None
         self._undead_anim_event = None
+        self._player_territory_colors = []  # Color инструкции территории игрока
+        self._player_pulse_event = None
+        self._player_pulse_phase = 0.0
         # === Сезонный оверлей ===
         self.season_overlay = None
         self.add_season_overlay()
@@ -966,6 +969,12 @@ class MapWidget(Widget):
                     edge_factions[edge_key] = set()
                 edge_factions[edge_key].add(faction)
 
+        # Сбрасываем список Color-инструкций территории игрока
+        self._player_territory_colors = []
+        if self._player_pulse_event:
+            self._player_pulse_event.cancel()
+            self._player_pulse_event = None
+
         with self.canvas:
             for idx, (cx, cy, faction, name) in enumerate(city_list):
                 cell = cells[idx]
@@ -974,14 +983,18 @@ class MapWidget(Widget):
 
                 # Определяем цвет по фракции
                 fc = FACTION_COLORS.get(faction)
+                is_player = (faction == self.current_player_kingdom)
                 if fc:
                     color = fc['primary']
-                    # Полупрозрачная заливка сектора (чуть темнее)
-                    Color(color[0], color[1], color[2], 0.25)
+                    c_instr = Color(color[0], color[1], color[2], 0.25)
                 elif faction == 'Нейтрал':
-                    Color(0.6, 0.6, 0.6, 0.12)
+                    c_instr = Color(0.6, 0.6, 0.6, 0.12)
                 else:
-                    Color(0.5, 0.5, 0.5, 0.12)
+                    c_instr = Color(0.5, 0.5, 0.5, 0.12)
+
+                # Сохраняем Color территории игрока для пульсации
+                if is_player and fc:
+                    self._player_territory_colors.append(c_instr)
 
                 # Рисуем заполненный полигон через Mesh (triangle fan)
                 vertices, indices = self._triangulate_polygon(cell, (cx, cy))
@@ -1015,6 +1028,23 @@ class MapWidget(Widget):
                         else:
                             Color(0.5, 0.5, 0.5, 0.15)
                         Line(points=[p1_raw[0], p1_raw[1], p2_raw[0], p2_raw[1]], width=1.2)
+
+        # Запускаем плавную пульсацию территории игрока
+        if self._player_territory_colors:
+            self._start_player_pulse()
+
+    def _start_player_pulse(self):
+        """Плавная пульсация альфы территории игрока."""
+        import math
+
+        def _pulse(dt):
+            self._player_pulse_phase += dt * 1.2  # Скорость пульсации
+            # Синусоида от 0.12 до 0.35
+            alpha = 0.235 + 0.115 * math.sin(self._player_pulse_phase)
+            for c_instr in self._player_territory_colors:
+                c_instr.a = alpha
+
+        self._player_pulse_event = Clock.schedule_interval(_pulse, 1 / 30.0)
 
     def draw_fortresses(self):
         """Рисует крепости на карте с анимацией при смене фракции."""
