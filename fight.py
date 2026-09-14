@@ -314,13 +314,14 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     def_attack *= (1 + def_aura_atk / 100.0)
     def_defense *= (1 + def_aura_def / 100.0)
 
-    # Север: Шквал — если итоговый урон юнита >= 20x от базового, урон x1.7
+    # Север: Шквал — если итоговый урон >= 20x от базового, урон x1.7 (в свой сезон x2.975)
+    shkval_mult = 1.70 * _season_mult('Север') if atk_fraction == 'Север' or def_fraction == 'Север' else 1.70
     if atk_fraction == 'Север' and get_unit_class(attacker) == 1 and atk_base_attack > 0:
         if atk_attack / atk_base_attack >= 20.0:
-            atk_attack = int(atk_attack * 1.70)
+            atk_attack = int(atk_attack * shkval_mult)
     if def_fraction == 'Север' and get_unit_class(defender) == 1 and def_base_attack > 0:
         if def_attack / def_base_attack >= 20.0:
-            def_attack = int(def_attack * 1.70)
+            def_attack = int(def_attack * shkval_mult)
 
     # Тип-преимущество
     atk_type = get_unit_type(attacker)
@@ -520,23 +521,46 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     def_army = new_def_army
 
     # === Фракционные пассивные способности ===
-    # Север: Шквал — реализуется в battle_chain (при превосходстве 5:1 урон +60%)
+    # В "свой" сезон бонус способности работает на 175% сильнее
+    FACTION_PEAK_SEASON = {
+        'Север': 0,    # Зима
+        'Вампиры': 1,  # Весна
+        'Эльфы': 2,    # Лето
+        'Адепты': 3,   # Осень
+        'Элины': 2,    # Лето
+    }
+    try:
+        _sc = conn.cursor()
+        _sc.execute("SELECT season_index FROM season LIMIT 1")
+        _sr = _sc.fetchone()
+        _current_season = _sr[0] if _sr else -1
+    except Exception:
+        _current_season = -1
 
-    # Эльфы: Лесная хитрость — +10% инициатива всех юнитов
+    def _season_mult(faction):
+        """Возвращает 2.75 (1 + 1.75) если сейчас пиковый сезон фракции, иначе 1.0"""
+        return 2.75 if FACTION_PEAK_SEASON.get(faction) == _current_season else 1.0
+
+    # Север: Шквал — реализуется в battle_chain (x1.7 при 20x множителе)
+    # В пиковый сезон порог снижается (множитель Шквала передаётся через atk_fraction)
+
+    # Эльфы: Лесная хитрость — +10% инициатива (в свой сезон +17.5%)
+    elf_bonus = 0.10 * _season_mult('Эльфы') if _season_mult('Эльфы') > 1 else 0.10
     if attacking_fraction == 'Эльфы':
         for u in atk_army:
             stats = u.get('units_stats', {})
-            stats['Инициатива'] = stats.get('Инициатива', 50) * 1.10
+            stats['Инициатива'] = stats.get('Инициатива', 50) * (1 + elf_bonus)
     if defending_fraction == 'Эльфы':
         for u in def_army:
             stats = u.get('units_stats', {})
-            stats['Инициатива'] = stats.get('Инициатива', 50) * 1.10
+            stats['Инициатива'] = stats.get('Инициатива', 50) * (1 + elf_bonus)
 
-    # Адепты: Святое благословение — +20% защита при обороне своих городов
+    # Адепты: Святое благословение — +20% защита (в свой сезон +35%)
+    adept_bonus = 0.20 * _season_mult('Адепты') if _season_mult('Адепты') > 1 else 0.20
     if defending_fraction == 'Адепты':
         for u in def_army:
             stats = u.get('units_stats', {})
-            stats['Защита'] = stats.get('Защита', 0) * 1.20
+            stats['Защита'] = stats.get('Защита', 0) * (1 + adept_bonus)
 
     # === Бонусы от зданий города-защитника ===
     city_wall_bonus = 0.0    # +15% защита за каждую Стену
@@ -704,14 +728,15 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         else:
             u['killed_count'] = 0
 
-    # Вампиры: Вампиризм — 5% убитых врагов воскресают как свои юниты 1 класса
+    # Вампиры: Вампиризм — 5% убитых врагов воскресают (в свой сезон 8.75%)
+    vamp_rate = 0.05 * _season_mult('Вампиры') if _season_mult('Вампиры') > 1 else 0.05
     def _apply_vampirism(vampire_army, enemy_army, faction):
         if faction != 'Вампиры':
             return
         enemy_killed = sum(u.get('killed_count', 0) for u in enemy_army if get_unit_class(u) == 1)
         if enemy_killed <= 0:
             return
-        resurrected = max(1, int(enemy_killed * 0.05))
+        resurrected = max(1, int(enemy_killed * vamp_rate))
         # Добавляем к первому юниту 1 класса вампиров
         for u in vampire_army:
             if get_unit_class(u) == 1 and u['unit_count'] > 0:

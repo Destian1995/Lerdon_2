@@ -1220,9 +1220,16 @@ class Faction:
         base_income = int(self.calculate_tax_income() - (self.hospitals * coeffs['money_loss']))
         # Бонус от Рынков: +10% дохода крон за каждый рынок
         market_bonus = 1.0 + self.markets * 0.10
-        # Элины: Торговая империя — дополнительные +15% к доходу
+        # Элины: Торговая империя — +15% к доходу (в свой сезон Лето: +26.25%)
         if self.faction == 'Элины':
-            market_bonus += 0.15
+            try:
+                self.cursor.execute("SELECT season_index FROM season LIMIT 1")
+                _s = self.cursor.fetchone()
+                _is_peak = (_s[0] == 2) if _s else False  # Лето = 2
+            except Exception:
+                _is_peak = False
+            eliny_bonus = 0.15 * 2.75 if _is_peak else 0.15
+            market_bonus += eliny_bonus
         boosted_income = int(base_income * market_bonus)
         self.money += boosted_income
         self.money_info = int(self.hospitals * coeffs['money_loss'])
