@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Сбрасываем локальные изменения и подтягиваем последнее
+git checkout -- . 2>/dev/null || true
+git pull
+
 APP_VERSION="6.0.0"
 KEYSTORE="$HOME/signkey.keystore"
 ANDROID_BUILD_TOOLS="$HOME/.buildozer/android/platform/android-sdk/build-tools/36.0.0"
