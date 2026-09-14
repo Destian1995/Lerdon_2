@@ -786,6 +786,11 @@ class MapWidget(Widget):
     def update_cities(self, dt=None):
         self.map_scale = self.calculate_scale()
         self.map_pos = self.calculate_centered_position()
+        # Останавливаем пульсацию перед очисткой canvas
+        if self._player_pulse_event:
+            self._player_pulse_event.cancel()
+            self._player_pulse_event = None
+        self._player_territory_colors = []
         self.canvas.clear()
         # УДАЛИТЕ или закомментируйте эту строку:
         # self.canvas.after.clear()  # ← Это удаляет сезонную анимацию!
@@ -804,6 +809,10 @@ class MapWidget(Widget):
     def initialize_map(self, schedule_blink=True):
         self.map_scale = self.calculate_scale()
         self.map_pos = self.calculate_centered_position()
+        if self._player_pulse_event:
+            self._player_pulse_event.cancel()
+            self._player_pulse_event = None
+        self._player_territory_colors = []
         self.canvas.clear()
 
         with self.canvas:
@@ -1048,7 +1057,7 @@ class MapWidget(Widget):
 
     def draw_fortresses(self):
         """Рисует крепости на карте с анимацией при смене фракции."""
-        # Останавливаем анимацию щитов нежити перед перерисовкой
+        # Останавливаем анимации перед перерисовкой
         if self._undead_anim_event:
             self._undead_anim_event.cancel()
             self._undead_anim_event = None
@@ -1058,6 +1067,12 @@ class MapWidget(Widget):
             except Exception:
                 pass
             self._undead_shield_group = None
+        if hasattr(self, '_undead_static_group') and self._undead_static_group:
+            try:
+                self.canvas.after.remove(self._undead_static_group)
+            except Exception:
+                pass
+            self._undead_static_group = None
         self._undead_shield_data = []
 
         self.clear_widgets()
