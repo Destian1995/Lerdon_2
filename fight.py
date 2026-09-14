@@ -544,16 +544,9 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     # Север: Шквал — реализуется в battle_chain (x1.7 при 20x множителе)
     # В пиковый сезон порог снижается (множитель Шквала передаётся через atk_fraction)
 
-    # Эльфы: Лесная хитрость — +10% инициатива (в свой сезон +17.5%)
-    elf_bonus = 0.10 * _season_mult('Эльфы') if _season_mult('Эльфы') > 1 else 0.10
-    if attacking_fraction == 'Эльфы':
-        for u in atk_army:
-            stats = u.get('units_stats', {})
-            stats['Инициатива'] = stats.get('Инициатива', 50) * (1 + elf_bonus)
-    if defending_fraction == 'Эльфы':
-        for u in def_army:
-            stats = u.get('units_stats', {})
-            stats['Инициатива'] = stats.get('Инициатива', 50) * (1 + elf_bonus)
+    # Эльфы: Природное исцеление — 10% погибших возвращаются в строй после боя
+    # (в свой сезон Лето: 27.5%)
+    # Реализуется после боя в _apply_elf_healing
 
     # Адепты: Святое благословение — +20% защита (в свой сезон +35%)
     adept_bonus = 0.20 * _season_mult('Адепты') if _season_mult('Адепты') > 1 else 0.20
@@ -746,6 +739,25 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
 
     _apply_vampirism(atk_army, def_army, attacking_fraction)
     _apply_vampirism(def_army, atk_army, defending_fraction)
+
+    # Эльфы: Природное исцеление — 10% своих погибших возвращаются в строй (в Лето 27.5%)
+    elf_heal_rate = 0.10 * _season_mult('Эльфы') if _season_mult('Эльфы') > 1 else 0.10
+    def _apply_elf_healing(army, faction):
+        if faction != 'Эльфы':
+            return
+        for u in army:
+            if get_unit_class(u) != 1:
+                continue
+            killed = u.get('killed_count', 0)
+            if killed <= 0:
+                continue
+            healed = max(1, int(killed * elf_heal_rate))
+            u['unit_count'] += healed
+            u['killed_count'] -= healed
+            print(f"[Исцеление] {healed} юнитов {u['unit_name']} вернулись в строй")
+
+    _apply_elf_healing(atk_army, attacking_fraction)
+    _apply_elf_healing(def_army, defending_fraction)
 
     atk_remaining = sum(u['unit_count'] for u in atk_army)
     def_remaining = sum(u['unit_count'] for u in def_army)
