@@ -1198,10 +1198,10 @@ def start_politic_mode(faction, game_area, class_faction, conn):
 
     politics_layout = BoxLayout(
         orientation='horizontal',
-        size_hint=(1, None),
+        size_hint=(0.88, None),
         height=dp(70) if is_android else 60,
         pos_hint={'x': 0, 'y': 0},
-        spacing=dp(10) if is_android else 10,
+        spacing=dp(4) if is_android else 10,
         padding=[dp(10), dp(5), dp(10), dp(5)] if is_android else [10, 5, 10, 5]
     )
 
@@ -1213,7 +1213,7 @@ def start_politic_mode(faction, game_area, class_faction, conn):
             height=dp(60) if is_android else 50,
             background_color=(0, 0, 0, 0),
             color=(1, 1, 1, 1),
-            font_size=sp(18) if is_android else 16,
+            font_size=sp(14) if is_android else 16,
             bold=True
         )
 

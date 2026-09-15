@@ -1807,25 +1807,39 @@ class KingdomSelectionWidget(MDFloatLayout):
             self.panel_height_ratio = 0.6
             self.panel_y_offset = 0.0
 
-        # ======== ФОН ВИДЕО ========
-        self.bg_video = Video(
-            source='files/menu/choice.mp4',
-            state='play',
-            volume=0,
-            options={'eos': 'loop'},
-            allow_stretch=True,
-            keep_ratio=False,
-            size_hint=(1, 1),
-            pos_hint={'x': 0, 'y': 0}
-        )
-        self.bg_video.bind(on_eos=self.loop_video)
-        self.add_widget(self.bg_video)
+        # ======== ФОН (статический fallback для Android) ========
+        from kivy.graphics import Rectangle as BgRect
+        with self.canvas.before:
+            Color(0.05, 0.06, 0.11, 1)
+            self._bg_rect = BgRect(pos=self.pos, size=self.size)
+        self.bind(pos=lambda i, v: setattr(self._bg_rect, 'pos', v),
+                  size=lambda i, v: setattr(self._bg_rect, 'size', v))
 
-        # Periodic check: restart video if it stopped unexpectedly
-        def _check_video(dt):
-            if hasattr(self, 'bg_video') and self.bg_video.state != 'play':
-                self.bg_video.state = 'play'
-        self._video_check_event = Clock.schedule_interval(_check_video, 2.0)
+        # ======== ФОН ВИДЕО (только не-Android, ffpyplayer может отсутствовать) ========
+        self.bg_video = None
+        self._video_check_event = None
+        if not is_android:
+            try:
+                self.bg_video = Video(
+                    source='files/menu/choice.mp4',
+                    state='play',
+                    volume=0,
+                    options={'eos': 'loop'},
+                    allow_stretch=True,
+                    keep_ratio=False,
+                    size_hint=(1, 1),
+                    pos_hint={'x': 0, 'y': 0}
+                )
+                self.bg_video.bind(on_eos=self.loop_video)
+                self.add_widget(self.bg_video)
+
+                # Periodic check: restart video if it stopped unexpectedly
+                def _check_video(dt):
+                    if self.bg_video and self.bg_video.state != 'play':
+                        self.bg_video.state = 'play'
+                self._video_check_event = Clock.schedule_interval(_check_video, 2.0)
+            except Exception:
+                self.bg_video = None
 
         # ======== ОБЩИЙ КОНТЕЙНЕР ДЛЯ ВСЕХ ЭЛЕМЕНТОВ ========
         self.main_container = MDFloatLayout()
@@ -2426,6 +2440,8 @@ class KingdomSelectionWidget(MDFloatLayout):
         Clock.schedule_once(lambda dt: setattr(self, 'buttons_locked', False), 1.5)
 
     def loop_video(self, instance):
+        if not instance:
+            return
         instance.state = 'stop'
         Clock.schedule_once(lambda dt: setattr(instance, 'state', 'play'), 0.1)
 
@@ -2437,9 +2453,9 @@ class KingdomSelectionWidget(MDFloatLayout):
         if getattr(self, 'buttons_locked', False):
             return
         # Останавливаем видео и отменяем проверку
-        if hasattr(self, '_video_check_event'):
+        if self._video_check_event:
             self._video_check_event.cancel()
-        if hasattr(self, 'bg_video'):
+        if self.bg_video:
             self.bg_video.state = 'stop'
         from kivy.app import App
         app = App.get_running_app()
@@ -2540,9 +2556,9 @@ class KingdomSelectionWidget(MDFloatLayout):
         # Блокируем кнопки
         self.disable_all_buttons(True)
         # Останавливаем фоновое видео и отменяем проверку
-        if hasattr(self, '_video_check_event'):
+        if self._video_check_event:
             self._video_check_event.cancel()
-        if hasattr(self, 'bg_video'):
+        if self.bg_video:
             self.bg_video.state = 'stop'
 
         # Создаем оверлей с видео
