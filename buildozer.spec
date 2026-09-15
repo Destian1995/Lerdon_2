@@ -25,6 +25,9 @@ author = Vladislav Lerdon Team
 
 requirements = python3==3.11.0, kivy==2.2.0, kivymd, pyjnius==1.5.0, cython==0.29.36, sdl2, sdl2_image, sdl2_mixer, sdl2_ttf
 
+# Откатываем p4a на версию с Python 3.11 (2024.01.21)
+p4a.branch = release-2024.01.21
+
 # ---------------------------------
 # Android / SDL2
 # ---------------------------------
@@ -34,7 +37,6 @@ android.minapi = 21
 android.ndk = 25b
 android.ndk_api = 21
 android.sdk = 33
-android.build_tools = 33.0.0
 android.archs = arm64-v8a, armeabi-v7a
 android.bundle = False
 fullscreen = 1
