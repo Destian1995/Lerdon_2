@@ -18,6 +18,7 @@ from kivy.utils import get_color_from_hex
 from kivy.app import App
 from kivy.uix.spinner import SpinnerOption
 from kivy.graphics import Color, RoundedRectangle, Line
+from kivy.clock import Clock
 
 import sqlite3
 import re
@@ -1810,6 +1811,7 @@ class KingdomSelectionWidget(MDFloatLayout):
         self.bg_video = Video(
             source='files/menu/choice.mp4',
             state='play',
+            volume=0,
             options={'eos': 'loop'},
             allow_stretch=True,
             keep_ratio=False,
@@ -1818,6 +1820,12 @@ class KingdomSelectionWidget(MDFloatLayout):
         )
         self.bg_video.bind(on_eos=self.loop_video)
         self.add_widget(self.bg_video)
+
+        # Periodic check: restart video if it stopped unexpectedly
+        def _check_video(dt):
+            if hasattr(self, 'bg_video') and self.bg_video.state != 'play':
+                self.bg_video.state = 'play'
+        self._video_check_event = Clock.schedule_interval(_check_video, 2.0)
 
         # ======== ОБЩИЙ КОНТЕЙНЕР ДЛЯ ВСЕХ ЭЛЕМЕНТОВ ========
         self.main_container = MDFloatLayout()
@@ -2419,7 +2427,7 @@ class KingdomSelectionWidget(MDFloatLayout):
 
     def loop_video(self, instance):
         instance.state = 'stop'
-        instance.state = 'play'
+        Clock.schedule_once(lambda dt: setattr(instance, 'state', 'play'), 0.1)
 
     def calculate_panel_height(self, btn_height, spacing, padding):
         num_buttons = len(self.faction_data)
@@ -2428,7 +2436,9 @@ class KingdomSelectionWidget(MDFloatLayout):
     def back_to_menu(self, instance):
         if getattr(self, 'buttons_locked', False):
             return
-        # Останавливаем видео
+        # Останавливаем видео и отменяем проверку
+        if hasattr(self, '_video_check_event'):
+            self._video_check_event.cancel()
         if hasattr(self, 'bg_video'):
             self.bg_video.state = 'stop'
         from kivy.app import App
@@ -2529,7 +2539,9 @@ class KingdomSelectionWidget(MDFloatLayout):
             return
         # Блокируем кнопки
         self.disable_all_buttons(True)
-        # Останавливаем фоновое видео
+        # Останавливаем фоновое видео и отменяем проверку
+        if hasattr(self, '_video_check_event'):
+            self._video_check_event.cancel()
         if hasattr(self, 'bg_video'):
             self.bg_video.state = 'stop'
 
@@ -3106,19 +3118,6 @@ class MenuWidget(FloatLayout):
         )
         self.add_widget(self.title_label)
         self.title_label.start_glow_animation()
-
-        # ======== Подзаголовок ========
-        subtitle = Label(
-            text="[i]Легенды Пяти Королевств[/i]",
-            markup=True,
-            font_size=sp(16),
-            color=(0.7, 0.72, 0.8, 0.7),
-            size_hint=(0.8, None),
-            height=dp(24),
-            pos_hint={'center_x': 0.5, 'top': 0.83},
-            halign='center',
-        )
-        self.add_widget(subtitle)
 
         # ======== Декоративная линия ========
         deco_line = Widget(size_hint=(0.3, None), height=dp(1), pos_hint={'center_x': 0.5, 'top': 0.80})

@@ -281,10 +281,12 @@ class EventManager:
         content.add_widget(btn_1)
         content.add_widget(btn_2)
 
+        is_mobile = platform in ('android', 'ios')
         popup = Popup(
             title='', separator_height=0,
             content=content,
-            size_hint=(0.5, None), height=dp(350),
+            size_hint=(0.92 if is_mobile else 0.5, None),
+            height=dp(400) if is_mobile else dp(350),
             auto_dismiss=False,
             background='', background_color=(0, 0, 0, 0.55),
         )

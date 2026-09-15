@@ -1315,9 +1315,10 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
     root.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
               size=lambda i, v: setattr(i._bg, 'size', v))
 
+    is_mobile = platform in ('android', 'ios')
     popup = Popup(
         title='', content=root,
-        size_hint=(0.92, 0.86),
+        size_hint=(0.98 if is_mobile else 0.92, 0.92 if is_mobile else 0.86),
         background_color=(0.04, 0.04, 0.08, 1),
         separator_height=0,
     )

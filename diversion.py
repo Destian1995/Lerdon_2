@@ -8,9 +8,11 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.slider import Slider
 from kivy.graphics import Color, RoundedRectangle
-from kivy.utils import get_color_from_hex
+from kivy.utils import get_color_from_hex, platform
 import random
 import sqlite3
+
+_is_mobile = platform in ('android', 'ios')
 
 # --- Цветовая палитра ---
 BACKGROUND_COLOR = get_color_from_hex("#121212")
@@ -119,7 +121,7 @@ def show_diversion_window(conn, faction, class_faction):
                 color=TEXT_COLOR,
                 text_size=(dp(250), None)
             ),
-            size_hint=(0.8, 0.4)
+            size_hint=(0.95, 0.5) if _is_mobile else (0.8, 0.4)
         )
         no_targets_popup.open()
         return
@@ -242,7 +244,7 @@ def show_diversion_window(conn, faction, class_faction):
     popup = ThemedPopup(
         title="Главное управление Тайной Службы",
         content=content,
-        size_hint=(0.95, 0.9),
+        size_hint=(0.98, 0.95) if _is_mobile else (0.95, 0.9),
         auto_dismiss=False
     )
     close_btn.bind(on_release=popup.dismiss)
@@ -332,7 +334,7 @@ def show_operations_window(conn, player_faction, cash_player, target_faction, ta
     popup = ThemedPopup(
         title="Выберите операцию",
         content=content,
-        size_hint=(0.9, 0.8),
+        size_hint=(0.98, 0.92) if _is_mobile else (0.9, 0.8),
         auto_dismiss=False
     )
     close_btn.bind(on_release=popup.dismiss)
@@ -447,7 +449,7 @@ def show_rebellion_cost_selection(conn, player_faction, cash_player, op_name, op
     popup = ThemedPopup(
         title="Мятеж",
         content=content,
-        size_hint=(0.85, 0.7),
+        size_hint=(0.95, 0.8) if _is_mobile else (0.85, 0.7),
         auto_dismiss=False
     )
     popup.open()
@@ -499,7 +501,7 @@ def show_confirmation_popup(conn, player_faction, cash_player, op_name, op_info,
                 color=WARNING_COLOR,
                 text_size=(dp(250), None)
             ),
-            size_hint=(0.8, 0.4)
+            size_hint=(0.95, 0.5) if _is_mobile else (0.8, 0.4)
         )
         insufficient_funds_popup.open()
         return
@@ -517,7 +519,7 @@ def show_confirmation_popup(conn, player_faction, cash_player, op_name, op_info,
                     color=WARNING_COLOR,
                     text_size=(dp(250), None)
                 ),
-                size_hint=(0.8, 0.4)
+                size_hint=(0.95, 0.5) if _is_mobile else (0.8, 0.4)
             )
             no_targets_popup.open()
             return
@@ -538,7 +540,7 @@ def show_confirmation_popup(conn, player_faction, cash_player, op_name, op_info,
     popup = ThemedPopup(
         title="Подтверждение операции",
         content=content,
-        size_hint=(0.85, 0.6),
+        size_hint=(0.95, 0.7) if _is_mobile else (0.85, 0.6),
         auto_dismiss=False
     )
 
@@ -772,7 +774,7 @@ def show_result_popup(title, message, is_success=True):
     popup = ThemedPopup(
         title="",
         content=content,
-        size_hint=(0.85, 0.5),
+        size_hint=(0.95, 0.65) if _is_mobile else (0.85, 0.5),
         auto_dismiss=True
     )
     popup.open()

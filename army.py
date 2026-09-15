@@ -799,13 +799,14 @@ def show_army_message(title, message):
              size=lambda i, v: setattr(i._br, 'size', v))
     content.add_widget(btn)
 
+    is_mobile = platform in ('android', 'ios')
     popup = Popup(
         title=title, content=content,
-        size_hint=(0.78, 0.34),
+        size_hint=(0.90 if is_mobile else 0.78, 0.42 if is_mobile else 0.34),
         background_color=(0.07, 0.08, 0.13, 1),
         separator_color=sep,
         title_color=title_clr,
-        title_size=sp(15), title_align='center',
+        title_size=sp(17) if is_mobile else sp(15), title_align='center',
         auto_dismiss=False
     )
     btn.bind(on_release=popup.dismiss)

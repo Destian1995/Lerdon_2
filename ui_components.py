@@ -9,7 +9,7 @@ from kivy.clock import Clock
 from kivy.animation import Animation
 from kivy.core.window import Window
 from kivy.metrics import dp, sp
-from kivy.utils import get_color_from_hex
+from kivy.utils import get_color_from_hex, platform
 from kivy.core.image import Image as CoreImage
 from kivy.properties import StringProperty, OptionProperty, ObjectProperty, NumericProperty
 import math
@@ -1103,11 +1103,12 @@ def show_message(title, message):
     content.add_widget(msg_label)
     content.add_widget(close_btn)
 
+    _is_mobile = platform in ('android', 'ios')
     popup = Popup(
         title='',
         separator_height=0,
         content=content,
-        size_hint=(0.55, None),
+        size_hint=(0.88 if _is_mobile else 0.55, None),
         height=popup_height,
         auto_dismiss=True,
         background='',

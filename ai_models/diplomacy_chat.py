@@ -1998,10 +1998,11 @@ class EnhancedDiplomacyChat():
         content.add_widget(close_btn)
 
         # Создаем popup
+        is_mobile = kivy_platform in ('android', 'ios')
         popup = Popup(
             title='',
             content=content,
-            size_hint=(0.8, 0.7),
+            size_hint=(0.95 if is_mobile else 0.8, 0.85 if is_mobile else 0.7),
             auto_dismiss=True,
             separator_color=(0.3, 0.3, 0.5, 1),
             background=''

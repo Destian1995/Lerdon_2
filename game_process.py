@@ -346,11 +346,12 @@ class ResourceBox(BoxLayout):
             content.add_widget(close_btn)
 
             # Само окно Popup
+            is_android = platform == 'android'
             popup = Popup(
                 title=res_name,
                 content=content,
-                size_hint=(0.8, 0.6),
-                title_size=sp(20),
+                size_hint=(0.95, 0.8) if is_android else (0.8, 0.6),
+                title_size=sp(22) if is_android else sp(20),
                 title_align='center',
                 background_color=(0.1, 0.1, 0.1, 0.98),
                 separator_color=(0.3, 0.3, 0.3, 1),
@@ -1246,7 +1247,7 @@ class GameScreen(Screen):
             orientation='vertical',
             size_hint=(None, None),
             size=(dp(100) if self.is_android else 100, dp(50) if self.is_android else 50),
-            pos_hint={'x': 0.89, 'y': 0},
+            pos_hint={'right': 1, 'y': 0},
             padding=dp(10),
             spacing=dp(4)
         )
@@ -2213,14 +2214,15 @@ class GameScreen(Screen):
         content.add_widget(btn_container)
 
         # --- Создаём сам Popup, делаем его адаптивным по размеру экрана ---
+        is_android = platform == 'android'
         popup = Popup(
             title="Подтверждение выхода из матча",
-            title_size=sp(20),
+            title_size=sp(22) if is_android else sp(20),
             title_align='center',
             title_color=(1, 1, 1, 1),
             content=content,
-            size_hint=(0.9, None),
-            height=Window.height * 0.51,
+            size_hint=(0.95, None) if is_android else (0.9, None),
+            height=Window.height * 0.6 if is_android else Window.height * 0.51,
             background_color=(0.1, 0.1, 0.1, 0.95),
             separator_color=(0.3, 0.3, 0.3, 1),
             auto_dismiss=False
@@ -2295,10 +2297,11 @@ class GameScreen(Screen):
         )
 
         # === Создаём Popup ===
+        is_android = platform == 'android'
         popup = Popup(
             title='',
             content=content,
-            size_hint=(0.7, 0.6),
+            size_hint=(0.95, 0.8) if is_android else (0.7, 0.6),
             auto_dismiss=False,
             background_color=(0.2, 0.05, 0.05, 0.95),
             separator_height=0
@@ -2393,10 +2396,11 @@ class GameScreen(Screen):
             color=(1, 1, 1, 1)
         )
 
+        is_android = platform == 'android'
         popup = Popup(
             title='',
             content=content,
-            size_hint=(0.75, 0.65),
+            size_hint=(0.95, 0.8) if is_android else (0.75, 0.65),
             auto_dismiss=False,
             background_color=(0.05, 0.15, 0.12, 0.95),
             separator_height=0

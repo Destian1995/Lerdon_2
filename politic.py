@@ -199,6 +199,9 @@ class DiplomacyManager:
 
     def show_diplomatic_relations(self):
         """Показывает окно с дипломатическими отношениями"""
+        from kivy.utils import platform
+        is_mobile = platform in ('android', 'ios')
+
         relations = self.get_diplomatic_relations()
 
         if not relations:
@@ -317,12 +320,12 @@ class DiplomacyManager:
         self.popup = Popup(
             title=f"Отношения: {self.faction}",
             content=content,
-            size_hint=(0.85, 0.9),
+            size_hint=(0.95 if is_mobile else 0.85, 0.93 if is_mobile else 0.9),
             auto_dismiss=False,
             background_color=(0.07, 0.08, 0.13, 1),
             separator_color=(0.20, 0.55, 0.88, 0.7),
             title_color=(0.65, 0.88, 1, 1),
-            title_size=sp(16),
+            title_size=sp(18) if is_mobile else sp(16),
             title_align='center'
         )
         self.popup.open()
@@ -938,12 +941,12 @@ def show_ratings_popup(conn):
     show_ratings_popup.popup = Popup(
         title="Силы армий",
         content=content,
-        size_hint=(0.95, 0.85),
+        size_hint=(0.98 if is_android else 0.95, 0.9 if is_android else 0.85),
         auto_dismiss=False,
         background_color=(0.07, 0.08, 0.13, 1),
         separator_color=(0.20, 0.55, 0.88, 0.7),
         title_color=(0.65, 0.88, 1, 1),
-        title_size=sp(17),
+        title_size=sp(18) if is_android else sp(17),
         title_align='center'
     )
     show_ratings_popup.popup.open()
@@ -962,6 +965,8 @@ def show_faction_bonuses_popup(conn, faction):
     from kivy.uix.popup import Popup
     from kivy.metrics import dp, sp
     from kivy.graphics import Color, RoundedRectangle, Rectangle
+    from kivy.utils import platform
+    is_mobile = platform in ('android', 'ios')
 
     cursor = conn.cursor()
 
@@ -1170,12 +1175,12 @@ def show_faction_bonuses_popup(conn, faction):
     popup = Popup(
         title=f"Бонусы — {faction}",
         content=content,
-        size_hint=(0.7, 0.75),
+        size_hint=(0.95 if is_mobile else 0.7, 0.88 if is_mobile else 0.75),
         auto_dismiss=False,
         background_color=(0.07, 0.08, 0.13, 1),
         separator_color=accent[:3] + (0.7,),
         title_color=accent,
-        title_size=sp(16),
+        title_size=sp(18) if is_mobile else sp(16),
         title_align='center'
     )
     close_btn.bind(on_release=lambda x: popup.dismiss())
@@ -1195,19 +1200,15 @@ def start_politic_mode(faction, game_area, class_faction, conn):
         orientation='horizontal',
         size_hint=(1, None),
         height=dp(70) if is_android else 60,
-        pos_hint={'x': -0.34, 'y': 0},
+        pos_hint={'x': 0, 'y': 0},
         spacing=dp(10) if is_android else 10,
         padding=[dp(10), dp(5), dp(10), dp(5)] if is_android else [10, 5, 10, 5]
     )
 
-    # Добавляем пустое пространство слева
-    politics_layout.add_widget(Widget(size_hint_x=None, width=dp(20)))
-
     def styled_btn(text, callback):
         btn = Button(
             text=text,
-            size_hint_x=None,
-            width=dp(120) if is_android else 100,
+            size_hint_x=1,
             size_hint_y=None,
             height=dp(60) if is_android else 50,
             background_color=(0, 0, 0, 0),

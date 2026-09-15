@@ -518,7 +518,7 @@ class FortressInfoPopup(Popup):
 
         popup = _Popup(
             title='', content=content,
-            size_hint=(0.75, 0.7),
+            size_hint=(0.95 if _is_mobile else 0.75, 0.85 if _is_mobile else 0.7),
             separator_height=0,
             background_color=(0, 0, 0, 0),
         )
@@ -2926,7 +2926,8 @@ def _show_prisoners_of_war(conn, captured_count, enemy_faction, player_faction, 
     popup = Popup(
         title='', separator_height=0,
         content=content,
-        size_hint=(0.55, None), height=dp(340),
+        size_hint=(0.88 if _is_mobile else 0.55, None),
+        height=dp(380) if _is_mobile else dp(340),
         auto_dismiss=False,
         background='', background_color=(0, 0, 0, 0.6),
     )

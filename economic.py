@@ -604,7 +604,13 @@ class Faction:
 
     def show_popup(self, title, message):
         """Отображает всплывающее окно с сообщением."""
-        popup = Popup(title=title, content=Label(text=message), size_hint=(0.6, 0.4))
+        is_mobile = platform in ('android', 'ios')
+        popup = Popup(
+            title=title,
+            content=Label(text=message),
+            size_hint=(0.95, 0.55) if is_mobile else (0.6, 0.4),
+            title_size=sp(18) if is_mobile else sp(14)
+        )
         popup.open()
 
     def load_available_buildings_from_db(self):
@@ -1705,9 +1711,10 @@ def open_build_popup(faction):
         build_popup.dismiss()
         open_build_popup(faction)
 
+    is_mobile = platform in ('android', 'ios')
     build_popup = Popup(
         title="Состояние государства",
-        size_hint=(0.9, 0.85),
+        size_hint=(0.98, 0.92) if is_mobile else (0.9, 0.85),
         title_size=sp(20),
         title_align='center',
         title_color=(1, 1, 1, 1),
@@ -2090,14 +2097,15 @@ def open_trade_popup(game_instance):
     trade_layout.add_widget(button_layout)
 
     # === ПОПАП ===
+    is_mobile = platform in ('android', 'ios')
     popup = Popup(
         title="Рынок Кристаллов",
         content=trade_layout,
-        size_hint=(0.95, 0.72),
+        size_hint=(0.98, 0.88) if is_mobile else (0.95, 0.72),
         background_color=(0.07, 0.08, 0.13, 1),
         separator_color=(0.25, 0.52, 0.92, 0.6),
         title_color=(0.65, 0.88, 1, 1),
-        title_size=sp(18),
+        title_size=sp(20) if is_mobile else sp(18),
         title_align='center'
     )
 
@@ -2307,9 +2315,10 @@ def open_auto_build_popup(faction):
         (2, 5, "Максимальная добыча", "Приоритет — кристаллы для армии")
     ]
 
+    is_mobile = platform in ('android', 'ios')
     auto_popup = Popup(
         title="",
-        size_hint=(0.92, 0.85),
+        size_hint=(0.98, 0.93) if is_mobile else (0.92, 0.85),
         background_color=(0.12, 0.15, 0.22, 0.97),
         separator_height=0,
         auto_dismiss=False
@@ -2627,6 +2636,62 @@ def open_development_popup(faction):
     slider_container.add_widget(slider)
     build_content.add_widget(slider_container)
 
+    # 2.5. Панель прогноза ресурсов
+    projection_height = dp(120) if is_mobile else dp(140)
+    projection_panel = BoxLayout(
+        orientation='vertical',
+        size_hint_y=None,
+        height=projection_height,
+        padding=[dp(8), dp(6), dp(8), dp(6)],
+        spacing=dp(2) if is_mobile else dp(4)
+    )
+    with projection_panel.canvas.before:
+        Color(0.12, 0.16, 0.28, 1)
+        projection_panel._bg = RoundedRectangle(
+            pos=projection_panel.pos, size=projection_panel.size, radius=[dp(10)]
+        )
+    projection_panel.bind(
+        pos=lambda inst, val: setattr(projection_panel._bg, 'pos', val),
+        size=lambda inst, val: setattr(projection_panel._bg, 'size', val)
+    )
+
+    proj_font = sp(13) if is_mobile else sp(15)
+    proj_val_font = sp(14) if is_mobile else sp(16)
+
+    def _proj_row():
+        row = BoxLayout(orientation='horizontal', size_hint_y=1)
+        lbl = Label(
+            font_size=proj_font, color=(0.8, 0.85, 0.9, 1),
+            halign='left', valign='middle'
+        )
+        lbl.bind(size=lbl.setter('text_size'))
+        val = Label(
+            font_size=proj_val_font, bold=True,
+            halign='right', valign='middle',
+            size_hint_x=0.4
+        )
+        val.bind(size=val.setter('text_size'))
+        row.add_widget(lbl)
+        row.add_widget(val)
+        return row, lbl, val
+
+    row_ratio, lbl_ratio, val_ratio = _proj_row()
+    row_pop, lbl_pop, val_pop = _proj_row()
+    row_crystal, lbl_crystal, val_crystal = _proj_row()
+    row_cost, lbl_cost, val_cost = _proj_row()
+
+    lbl_ratio.text = "Больницы : Фабрики"
+    lbl_pop.text = "Рабочие (чистыми)"
+    lbl_crystal.text = "Кристаллы (чистыми)"
+    lbl_cost.text = "Стоимость цикла (1 город)"
+
+    projection_panel.add_widget(row_ratio)
+    projection_panel.add_widget(row_pop)
+    projection_panel.add_widget(row_crystal)
+    projection_panel.add_widget(row_cost)
+
+    build_content.add_widget(projection_panel)
+
     # 3. Быстрые пресеты для слайдера
     quick_buttons = BoxLayout(
         orientation='horizontal',
@@ -2696,9 +2761,10 @@ def open_development_popup(faction):
     build_content.height = (
             strategy_display.height +
             slider_container.height +
+            projection_panel.height +
             quick_buttons.height +
             action_buttons.height +
-            (build_content.spacing * 3)  # Учитываем spacing между элементами
+            (build_content.spacing * 4)  # Учитываем spacing между элементами
     )
 
     build_scroll.add_widget(build_content)
@@ -2832,6 +2898,10 @@ def open_development_popup(faction):
         "Средний рост кристаллов"
     ]
 
+    COLOR_GREEN = (0.64, 0.75, 0.55, 1)   # #A3BE8C
+    COLOR_RED = (0.75, 0.38, 0.42, 1)     # #BF616A
+    COLOR_YELLOW = (0.92, 0.80, 0.55, 1)  # #EBCB8B
+
     def update_ui(instance, value):
         idx = int(value)
         h, f = RATIOS[idx]
@@ -2841,6 +2911,38 @@ def open_development_popup(faction):
 
         # Обновляем описание под названием
         strategy_description.text = RATIO_DESCS[idx]
+
+        # --- Обновляем панель прогноза ---
+        # Соотношение
+        val_ratio.text = f"{h} : {f}"
+        val_ratio.color = (0.9, 0.95, 1, 1)
+
+        # Рабочие (чистыми): больница +50, фабрика забирает -20
+        net_workers = h * 50 - f * 20
+        sign = "+" if net_workers >= 0 else ""
+        val_pop.text = f"{sign}{net_workers} рабочих"
+        val_pop.color = COLOR_GREEN if net_workers > 0 else COLOR_RED if net_workers < 0 else COLOR_YELLOW
+
+        # Кристаллы (чистыми): каждая фабрика даёт +105,
+        # минус потребление от новых людей (population * food_loss)
+        # Используем текущий food_peoples как базу потребления населения
+        cur_pop = getattr(faction, 'population', 0)
+        cur_food_peoples = getattr(faction, 'food_peoples', 0)
+        # food_loss на 1 единицу населения
+        food_loss_per_pop = (cur_food_peoples / cur_pop) if cur_pop > 0 else 0.5
+        # Новые кристаллы от f фабрик минус потребление от h*50 новых жителей
+        crystal_gain = f * 105
+        crystal_loss = round(net_workers * food_loss_per_pop) if net_workers > 0 else 0
+        net_crystals = crystal_gain - crystal_loss
+        sign_c = "+" if net_crystals >= 0 else ""
+        val_crystal.text = f"{sign_c}{net_crystals} кристаллов"
+        val_crystal.color = COLOR_GREEN if net_crystals > 0 else COLOR_RED if net_crystals < 0 else COLOR_YELLOW
+
+        # Стоимость одного цикла строительства для 1 города
+        # Больница = 15 крон, Фабрика = 10 крон
+        cycle_cost = h * 15 + f * 10
+        val_cost.text = f"{cycle_cost} крон ({h}x15 + {f}x10)"
+        val_cost.color = COLOR_YELLOW
 
     # Загрузка текущих настроек
     if hasattr(faction, 'auto_build_ratio') and faction.auto_build_ratio in RATIOS:
@@ -2875,19 +2977,15 @@ def start_economy_mode(faction, game_area, db_conn, season_manager):
         orientation='horizontal',
         size_hint=(1, None),
         height=dp(70) if is_android else 60,
-        pos_hint={'x': -0.34, 'y': 0},
+        pos_hint={'x': 0, 'y': 0},
         spacing=dp(10) if is_android else 10,
         padding=[dp(10), dp(5), dp(10), dp(5)] if is_android else [10, 5, 10, 5]
     )
 
-    # Добавляем пустое пространство слева
-    economy_layout.add_widget(Widget(size_hint_x=None, width=dp(20)))
-
     def create_styled_button(text, on_press_callback):
         button = Button(
             text=text,
-            size_hint_x=None,
-            width=dp(120) if is_android else 100,
+            size_hint_x=1,
             size_hint_y=None,
             height=dp(60) if is_android else 50,
             background_color=(0, 0, 0, 0),
