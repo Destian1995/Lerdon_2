@@ -23,7 +23,7 @@ author = Vladislav Lerdon Team
 # Python / Kivy / зависимости
 # ---------------------------------
 
-requirements = python3==3.11.0, kivy==2.2.0, kivymd, pyjnius==1.5.0, cython==0.29.36, sdl2, sdl2_image, sdl2_mixer, sdl2_ttf
+requirements = python3==3.11.0, kivy==2.2.0, kivymd==1.1.1, pyjnius==1.5.0, cython==0.29.36, sdl2, sdl2_image, sdl2_mixer, sdl2_ttf
 
 # Откатываем p4a на версию с Python 3.11 (2024.01.21)
 p4a.branch = release-2024.01.21
