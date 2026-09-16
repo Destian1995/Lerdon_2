@@ -51,8 +51,6 @@ class FortressInfoPopup(Popup):
         self.send_group_button = None
         self.conn = conn
         self.cursor = self.conn.cursor()
-        self.conn.execute("PRAGMA journal_mode=WAL;")
-        self.conn.execute("PRAGMA synchronous=NORMAL;")
         self.ai_fraction = ai_fraction
         self.city_name = ''
         self.city_coords = list(city_coords)
@@ -378,6 +376,7 @@ class FortressInfoPopup(Popup):
     def _open_build_menu(self):
         """Открывает меню строительства для текущего города."""
         from kivy.uix.popup import Popup as _Popup
+        _is_mobile = platform in ('android', 'ios')
 
         # Получаем текущие здания
         cursor = self.conn.cursor()
@@ -1264,15 +1263,21 @@ class FortressInfoPopup(Popup):
             for unit_name, unit_count, unit_image in garrison_data:
                 unit_class = '1'
                 specialization_icon_path = None
+                unit_attack = 0
+                unit_defense = 0
+                unit_durability = 0
                 try:
                     cursor.execute(
-                        "SELECT unit_class, attack, defense FROM units WHERE unit_name = ?",
+                        "SELECT unit_class, attack, defense, durability FROM units WHERE unit_name = ?",
                         (unit_name,)
                     )
                     unit_info = cursor.fetchone()
                     if unit_info:
                         unit_class = str(unit_info[0])
                         attack, defense = unit_info[1], unit_info[2]
+                        unit_attack = attack
+                        unit_defense = defense
+                        unit_durability = unit_info[3] if unit_info[3] else 0
                         if unit_class in ('2', '3'):
                             try:
                                 if defense == 0 and attack > 0:
@@ -1344,6 +1349,23 @@ class FortressInfoPopup(Popup):
                             allow_stretch=True, keep_ratio=True
                         ))
 
+                # Обработчик нажатия — показать статы юнита
+                _u_name = unit_name
+                _u_atk = unit_attack
+                _u_def = unit_defense
+                _u_dur = unit_durability
+                _u_cnt = unit_count
+                _u_cls = unit_class
+
+                def _on_card_touch(instance, touch, n=_u_name, a=_u_atk,
+                                   d=_u_def, dur=_u_dur, cnt=_u_cnt, cls=_u_cls):
+                    if instance.collide_point(*touch.pos):
+                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls)
+                        return True
+                    return False
+
+                card.bind(on_touch_down=_on_card_touch)
+
                 self.attacking_units_box.add_widget(card)
 
         except Exception as e:
@@ -1398,15 +1420,21 @@ class FortressInfoPopup(Popup):
                 unit_exp = row_data[3] if len(row_data) > 3 else 0
                 unit_class = '1'
                 specialization_icon_path = None
+                unit_attack = 0
+                unit_defense = 0
+                unit_durability = 0
                 try:
                     self.cursor.execute(
-                        "SELECT unit_class, attack, defense FROM units WHERE unit_name = ?",
+                        "SELECT unit_class, attack, defense, durability FROM units WHERE unit_name = ?",
                         (unit_name,)
                     )
                     unit_info = self.cursor.fetchone()
                     if unit_info:
                         unit_class = str(unit_info[0])
                         attack, defense = unit_info[1], unit_info[2]
+                        unit_attack = attack
+                        unit_defense = defense
+                        unit_durability = unit_info[3] if unit_info[3] else 0
                         if unit_class in ('2', '3'):
                             try:
                                 if defense == 0 and attack > 0:
@@ -1502,6 +1530,23 @@ class FortressInfoPopup(Popup):
                             allow_stretch=True, keep_ratio=True
                         ))
 
+                # Обработчик нажатия — показать статы юнита
+                _u_name = unit_name
+                _u_atk = unit_attack
+                _u_def = unit_defense
+                _u_dur = unit_durability
+                _u_cnt = unit_count
+                _u_cls = unit_class
+
+                def _on_card_touch(instance, touch, n=_u_name, a=_u_atk,
+                                   d=_u_def, dur=_u_dur, cnt=_u_cnt, cls=_u_cls):
+                    if instance.collide_point(*touch.pos):
+                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls)
+                        return True
+                    return False
+
+                card.bind(on_touch_down=_on_card_touch)
+
                 self.attacking_units_box.add_widget(card)
 
         except Exception as e:
@@ -1519,6 +1564,66 @@ class FortressInfoPopup(Popup):
             )
             error_label.bind(size=error_label.setter('text_size'))
             self.attacking_units_box.add_widget(error_label)
+
+    def _show_unit_stats_popup(self, name, attack, defense, durability, count, unit_class):
+        """Мини-попап со статами юнита при нажатии на карточку в гарнизоне"""
+        _is_mobile = platform in ('android', 'ios')
+        class_labels = {'1': '', '2': 'Герой', '3': 'Чемпион', '4': 'Легенда'}
+        cls_text = class_labels.get(unit_class, '')
+        title = f"{name}  {cls_text}" if cls_text else name
+
+        content = BoxLayout(
+            orientation='vertical', spacing=dp(6),
+            padding=[dp(12), dp(8), dp(12), dp(8)]
+        )
+        with content.canvas.before:
+            Color(0.08, 0.09, 0.14, 1)
+            content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(12)])
+        content.bind(
+            pos=lambda i, v: setattr(i._bg, 'pos', v),
+            size=lambda i, v: setattr(i._bg, 'size', v)
+        )
+
+        stats = [
+            (f"Атака: {format_number(attack)}", (1.0, 0.6, 0.3, 1)),
+            (f"Защита: {format_number(defense)}", (0.4, 0.75, 1.0, 1)),
+            (f"Живучесть: {format_number(durability)}", (0.5, 0.9, 0.5, 1)),
+        ]
+        if unit_class == '1' and count > 0:
+            stats.append((f"Бойцов: {format_number(count)}", (1.0, 0.85, 0.3, 1)))
+
+        for text, color in stats:
+            lbl = Label(
+                text=text, font_size=sp(14) if _is_mobile else sp(15),
+                bold=True, color=color,
+                halign='center', valign='middle',
+                size_hint_y=None, height=dp(26)
+            )
+            lbl.bind(size=lbl.setter('text_size'))
+            content.add_widget(lbl)
+
+        close_btn = Button(
+            text="Закрыть",
+            size_hint_y=None, height=dp(40),
+            font_size=sp(14), bold=True,
+            background_color=(0.2, 0.5, 0.8, 1)
+        )
+        content.add_widget(close_btn)
+
+        popup_h = dp(50 + len(stats) * 30 + 60)
+        popup = Popup(
+            title=title,
+            content=content,
+            size_hint=(0.7, None) if _is_mobile else (0.35, None),
+            height=popup_h,
+            background_color=(0.06, 0.07, 0.12, 0.95),
+            separator_color=(0.3, 0.55, 0.9, 0.6),
+            title_color=(0.9, 0.9, 0.95, 1),
+            title_size=sp(15) if _is_mobile else sp(16),
+            title_align='center'
+        )
+        close_btn.bind(on_release=popup.dismiss)
+        popup.open()
 
     def show_warning_popup(self):
         _is_mobile = platform in ('android', 'ios')
@@ -1585,8 +1690,19 @@ class FortressInfoPopup(Popup):
                 show_popup_message("Ошибка", "Вы не можете размещать войска в чужом городе.")
                 return
 
+            # Проверяем, не отрезан ли город от основной территории
+            from game_process import _active_game_screen
+            if _active_game_screen and hasattr(_active_game_screen, 'game_state_manager'):
+                faction_obj = _active_game_screen.game_state_manager.faction
+                supplied = faction_obj._get_supplied_cities()
+                if self.city_name not in supplied:
+                    show_popup_message("Отрезан от снабжения",
+                                       f"Город {self.city_name} отрезан от основной территории.\n"
+                                       f"Восстановите сообщение через дороги.")
+                    return
+
             cursor.execute("""
-                SELECT unit_type, quantity, total_attack, total_defense, total_durability, unit_class, unit_image 
+                SELECT unit_type, quantity, total_attack, total_defense, total_durability, unit_class, unit_image
                 FROM armies
             """)
             army_data = cursor.fetchall()
@@ -2853,6 +2969,8 @@ def _show_prisoners_of_war(conn, captured_count, enemy_faction, player_faction, 
     from kivy.graphics import Color, RoundedRectangle, Rectangle
     from kivy.metrics import dp, sp
     from kivy.animation import Animation
+
+    _is_mobile = platform in ('android', 'ios')
 
     content = FloatLayout()
 

@@ -53,6 +53,28 @@ TYPE_MOD = {
 }
 
 
+# Пиковые сезоны фракций (для бонусов способностей)
+FACTION_PEAK_SEASON = {
+    'Север': 0,    # Зима
+    'Вампиры': 1,  # Весна
+    'Эльфы': 2,    # Лето
+    'Адепты': 3,   # Осень
+    'Элины': 2,    # Лето
+}
+
+
+def _get_season_mult(faction, conn):
+    """Возвращает 2.75 если сейчас пиковый сезон фракции, иначе 1.0"""
+    try:
+        _sc = conn.cursor()
+        _sc.execute("SELECT season_index FROM season LIMIT 1")
+        _sr = _sc.fetchone()
+        current = _sr[0] if _sr else -1
+    except Exception:
+        current = -1
+    return 2.75 if FACTION_PEAK_SEASON.get(faction) == current else 1.0
+
+
 # ======================================================================
 #                  ВСПОМОГАТЕЛЬНЫЕ
 # ======================================================================
@@ -315,7 +337,7 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     def_defense *= (1 + def_aura_def / 100.0)
 
     # Север: Шквал — если итоговый урон >= 20x от базового, урон x1.7 (в свой сезон x2.975)
-    shkval_mult = 1.70 * _season_mult('Север') if atk_fraction == 'Север' or def_fraction == 'Север' else 1.70
+    shkval_mult = 1.70 * _get_season_mult('Север', conn) if atk_fraction == 'Север' or def_fraction == 'Север' else 1.70
     if atk_fraction == 'Север' and get_unit_class(attacker) == 1 and atk_base_attack > 0:
         if atk_attack / atk_base_attack >= 20.0:
             atk_attack = int(atk_attack * shkval_mult)
@@ -522,24 +544,8 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
 
     # === Фракционные пассивные способности ===
     # В "свой" сезон бонус способности работает на 175% сильнее
-    FACTION_PEAK_SEASON = {
-        'Север': 0,    # Зима
-        'Вампиры': 1,  # Весна
-        'Эльфы': 2,    # Лето
-        'Адепты': 3,   # Осень
-        'Элины': 2,    # Лето
-    }
-    try:
-        _sc = conn.cursor()
-        _sc.execute("SELECT season_index FROM season LIMIT 1")
-        _sr = _sc.fetchone()
-        _current_season = _sr[0] if _sr else -1
-    except Exception:
-        _current_season = -1
-
     def _season_mult(faction):
-        """Возвращает 2.75 (1 + 1.75) если сейчас пиковый сезон фракции, иначе 1.0"""
-        return 2.75 if FACTION_PEAK_SEASON.get(faction) == _current_season else 1.0
+        return _get_season_mult(faction, conn)
 
     # Север: Шквал — реализуется в battle_chain (x1.7 при 20x множителе)
     # В пиковый сезон порог снижается (множитель Шквала передаётся через atk_fraction)
@@ -756,9 +762,6 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             u['killed_count'] -= healed
             print(f"[Исцеление] {healed} юнитов {u['unit_name']} вернулись в строй")
 
-    _apply_elf_healing(atk_army, attacking_fraction)
-    _apply_elf_healing(def_army, defending_fraction)
-
     atk_remaining = sum(u['unit_count'] for u in atk_army)
     def_remaining = sum(u['unit_count'] for u in def_army)
 
@@ -772,6 +775,12 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         winner = 'defender'
     else:
         winner = 'defender'  # полный размен — побеждает защитник
+
+    # Эльфы: Исцеление применяется ТОЛЬКО победившей стороне
+    if winner == 'attacker':
+        _apply_elf_healing(atk_army, attacking_fraction)
+    else:
+        _apply_elf_healing(def_army, defending_fraction)
 
     legacy_winner = 'attacking' if winner == 'attacker' else 'defending'
 
@@ -1611,6 +1620,7 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
 
             for unit in attacking_army:
                 if unit['unit_count'] > 0:
+                    print(f"[GARRISON] Перенос '{unit['unit_name']}' (x{unit['unit_count']}) в {defending_city}")
                     cursor.execute("""
                         INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
                         VALUES (?, ?, ?, ?)
@@ -1624,7 +1634,8 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
                         unit.get('unit_image', '')
                     ))
             cursor.execute("UPDATE cities SET faction = ? WHERE name = ?", (attacking_fraction, defending_city))
-            cursor.execute("UPDATE buildings SET faction = ? WHERE city_name = ?", (attacking_fraction, defending_city))
+            # Все здания разрушаются при захвате города — отстраивать заново
+            cursor.execute("DELETE FROM buildings WHERE city_name = ?", (defending_city,))
             # Обновляем цвет фракции города
             _faction_hex_colors = {
                 'Север': '#4085EB', 'Эльфы': '#38C252', 'Вампиры': '#C71A28',

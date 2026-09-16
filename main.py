@@ -195,6 +195,29 @@ def restore_from_backup(conn):
             cursor.execute(f"DELETE FROM {working_table}")
             cursor.execute(f"INSERT INTO {working_table} SELECT * FROM {default_table}")
 
+        # Сброс инвазии нежити для новой игры (случайный ход 18-26)
+        import random as _rnd
+        _inv_turn = _rnd.randint(18, 26)
+        cursor.execute("""
+            UPDATE undead_invasion SET
+                invasion_turn = ?,
+                invasion_started = 0,
+                king_alive = 1,
+                army_limit = 250000
+            WHERE id = 1
+        """, (_inv_turn,))
+        # Возвращаем города нежити в нейтральный статус
+        cursor.execute("""
+            UPDATE cities SET faction = 'Нейтрал', color_faction = '#AAAAAA'
+            WHERE is_undead = 1
+        """)
+        # Убираем гарнизоны нежити
+        cursor.execute("""
+            DELETE FROM garrisons WHERE city_name IN (
+                SELECT name FROM cities WHERE is_undead = 1
+            )
+        """)
+
         conn.commit()
         print("Данные успешно восстановлены из бэкапа.")
     except sqlite3.Error as e:
@@ -1229,10 +1252,16 @@ class MapWidget(Widget):
                     (str([drawn_x, drawn_y]), fortress_name)
                 )
             self.conn.commit()
-        except sqlite3.Error as e:
-            print(f"[DB ERROR] Не удалось обновить icon_coordinates: {e}")
+        except (sqlite3.Error, SystemError) as e:
+            # Может конфликтовать с фоновым потоком ИИ — не критично
+            pass
+        except Exception:
+            pass
         finally:
-            cursor2.close()
+            try:
+                cursor2.close()
+            except Exception:
+                pass
 
     def _start_undead_shield_animation(self):
         """Рисует статичные щиты и анимирует молнии вокруг городов нежити."""
@@ -2254,52 +2283,9 @@ class KingdomSelectionWidget(MDFloatLayout):
 
         self.settings_content_container.add_widget(self.faction_info_container)
         self.main_container.add_widget(self.settings_panel_container)
-        # ======== ЧЕКБОКС "ОБУЧЕНИЕ" ========
-        tutorial_container = MDBoxLayout(
-            orientation='vertical',
-            spacing=dp(3) if is_android else dp(6),  # УМЕНЬШИЛ spacing
-            size_hint=(1, None),
-            height=dp(45) if is_android else dp(55),  # УМЕНЬШИЛ высоту
-        )
 
-        # Контейнер для чекбокса и надписи
-        checkbox_row = MDBoxLayout(
-            orientation='horizontal',
-            spacing=dp(6),  # УМЕНЬШИЛ spacing
-            size_hint=(1, None),
-            height=dp(28) if is_android else dp(32),  # УМЕНЬШИЛ высоту
-            padding=[dp(3), 0, 0, 0]  # УМЕНЬШИЛ padding
-        )
-
-        # Чекбокс
-        self.tutorial_checkbox = MDCheckbox(
-            size_hint=(None, None),
-            size=(dp(26), dp(26)) if is_android else (dp(30), dp(30)),  # УМЕНЬШИЛ размер
-            active=False
-        )
-
-        # Надпись рядом с чекбоксом
-        tutorial_text = MDLabel(
-            text="ОБУЧЕНИЕ(Рекомендуется: 2 союзника)",
-            font_style="Caption",
-            theme_text_color="Custom",
-            text_color=(0.9, 0.9, 0.9, 1),
-            size_hint_y=None,
-            height=dp(28),
-            halign='left',
-            valign='middle',
-            font_size=self.base_font_size * 0.7  # УМЕНЬШИЛ шрифт
-        )
-        tutorial_text.bind(size=tutorial_text.setter('text_size'))
-
-        checkbox_row.add_widget(self.tutorial_checkbox)
-        checkbox_row.add_widget(tutorial_text)
-        tutorial_container.add_widget(checkbox_row)
-        self.settings_content_container.add_widget(tutorial_container)
-
-        # Сохраняем состояние обучения
+        # Обучение теперь запускается из главного меню
         self.tutorial_enabled = False
-        self.tutorial_checkbox.bind(active=self.on_tutorial_toggled)
         # ======== КНОПКИ ВНИЗУ ========
         # Определяем размеры кнопок в зависимости от платформы
         if is_android:
@@ -2361,11 +2347,6 @@ class KingdomSelectionWidget(MDFloatLayout):
 
         # ======== Запускаем анимацию появления ========
         Clock.schedule_once(lambda dt: self.animate_in(), 0.3)
-
-    def on_tutorial_toggled(self, checkbox, value):
-        """Обработка переключения режима обучения"""
-        self.tutorial_enabled = value
-        print(f"Режим обучения: {'ВКЛЮЧЕН' if value else 'ВЫКЛЮЧЕН'}")
 
     def on_ideology_selected(self, spinner, text):
         """Обработка выбора идеологии"""
@@ -2505,7 +2486,7 @@ class KingdomSelectionWidget(MDFloatLayout):
         'Эльфы': '[b]Природное исцеление[/b] — 10% погибших возвращаются в строй',
         'Вампиры': '[b]Вампиризм[/b] — 5% убитых врагов воскресают как ваши юниты',
         'Адепты': '[b]Святое благословение[/b] — +20% защита при обороне городов',
-        'Элины': '[b]Торговая империя[/b] — +15% доход крон (стакается с Рынком)',
+        'Элины': '[b]Торговая империя[/b] — +35% добыча кристаллов, +25% к торговле (стакается с Рынком)',
     }
 
     def update_faction_stats(self, kingdom):
@@ -3089,6 +3070,284 @@ class AnimatedLabel(Label):
         anim.start(self)
 
 
+class TutorialFactionScreen(FloatLayout):
+    """Экран выбора фракции для обучения"""
+
+    FACTIONS = ['Вампиры', 'Эльфы', 'Север', 'Адепты', 'Элины']
+    FACTION_IMAGES = {
+        'Вампиры': 'files/buildings/giperion.png',
+        'Север': 'files/buildings/arkadia.png',
+        'Эльфы': 'files/buildings/celestia.png',
+        'Адепты': 'files/buildings/eteria.png',
+        'Элины': 'files/buildings/halidon.png',
+    }
+    FACTION_COLORS = {
+        'Вампиры': (0.5, 0.2, 0.6, 1),
+        'Эльфы': (0.2, 0.7, 0.3, 1),
+        'Север': (0.2, 0.4, 0.9, 1),
+        'Адепты': (0.15, 0.15, 0.15, 1),
+        'Элины': (0.7, 0.6, 0.2, 1),
+    }
+    FACTION_IDEOLOGY = {
+        'Север': 'Смирение',
+        'Вампиры': 'Смирение',
+        'Эльфы': 'Смирение',
+        'Адепты': 'Борьба',
+        'Элины': 'Борьба',
+    }
+    FACTION_HINT = {
+        'Север': 'Смирение: +700% к доходам от налогов',
+        'Вампиры': 'Смирение: +700% к доходам от налогов',
+        'Эльфы': 'Смирение: +700% к доходам от налогов',
+        'Адепты': 'Борьба: +550% к добыче кристаллов',
+        'Элины': 'Борьба: +550% к добыче кристаллов',
+    }
+
+    def __init__(self, conn, **kwargs):
+        super().__init__(**kwargs)
+        self.conn = conn
+        self.selected_faction = None
+        self.selected_btn = None
+
+        # Фон
+        with self.canvas.before:
+            self._bg = Rectangle(
+                source='files/menu/vampire.jpg',
+                pos=self.pos, size=self.size
+            )
+            Color(0, 0, 0, 0.6)
+            self._overlay = Rectangle(pos=self.pos, size=self.size)
+        self.bind(
+            pos=self._update_bg, size=self._update_bg
+        )
+
+        self._build_ui()
+
+    def _update_bg(self, *args):
+        self._bg.pos = self.pos
+        self._bg.size = self.size
+        self._overlay.pos = self.pos
+        self._overlay.size = self.size
+
+    def _build_ui(self):
+        from kivy.uix.boxlayout import BoxLayout
+        from kivy.uix.button import Button
+        from kivy.uix.image import Image
+
+        is_mobile = platform == 'android'
+
+        # Главный контейнер
+        main = BoxLayout(
+            orientation='vertical',
+            size_hint=(0.85, 0.85) if is_mobile else (0.5, 0.8),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            spacing=dp(12),
+            padding=[dp(16), dp(16), dp(16), dp(16)]
+        )
+        with main.canvas.before:
+            Color(0.06, 0.08, 0.14, 0.9)
+            main._bg = RoundedRectangle(pos=main.pos, size=main.size, radius=[dp(16)])
+        main.bind(
+            pos=lambda i, v: setattr(main._bg, 'pos', v),
+            size=lambda i, v: setattr(main._bg, 'size', v)
+        )
+
+        # Заголовок
+        title = Label(
+            text="[b]Обучение[/b]\nВыберите фракцию для прохождения обучения",
+            markup=True,
+            font_size=sp(17) if is_mobile else sp(20),
+            color=(0.9, 0.85, 0.6, 1),
+            halign='center', valign='middle',
+            size_hint_y=None, height=dp(60)
+        )
+        title.bind(size=title.setter('text_size'))
+        main.add_widget(title)
+
+        # Кнопки фракций
+        from kivy.uix.scrollview import ScrollView
+        scroll = ScrollView(size_hint=(1, 1), do_scroll_x=False)
+        factions_box = BoxLayout(
+            orientation='vertical',
+            size_hint_y=None,
+            spacing=dp(8),
+            padding=[0, dp(4), 0, dp(4)]
+        )
+        factions_box.bind(minimum_height=factions_box.setter('height'))
+
+        self._faction_btns = {}
+        for faction in self.FACTIONS:
+            btn_height = dp(64) if is_mobile else dp(68)
+            row = BoxLayout(
+                orientation='horizontal',
+                size_hint_y=None,
+                height=btn_height,
+                spacing=dp(8)
+            )
+
+            img = Image(
+                source=self.FACTION_IMAGES.get(faction, ''),
+                size_hint=(None, 1),
+                width=btn_height,
+                allow_stretch=True, keep_ratio=True
+            )
+
+            fc = self.FACTION_COLORS.get(faction, (0.3, 0.3, 0.3, 1))
+            ideology = self.FACTION_IDEOLOGY.get(faction, '')
+            hint = self.FACTION_HINT.get(faction, '')
+            ideology_color = '#88CCFF' if ideology == 'Смирение' else '#FF8866'
+
+            # Контейнер с названием и идеологией
+            btn_content = BoxLayout(orientation='vertical', size_hint_x=1)
+
+            btn = Button(
+                text=faction,
+                font_size=sp(15) if is_mobile else sp(17),
+                bold=True,
+                background_color=(0, 0, 0, 0),
+                color=(1, 1, 1, 1),
+                size_hint_y=0.55
+            )
+            ideology_lbl = Label(
+                text=f'[color={ideology_color}]{hint}[/color]',
+                markup=True,
+                font_size=sp(10) if is_mobile else sp(11),
+                color=(0.7, 0.7, 0.7, 1),
+                halign='center', valign='middle',
+                size_hint_y=0.45
+            )
+            ideology_lbl.bind(size=ideology_lbl.setter('text_size'))
+
+            btn_content.add_widget(btn)
+            btn_content.add_widget(ideology_lbl)
+
+            with btn_content.canvas.before:
+                btn_content._bc = Color(*fc[:3], 0.6)
+                btn_content._br = RoundedRectangle(pos=btn_content.pos, size=btn_content.size, radius=[dp(10)])
+            btn_content.bind(
+                pos=lambda i, v: setattr(i._br, 'pos', v),
+                size=lambda i, v: setattr(i._br, 'size', v)
+            )
+            btn.bind(on_release=lambda inst, f=faction: self._select_faction(f))
+
+            row.add_widget(img)
+            row.add_widget(btn_content)
+            factions_box.add_widget(row)
+            self._faction_btns[faction] = btn_content
+
+        scroll.add_widget(factions_box)
+        main.add_widget(scroll)
+
+        # Нижние кнопки
+        bottom = BoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            height=dp(48) if is_mobile else dp(52),
+            spacing=dp(10)
+        )
+
+        back_btn = Button(
+            text="Назад",
+            font_size=sp(15),
+            bold=True,
+            background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1),
+            size_hint_x=0.4
+        )
+        with back_btn.canvas.before:
+            Color(0.55, 0.18, 0.18, 1)
+            back_btn._br = RoundedRectangle(pos=back_btn.pos, size=back_btn.size, radius=[dp(10)])
+        back_btn.bind(
+            pos=lambda i, v: setattr(i._br, 'pos', v),
+            size=lambda i, v: setattr(i._br, 'size', v)
+        )
+        back_btn.bind(on_release=self._go_back)
+
+        self.start_btn = Button(
+            text="Начать обучение",
+            font_size=sp(15),
+            bold=True,
+            background_color=(0, 0, 0, 0),
+            color=(0.7, 0.7, 0.7, 1),
+            size_hint_x=0.6
+        )
+        with self.start_btn.canvas.before:
+            self.start_btn._bc = Color(0.25, 0.4, 0.25, 1)
+            self.start_btn._br = RoundedRectangle(
+                pos=self.start_btn.pos, size=self.start_btn.size, radius=[dp(10)]
+            )
+        self.start_btn.bind(
+            pos=lambda i, v: setattr(i._br, 'pos', v),
+            size=lambda i, v: setattr(i._br, 'size', v)
+        )
+        self.start_btn.bind(on_release=self._start_tutorial)
+
+        bottom.add_widget(back_btn)
+        bottom.add_widget(self.start_btn)
+        main.add_widget(bottom)
+
+        self.add_widget(main)
+
+    def _select_faction(self, faction):
+        self.selected_faction = faction
+        # Подсвечиваем выбранную кнопку
+        for f, btn in self._faction_btns.items():
+            fc = self.FACTION_COLORS.get(f, (0.3, 0.3, 0.3, 1))
+            if f == faction:
+                btn._bc.rgba = (*fc[:3], 1.0)
+                btn.color = (1, 1, 0.7, 1)
+            else:
+                btn._bc.rgba = (*fc[:3], 0.4)
+                btn.color = (0.7, 0.7, 0.7, 1)
+        # Активируем кнопку старта
+        self.start_btn.color = (1, 1, 1, 1)
+        self.start_btn._bc.rgba = (0.18, 0.58, 0.25, 1)
+
+    def _go_back(self, instance):
+        app = App.get_running_app()
+        app.root.clear_widgets()
+        app.root.add_widget(MenuWidget(self.conn))
+
+    def _start_tutorial(self, instance):
+        if not self.selected_faction:
+            return
+
+        restore_from_backup(self.conn)
+
+        app = App.get_running_app()
+        app.selected_kingdom = self.selected_faction
+
+        MapWidget = globals().get('MapWidget')
+        GameScreen = globals().get('GameScreen')
+        if not MapWidget or not GameScreen:
+            import sys
+            current_module = sys.modules[__name__]
+            MapWidget = getattr(current_module, 'MapWidget', None)
+            GameScreen = getattr(current_module, 'GameScreen', None)
+
+        if MapWidget and GameScreen:
+            map_widget = MapWidget(
+                selected_kingdom=self.selected_faction,
+                player_kingdom=self.selected_faction,
+                conn=self.conn
+            )
+            cities = load_cities_from_db(self.conn, self.selected_faction)
+            tutorial_ideology = self.FACTION_IDEOLOGY.get(self.selected_faction, 'Смирение')
+            game_screen = GameScreen(
+                self.selected_faction,
+                cities,
+                player_ideology=tutorial_ideology,
+                player_allies=['Случайно 1 или 2 союзника'],
+                tutorial_enabled=True,
+                conn=self.conn
+            )
+            app.root.clear_widgets()
+            app.root.add_widget(map_widget)
+            app.root.add_widget(game_screen)
+            if hasattr(map_widget, 'blink_player_city_icon'):
+                Clock.schedule_once(lambda dt: map_widget.blink_player_city_icon(), 1.0)
+
+
 class MenuWidget(FloatLayout):
     def __init__(self, conn, selected_map=None, **kwargs):
         super(MenuWidget, self).__init__(**kwargs)
@@ -3152,11 +3411,12 @@ class MenuWidget(FloatLayout):
 
         # ======== Кнопки ========
         button_configs = [
-            {"text": "Начать игру",       "y_pos": 0.78, "type": "start",  "action": self.start_game},
-            {"text": "Рейтинг",           "y_pos": 0.60, "type": "rating", "action": self.open_dossier},
-            {"text": "История Лэрдона",   "y_pos": 0.42, "type": "help",   "action": self.open_how_to_play},
-            {"text": "Об авторе",         "y_pos": 0.24, "type": "author", "action": self.open_author},
-            {"text": "Выход",             "y_pos": 0.06, "type": "exit",   "action": self.exit_game}
+            {"text": "Начать игру",       "y_pos": 0.82, "type": "start",    "action": self.start_game},
+            {"text": "Обучение",          "y_pos": 0.66, "type": "tutorial", "action": self.open_tutorial},
+            {"text": "Рейтинг",           "y_pos": 0.50, "type": "rating",  "action": self.open_dossier},
+            {"text": "История Лэрдона",   "y_pos": 0.34, "type": "help",    "action": self.open_how_to_play},
+            {"text": "Об авторе",         "y_pos": 0.18, "type": "author",  "action": self.open_author},
+            {"text": "Выход",             "y_pos": 0.02, "type": "exit",    "action": self.exit_game}
         ]
 
         self.buttons = []
@@ -3189,7 +3449,7 @@ class MenuWidget(FloatLayout):
 
         # ======== Версия внизу ========
         version_label = Label(
-            text="v2.0",
+            text="v6.1.9",
             font_size=sp(11),
             color=(0.5, 0.5, 0.55, 0.5),
             size_hint=(None, None),
@@ -3291,6 +3551,11 @@ class MenuWidget(FloatLayout):
         app = App.get_running_app()
         app.root.clear_widgets()
         app.root.add_widget(KingdomSelectionWidget(self.conn))
+
+    def open_tutorial(self, instance):
+        app = App.get_running_app()
+        app.root.clear_widgets()
+        app.root.add_widget(TutorialFactionScreen(self.conn))
 
     def exit_game(self, instance):
         app = App.get_running_app()

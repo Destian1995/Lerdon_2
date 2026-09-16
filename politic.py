@@ -479,7 +479,8 @@ class DiplomacyManager:
             print(f"Ошибка объявления войны: {e}")
 
     def _propose_peace(self, target_faction):
-        """Игрок предлагает мир фракции."""
+        """Игрок предлагает мир фракции. Враг отказывается если он сильнее."""
+        from ui_components import show_message
         try:
             # Мир стоит денег — 500к крон
             peace_cost = 500000
@@ -491,8 +492,23 @@ class DiplomacyManager:
             current_money = row[0] if row else 0
 
             if current_money < peace_cost:
-                from nobles import show_toast
-                show_toast(f"Недостаточно крон для мира (нужно {peace_cost:,})")
+                show_message("Мир", f"Недостаточно крон для предложения мира.\nНужно: {peace_cost:,} крон.")
+                return
+
+            # Проверяем соотношение сил
+            our_power = calculate_total_faction_power(self.db_connection, self.faction)
+            enemy_power = calculate_total_faction_power(self.db_connection, target_faction)
+
+            if enemy_power > our_power * 1.2:
+                # Враг сильнее на 20%+ — отказывается от мира
+                show_message(
+                    "Отказ",
+                    f"{target_faction} отвергает ваше предложение мира!\n\n"
+                    f"\"Ваша армия слишком слаба чтобы диктовать условия.\n"
+                    f"Сначала докажите свою силу на поле боя.\"\n\n"
+                    f"Ваша мощь: {format_number(int(our_power))}\n"
+                    f"Мощь {target_faction}: {format_number(int(enemy_power))}"
+                )
                 return
 
             # Списываем деньги
@@ -522,8 +538,12 @@ class DiplomacyManager:
             self.db_connection.commit()
             print(f"[ДИПЛОМАТИЯ] {self.faction} заключил мир с {target_faction} за {peace_cost} крон")
 
-            from nobles import show_toast
-            show_toast(f"Мир с {target_faction} заключён за {peace_cost:,} крон")
+            show_message(
+                "Мир",
+                f"Мир с {target_faction} заключён!\n"
+                f"Потрачено: {peace_cost:,} крон.\n"
+                f"Отношения улучшены на +10%."
+            )
         except Exception as e:
             print(f"Ошибка предложения мира: {e}")
 
@@ -745,12 +765,19 @@ def calculate_army_strength(conn):
 
 def create_army_rating_table(conn):
     """Создает таблицу рейтинга армий в стиле таблицы отношений (тёмная тема)."""
+    from undead_invasion import is_invasion_active
 
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT DISTINCT faction FROM cities
-        WHERE faction != 'Нейтрал' AND faction != 'Мятежники' AND faction != 'Нежить'
-    """)
+    if is_invasion_active(conn):
+        cursor.execute("""
+            SELECT DISTINCT faction FROM cities
+            WHERE faction != 'Нейтрал' AND faction != 'Мятежники'
+        """)
+    else:
+        cursor.execute("""
+            SELECT DISTINCT faction FROM cities
+            WHERE faction != 'Нейтрал' AND faction != 'Мятежники' AND faction != 'Нежить'
+        """)
     all_factions = [row[0] for row in cursor.fetchall()]
 
     if not all_factions:
@@ -880,6 +907,30 @@ def calculate_total_faction_power(conn, faction):
         # Итоговая формула:
         # Общая мощь = (база юнитов 1-го класса) + (глобальный бонус всех героев) + (юниты 4+ класса)
         total_power = total_class_1_stats + global_bonus + total_others_stats
+
+        # === ШАГ 4: Фракционные пассивные способности ===
+        # Учитываем бонус фракции и усиление в пиковый сезон
+        FACTION_PASSIVE = {
+            'Север':   1.25,  # Шквал: x1.7 урон при 20x множителе → ~+25% средний бонус
+            'Эльфы':   1.10,  # Природное исцеление: 10% погибших возвращаются
+            'Вампиры': 1.08,  # Вампиризм: 5% врагов воскресают союзниками
+            'Адепты':  1.15,  # Святое благословение: +20% защита при обороне
+            'Элины':   1.05,  # Нет явной боевой пассивки
+        }
+        faction_mult = FACTION_PASSIVE.get(faction, 1.0)
+
+        # В пиковый сезон бонус усиливается
+        try:
+            cursor.execute("SELECT season_index FROM season LIMIT 1")
+            sr = cursor.fetchone()
+            current_season = sr[0] if sr else -1
+            PEAK_SEASON = {'Север': 0, 'Вампиры': 1, 'Эльфы': 2, 'Адепты': 3, 'Элины': 2}
+            if PEAK_SEASON.get(faction) == current_season:
+                faction_mult *= 1.30  # В свой сезон ещё +30%
+        except Exception:
+            pass
+
+        total_power = total_power * faction_mult
 
         return total_power
 
@@ -1037,9 +1088,9 @@ def show_faction_bonuses_popup(conn, faction):
         },
         'Элины': {
             'name': 'Торговая империя',
-            'desc': '+15% доход крон (стакается с Рынком)',
+            'desc': '+35% кристаллы, +25% к торговле (стакается с Рынком)',
             'color': (0.92, 0.70, 0.10, 1),
-            'calc': lambda: [("Бонус торговли", f"+{15 + markets * 10}%", f"15% фракция + {markets * 10}% от {markets} рынков")],
+            'calc': lambda: [("Бонус кристаллов", "+35%", "Фракционный бафф добычи"), ("Бонус торговли", f"+{25 + markets * 10}%", f"25% фракция + {markets * 10}% от {markets} рынков")],
         },
     }
 
@@ -1196,19 +1247,40 @@ def start_politic_mode(faction, game_area, class_faction, conn):
 
     is_android = platform == 'android'
 
-    politics_layout = BoxLayout(
-        orientation='horizontal',
-        size_hint=(0.88, None),
-        height=dp(70) if is_android else 60,
-        pos_hint={'x': 0, 'y': 0},
-        spacing=dp(4) if is_android else 10,
-        padding=[dp(10), dp(5), dp(10), dp(5)] if is_android else [10, 5, 10, 5]
-    )
+    if is_android:
+        from kivy.uix.scrollview import ScrollView
+
+        scroll_wrapper = ScrollView(
+            size_hint=(0.88, None),
+            height=dp(70),
+            pos_hint={'x': 0, 'y': 0},
+            do_scroll_y=False,
+            do_scroll_x=True,
+            bar_width=0
+        )
+
+        politics_layout = BoxLayout(
+            orientation='horizontal',
+            size_hint_y=1,
+            size_hint_x=None,
+            spacing=dp(6),
+            padding=[dp(6), dp(5), dp(6), dp(5)]
+        )
+        politics_layout.bind(minimum_width=politics_layout.setter('width'))
+    else:
+        scroll_wrapper = None
+        politics_layout = BoxLayout(
+            orientation='horizontal',
+            size_hint=(0.88, None),
+            height=60,
+            pos_hint={'x': 0, 'y': 0},
+            spacing=10,
+            padding=[10, 5, 10, 5]
+        )
 
     def styled_btn(text, callback):
         btn = Button(
             text=text,
-            size_hint_x=1,
             size_hint_y=None,
             height=dp(60) if is_android else 50,
             background_color=(0, 0, 0, 0),
@@ -1216,6 +1288,11 @@ def start_politic_mode(faction, game_area, class_faction, conn):
             font_size=sp(14) if is_android else 16,
             bold=True
         )
+        if is_android:
+            btn.size_hint_x = None
+            btn.width = dp(130)
+        else:
+            btn.size_hint_x = 1
 
         with btn.canvas.before:
             Color(0.2, 0.6, 1, 1)
@@ -1242,4 +1319,8 @@ def start_politic_mode(faction, game_area, class_faction, conn):
     politics_layout.add_widget(btn_diversion)
     politics_layout.add_widget(btn_bonuses)
 
-    game_area.add_widget(politics_layout)
+    if scroll_wrapper:
+        scroll_wrapper.add_widget(politics_layout)
+        game_area.add_widget(scroll_wrapper)
+    else:
+        game_area.add_widget(politics_layout)

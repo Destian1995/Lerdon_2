@@ -348,15 +348,6 @@ class ArmyCash:
             spacing=dp(10)
         )
 
-        # Разделительная полоска-акцент вверху
-        accent_bar = Widget(size_hint=(1, None), height=dp(3))
-        with accent_bar.canvas:
-            Color(*acc)
-            accent_bar._r = RoundedRectangle(pos=accent_bar.pos, size=accent_bar.size, radius=[dp(2)])
-        accent_bar.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
-                        size=lambda i, v: setattr(i._r, 'size', v))
-        content_layout.add_widget(accent_bar)
-
         message_label = Label(
             text=message,
             color=(0.94, 0.94, 0.94, 1),
@@ -390,15 +381,13 @@ class ArmyCash:
 
         _is_mobile = platform in ('android', 'ios')
         popup = Popup(
-            title=title,
+            title='',
+            separator_height=0,
             content=content_layout,
-            size_hint=(0.90 if _is_mobile else 0.78, 0.42 if _is_mobile else 0.34),
+            size_hint=(0.90 if _is_mobile else 0.78, 0.32 if _is_mobile else 0.28),
             auto_dismiss=False,
-            background_color=(0.07, 0.08, 0.13, 1),
-            separator_color=sep,
-            title_color=title_clr,
-            title_size=sp(17) if _is_mobile else sp(15),
-            title_align='center'
+            background_color=(0.07, 0.08, 0.13, 0.95),
+            background='',
         )
         close_button.bind(on_release=popup.dismiss)
         popup.open()

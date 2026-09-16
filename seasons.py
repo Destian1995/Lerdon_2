@@ -63,42 +63,42 @@ class SeasonManager:
         # Кэш артефактов - словарь {artifact_id: (attack, defense, season_name)}
         self._artifact_cache = {}
 
+    # Смещение ID для артефактов ИИ, чтобы избежать коллизий с артефактами игрока
+    AI_ARTIFACT_ID_OFFSET = 1_000_000
+
     def _load_artifact_cache(self, conn, faction_type="both"):
         """
         Загружает или обновляет кэш артефактов из БД.
+        AI артефакты хранятся со смещением ID чтобы не перезаписывать артефакты игрока.
         faction_type: "player", "ai", "both"
         """
         cur = conn.cursor()
         self._artifact_cache = {}
 
-        # Определяем, какие таблицы использовать
-        artifact_tables = []
+        # Сначала загружаем артефакты игрока (без смещения ID)
         if faction_type in ["player", "both"]:
-            artifact_tables.append("artifacts")
-        if faction_type in ["ai", "both"]:
-            artifact_tables.append("artifacts_ai")
-
-        for table_name in artifact_tables:
             try:
-                # Проверяем, существует ли таблица
-                cur.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='artifacts'")
                 if cur.fetchone():
-                    cur.execute(f"""
-                        SELECT id, attack, defense, season_name
-                        FROM {table_name}
-                    """)
-                    artifacts = cur.fetchall()
-
-                    for artifact_row in artifacts:
-                        artifact_id, attack, defense, season_name = artifact_row
+                    cur.execute("SELECT id, attack, defense, season_name FROM artifacts")
+                    for row in cur.fetchall():
+                        artifact_id, attack, defense, season_name = row
                         self._artifact_cache[artifact_id] = (attack, defense, season_name)
-
-                    print(f"[SEASON] Загружено {len(artifacts)} артефактов из таблицы {table_name}")
-                else:
-                    print(f"[WARNING] Таблица {table_name} не найдена, пропускаем.")
-
             except sqlite3.Error as e:
-                print(f"[ERROR] Ошибка при загрузке артефактов из {table_name}: {e}")
+                print(f"[ERROR] Ошибка при загрузке артефактов из artifacts: {e}")
+
+        # Затем загружаем артефакты ИИ (со смещением ID)
+        if faction_type in ["ai", "both"]:
+            try:
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='artifacts_ai'")
+                if cur.fetchone():
+                    cur.execute("SELECT id, attack, defense, season_name FROM artifacts_ai")
+                    for row in cur.fetchall():
+                        artifact_id, attack, defense, season_name = row
+                        cache_key = artifact_id + self.AI_ARTIFACT_ID_OFFSET
+                        self._artifact_cache[cache_key] = (attack, defense, season_name)
+            except sqlite3.Error as e:
+                print(f"[ERROR] Ошибка при загрузке артефактов из artifacts_ai: {e}")
 
         print(f"[SEASON] Всего артефактов в кэше: {len(self._artifact_cache)}")
 
@@ -146,7 +146,8 @@ class SeasonManager:
         # Получаем сезонный коэффициент для статов (attack, defense)
         current_season_effects = self.FACTION_EFFECTS[season_idx]
 
-        # Пересчитываем характеристики
+        # Пересчитываем характеристики (batch)
+        update_batch = []
         for unit_name, base_data in default_units.items():
             base_atk = base_data['attack']
             base_def = base_data['defense']
@@ -155,22 +156,14 @@ class SeasonManager:
             base_cost_time = base_data['cost_time']
             faction = base_data['faction']
 
-            # 1. Применяем бонусы от артефактов к базовым значениям
-            artifact_bonus_atk = artifact_effects.get(unit_name, {}).get('attack', 0)
-            artifact_bonus_def = artifact_effects.get(unit_name, {}).get('defense', 0)
-            artifact_bonus_hp = artifact_effects.get(unit_name, {}).get('durability', 0)
-            artifact_bonus_cost_money = artifact_effects.get(unit_name, {}).get('cost_money', 0)
-            artifact_bonus_cost_time = artifact_effects.get(unit_name, {}).get('cost_time', 0)
+            # Бонусы от артефактов
+            unit_effects = artifact_effects.get(unit_name, {})
+            artifact_bonus_atk = unit_effects.get('attack', 0)
+            artifact_bonus_def = unit_effects.get('defense', 0)
+            artifact_bonus_hp = unit_effects.get('durability', 0)
+            artifact_bonus_cost_money = unit_effects.get('cost_money', 0)
+            artifact_bonus_cost_time = unit_effects.get('cost_time', 0)
 
-            # Итог после артефактов (формула: база + (база * процент_артефакта / 100))
-            # Но процент артефакта уже хранится как бонус, его нужно преобразовать обратно в коэффициент
-            # Пусть A - процент артефакта. Тогда bonus = base * (A / 100).
-            # Итог = base + bonus = base + base * (A / 100) = base * (1 + A / 100).
-            # Нам нужен коэффициент от артефактов: artifact_coeff = 1 + A / 100.
-            # Тогда итог после артефактов: base * artifact_coeff.
-            # Однако, в _calculate_stat_change_from_default мы делаем: base * (A / 100) = bonus.
-            # Итог после артефактов: base + bonus.
-            # Теперь применяем сезонный коэффициент к этому итогу.
             artifact_coeff_atk = 1.0 + (artifact_bonus_atk / 100.0) if base_atk != 0 else 1.0
             artifact_coeff_def = 1.0 + (artifact_bonus_def / 100.0) if base_def != 0 else 1.0
             artifact_coeff_hp = 1.0 + (artifact_bonus_hp / 100.0) if base_hp != 0 else 1.0
@@ -179,8 +172,7 @@ class SeasonManager:
             temp_def = int(round(base_def * artifact_coeff_def)) if base_def != 0 else base_def + artifact_bonus_def
             temp_hp = int(round(base_hp * artifact_coeff_hp)) if base_hp != 0 else base_hp + artifact_bonus_hp
 
-            # 2. Применяем сезонный коэффициент к результату после артефактов
-            # Получаем коэффициент для фракции
+            # Сезонный коэффициент
             faction_season_effects = current_season_effects.get(faction, {'stat': 1.0, 'cost': 1.0})
             season_stat_coeff = faction_season_effects['stat']
             season_cost_coeff = faction_season_effects['cost']
@@ -191,18 +183,14 @@ class SeasonManager:
             final_cost_money = int(round((base_cost_money + artifact_bonus_cost_money) * season_cost_coeff))
             final_cost_time = int(round((base_cost_time + artifact_bonus_cost_time) * season_cost_coeff))
 
-            # Обновляем таблицу units
-            cur.execute("""
-                UPDATE units
-                SET
-                    attack = ?,
-                    defense = ?,
-                    durability = ?,
-                    cost_money = ?,
-                    cost_time = ?
-                WHERE unit_name = ?
-            """, (final_atk, final_def, final_hp, final_cost_money, final_cost_time, unit_name))
+            update_batch.append((final_atk, final_def, final_hp, final_cost_money, final_cost_time, unit_name))
 
+        # Один batch-запрос вместо 50+ отдельных UPDATE
+        cur.executemany("""
+            UPDATE units
+            SET attack = ?, defense = ?, durability = ?, cost_money = ?, cost_time = ?
+            WHERE unit_name = ?
+        """, update_batch)
         conn.commit()
         print(f"[SEASON] Пересчитаны характеристики в units для сезона {self.SEASON_NAMES[season_idx]}")
 
@@ -221,19 +209,19 @@ class SeasonManager:
         current_season = self.SEASON_NAMES[self.last_idx]
 
         # 1. Получаем список всех экипированных артефактов из ОБОИХ таблиц
-        # Для hero_equipment (игрок)
+        # Для hero_equipment (игрок) — ID без смещения
         cur.execute("""
             SELECT hero_name, artifact_id FROM hero_equipment
             WHERE artifact_id IS NOT NULL
         """)
-        player_equipped_artifacts = cur.fetchall()
+        player_equipped_artifacts = [(h, a) for h, a in cur.fetchall()]
 
-        # Для ai_hero_equipment (ИИ)
+        # Для ai_hero_equipment (ИИ) — ID со смещением для уникальности в кэше
         cur.execute("""
             SELECT hero_name, artifact_id FROM ai_hero_equipment
             WHERE artifact_id IS NOT NULL
         """)
-        ai_equipped_artifacts = cur.fetchall()
+        ai_equipped_artifacts = [(h, a + self.AI_ARTIFACT_ID_OFFSET) for h, a in cur.fetchall()]
 
         # Объединяем списки
         all_equipped_artifacts = player_equipped_artifacts + ai_equipped_artifacts
@@ -293,10 +281,15 @@ class SeasonManager:
         # 6. Проверяем существующие эффекты на соответствие сезону
         # (на случай, если сезон сменился, а артефакт остался тот же)
         # Получаем все примененные эффекты с их артефактами
-        cur.execute("""
+        ai_offset = self.AI_ARTIFACT_ID_OFFSET
+        cur.execute(f"""
             SELECT DISTINCT ael.hero_name, ael.artifact_id, a.season_name
             FROM artifact_effects_log ael
-            JOIN (SELECT id, season_name FROM artifacts UNION ALL SELECT id, season_name FROM artifacts_ai) a ON ael.artifact_id = a.id
+            JOIN (
+                SELECT id, season_name FROM artifacts
+                UNION ALL
+                SELECT id + {ai_offset}, season_name FROM artifacts_ai
+            ) a ON ael.artifact_id = a.id
         """)
         active_artifact_details = cur.fetchall()
 

@@ -1042,37 +1042,14 @@ def show_message(title, message):
         size=lambda i, v: setattr(i._bg, 'size', v)
     )
 
-    # Заголовок
-    title_label = Label(
-        text=f"[b]{title}[/b]",
-        markup=True,
-        font_size=sp(18),
-        color=(0.85, 0.78, 0.55, 1),
-        size_hint=(1, None),
-        height=dp(36),
-        pos_hint={'center_x': 0.5, 'top': 0.95},
-        halign='center',
-    )
-    title_label.bind(size=title_label.setter('text_size'))
-
-    # Разделитель
-    separator = Widget(size_hint=(0.9, None), height=dp(1), pos_hint={'center_x': 0.5, 'top': 0.78})
-    with separator.canvas:
-        Color(0.85, 0.78, 0.55, 0.4)
-        separator._line = Rectangle(pos=separator.pos, size=separator.size)
-    separator.bind(
-        pos=lambda i, v: setattr(i._line, 'pos', v),
-        size=lambda i, v: setattr(i._line, 'size', v)
-    )
-
-    # Текст сообщения
+    # Текст сообщения (заголовок встроен)
     msg_label = Label(
         text=message,
-        font_size=sp(14),
+        font_size=sp(15),
         color=(0.85, 0.87, 0.92, 1),
         size_hint=(0.9, None),
         height=text_height,
-        pos_hint={'center_x': 0.5, 'center_y': 0.52},
+        pos_hint={'center_x': 0.5, 'center_y': 0.55},
         halign='center',
         valign='middle',
     )
@@ -1098,8 +1075,6 @@ def show_message(title, message):
         size=lambda i, v: setattr(i._bg, 'size', v)
     )
 
-    content.add_widget(title_label)
-    content.add_widget(separator)
     content.add_widget(msg_label)
     content.add_widget(close_btn)
 

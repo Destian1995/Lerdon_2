@@ -31,6 +31,11 @@ def refresh_map():
     if gs:
         gs._prev_star_levels = None
         gs.update_army_rating()
+        # Полная перезагрузка ресурсов из БД после боя/захвата
+        if hasattr(gs, 'game_state_manager') and hasattr(gs.game_state_manager, 'faction'):
+            gs.game_state_manager.faction.refresh_from_db()
+        if hasattr(gs, 'resource_box'):
+            gs.resource_box.update_resources()
 
 
 # Список всех фракций
@@ -114,10 +119,7 @@ class GameStateManager:
     def initialize(self, selected_faction):
         """Инициализация объектов игры."""
         self.faction = Faction(selected_faction, self.conn)  # Создаем объект фракции
-        # Включаем WAL для повышения параллелизма
-        self.conn.execute("PRAGMA journal_mode=WAL;")
-        self.conn.execute("PRAGMA synchronous=NORMAL;")
-        self.conn.execute("PRAGMA busy_timeout=5000;")  # Ждать до 5 секунд при блокировке
+        # PRAGMA настройки устанавливаются в DBManager при создании соединения
 
         self.cursor = self.conn.cursor()
         self.turn_counter = self.load_turn(selected_faction)  # Загружаем счетчик ходов
@@ -765,17 +767,16 @@ class GameScreen(Screen):
                     app.root.add_widget(self._diplomacy_mailbox)
 
             for msg_id, faction, message in new_messages:
-                msg_type = 'info'
-                if '[СОЮЗ]' in message:
-                    msg_type = 'alliance'
-                elif '[ТОРГОВЛЯ]' in message:
+                # Показываем только существенные сообщения:
+                # торговые сделки, предложения союза/мира
+                if '[ТОРГОВЛЯ]' in message:
                     msg_type = 'trade'
-                elif '[УГРОЗА]' in message or '[ПРЕДУПРЕЖДЕНИЕ]' in message:
-                    msg_type = 'warning'
+                elif '[СОЮЗ]' in message:
+                    msg_type = 'alliance'
                 elif '[ПОЩАДА]' in message or '[УМОЛЯЮ]' in message:
                     msg_type = 'mercy'
-                elif '[ПОМОЩЬ]' in message or '[ПРОСЬБА]' in message:
-                    msg_type = 'help'
+                else:
+                    continue  # Пропускаем приветствия, дружбу, предупреждения и т.д.
 
                 self._diplomacy_mailbox.add_message(
                     faction_name=faction,
@@ -1326,118 +1327,134 @@ class GameScreen(Screen):
 
     def process_turn(self, instance=None):
         """
-        Обработка хода игрока и ИИ.
+        Обработка хода: быстрые операции на главном потоке,
+        тяжёлые (ИИ, пересчёты) — в фоновом потоке.
         """
-        # Увеличиваем счетчик ходов
+        import threading
+
+        # === Фаза 1: Быстрые операции на главном потоке ===
         self.turn_counter += 1
-        # Обновляем метку с текущим ходом
         self.turn_label.text = f"Текущий ход: {self.turn_counter}"
-        # Сохраняем текущее значение хода в таблицу turn
         self.save_turn(self.selected_faction, self.turn_counter)
-        # Сохраняем историю ходов в таблицу turn_save
         self.save_turn_history(self.selected_faction, self.turn_counter)
 
-        # Проверяем переворот перед обработкой хода
         if self.check_coup_and_trigger_defeat(self.conn):
-            return  # Игра закончена из-за переворота
+            return
 
-        # Обновляем сезонные бонусы артефактов
+        # Обновляем ресурсы игрока (быстро)
         self.season_manager.apply_artifact_bonuses(self.conn)
+        profit_details = self.faction.update_resources()
+        bonus_details = self.faction.apply_player_bonuses()
 
-        # Обновляем ресурсы игрока и получаем прирост
-        profit_details = self.faction.update_resources()  # Теперь возвращает словарь
-        bonus_details = self.faction.apply_player_bonuses()  # Получаем бонусы
-
-        # Объединяем прирост и бонусы
         delta_resources = {}
         for res in profit_details:
             base_gain = profit_details[res]
             bonus_gain = bonus_details.get(res, 0)
             delta_resources[res] = {"base": base_gain, "bonus": bonus_gain}
 
-        # Обновляем интерфейс и передаем дельту для подсветки
         self.resource_box.update_resources(delta=delta_resources)
         self.faction.save_resources_to_db()
 
-        # Проверяем, есть ли Мятежники в городах, и создаём ИИ для них
-        self.ensure_rebellion_ai_controller()
+        # Блокируем кнопку завершения хода на время обработки
+        self.end_turn_button.disabled = True
 
-        # === Проверка и запуск инвазии нежити ===
-        invasion_triggered, invasion_msg = check_and_trigger_invasion(
-            self.conn, self.turn_counter, self.selected_faction
-        )
-        if invasion_triggered:
-            # Показываем оповещение о начале мора
-            self._show_invasion_notification(invasion_msg)
-            # Создаём AI контроллер для нежити
-            if UNDEAD_FACTION_NAME not in self.ai_controllers:
-                self.ai_controllers[UNDEAD_FACTION_NAME] = AIController(
-                    UNDEAD_FACTION_NAME, self.conn, self.season_manager,
-                    player_faction=self.selected_faction
+        # === Фаза 2: Тяжёлые операции в фоновом потоке ===
+        def _background_work():
+            _new_season = None
+            try:
+                self.ensure_rebellion_ai_controller()
+
+                invasion_triggered, invasion_msg = check_and_trigger_invasion(
+                    self.conn, self.turn_counter, self.selected_faction
                 )
+                if invasion_triggered:
+                    Clock.schedule_once(lambda dt: self._show_invasion_notification(invasion_msg))
+                    if UNDEAD_FACTION_NAME not in self.ai_controllers:
+                        self.ai_controllers[UNDEAD_FACTION_NAME] = AIController(
+                            UNDEAD_FACTION_NAME, self.conn, self.season_manager,
+                            player_faction=self.selected_faction
+                        )
 
-        # Обработка хода нежити (подкрепления, артефакты)
-        if is_invasion_active(self.conn):
-            process_undead_turn(self.conn, self.turn_counter)
+                if is_invasion_active(self.conn):
+                    process_undead_turn(self.conn, self.turn_counter)
 
-        # Ход ИИ
-        for faction_name, ai_controller in self.ai_controllers.items():
-            ai_controller.make_turn()
+                # Ход ИИ — самая тяжёлая часть
+                for faction_name, ai_controller in self.ai_controllers.items():
+                    ai_controller.make_turn()
 
-        # Удаляем лишних героев 2, 3, 4 классов которых мог наплодить ИИ
-        self.enforce_garrison_hero_limits()
+                self.enforce_garrison_hero_limits()
+                self.update_destroyed_factions()
+                self.reset_check_attack_flags()
+                process_nobles_turn(self.conn, self.turn_counter)
+                self.initialize_turn_check_move()
 
-        # Обновляем статус уничтоженных фракций
-        self.update_destroyed_factions()
+                _new_season = self.update_season(self.turn_counter)
+                self.season_manager.update(self.current_idx, self.conn)
+                self.season_manager.reset_absent_third_class_units(self.conn)
 
-        # Обновляем статус ходов
-        self.reset_check_attack_flags()
+            except Exception as e:
+                print(f"[ERROR] Ошибка в фоновом потоке хода: {e}")
+                import traceback
+                traceback.print_exc()
+            finally:
+                Clock.schedule_once(lambda dt: self._finish_turn(_new_season))
 
-        # Обработка дворян
-        process_nobles_turn(self.conn, self.turn_counter)
+        thread = threading.Thread(target=_background_work, daemon=True)
+        thread.start()
 
-        # Инициализация перемещений
-        self.initialize_turn_check_move()
+    def _finish_turn(self, new_season=None):
+        """Завершение хода: обновление UI на главном потоке после фоновой работы."""
+        try:
+            # Перезагружаем ресурсы из БД после хода ИИ (города могли смениться)
+            self.faction.refresh_from_db()
 
-        # Обновляем текущий сезон
-        new_season = self.update_season(self.turn_counter)
-        self._update_season_display(new_season)
-        self.season_manager.update(self.current_idx, self.conn)
+            if new_season is not None:
+                self._update_season_display(new_season)
 
-        # Сбрасываем характеристики отсутствующих юнитов 3 класса
-        self.season_manager.reset_absent_third_class_units(self.conn)
+            self._prev_star_levels = None
+            self.update_army_rating()
 
-        # Обновляем рейтинг армии и отрисовываем звёздочки (сброс кэша — данные изменились)
-        self._prev_star_levels = None
-        self.update_army_rating()
+            self._check_council_loyalty_warning()
 
-        # Генерация событий каждые 3-5 ходов
-        if self.turn_counter % random.randint(3, 5) == 0:
-            print("Генерация события...")
-            self.event_manager.generate_event(self.turn_counter)
-        # === ПРОВЕРКА НОВЫХ ОБЪЯВЛЕНИЙ ВОЙНЫ ===
-        self.check_diplomacy_changes()
-        # Сбрасываем флаг уведомления для следующего хода
-        self.reset_war_notification_flag()
-        # === ПРОВЕРКА НОВЫХ ДИПЛОМАТИЧЕСКИХ СООБЩЕНИЙ ОТ AI ===
-        self.check_new_diplomatic_messages()
-        # Проверяем условие завершения игры
-        game_continues, reason = self.faction.end_game()  # Получаем статус и причину завершения
-        if not game_continues:
-            print("Условия завершения игры выполнены.")
+            if self.turn_counter % random.randint(3, 5) == 0:
+                self.event_manager.generate_event(self.turn_counter)
 
-            # Определяем статус завершения (win или lose)
-            if "Мир во всем мире" in reason or "Все фракции были уничтожены" in reason:
-                status = "win"  # Условия победы
-            else:
-                status = "lose"  # Условия поражения
+            self.check_diplomacy_changes()
+            self.reset_war_notification_flag()
+            self.check_new_diplomatic_messages()
 
-            # Запускаем модуль results_game для обработки результатов
-            results_game_instance = ResultsGame(status, reason, self.conn)
-            results_game_instance.show_results(self.selected_faction, status, reason)
-            App.get_running_app().restart_app()
-            return  # Прерываем выполнение дальнейших действий
-        print(f"Ход {self.turn_counter} завершён")
+            game_continues, reason = self.faction.end_game()
+            if not game_continues:
+                if "Мир во всем мире" in reason or "Все фракции были уничтожены" in reason:
+                    status = "win"
+                else:
+                    status = "lose"
+                results_game_instance = ResultsGame(status, reason, self.conn)
+                results_game_instance.show_results(self.selected_faction, status, reason)
+                App.get_running_app().restart_app()
+                return
+
+            print(f"Ход {self.turn_counter} завершён")
+        finally:
+            self.end_turn_button.disabled = False
+
+    def _check_council_loyalty_warning(self):
+        """Предупреждение если средняя лояльность советников ниже 40%"""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT loyalty FROM nobles")
+            rows = cursor.fetchall()
+            if not rows:
+                return
+            avg_loyalty = sum(r[0] for r in rows) / len(rows)
+            if avg_loyalty < 40:
+                show_message(
+                    "Советник",
+                    "Ваше Высочество, в совете зреет недовольство,\n"
+                    "требуется Ваше вмешательство!"
+                )
+        except Exception as e:
+            print(f"[WARN] _check_council_loyalty_warning: {e}")
 
     def ensure_rebellion_ai_controller(self):
         """Проверяет, есть ли в городах Мятежники, и добавляет ИИ, если его ещё нет."""
@@ -2652,10 +2669,6 @@ class GameScreen(Screen):
         self.resource_box.update_resources()
 
     def switch_to_economy(self, instance):
-        # Блокируем переключение вкладок во время обучения (кроме текущего шага)
-        if self.tutorial_enabled and self.current_tutorial_step != 1:
-            return
-
         self.activate_tab('economy')
         self.clear_game_area()
         economic.start_economy_mode(
@@ -2666,10 +2679,6 @@ class GameScreen(Screen):
         )
 
     def switch_to_army(self, instance):
-        # Блокируем переключение вкладок во время обучения (кроме текущего шага)
-        if self.tutorial_enabled and self.current_tutorial_step != 2:
-            return
-
         self.activate_tab('army')
         self.clear_game_area()
         army.start_army_mode(
@@ -2680,10 +2689,6 @@ class GameScreen(Screen):
         )
 
     def switch_to_politics(self, instance):
-        # Блокируем переключение вкладок во время обучения (кроме текущего шага)
-        if self.tutorial_enabled and self.current_tutorial_step != 3:
-            return
-
         self.activate_tab('politics')
         self.clear_game_area()
         politic.start_politic_mode(
@@ -2694,10 +2699,6 @@ class GameScreen(Screen):
         )
 
     def show_advisor(self, instance, preselect_faction=None):
-        # Блокируем переключение вкладок во время обучения (кроме текущего шага)
-        if self.tutorial_enabled and self.current_tutorial_step != 4:
-            return
-
         self.activate_tab('advisor')
         self.clear_game_area()
         advisor_view = AdvisorView(self.selected_faction, self.conn, game_screen_instance=self,
@@ -3370,115 +3371,151 @@ class GameScreen(Screen):
         self.current_tutorial_step = 1
         self.show_tutorial_step_1()
 
+    def _dismiss_hint(self):
+        """Убирает текущую подсказку"""
+        if hasattr(self, 'current_hint') and self.current_hint:
+            if self.current_hint.parent:
+                self.current_hint.parent.remove_widget(self.current_hint)
+            self.current_hint = None
+
+    def _is_borba_ideology(self):
+        """Проверяет, играет ли игрок с идеологией Борьба"""
+        return getattr(self, 'player_ideology', None) == 'Борьба'
+
     def show_tutorial_step_1(self):
-        """Шаг 1: Подсказка для кнопки 'Экономика'"""
+        """Шаг 1: Нажмите Экономика — настройте Развитие и Налоги"""
+        self.current_tutorial_step = 1
+        if self._is_borba_ideology():
+            msg = (
+                "[b]Шаг 1: Экономика[/b]\n\n"
+                "Ваша идеология — [b]Борьба[/b] (+550% кристаллов).\n"
+                "Основа дохода — [b]продажа кристаллов[/b] на Рынке!\n\n"
+                "Нажмите сюда и выполните:\n"
+                "1. [b]Развитие[/b] — выберите уклон в фабрики\n"
+                "2. [b]Налоги[/b] — ставка налога менее важна"
+            )
+        else:
+            msg = (
+                "[b]Шаг 1: Экономика[/b]\n\n"
+                "Ваша идеология — [b]Смирение[/b] (+700% налогов).\n"
+                "Основа дохода — [b]налоги[/b]!\n\n"
+                "Нажмите сюда и выполните:\n"
+                "1. [b]Развитие[/b] — выберите стратегию строительства\n"
+                "2. [b]Налоги[/b] — установите ставку налога"
+            )
         hint = TutorialHint(
             target_widget=self.btn_economy,
             arrow_source='files/pict/right_learn.png',
-            message=(
-                "[b]Экономика[/b]\n\n"
-                "Здесь вы управляете:\n"
-                "• Уровнем налогов(Налоги)\n"
-                "• Выбираете режим строительства(Развитие)\n"
-                "• Покупкой/продажей кристаллов(Рынок)\n"
-                "• Созданием и покупкой артефактов для героев(Мастерская и Артефакты)"
-            ),
+            message=msg,
             arrow_direction='right',
-            on_next=lambda: self.on_step1_next(),
+            on_next=lambda: self._advance_to_step(2),
             on_skip=self.skip_tutorial
         )
         self.root_overlay.add_widget(hint)
         self.current_hint = hint
-        print("Шаг 1 обучения: вкладка 'Экономика'")
-
-    def on_step1_next(self):
-        """Переход к шагу 2 после нажатия 'Далее' на шаге 1"""
-        # Убираем подсказку
-        if self.current_hint and self.current_hint.parent:
-            self.current_hint.parent.remove_widget(self.current_hint)
-        self.current_hint = None
-
-        # НЕ переключаем вкладку автоматически!
-        # Просто показываем следующую подсказку
-        Clock.schedule_once(lambda dt: self.show_tutorial_step_2(), 0.5)
 
     def show_tutorial_step_2(self):
-        """Шаг 2: Подсказка для кнопки 'Армия'"""
+        """Шаг 2: Завершите ход"""
+        self.current_tutorial_step = 2
+        hint = TutorialHint(
+            target_widget=self.end_turn_button,
+            arrow_source='files/pict/right_learn.png',
+            message=(
+                "[b]Шаг 2: Завершите ход[/b]\n\n"
+                "Нажмите кнопку завершения хода.\n"
+                "Ваши здания начнут строиться,\n"
+                "а казна пополнится от налогов."
+            ),
+            arrow_direction='right',
+            on_next=lambda: self._advance_to_step(3),
+            on_skip=self.skip_tutorial
+        )
+        self.root_overlay.add_widget(hint)
+        self.current_hint = hint
+
+    def show_tutorial_step_3(self):
+        """Шаг 3: Продайте кристаллы на рынке"""
+        self.current_tutorial_step = 3
+        if self._is_borba_ideology():
+            msg = (
+                "[b]Шаг 3: Рынок — ваш главный источник дохода![/b]\n\n"
+                "Откройте Экономику и нажмите [b]Рынок[/b].\n"
+                "С идеологией Борьба кристаллов будет много —\n"
+                "[b]продавайте их каждый ход[/b], это ваши основные кроны!"
+            )
+        else:
+            msg = (
+                "[b]Шаг 3: Рынок[/b]\n\n"
+                "Снова откройте Экономику и нажмите [b]Рынок[/b].\n"
+                "Продайте кристаллы, чтобы получить кроны\n"
+                "для найма армии."
+            )
+        hint = TutorialHint(
+            target_widget=self.btn_economy,
+            arrow_source='files/pict/right_learn.png',
+            message=msg,
+            arrow_direction='right',
+            on_next=lambda: self._advance_to_step(4),
+            on_skip=self.skip_tutorial
+        )
+        self.root_overlay.add_widget(hint)
+        self.current_hint = hint
+
+    def show_tutorial_step_4(self):
+        """Шаг 4: Наймите армию"""
+        self.current_tutorial_step = 4
         hint = TutorialHint(
             target_widget=self.btn_army,
             arrow_source='files/pict/right_learn.png',
             message=(
-                "[b]Армия[/b]\n\n"
-                "Здесь вы можете "
-                "нанимать солдат и героев.\n"
-                "Всего в игре 4 класса юнитов.\n"
-                "1 - обычные юниты\n"
-                "2 - слабые герои, усиливают обычных юнитов, но не носят артефакты\n"
-                "3 - основные герои, усиливают обычных юнитов могут и должны носить артефакты\n"
-                "4 - сильные герои, сильны сами по себе, никого не усиливают и не носят артефакты"
+                "[b]Шаг 4: Армия[/b]\n\n"
+                "Нажмите сюда и наймите юнитов.\n"
+                "Классы юнитов:\n"
+                "1 — обычные бойцы (основа армии)\n"
+                "2 — слабые герои, усиливают юнитов 1 класса\n"
+                "3 — герои с артефактами, сильно усиливают армию\n"
+                "4 — могучие герои, сильны сами по себе"
             ),
             arrow_direction='right',
-            on_next=lambda: self.on_step2_next(),
+            on_next=lambda: self._advance_to_step(5),
             on_skip=self.skip_tutorial
         )
         self.root_overlay.add_widget(hint)
         self.current_hint = hint
-        print("Шаг 2 обучения: вкладка 'Армия'")
 
-    def on_step2_next(self):
-        """Переход к шагу 3 после нажатия 'Далее' на шаге 2"""
-        # Убираем подсказку
-        if self.current_hint and self.current_hint.parent:
-            self.current_hint.parent.remove_widget(self.current_hint)
-        self.current_hint = None
-
-        # НЕ переключаем вкладку автоматически!
-        Clock.schedule_once(lambda dt: self.show_tutorial_step_3(), 0.5)
-
-    def show_tutorial_step_3(self):
-        """Шаг 3: Подсказка для кнопки 'Политика'"""
+    def show_tutorial_step_5(self):
+        """Шаг 5: Политика и дипломатия"""
+        self.current_tutorial_step = 5
         hint = TutorialHint(
             target_widget=self.btn_politics,
             arrow_source='files/pict/right_learn.png',
             message=(
-                "[b]Политика[/b]\n\n"
-                "Важно следить за тем что происходит в Совете, если Совет будет не лоялен к Вашей персоне, "
-                "то тогда Вас могут свергнуть.\n"
-                "Проводите мероприятия и отслеживайте лояльность дворян во вкладке тайная служба"
+                "[b]Шаг 5: Политика[/b]\n\n"
+                "Здесь можно:\n"
+                "• Следить за Советом — не допускайте бунта!\n"
+                "• Проводить диверсии против врагов\n"
+                "• Смотреть силу армий всех фракций"
             ),
             arrow_direction='right',
-            on_next=lambda: self.on_step3_next(),
+            on_next=lambda: self._advance_to_step(6),
             on_skip=self.skip_tutorial
         )
         self.root_overlay.add_widget(hint)
         self.current_hint = hint
-        print("Шаг 3 обучения: вкладка 'Политика'")
 
-    def on_step3_next(self):
-        """Переход к шагу 4 после нажатия 'Далее' на шаге 3"""
-        # Убираем подсказку
-        if self.current_hint and self.current_hint.parent:
-            self.current_hint.parent.remove_widget(self.current_hint)
-        self.current_hint = None
-
-        # НЕ переключаем вкладку автоматически!
-        Clock.schedule_once(lambda dt: self.show_tutorial_step_4(), 0.5)
-
-    def show_tutorial_step_4(self):
-        """Шаг 4: Подсказка для кнопки 'Советник'"""
+    def show_tutorial_step_6(self):
+        """Шаг 6: Дипломатия"""
+        self.current_tutorial_step = 6
         hint = TutorialHint(
             target_widget=self.btn_advisor,
             arrow_source='files/pict/right_learn.png',
             message=(
-                "[b]Дипломатия[/b]\n\n"
-                "Здесь ведутся переговоры в формате переписки:\n"
-                "• Обмен ресурсами с другими фракциями\n"
-                "• Улучшение отношений с теми с кем это еще можно сделать\n"
-                "• Заключение союзов\n"
-                "• Планирование совместных атак на врага \n"
-                "• Объявление войны или заключение мира\n"
-                "\n"
-                "Главное не хамите, если не хотите войны..."
+                "[b]Шаг 6: Дипломатия[/b]\n\n"
+                "Переговоры с другими фракциями:\n"
+                "• Обмен ресурсами и заключение союзов\n"
+                "• Планирование совместных атак\n"
+                "• Объявление войны или мира\n\n"
+                "Будьте вежливы — грубость ведёт к войне!"
             ),
             arrow_direction='right',
             on_next=lambda: self.complete_tutorial(),
@@ -3486,62 +3523,35 @@ class GameScreen(Screen):
         )
         self.root_overlay.add_widget(hint)
         self.current_hint = hint
-        print("Шаг 4 обучения: вкладка 'Советник'")
+
+    def _advance_to_step(self, step):
+        """Переход к следующему шагу обучения"""
+        self._dismiss_hint()
+        step_methods = {
+            2: self.show_tutorial_step_2,
+            3: self.show_tutorial_step_3,
+            4: self.show_tutorial_step_4,
+            5: self.show_tutorial_step_5,
+            6: self.show_tutorial_step_6,
+        }
+        method = step_methods.get(step)
+        if method:
+            Clock.schedule_once(lambda dt: method(), 0.5)
 
     def complete_tutorial(self):
         """Завершение обучения"""
-        # Убираем подсказку
-        if self.current_hint and self.current_hint.parent:
-            self.current_hint.parent.remove_widget(self.current_hint)
-        self.current_hint = None
-
-        # Отключаем режим обучения
+        self._dismiss_hint()
         self.tutorial_enabled = False
         self.current_tutorial_step = 0
-
-        print("Обучение завершено успешно!")
-        show_message("Обучение завершено!", "Вы познали управление государством! Удачи, Ваше Величество!")
+        print("Обучение завершено!")
+        show_message("Обучение завершено!", "Теперь вы готовы к управлению! Удачи, Ваше Величество!")
 
     def skip_tutorial(self):
         """Пропустить обучение полностью"""
-        print("Обучение пропущено пользователем")
-
-        # Убираем подсказку
-        if hasattr(self, 'current_hint') and self.current_hint:
-            if self.current_hint.parent:
-                self.current_hint.parent.remove_widget(self.current_hint)
-            self.current_hint = None
-
-        # Отключаем режим обучения
+        self._dismiss_hint()
         self.tutorial_enabled = False
         self.current_tutorial_step = 0
-
         print("Обучение пропущено")
-
-    def _on_step1_complete(self):
-        """Обработчик завершения шага 1 — передаём управление обучением в экономический модуль"""
-        # Убираем текущую подсказку
-        if self.current_hint and self.current_hint.parent:
-            self.current_hint.parent.remove_widget(self.current_hint)
-        self.current_hint = None
-
-        # Восстанавливаем оригинальный обработчик кнопки экономики
-        self.btn_economy.unbind(on_release=self._tutorial_economy_handler)
-        self.btn_economy.bind(on_release=self._original_economy_handler)
-
-        # Активируем вкладку и запускаем экономический режим с флагом обучения
-        self.activate_tab('economy')
-        self.clear_game_area()
-        economic.start_economy_mode(
-            self.game_state_manager.faction,
-            self.game_area,
-            self.conn,
-            self.season_manager
-        )
-
-        # Отключаем обучение в основном экране (управление передано)
-        self.tutorial_enabled = False
-        self.current_tutorial_step = 0
 
     def check_recent_incoming_messages(self, conn):
         """

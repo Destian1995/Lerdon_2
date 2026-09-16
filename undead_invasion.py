@@ -17,8 +17,8 @@ import random
 import sqlite3
 
 
-# Ход начала инвазии (рандом 22-26)
-INVASION_TURN_MIN = 22
+# Ход начала инвазии (рандом 18-26)
+INVASION_TURN_MIN = 18
 INVASION_TURN_MAX = 26
 
 # Начальная армия нежити — 250к разово
@@ -89,17 +89,24 @@ def initialize_undead_invasion(conn):
                 king_exists = cursor.fetchone()[0]
 
                 if undead_cities == 0 and king_exists == 0:
-                    # Инвазия провалилась — сбрасываем для повторного запуска
-                    cursor.execute("SELECT turn_count FROM turn LIMIT 1")
-                    turn_row = cursor.fetchone()
-                    current_turn = turn_row[0] if turn_row else 1
-                    # Не раньше INVASION_TURN_MIN, не позже INVASION_TURN_MAX
-                    new_turn = max(INVASION_TURN_MIN, min(current_turn + random.randint(2, 4), INVASION_TURN_MAX))
-                    cursor.execute(
-                        "UPDATE undead_invasion SET invasion_turn = ?, invasion_started = 0, king_alive = 1, army_limit = ? WHERE id = 1",
-                        (new_turn, UNDEAD_INITIAL_ARMY)
-                    )
-                    print(f"[UNDEAD] Инвазия провалилась — перезапуск на ход {new_turn}")
+                    # Проверяем — все ли 3 города захвачены навсегда
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM cities
+                        WHERE is_undead = 1 AND faction != ? AND faction != 'Нейтрал'
+                    """, (UNDEAD_FACTION_NAME,))
+                    captured = cursor.fetchone()[0]
+                    cursor.execute("SELECT COUNT(*) FROM cities WHERE is_undead = 1")
+                    total = cursor.fetchone()[0]
+
+                    if captured >= total:
+                        # Все 3 города захвачены — нашествие окончательно побеждено
+                        cursor.execute(
+                            "UPDATE undead_invasion SET invasion_started = 0, king_alive = 0 WHERE id = 1"
+                        )
+                        print("[UNDEAD] Все города нежити захвачены! Нашествие окончено.")
+                    else:
+                        # Ещё есть нейтральные города — волны продолжатся через process_undead_turn
+                        print(f"[UNDEAD] Города нежити потеряны, но {total - captured} ещё не захвачены. Волны продолжатся.")
             else:
                 # Инвазия ещё не началась — корректируем ход если вне диапазона
                 if old_turn < INVASION_TURN_MIN or old_turn > INVASION_TURN_MAX:
@@ -383,9 +390,51 @@ def process_undead_turn(conn, current_turn):
 
     # Проверяем города нежити
     cursor.execute("SELECT COUNT(*) FROM cities WHERE faction = ?", (UNDEAD_FACTION_NAME,))
-    if cursor.fetchone()[0] == 0:
-        print("[UNDEAD] Все города нежити захвачены. Нашествие остановлено!")
-        return
+    undead_city_count = cursor.fetchone()[0]
+
+    if undead_city_count == 0:
+        # Проверяем, остались ли незахваченные города нежити (is_undead=1 но faction != Нежить)
+        cursor.execute("SELECT COUNT(*) FROM cities WHERE is_undead = 1")
+        total_undead_cities = cursor.fetchone()[0]
+
+        # Считаем сколько is_undead=1 городов уже навсегда захвачены
+        cursor.execute("""
+            SELECT COUNT(*) FROM cities
+            WHERE is_undead = 1 AND faction != ? AND faction != 'Нейтрал'
+        """, (UNDEAD_FACTION_NAME,))
+        captured_permanently = cursor.fetchone()[0]
+
+        if captured_permanently >= total_undead_cities:
+            # ВСЕ 3 города нежити захвачены — нашествие побеждено окончательно!
+            cursor.execute(
+                "UPDATE undead_invasion SET invasion_started = 0, king_alive = 0 WHERE id = 1"
+            )
+            conn.commit()
+            print("[UNDEAD] Все 3 города нежити захвачены! Нашествие побеждено окончательно!")
+            return
+        else:
+            # Есть нейтральные города нежити — запускаем новую волну!
+            cursor.execute(
+                "SELECT id, name FROM cities WHERE is_undead = 1 AND faction = 'Нейтрал' LIMIT 1"
+            )
+            neutral = cursor.fetchone()
+            if neutral:
+                wave_city_id, wave_city_name = neutral
+                wave_army = random.randint(80000, 150000)
+                cursor.execute(
+                    "UPDATE cities SET faction = ?, color_faction = ? WHERE id = ?",
+                    (UNDEAD_FACTION_NAME, '#33BF99', wave_city_id)
+                )
+                cursor.execute("""
+                    INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(city_name, unit_name) DO UPDATE SET
+                        unit_count = unit_count + excluded.unit_count
+                """, (wave_city_name, UNDEAD_UNIT_NAME, wave_army, 'files/army/death/solder.png'))
+                _respawn_king_if_dead(cursor)
+                conn.commit()
+                print(f"[UNDEAD] Новая волна! {wave_army} призраков в {wave_city_name}!")
+            return
 
     # Находим город Царя Мёртвых — все подкрепления идут к нему
     king_city = _get_king_city(cursor)

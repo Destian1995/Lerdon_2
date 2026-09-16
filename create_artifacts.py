@@ -21,7 +21,8 @@ from utils.helpers import format_number
 
 def workshop(faction, db_conn):
     # === Определение устройства ===
-    is_android = hasattr(Window, 'keyboard')
+    from kivy.utils import platform as _platform
+    is_android = _platform == 'android'
 
     # === Адаптивные размеры ===
     font_title = sp(16) if not is_android else sp(14)
@@ -37,12 +38,12 @@ def workshop(faction, db_conn):
     # === Создание всплывающего окна ===
     workshop_popup = Popup(
         title="Мастерская артефактов",
-        size_hint=(0.98, 0.95),
+        size_hint=(0.95 if is_android else 0.75, 0.92 if is_android else 0.88),
         title_size=font_title,
         title_align='center',
-        title_color=(0.9, 0.9, 0.9, 1),
-        background_color=(0.08, 0.08, 0.08, 0.98),  # Темнее
-        separator_color=(0.3, 0.3, 0.3, 1),
+        title_color=(0.85, 0.70, 0.20, 1),
+        background_color=(0.06, 0.07, 0.11, 0.98),
+        separator_color=(0.60, 0.35, 0.85, 0.7),
         auto_dismiss=False
     )
 
@@ -70,6 +71,11 @@ def workshop(faction, db_conn):
     # === Функция переключения экрана ===
     def switch_to_screen(screen_func):
         layout = BoxLayout(orientation='vertical', padding=padding_main, spacing=spacing_main)
+        with layout.canvas.before:
+            Color(0.06, 0.07, 0.11, 1)
+            layout._bg = RoundedRectangle(pos=layout.pos, size=layout.size, radius=[dp(8)])
+        layout.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                     size=lambda i, v: setattr(i._bg, 'size', v))
         screen_func(layout)
         workshop_popup.content = layout
 
@@ -384,8 +390,8 @@ def workshop(faction, db_conn):
         current_defense = current_data.get('defense', 0)
 
         def calculate_tokens(attack, defense):
-            tokens_attack = attack * 0.25
-            tokens_defense = defense * 0.5
+            tokens_attack = attack * 1.0    # x4 от базовых 0.25
+            tokens_defense = defense * 2.0  # x4 от базовых 0.5
             return tokens_attack + tokens_defense, tokens_attack, tokens_defense
 
         tokens_used, tokens_attack, tokens_defense = calculate_tokens(current_attack, current_defense)
@@ -419,7 +425,7 @@ def workshop(faction, db_conn):
         tokens_info.add_widget(used_label)
 
         cost_label = Label(
-            text=f"Стоимость: {format_number(int((current_attack * 600) + (current_defense * 800)))} крон",
+            text=f"Стоимость: {format_number(int((current_attack * 2400) + (current_defense * 3200)))} крон",
             font_size=font_small,
             color=(0.9, 0.9, 0.9, 1),
             size_hint_y=None,
@@ -460,7 +466,7 @@ def workshop(faction, db_conn):
         attack_header.add_widget(attack_value_label)
 
         attack_cost_label = Label(
-            text=f"{int(current_attack * 600)} крон",
+            text=f"{int(current_attack * 2400)} крон",
             font_size=font_small,
             color=(0.7, 0.9, 0.7, 1),
             size_hint_x=0.55,
@@ -472,8 +478,8 @@ def workshop(faction, db_conn):
 
         attack_section.add_widget(attack_header)
 
-        # Динамический максимум без искусственных ограничений
-        max_attack_possible = max(int(ardanian_tokens_available / 0.25 * 1.5), 200)
+        # Максимум атаки = все жетоны на атаку (1.0 за 1%)
+        max_attack_possible = max(int(ardanian_tokens_available / 1.0), 100)
         attack_slider = Slider(
             min=0,
             max=max_attack_possible,
@@ -516,7 +522,7 @@ def workshop(faction, db_conn):
         defense_header.add_widget(defense_value_label)
 
         defense_cost_label = Label(
-            text=f"{int(current_defense * 800)} крон",
+            text=f"{int(current_defense * 3200)} крон",
             font_size=font_small,
             color=(0.7, 0.9, 0.7, 1),
             size_hint_x=0.55,
@@ -528,7 +534,8 @@ def workshop(faction, db_conn):
 
         defense_section.add_widget(defense_header)
 
-        max_defense_possible = max(int(ardanian_tokens_available / 0.5 * 1.5), 200)
+        # Максимум защиты = все жетоны на защиту (2.0 за 1%)
+        max_defense_possible = max(int(ardanian_tokens_available / 2.0), 100)
         defense_slider = Slider(
             min=0,
             max=max_defense_possible,
@@ -625,15 +632,15 @@ def workshop(faction, db_conn):
             # Обновляем отображение
             attack_value_label.text = f"{attack_val}%"
             defense_value_label.text = f"{defense_val}%"
-            attack_cost_label.text = f"{int(attack_val * 600)} крон"
-            defense_cost_label.text = f"{int(defense_val * 800)} крон"
+            attack_cost_label.text = f"{int(attack_val * 2400)} крон"
+            defense_cost_label.text = f"{int(defense_val * 3200)} крон"
 
             # Расчет жетонов
             tokens_used, tokens_a, tokens_d = calculate_tokens(attack_val, defense_val)
             used_label.text = f"Использовано: {tokens_used:.1f} (Атака: {tokens_a:.1f}, Защита: {tokens_d:.1f})"
 
             # Расчет стоимости
-            total_cost = (attack_val * 600) + (defense_val * 800)
+            total_cost = (attack_val * 2400) + (defense_val * 3200)
             cost_label.text = f"Стоимость: {format_number(int(total_cost))} крон"
 
             # Валидация бюджета
@@ -832,9 +839,9 @@ def workshop(faction, db_conn):
         attack_bonus = current_data['attack']
         defense_bonus = current_data['defense']
 
-        # Фиксированные коэффициенты как требуется
-        attack_cost = abs(attack_bonus) * 0.6 * 1000  # 600 крон за 1%
-        defense_cost = abs(defense_bonus) * 0.8 * 1000  # 800 крон за 1%
+        # Фиксированные коэффициенты (x4 от базовых)
+        attack_cost = abs(attack_bonus) * 2.4 * 1000  # 2400 крон за 1%
+        defense_cost = abs(defense_bonus) * 3.2 * 1000  # 3200 крон за 1%
         base_cost = attack_cost + defense_cost
 
         # Сезонные модификаторы (без изменений)
@@ -872,7 +879,7 @@ def workshop(faction, db_conn):
             negative_modifier = 1 - (negative_count * 0.3)
 
         total_cost = base_cost * negative_modifier
-        min_cost = 5000
+        min_cost = 20000
         total_cost = max(min_cost, total_cost)
 
         artifact_cost_label = Label(

@@ -378,8 +378,11 @@ class Faction:
     def load_buildings(self):
         """
         Загружает данные о зданиях для текущей фракции из таблицы buildings.
+        Отрезанные от снабжения города не учитываются в общих показателях.
         """
         try:
+            supplied = self._get_supplied_cities()
+
             self.cursor.execute('''
                 SELECT city_name, building_type, count
                 FROM buildings
@@ -406,6 +409,10 @@ class Faction:
 
                 if building_type in self.cities_buildings.get(city_name, {}):
                     self.cities_buildings[city_name][building_type] += count
+
+                # Только города со снабжением дают бонусы
+                if city_name not in supplied:
+                    continue
 
                 if building_type == "Больница":
                     total_hospitals += count
@@ -459,7 +466,6 @@ class Faction:
         """
 
         rows = self.load_data("cities", ["name", "coordinates"], "faction = ?", (self.faction,))
-        print(f"[DEBUG ROWS CITY!]:{rows}")
         cities = []
         self.city_count = 0
 
@@ -958,6 +964,20 @@ class Faction:
                 self.raw_material += council_crystals
                 bonuses["Кристаллы"] = bonuses.get("Кристаллы", 0) + council_crystals
 
+            # Элины: усиленный бонус к кристаллам (+35% от добычи, в Лето x2.75)
+            if self.faction == 'Элины' and self.food_info > 0:
+                try:
+                    self.cursor.execute("SELECT season_index FROM season LIMIT 1")
+                    _s = self.cursor.fetchone()
+                    _peak = (_s[0] == 2) if _s else False
+                except Exception:
+                    _peak = False
+                eliny_crystal_mult = 0.35 * 2.75 if _peak else 0.35
+                eliny_crystal_bonus = int(self.food_info * eliny_crystal_mult)
+                if eliny_crystal_bonus > 0:
+                    self.raw_material += eliny_crystal_bonus
+                    bonuses["Кристаллы"] = bonuses.get("Кристаллы", 0) + eliny_crystal_bonus
+
             if self.turn % 3 == 0:
                 self.update_relations_based_on_political_system()
 
@@ -1226,16 +1246,8 @@ class Faction:
         base_income = int(self.calculate_tax_income() - (self.hospitals * coeffs['money_loss']))
         # Бонус от Рынков: +10% дохода крон за каждый рынок
         market_bonus = 1.0 + self.markets * 0.10
-        # Элины: Торговая империя — +15% к доходу (в свой сезон Лето: +26.25%)
-        if self.faction == 'Элины':
-            try:
-                self.cursor.execute("SELECT season_index FROM season LIMIT 1")
-                _s = self.cursor.fetchone()
-                _is_peak = (_s[0] == 2) if _s else False  # Лето = 2
-            except Exception:
-                _is_peak = False
-            eliny_bonus = 0.15 * 2.75 if _is_peak else 0.15
-            market_bonus += eliny_bonus
+        # Элины: бонус к доходу от рынков (фракционный бафф к кристаллам отдельно в trade)
+        # Базовый бонус рынков работает для всех одинаково
         boosted_income = int(base_income * market_bonus)
         self.money += boosted_income
         self.money_info = int(self.hospitals * coeffs['money_loss'])
@@ -1321,9 +1333,10 @@ class Faction:
             self.free_peoples = 0  # Все рабочие обнуляются, так как Кристаллы нет
 
         # Принудительные лимиты на сами поля (а не только на dict)
-        self.money = max(min(round(self.money, 2), 10_000_000), 0)
+        _res_cap = 25_000_000 if self.faction == 'Элины' else 10_000_000
+        self.money = max(min(round(self.money, 2), _res_cap), 0)
         self.free_peoples = max(min(round(self.free_peoples, 2), 500_000), 0)
-        self.raw_material = max(min(round(self.raw_material, 2), 10_000_000), 0)
+        self.raw_material = max(min(round(self.raw_material, 2), _res_cap), 0)
         self.population = max(min(round(self.population, 2), 100_000_000), 0)
 
         # Синхронизируем dict ресурсов
@@ -1385,12 +1398,31 @@ class Faction:
 
     def get_resources(self):
         """Получение текущих ресурсов с форматированием чисел."""
-        formatted_resources = {}
+        # Только синхронизируем dict с внутренними полями (без запросов к БД)
+        self.resources['Кроны'] = self.money
+        self.resources['Рабочие'] = self.free_peoples
+        self.resources['Кристаллы'] = self.raw_material
+        self.resources['Население'] = self.population
+        self.resources['Потребление'] = self.current_consumption
+        self.resources['Лимит Армии'] = self.max_army_limit
 
+        formatted_resources = {}
         for resource, value in self.resources.items():
             formatted_resources[resource] = format_number(value)
 
         return formatted_resources
+
+    def refresh_from_db(self):
+        """Полная перезагрузка всех ресурсов из БД. Вызывать после боя/захвата города."""
+        self.load_resources_from_db()
+        self.load_cities()
+        self.recalculate_consumption()
+        self.resources['Кроны'] = self.money
+        self.resources['Рабочие'] = self.free_peoples
+        self.resources['Кристаллы'] = self.raw_material
+        self.resources['Население'] = self.population
+        self.resources['Потребление'] = self.current_consumption
+        self.resources['Лимит Армии'] = self.max_army_limit
 
     def get_city_count(self):
         """
@@ -1639,8 +1671,9 @@ class Faction:
     def _sync_resources(self):
         """Синхронизирует self.resources dict с внутренними полями и обновляет UI."""
         # Принудительные лимиты перед синхронизацией
-        self.money = max(min(self.money, 10_000_000), 0)
-        self.raw_material = max(min(self.raw_material, 10_000_000), 0)
+        _res_cap = 25_000_000 if self.faction == 'Элины' else 10_000_000
+        self.money = max(min(self.money, _res_cap), 0)
+        self.raw_material = max(min(self.raw_material, _res_cap), 0)
         self.population = max(min(self.population, 100_000_000), 0)
         self.free_peoples = max(min(self.free_peoples, 500_000), 0)
 
@@ -1657,19 +1690,36 @@ class Faction:
             except Exception:
                 pass
 
+    def _get_trade_bonus(self):
+        """Возвращает множитель торговли: бонус от Рынков + фракционный."""
+        bonus = 1.0 + self.markets * 0.10  # +10% за каждый Рынок
+        if self.faction == 'Элины':
+            try:
+                self.cursor.execute("SELECT season_index FROM season LIMIT 1")
+                _s = self.cursor.fetchone()
+                _is_peak = (_s[0] == 2) if _s else False
+            except Exception:
+                _is_peak = False
+            bonus += 0.25 * 2.75 if _is_peak else 0.25  # Элины: +25% (лето +68.75%)
+        return bonus
+
     def trade_raw_material(self, action, quantity):
         """
         Торговля Кристаллами через таблицу resources.
-        :param action: Действие ('buy' для покупки, 'sell' для продажи).
-        :param quantity: Количество лотов (1 лот = 100 единиц Кристаллы).
+        Бонусы от Рынков и фракции применяются к сделкам.
         """
         total_quantity = quantity * 100
-        total_cost = round(self.current_raw_material_price * quantity, 2)
+        base_cost = round(self.current_raw_material_price * quantity, 2)
+        trade_bonus = self._get_trade_bonus()
 
         if action == 'buy':
-            if self.money >= total_cost:
-                self.money -= total_cost
-                self.raw_material += total_quantity
+            # При покупке бонус уменьшает цену
+            discounted_cost = round(base_cost / trade_bonus, 2)
+            if self.money >= discounted_cost:
+                self.money -= discounted_cost
+                # Элины получают бонус кристаллов при покупке (+20%)
+                crystal_bonus = 1.20 if self.faction == 'Элины' else 1.0
+                self.raw_material += int(total_quantity * crystal_bonus)
                 self._sync_resources()
                 self.save_resources_to_db()
                 return True
@@ -1679,7 +1729,9 @@ class Faction:
 
         elif action == 'sell':
             if self.raw_material >= total_quantity:
-                self.money += total_cost
+                # При продаже бонус увеличивает доход
+                boosted_cost = round(base_cost * trade_bonus, 2)
+                self.money += boosted_cost
                 self.raw_material -= total_quantity
                 self._sync_resources()
                 self.save_resources_to_db()
@@ -2229,6 +2281,21 @@ def open_tax_popup(faction):
     card.add_widget(effect_label)
     main_layout.add_widget(card)
 
+    # === Статус налогов ===
+    tax_status_text = "Налоги установлены" if faction.tax_set else "Налоги не установлены!"
+    tax_status_color = (0.4, 0.85, 0.5, 1) if faction.tax_set else (1.0, 0.45, 0.35, 1)
+    tax_status = Label(
+        text=tax_status_text,
+        font_size=sp(13) if is_android else sp(12),
+        bold=True,
+        color=tax_status_color,
+        halign='center',
+        size_hint_y=None,
+        height=dp(22)
+    )
+    tax_status.bind(size=tax_status.setter('text_size'))
+    main_layout.add_widget(tax_status)
+
     # === Ползунок ===
     tax_slider = Slider(
         min=0, max=100, value=current_tax_rate, step=1,
@@ -2278,6 +2345,8 @@ def open_tax_popup(faction):
         faction.current_tax_rate = f"{tax_rate}%"
         faction.set_taxes(tax_rate)
         faction.apply_tax_effect(tax_rate)
+        tax_status.text = "Налоги установлены"
+        tax_status.color = (0.4, 0.85, 0.5, 1)
         tax_popup.dismiss()
 
     set_tax_button.bind(on_release=set_tax)
@@ -2480,46 +2549,61 @@ def open_auto_build_popup(faction):
 
 
 def open_development_popup(faction):
-    from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
     from kivy.uix.scrollview import ScrollView
-    from kivy.uix.gridlayout import GridLayout
     from kivy.uix.boxlayout import BoxLayout
     from kivy.uix.button import Button
     from kivy.uix.label import Label
     from kivy.graphics import Color, RoundedRectangle
     from kivy.metrics import dp, sp
-    from kivy.uix.image import Image
-    from kivy.uix.slider import Slider
     from kivy.uix.popup import Popup
     from kivy import platform
 
-    # Вспомогательная функция форматирования чисел
     def format_number(value):
         if isinstance(value, (int, float)):
             return f"{value:,.0f}".replace(",", " ")
         return str(value)
 
-    # Определяем размеры для мобильных устройств
-    current_platform = platform
-    is_mobile = current_platform in ['android', 'ios']
+    is_mobile = platform in ['android', 'ios']
 
-    if is_mobile:
-        # Более компактные размеры для Android
-        popup_size_hint = (0.98, 0.95)
-        tab_height = dp(40)
-        header_height = dp(45)
-        spacing = dp(8)
-        padding = [dp(8), dp(10), dp(8), dp(8)]
-    else:
-        popup_size_hint = (0.94, 0.9)
-        tab_height = dp(50)
-        header_height = dp(60)
-        spacing = dp(16)
-        padding = [dp(16), dp(20), dp(16), dp(16)]
+    # --- Три варианта стратегии ---
+    STRATEGIES = [
+        {
+            'ratio': (1, 1),
+            'name': 'Баланс',
+            'desc': 'Больницы и фабрики строятся поровну.\nРавномерный рост населения и кристаллов.',
+            'color': (0.92, 0.80, 0.55, 1),
+            'bg': (0.22, 0.28, 0.42, 1),
+        },
+        {
+            'ratio': (2, 1),
+            'name': 'Рост населения',
+            'desc': 'Больниц x2 больше фабрик.\nБольше рабочих и крон, меньше кристаллов.',
+            'color': (0.55, 0.78, 0.95, 1),
+            'bg': (0.18, 0.28, 0.45, 1),
+        },
+        {
+            'ratio': (1, 2),
+            'name': 'Рост добычи',
+            'desc': 'Фабрик x2 больше больниц.\nБольше кристаллов, меньше рабочих.',
+            'color': (0.55, 0.85, 0.55, 1),
+            'bg': (0.18, 0.35, 0.22, 1),
+        },
+    ]
+
+    current_ratio = getattr(faction, 'auto_build_ratio', (1, 1))
+    selected = [None]  # mutable container for closure
+
+    # Find initial selection
+    for i, s in enumerate(STRATEGIES):
+        if s['ratio'] == current_ratio:
+            selected[0] = i
+            break
+    if selected[0] is None:
+        selected[0] = 0  # default to balance
 
     dev_popup = Popup(
-        title="Стратегия развития",
-        size_hint=popup_size_hint,
+        title="Развитие",
+        size_hint=(0.92, 0.65) if is_mobile else (0.6, 0.65),
         background_color=(0.08, 0.10, 0.16, 0.98),
         separator_color=(0.25, 0.52, 0.92, 0.55),
         title_color=(0.75, 0.92, 1, 1),
@@ -2528,437 +2612,183 @@ def open_development_popup(faction):
         auto_dismiss=False
     )
 
-    main_layout = BoxLayout(orientation='vertical', padding=padding, spacing=spacing)
-
-    # Tabbed Panel - компактный
-    tab_panel = TabbedPanel(
-        do_default_tab=False,
-        tab_width=dp(120) if is_mobile else dp(160),
-        tab_height=tab_height,
-        background_color=(0, 0, 0, 0)
-    )
-
-    # === Вкладка "Строительство" ===
-    build_tab = TabbedPanelItem(
-        text=" Строительство",
-        font_size=sp(15) if is_mobile else sp(17),
-        color=(0.9, 0.95, 1, 1),
-        background_normal='',
-        background_down='',
-        background_color=(0.25, 0.35, 0.65, 1)
-    )
-
-    # Контейнер для вкладки строительства
-    build_content_container = BoxLayout(orientation='vertical')
-
-    with build_content_container.canvas.before:
-        Color(0.0, 0.0, 0.0, 1)
-        build_content_container.bg = RoundedRectangle(
-            radius=[dp(10)],
-            size=build_content_container.size,
-            pos=build_content_container.pos
-        )
-        build_content_container.bind(
-            pos=lambda inst, val: setattr(build_content_container.bg, 'pos', val),
-            size=lambda inst, val: setattr(build_content_container.bg, 'size', val)
-        )
-
-    # ScrollView для мобильных устройств - обязательно!
-    build_scroll = ScrollView(
-        size_hint=(1, 1),
-        do_scroll_x=False,
-        bar_width=dp(4) if is_mobile else dp(6),
-        bar_color=(0.5, 0.5, 0.5, 0.3)
-    )
-
-    build_content = BoxLayout(
+    main_layout = BoxLayout(
         orientation='vertical',
-        spacing=dp(4) if is_mobile else dp(8),  # Уменьшил spacing
-        padding=[dp(6), dp(6), dp(6), dp(6)],  # Уменьшил padding
-        size_hint_y=None
+        padding=[dp(10), dp(8), dp(10), dp(8)],
+        spacing=dp(8)
     )
-    build_content.bind(minimum_height=build_content.setter('height'))
 
-    # 1. Название стратегии и описание под ним - сделал компактнее
-    strategy_display = BoxLayout(
+    # ScrollView for cards
+    scroll = ScrollView(size_hint=(1, 1), do_scroll_x=False, bar_width=dp(3))
+    cards_layout = BoxLayout(
         orientation='vertical',
         size_hint_y=None,
-        height=dp(70) if is_mobile else dp(100),  # Уменьшил высоту
-        padding=[dp(4), dp(2), dp(4), dp(0)]  # Убрал нижний padding
+        spacing=dp(8),
+        padding=[0, dp(4), 0, dp(4)]
     )
+    cards_layout.bind(minimum_height=cards_layout.setter('height'))
 
-    # Название стратегии
-    strategy_main_name = Label(
-        text="Баланс",
-        font_size=sp(20) if is_mobile else sp(26),  # Чуть меньше
-        bold=True,
-        color=(1, 0.95, 0.8, 1),
-        halign='center',
-        valign='middle'
-    )
-    strategy_main_name.bind(size=strategy_main_name.setter('text_size'))
+    card_widgets = []
+    border_rects = []
 
-    # Описание стратегии под названием - сделал компактнее
-    strategy_description = Label(
-        text="Идеально если не знаете что выбрать",
-        font_size=sp(12) if is_mobile else sp(14),  # Меньше шрифт
-        color=(0.85, 0.9, 0.95, 0.9),
-        halign='center',
-        valign='top',
-        size_hint_y=None,
-        height=dp(30) if is_mobile else dp(45)  # Сильно уменьшил высоту
-    )
-    strategy_description.bind(size=strategy_description.setter('text_size'))
+    def select_card(idx):
+        selected[0] = idx
+        for j, (cw, br) in enumerate(zip(card_widgets, border_rects)):
+            if j == idx:
+                br.rgba = (0.4, 0.75, 1, 1)
+            else:
+                br.rgba = (0.3, 0.3, 0.4, 0.5)
 
-    strategy_display.add_widget(strategy_main_name)
-    strategy_display.add_widget(strategy_description)
-    build_content.add_widget(strategy_display)
-
-    # 2. Слайдер с компактной индикацией - уменьшил высоту
-    slider_container = BoxLayout(
-        orientation='vertical',
-        spacing=dp(0),  # Убрал spacing
-        size_hint_y=None,
-        height=dp(45) if is_mobile else dp(55)  # Уменьшил высоту
-    )
-
-    # Сам слайдер
-    slider = Slider(
-        min=0,
-        max=8,
-        value=4,
-        step=1,
-        cursor_size=(dp(38) if is_mobile else dp(42), dp(38) if is_mobile else dp(42)),  # Чуть меньше курсор
-        background_width=dp(8),
-        size_hint_y=None,
-        height=dp(25) if is_mobile else dp(30)  # Уменьшил высоту слайдера
-    )
-    slider_container.add_widget(slider)
-    build_content.add_widget(slider_container)
-
-    # 2.5. Панель прогноза ресурсов
-    projection_height = dp(120) if is_mobile else dp(140)
-    projection_panel = BoxLayout(
-        orientation='vertical',
-        size_hint_y=None,
-        height=projection_height,
-        padding=[dp(8), dp(6), dp(8), dp(6)],
-        spacing=dp(2) if is_mobile else dp(4)
-    )
-    with projection_panel.canvas.before:
-        Color(0.12, 0.16, 0.28, 1)
-        projection_panel._bg = RoundedRectangle(
-            pos=projection_panel.pos, size=projection_panel.size, radius=[dp(10)]
+    for i, strat in enumerate(STRATEGIES):
+        card_height = dp(90) if is_mobile else dp(100)
+        card = BoxLayout(
+            orientation='vertical',
+            size_hint_y=None,
+            height=card_height,
+            padding=[dp(12), dp(8), dp(12), dp(8)]
         )
-    projection_panel.bind(
-        pos=lambda inst, val: setattr(projection_panel._bg, 'pos', val),
-        size=lambda inst, val: setattr(projection_panel._bg, 'size', val)
-    )
+        with card.canvas.before:
+            border_c = Color(0.4, 0.75, 1, 1) if i == selected[0] else Color(0.3, 0.3, 0.4, 0.5)
+            border_r = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(12)])
+        with card.canvas.before:
+            Color(*strat['bg'])
+            card._bg = RoundedRectangle(
+                pos=(card.x + dp(2), card.y + dp(2)),
+                size=(card.width - dp(4), card.height - dp(4)),
+                radius=[dp(10)]
+            )
 
-    proj_font = sp(13) if is_mobile else sp(15)
-    proj_val_font = sp(14) if is_mobile else sp(16)
+        border_rects.append(border_c)
 
-    def _proj_row():
-        row = BoxLayout(orientation='horizontal', size_hint_y=1)
-        lbl = Label(
-            font_size=proj_font, color=(0.8, 0.85, 0.9, 1),
-            halign='left', valign='middle'
+        def _update_card_bg(inst, val, _bg=card._bg, _br=border_r):
+            _br.pos = inst.pos
+            _br.size = inst.size
+            _bg.pos = (inst.x + dp(2), inst.y + dp(2))
+            _bg.size = (inst.width - dp(4), inst.height - dp(4))
+
+        card.bind(pos=_update_card_bg, size=_update_card_bg)
+
+        # Name
+        name_lbl = Label(
+            text=strat['name'],
+            font_size=sp(17) if is_mobile else sp(19),
+            bold=True,
+            color=strat['color'],
+            halign='left', valign='middle',
+            size_hint_y=0.4
         )
-        lbl.bind(size=lbl.setter('text_size'))
-        val = Label(
-            font_size=proj_val_font, bold=True,
-            halign='right', valign='middle',
-            size_hint_x=0.4
+        name_lbl.bind(size=name_lbl.setter('text_size'))
+
+        # Ratio indicator
+        h, f = strat['ratio']
+        ratio_text = f"Больницы {h} : Фабрики {f}"
+
+        # Description
+        desc_lbl = Label(
+            text=f"[{ratio_text}]  {strat['desc'].replace(chr(10), ' ')}",
+            font_size=sp(12) if is_mobile else sp(13),
+            color=(0.8, 0.85, 0.9, 0.9),
+            halign='left', valign='top',
+            size_hint_y=0.6
         )
-        val.bind(size=val.setter('text_size'))
-        row.add_widget(lbl)
-        row.add_widget(val)
-        return row, lbl, val
+        desc_lbl.bind(size=desc_lbl.setter('text_size'))
 
-    row_ratio, lbl_ratio, val_ratio = _proj_row()
-    row_pop, lbl_pop, val_pop = _proj_row()
-    row_crystal, lbl_crystal, val_crystal = _proj_row()
-    row_cost, lbl_cost, val_cost = _proj_row()
+        card.add_widget(name_lbl)
+        card.add_widget(desc_lbl)
 
-    lbl_ratio.text = "Больницы : Фабрики"
-    lbl_pop.text = "Рабочие (чистыми)"
-    lbl_crystal.text = "Кристаллы (чистыми)"
-    lbl_cost.text = "Стоимость цикла (1 город)"
+        card_btn_overlay = Button(
+            background_color=(0, 0, 0, 0),
+            size_hint=(1, 1),
+            pos_hint={'x': 0, 'y': 0}
+        )
+        # Use a separate BoxLayout to stack label content and transparent button
+        card_container = BoxLayout(orientation='vertical', size_hint_y=None, height=card_height)
 
-    projection_panel.add_widget(row_ratio)
-    projection_panel.add_widget(row_pop)
-    projection_panel.add_widget(row_crystal)
-    projection_panel.add_widget(row_cost)
+        # We need a RelativeLayout or FloatLayout for overlay
+        from kivy.uix.floatlayout import FloatLayout
+        fl = FloatLayout(size_hint_y=None, height=card_height)
+        card.size_hint = (1, 1)
+        card.pos_hint = {'x': 0, 'y': 0}
+        card_btn_overlay.pos_hint = {'x': 0, 'y': 0}
+        card_btn_overlay.bind(on_release=lambda inst, idx=i: select_card(idx))
 
-    build_content.add_widget(projection_panel)
+        fl.add_widget(card)
+        fl.add_widget(card_btn_overlay)
 
-    # 3. Быстрые пресеты для слайдера
-    quick_buttons = BoxLayout(
+        cards_layout.add_widget(fl)
+        card_widgets.append(card)
+
+    scroll.add_widget(cards_layout)
+    main_layout.add_widget(scroll)
+
+    # --- Статистика (компактная) ---
+    stats_box = BoxLayout(
         orientation='horizontal',
-        spacing=dp(4) if is_mobile else dp(6),
         size_hint_y=None,
-        height=dp(38) if is_mobile else dp(44),
-        padding=[0, 0, 0, 0]
+        height=dp(50) if is_mobile else dp(55),
+        spacing=dp(6),
+        padding=[dp(4), dp(4), dp(4), dp(4)]
+    )
+    with stats_box.canvas.before:
+        Color(0.12, 0.15, 0.25, 1)
+        stats_box._bg = RoundedRectangle(pos=stats_box.pos, size=stats_box.size, radius=[dp(8)])
+    stats_box.bind(
+        pos=lambda inst, val: setattr(stats_box._bg, 'pos', val),
+        size=lambda inst, val: setattr(stats_box._bg, 'size', val)
     )
 
-    PRESET_LABELS = ["Больн x2.5", "Баланс", "Фабр x2.5"]
-    PRESET_VALS   = [0, 4, 8]
+    sf = sp(11) if is_mobile else sp(13)
+    stats_items = [
+        (f"Больницы: {format_number(faction.hospitals)}", (0.85, 0.45, 0.45, 1)),
+        (f"Фабрики: {format_number(faction.factories)}", (0.45, 0.85, 0.5, 1)),
+        (f"Доход Крон: {format_number(faction.money_up)}", (0.5, 0.95, 0.6, 1)),
+    ]
+    for txt, clr in stats_items:
+        sl = Label(text=txt, font_size=sf, bold=True, color=clr, halign='center', valign='middle')
+        sl.bind(size=sl.setter('text_size'))
+        stats_box.add_widget(sl)
 
-    def _preset_btn(txt, val):
-        b = Button(
-            text=txt, font_size=sp(12) if is_mobile else sp(13),
-            bold=True, background_color=(0, 0, 0, 0),
-            color=(0.82, 0.94, 1, 1)
-        )
-        with b.canvas.before:
-            b._bc = Color(0.18, 0.26, 0.42, 1)
-            b._br = RoundedRectangle(pos=b.pos, size=b.size, radius=[dp(8)])
-        b.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
-               size=lambda i, v: setattr(i._br, 'size', v))
-        return b
+    main_layout.add_widget(stats_box)
 
-    for p_label, p_val in zip(PRESET_LABELS, PRESET_VALS):
-        pb = _preset_btn(p_label, p_val)
-        pb.bind(on_release=lambda inst, v=p_val: setattr(slider, 'value', v))
-        quick_buttons.add_widget(pb)
-
-    build_content.add_widget(quick_buttons)
-
-    # 4. Основные кнопки действия
+    # --- Action buttons ---
     action_buttons = BoxLayout(
         orientation='horizontal',
-        spacing=dp(6) if is_mobile else dp(10),
+        spacing=dp(8),
         size_hint_y=None,
-        height=dp(48) if is_mobile else dp(56),
-        padding=[0, 0, 0, 0]
+        height=dp(48) if is_mobile else dp(52)
     )
 
-    def _action_dev_btn(txt, clr):
+    def _make_btn(txt, clr):
         b = Button(
-            text=txt,
-            font_size=sp(15) if is_mobile else sp(17),
-            bold=True, background_color=(0, 0, 0, 0),
-            color=(1, 1, 1, 1)
+            text=txt, font_size=sp(15) if is_mobile else sp(16),
+            bold=True, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1)
         )
         with b.canvas.before:
             b._bc = Color(*clr)
-            b._br = RoundedRectangle(pos=b.pos, size=b.size, radius=[dp(12)])
+            b._br = RoundedRectangle(pos=b.pos, size=b.size, radius=[dp(10)])
         b.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
                size=lambda i, v: setattr(i._br, 'size', v))
         return b
 
-    cancel_btn = _action_dev_btn("Отмена", (0.60, 0.18, 0.18, 1))
-    apply_btn  = _action_dev_btn("Применить", (0.18, 0.62, 0.28, 1))
-
-    cancel_btn.size_hint_x = 0.45
-    apply_btn.size_hint_x  = 0.55
-
-    action_buttons.add_widget(cancel_btn)
-    action_buttons.add_widget(apply_btn)
-    # Устанавливаем минимальную высоту контента - пересчитал с новыми размерами
-    build_content.height = (
-            strategy_display.height +
-            slider_container.height +
-            projection_panel.height +
-            quick_buttons.height +
-            (build_content.spacing * 3)  # Учитываем spacing между элементами
-    )
-
-    build_scroll.add_widget(build_content)
-    build_content_container.add_widget(build_scroll)
-    build_content_container.add_widget(action_buttons)
-    build_tab.content = build_content_container
-
-    # === Вкладка "Статистика" ===
-    stat_tab = TabbedPanelItem(
-        text="Статистика",
-        font_size=sp(15) if is_mobile else sp(17),
-        color=(0.9, 0.95, 1, 1),
-        background_normal='',
-        background_down='',
-        background_color=(0.25, 0.35, 0.65, 1)
-    )
-
-    # Контейнер для статистики
-    stat_content_container = BoxLayout(orientation='vertical')
-
-    with stat_content_container.canvas.before:
-        Color(0.0, 0.0, 0.0, 1)
-        stat_content_container.bg = RoundedRectangle(
-            radius=[dp(10)],
-            size=stat_content_container.size,
-            pos=stat_content_container.pos
-        )
-        stat_content_container.bind(
-            pos=lambda inst, val: setattr(stat_content_container.bg, 'pos', val),
-            size=lambda inst, val: setattr(stat_content_container.bg, 'size', val)
-        )
-
-    # ScrollView для статистики
-    stat_scroll = ScrollView(
-        size_hint=(1, 1),
-        do_scroll_x=False,
-        bar_width=dp(4) if is_mobile else dp(6),
-        bar_color=(0.5, 0.5, 0.5, 0.3)
-    )
-
-    stats_grid = GridLayout(
-        cols=1,
-        size_hint_y=None,
-        spacing=dp(4) if is_mobile else dp(8),  # Уменьшил spacing
-        padding=[dp(4), dp(4), dp(4), dp(4)] if is_mobile else [dp(8), dp(8), dp(8), dp(8)]  # Уменьшил padding
-    )
-    stats_grid.bind(minimum_height=stats_grid.setter('height'))
-
-    # Данные статистики - более компактные
-    stats_data = [
-        ("Больницы", format_number(faction.hospitals), (0.85, 0.4, 0.4, 1)),
-        ("Фабрики", format_number(faction.factories), (0.4, 0.85, 0.5, 1)),
-        ("Рабочих на фабриках", format_number(faction.work_peoples), (0.9, 0.7, 0.4, 1)),
-        ("Прирост рабочих", format_number(faction.clear_up_peoples), (0.5, 0.7, 0.95, 1)),
-        ("Расход на больницы", format_number(faction.money_info), (0.95, 0.5, 0.5, 1)),
-        ("Прирост кристаллов", format_number(faction.food_info), (0.6, 0.6, 1, 1)),
-        ("Доход от налогов", format_number(faction.taxes_info), (0.95, 0.9, 0.5, 1)),
-        ("Эффект налогов (дополнительно пришло людей)",
-         format_number(faction.apply_tax_effect(int(faction.current_tax_rate[:-1]))) if faction.tax_set else "–",
-         (0.95, 0.6, 0.95, 1)),
-        ("Чистый доход", format_number(faction.money_up), (0.5, 0.95, 0.6, 1))
-    ]
-
-    for label_text, value, color in stats_data:
-        card = BoxLayout(
-            orientation='horizontal',
-            size_hint_y=None,
-            height=dp(40) if is_mobile else dp(50),  # Уменьшил высоту карточек
-            padding=[dp(4), dp(2), dp(4), dp(2)] if is_mobile else [dp(8), dp(4), dp(8), dp(4)]  # Меньше padding
-        )
-        with card.canvas.before:
-            Color(0.18, 0.23, 0.38, 1)
-            card.bg = RoundedRectangle(radius=[dp(6)], size=card.size, pos=card.pos)  # Меньше радиус
-            card.bind(
-                pos=lambda inst, val, bg=card.bg: setattr(bg, 'pos', val),
-                size=lambda inst, val, bg=card.bg: setattr(bg, 'size', val)
-            )
-
-        left_col = BoxLayout(orientation='vertical', size_hint_x=0.7, spacing=dp(0))
-        title = Label(
-            text=label_text,
-            font_size=sp(12) if is_mobile else sp(14),  # Меньше шрифт
-            bold=True,
-            color=(0.92, 0.95, 1, 1),
-            halign='left',
-            valign='middle',
-            text_size=(dp(130) if is_mobile else None, None)
-        )
-        title.bind(size=title.setter('text_size'))
-        left_col.add_widget(title)
-
-        value_label = Label(
-            text=str(value),
-            font_size=sp(14) if is_mobile else sp(16),  # Меньше шрифт
-            bold=True,
-            color=color,
-            halign='right',
-            valign='middle',
-            size_hint_x=0.3
-        )
-        value_label.bind(size=value_label.setter('text_size'))
-
-        card.add_widget(left_col)
-        card.add_widget(value_label)
-        stats_grid.add_widget(card)
-
-    stat_scroll.add_widget(stats_grid)
-    stat_content_container.add_widget(stat_scroll)
-    stat_tab.content = stat_content_container
-
-    # Добавление вкладок
-    tab_panel.add_widget(build_tab)
-    tab_panel.add_widget(stat_tab)
-    main_layout.add_widget(tab_panel)
-
-    # === ЛОГИКА ===
-    RATIOS = [(5, 2), (3, 2), (3, 1), (2, 1), (1, 1), (1, 2), (1, 3), (2, 3), (2, 5)]
-    RATIO_NAMES = [
-        "x2.5 рост населения", "Небольшой прирост", "Тройной рост населения",
-        "Двойной рост населения", "Баланс", "Двойной рост добычи",
-        "Тройной рост добычи", "Небольшой рост добычи", "x2.5 рост добычи"
-    ]
-    RATIO_DESCS = [
-        "Средний рост населения и потребление кристаллов",
-        "Умеренный прирост населения",
-        "Сильный рост населения и потребление кристаллов",
-        "Серьезный акцент на рост населения, стоит задуматься о закупке кристаллов",
-        "Идеально если не знаете что выбрать",
-        "Серьезный уклон в производство, людей может не хватать",
-        "Усиленный фокус на добычу кристаллов может ощущаться острая нехватка людей",
-        "Умеренный уклон в производство кристаллов",
-        "Средний рост кристаллов"
-    ]
-
-    COLOR_GREEN = (0.64, 0.75, 0.55, 1)   # #A3BE8C
-    COLOR_RED = (0.75, 0.38, 0.42, 1)     # #BF616A
-    COLOR_YELLOW = (0.92, 0.80, 0.55, 1)  # #EBCB8B
-
-    def update_ui(instance, value):
-        idx = int(value)
-        h, f = RATIOS[idx]
-
-        # Обновляем главное название стратегии
-        strategy_main_name.text = RATIO_NAMES[idx]
-
-        # Обновляем описание под названием
-        strategy_description.text = RATIO_DESCS[idx]
-
-        # --- Обновляем панель прогноза ---
-        # Соотношение
-        val_ratio.text = f"{h} : {f}"
-        val_ratio.color = (0.9, 0.95, 1, 1)
-
-        # Рабочие (чистыми): больница +50, фабрика забирает -20
-        net_workers = h * 50 - f * 20
-        sign = "+" if net_workers >= 0 else ""
-        val_pop.text = f"{sign}{net_workers} рабочих"
-        val_pop.color = COLOR_GREEN if net_workers > 0 else COLOR_RED if net_workers < 0 else COLOR_YELLOW
-
-        # Кристаллы (чистыми): каждая фабрика даёт +105,
-        # минус потребление от новых людей (population * food_loss)
-        # Используем текущий food_peoples как базу потребления населения
-        cur_pop = getattr(faction, 'population', 0)
-        cur_food_peoples = getattr(faction, 'food_peoples', 0)
-        # food_loss на 1 единицу населения
-        food_loss_per_pop = (cur_food_peoples / cur_pop) if cur_pop > 0 else 0.5
-        # Новые кристаллы от f фабрик минус потребление от h*50 новых жителей
-        crystal_gain = f * 105
-        crystal_loss = round(net_workers * food_loss_per_pop) if net_workers > 0 else 0
-        net_crystals = crystal_gain - crystal_loss
-        sign_c = "+" if net_crystals >= 0 else ""
-        val_crystal.text = f"{sign_c}{net_crystals} кристаллов"
-        val_crystal.color = COLOR_GREEN if net_crystals > 0 else COLOR_RED if net_crystals < 0 else COLOR_YELLOW
-
-        # Стоимость одного цикла строительства для 1 города
-        # Больница = 15 крон, Фабрика = 10 крон
-        cycle_cost = h * 15 + f * 10
-        val_cost.text = f"{cycle_cost} крон ({h}x15 + {f}x10)"
-        val_cost.color = COLOR_YELLOW
-
-    # Загрузка текущих настроек
-    if hasattr(faction, 'auto_build_ratio') and faction.auto_build_ratio in RATIOS:
-        slider.value = RATIOS.index(faction.auto_build_ratio)
-
-    update_ui(None, slider.value)
-    slider.bind(value=update_ui)
+    cancel_btn = _make_btn("Отмена", (0.55, 0.18, 0.18, 1))
+    apply_btn = _make_btn("Применить", (0.18, 0.58, 0.25, 1))
+    cancel_btn.size_hint_x = 0.4
+    apply_btn.size_hint_x = 0.6
 
     def apply_settings(instance):
-        idx = int(slider.value)
-        faction.auto_build_ratio = RATIOS[idx]
+        idx = selected[0]
+        faction.auto_build_ratio = STRATEGIES[idx]['ratio']
         faction.auto_build_enabled = True
         faction.save_auto_build_settings()
         dev_popup.dismiss()
-        show_message("Сохранение...", f"Как прикажете!")
+        show_message("Сохранение...", "Как прикажете!")
 
     apply_btn.bind(on_release=apply_settings)
     cancel_btn.bind(on_release=lambda _: dev_popup.dismiss())
+
+    action_buttons.add_widget(cancel_btn)
+    action_buttons.add_widget(apply_btn)
+    main_layout.add_widget(action_buttons)
 
     dev_popup.content = main_layout
     dev_popup.open()
@@ -2971,19 +2801,40 @@ def start_economy_mode(faction, game_area, db_conn, season_manager):
     from kivy.uix.widget import Widget
     is_android = platform == 'android'
 
-    economy_layout = BoxLayout(
-        orientation='horizontal',
-        size_hint=(0.88, None),
-        height=dp(70) if is_android else 60,
-        pos_hint={'x': 0, 'y': 0},
-        spacing=dp(4) if is_android else 10,
-        padding=[dp(10), dp(5), dp(10), dp(5)] if is_android else [10, 5, 10, 5]
-    )
+    if is_android:
+        from kivy.uix.scrollview import ScrollView as EcoScrollView
+
+        eco_scroll_wrapper = EcoScrollView(
+            size_hint=(0.88, None),
+            height=dp(70),
+            pos_hint={'x': 0, 'y': 0},
+            do_scroll_y=False,
+            do_scroll_x=True,
+            bar_width=0
+        )
+
+        economy_layout = BoxLayout(
+            orientation='horizontal',
+            size_hint_y=1,
+            size_hint_x=None,
+            spacing=dp(6),
+            padding=[dp(6), dp(5), dp(6), dp(5)]
+        )
+        economy_layout.bind(minimum_width=economy_layout.setter('width'))
+    else:
+        eco_scroll_wrapper = None
+        economy_layout = BoxLayout(
+            orientation='horizontal',
+            size_hint=(0.88, None),
+            height=60,
+            pos_hint={'x': 0, 'y': 0},
+            spacing=10,
+            padding=[10, 5, 10, 5]
+        )
 
     def create_styled_button(text, on_press_callback):
         button = Button(
             text=text,
-            size_hint_x=1,
             size_hint_y=None,
             height=dp(60) if is_android else 50,
             background_color=(0, 0, 0, 0),
@@ -2991,6 +2842,12 @@ def start_economy_mode(faction, game_area, db_conn, season_manager):
             font_size=sp(14) if is_android else 16,
             bold=True
         )
+        if is_android:
+            button.size_hint_x = None
+            button.width = dp(130)
+        else:
+            button.size_hint_x = 1
+
         with button.canvas.before:
             Color(0.2, 0.8, 0.2, 1)
             button.rect = RoundedRectangle(pos=button.pos, size=button.size, radius=[15])
@@ -3014,4 +2871,8 @@ def start_economy_mode(faction, game_area, db_conn, season_manager):
     economy_layout.add_widget(trade_btn)
     economy_layout.add_widget(tax_btn)
 
-    game_area.add_widget(economy_layout)
+    if eco_scroll_wrapper:
+        eco_scroll_wrapper.add_widget(economy_layout)
+        game_area.add_widget(eco_scroll_wrapper)
+    else:
+        game_area.add_widget(economy_layout)

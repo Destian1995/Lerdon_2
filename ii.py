@@ -973,144 +973,128 @@ class AIController:
 
     def generate_and_buy_artifacts_for_ai_hero(self):
         """
-        Генерирует и покупает случайные артефакты для героя ИИ после 40 хода,
-        если есть деньги и свободные слоты.
+        Генерирует и покупает артефакты для героев ИИ.
+        Работает каждый ход после найма армии.
+        Стоимость как у игрока (x4), но со скидкой 25% (компенсация отставания на 1 ход).
+        Заполняет все свободные слоты пока хватает крон.
         """
-        if self.turn <= 40:
-            print(f"[INFO] ИИ '{self.faction}': Пока не достигнуто 40 ходов для генерации артефактов.")
-            return
+        import random
+        import os
 
-        # Находим всех героев 3-го класса, которые могут носить артефакты
         ai_heroes = self.get_ai_heroes_3_class()
         if not ai_heroes:
-            print(f"[INFO] ИИ '{self.faction}': Нет героев 3 класса для экипировки.")
             return
 
-        print(f"[INFO] ИИ '{self.faction}': Проверка возможности генерации артефактов для героев: {ai_heroes}")
+        # Стоимость артефакта: (atk * 2400 + def * 3200) * 0.75 (скидка ИИ за отставание на 1 ход)
+        AI_COST_DISCOUNT = 0.75
+        AI_ATK_COST_PER_1 = 2400 * AI_COST_DISCOUNT   # 1800 за 1% атаки
+        AI_DEF_COST_PER_1 = 3200 * AI_COST_DISCOUNT   # 2400 за 1% защиты
+        MIN_CROWNS_FOR_ARTIFACT = 500_000
 
-        # Проверяем наличие свободных слотов у героев
-        hero_with_slot = self.find_hero_with_free_slot(ai_heroes)
-        if not hero_with_slot:
-            print(f"[INFO] ИИ '{self.faction}': Нет героев с пустыми слотами для артефактов.")
+        crowns = self.resources.get('Кроны', 0)
+        if crowns < MIN_CROWNS_FOR_ARTIFACT:
             return
 
-        # Проверяем, достаточно ли денег для покупки артефакта (минимальная стоимость)
-        min_cost = 2_000_000  # 2 мл.
-        if self.resources.get('Кроны', 0) < min_cost:
-            print(
-                f"[INFO] ИИ '{self.faction}': Недостаточно крон для генерации артефакта (требуется минимум {format_number(min_cost)}).")
+        # Собираем все свободные слоты у всех героев
+        free_slots = []
+        for hero in ai_heroes:
+            equipment = self.get_current_equipment_for_hero(hero)
+            for slot in ['0', '1', '2', '3', '4']:
+                if equipment.get(slot) is None:
+                    free_slots.append((hero, slot))
+
+        if not free_slots:
             return
 
-        # --- Генерация артефакта ---
-        import random
+        random.shuffle(free_slots)
 
-        # Случайный выбор параметров
-        param_choice = random.choice(["attack", "defense", "both"])
-
-        if param_choice == "attack":
-            attack = random.randint(8000, 14000)
-            defense = 0
-        elif param_choice == "defense":
-            attack = 0
-            defense = random.randint(8000, 14000)
-        else:  # both
-            attack = random.randint(4000, 13000)
-            defense = random.randint(4000, 13000)
-
-        # Случайный выбор слота (0: Оружие, 1: Голова, 2: Сапоги, 3: Туловище, 4: Аксессуар)
-        artifact_type = random.choice([0, 1, 2, 3, 4])
-        artifact_type_to_slot = {0: '0', 1: '1', 2: '2', 3: '3', 4: '4'}
-        slot_type = artifact_type_to_slot[artifact_type]
-
-        # Случайное название
-        prefixes = ["Артефакт", "Квантовый", "Атомной", "Сингулярной", "Молекулярной"]
-        suffixes = ["Силы", "Защиты", "Быстроты", "Власти", "Хаоса", "Порядка", "Кода"]
-        name = f"{random.choice(prefixes)} {random.choice(suffixes)}"
-
-        # Случайная стоимость
-        cost = random.randint(2_000_000, 10_000_000)  # 2-10 мл.
-
-        # Сезон (может быть пустым или случайным)
-        seasons_list = [[], ["Весна"], ["Лето"], ["Осень"], ["Зима"], ["Весна", "Лето"], ["Лето", "Осень"],
-                        ["Осень", "Зима"], ["Зима", "Весна"], ["Весна", "Осень"], ["Лето", "Зима"],
-                        ["Весна", "Лето", "Осень"], ["Весна", "Лето", "Зима"], ["Весна", "Осень", "Зима"],
-                        ["Лето", "Осень", "Зима"], ["Все"]]
-        season_name = ', '.join(random.choice(seasons_list))
-
-        # Случайное изображение (предположим, что у ИИ есть доступ к папке с изображениями артефактов)
-        # В реальности, вы можете генерировать изображения или использовать стандартные
-        artifact_images_path = "files/pict/artifacts/custom"  # Или другая директория для ИИ
-        import os
+        # Изображение артефакта
+        artifact_images_path = "files/pict/artifacts/custom"
+        image_url = "files/pict/artifacts/custom/default_artifact.png"
         if os.path.exists(artifact_images_path):
-            image_files = [f for f in os.listdir(artifact_images_path) if
-                           f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))]
+            image_files = [f for f in os.listdir(artifact_images_path)
+                           if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))]
             if image_files:
                 image_url = os.path.join(artifact_images_path, random.choice(image_files))
+
+        prefixes = ["Артефакт", "Квантовый", "Атомной", "Сингулярной", "Молекулярной"]
+        suffixes = ["Силы", "Защиты", "Быстроты", "Власти", "Хаоса", "Порядка", "Кода"]
+        seasons_list = [[], ["Весна"], ["Лето"], ["Осень"], ["Зима"],
+                        ["Весна", "Лето"], ["Лето", "Осень"], ["Осень", "Зима"], ["Зима", "Весна"]]
+
+        artifacts_bought = 0
+        for hero_name, slot_type in free_slots:
+            crowns = self.resources.get('Кроны', 0)
+            if crowns < MIN_CROWNS_FOR_ARTIFACT:
+                break
+
+            # Генерируем характеристики пропорционально доступным кронам
+            # Бюджет на артефакт: до 40% оставшихся крон, но не более 10 млн
+            budget = min(crowns * 0.4, 10_000_000)
+
+            param_choice = random.choice(["attack", "defense", "both"])
+            if param_choice == "attack":
+                attack = int(budget / AI_ATK_COST_PER_1)
+                attack = max(3000, min(attack, 18000))
+                defense = 0
+                cost = int(attack * AI_ATK_COST_PER_1)
+            elif param_choice == "defense":
+                attack = 0
+                defense = int(budget / AI_DEF_COST_PER_1)
+                defense = max(3000, min(defense, 18000))
+                cost = int(defense * AI_DEF_COST_PER_1)
             else:
-                print(f"[WARNING] Не найдены изображения в {artifact_images_path}, используем заглушку.")
-                image_url = "files/pict/artifacts/custom/default_artifact.png"  # Заглушка
-        else:
-            print(f"[WARNING] Папка с изображениями артефактов {artifact_images_path} не найдена, используем заглушку.")
-            image_url = "files/pict/artifacts/custom/default_artifact.png"  # Заглушка
+                half_budget = budget / 2
+                attack = int(half_budget / AI_ATK_COST_PER_1)
+                defense = int(half_budget / AI_DEF_COST_PER_1)
+                attack = max(2000, min(attack, 14000))
+                defense = max(2000, min(defense, 14000))
+                cost = int(attack * AI_ATK_COST_PER_1 + defense * AI_DEF_COST_PER_1)
 
-        # --- Проверка, подходит ли артефакт по слоту и стоимости ---
-        # Проверяем, свободен ли слот у выбранного героя
-        current_equipment = self.get_current_equipment_for_hero(hero_with_slot)
-        if current_equipment.get(slot_type) is not None:
-            print(f"[INFO] ИИ '{self.faction}': Слот {slot_type} у героя {hero_with_slot} уже занят.")
-            return  # Попробовать другой слот или героя, если нужно, но для простоты возвращаемся
+            cost = max(MIN_CROWNS_FOR_ARTIFACT, cost)
+            if crowns < cost:
+                continue
 
-        # Проверяем, хватает ли денег на сгенерированный артефакт
-        if self.resources.get('Кроны', 0) < cost:
-            print(
-                f"[INFO] ИИ '{self.faction}': Недостаточно крон для покупки сгенерированного артефакта (стоимость {format_number(cost)}).")
-            return
+            artifact_type = int(slot_type)
+            name = f"{random.choice(prefixes)} {random.choice(suffixes)}"
+            season_name = ', '.join(random.choice(seasons_list))
 
-        # --- Покупка (вставка в БД и списание денег) ---
-        try:
-            cursor = self.db_connection.cursor()
-
-            # Генерация ID на основе максимального ID в таблице artifacts_ai
-            cursor.execute("SELECT MAX(id) FROM artifacts_ai")
-            max_id_result = cursor.fetchone()
-            new_artifact_id = (max_id_result[0] or 0) + 1
-
-            # Вставка сгенерированного артефакта в таблицу artifacts_ai с указанным ID
-            cursor.execute('''
-                   INSERT INTO artifacts_ai (id, attack, defense, season_name, image_url, name, cost, artifact_type)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-               ''', (new_artifact_id, attack, defense, season_name, image_url, name, cost, artifact_type))
-
-            # Списываем деньги
-            self.resources['Кроны'] -= cost
-
-            # Экипируем артефакт герою
-            cursor.execute('''
-                   UPDATE ai_hero_equipment
-                   SET artifact_id = ?
-                   WHERE faction_name = ? AND hero_name = ? AND slot_type = ?
-               ''', (new_artifact_id, self.faction, hero_with_slot, slot_type))
-
-            # ОБЯЗАТЕЛЬНО делаем commit перед применением бонусов!
-            self.db_connection.commit()
-
-            # Применяем бонусы артефактов через переданный экземпляр SeasonManager
-            # ИСПРАВЛЕНО: используем self.db_connection соединение ИИ с базой
-            if self.season_manager:
-                self.season_manager.apply_artifact_bonuses(self.db_connection)
-                print(f"[INFO] Бонусы артефактов применены для ИИ '{self.faction}' через SeasonManager.")
-
-            print(
-                f"[SUCCESS] ИИ '{self.faction}' сгенерировал и экипировал артефакт '{name}' (ID {new_artifact_id}, Атк: {attack}, Защ: {defense}, Стоимость: {format_number(cost)}) герою '{hero_with_slot}' в слот {slot_type}.")
-
-        except Exception as e:
-            print(f"[ERROR] ИИ '{self.faction}': Ошибка при генерации/покупке артефакта: {e}")
-            import traceback
-            traceback.print_exc()  # Для отладки
             try:
-                self.db_connection.rollback()
-            except:
-                pass
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT MAX(id) FROM artifacts_ai")
+                max_id_result = cursor.fetchone()
+                new_artifact_id = (max_id_result[0] or 0) + 1
+
+                cursor.execute('''
+                    INSERT INTO artifacts_ai (id, attack, defense, season_name, image_url, name, cost, artifact_type)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (new_artifact_id, attack, defense, season_name, image_url, name, cost, artifact_type))
+
+                self.resources['Кроны'] -= cost
+
+                cursor.execute('''
+                    UPDATE ai_hero_equipment
+                    SET artifact_id = ?
+                    WHERE faction_name = ? AND hero_name = ? AND slot_type = ?
+                ''', (new_artifact_id, self.faction, hero_name, slot_type))
+
+                self.db_connection.commit()
+                artifacts_bought += 1
+
+                print(f"[AI ARTIFACT] {self.faction}: '{name}' (Атк:{attack} Защ:{defense} "
+                      f"Цена:{format_number(cost)}) -> {hero_name} слот {slot_type}")
+
+            except Exception as e:
+                print(f"[ERROR] ИИ '{self.faction}': Ошибка артефакта: {e}")
+                try:
+                    self.db_connection.rollback()
+                except:
+                    pass
+                break
+
+        # Применяем бонусы один раз после всех покупок
+        if artifacts_bought > 0 and self.season_manager:
+            self.season_manager.apply_artifact_bonuses(self.db_connection)
 
     def get_ai_heroes_3_class(self):
         """
@@ -2744,23 +2728,30 @@ class AIController:
                 if int(relationship) < 30:
                     enemy_strength = army_strength.get(faction, 0)
 
-                    # НЕ объявляем войну если мы слабее на 30%+
-                    if enemy_strength > 0 and our_strength < enemy_strength * 0.7:
+                    # Учитываем фракционный множитель при оценке своей силы
+                    FACTION_WAR_MULT = {
+                        'Север': 1.25, 'Адепты': 1.15, 'Эльфы': 1.10,
+                        'Вампиры': 1.08, 'Элины': 1.05,
+                    }
+                    effective_our = our_strength * FACTION_WAR_MULT.get(self.faction, 1.0)
+
+                    # НЕ объявляем войну если мы слабее на 50%+
+                    if enemy_strength > 0 and effective_our < enemy_strength * 0.5:
                         print(f"{self.faction}: слишком слабы для войны с {faction} "
-                              f"(наша: {our_strength}, их: {enemy_strength}). Война не объявлена.")
+                              f"(наша: {effective_our:.0f}, их: {enemy_strength}). Война не объявлена.")
                         continue
 
-                    # Объявляем войну только если сильнее в 1.3 раза
-                    if our_strength > 1.3 * enemy_strength:
+                    # Объявляем войну если сильнее хотя бы на 10%
+                    if effective_our > 1.1 * enemy_strength:
                         print(f"Отношения с {faction} < 30%. "
-                              f"Сила: {our_strength} vs {enemy_strength}. Объявление войны.")
+                              f"Сила: {effective_our:.0f} vs {enemy_strength}. Объявление войны.")
                         self.update_diplomacy_status(faction, "война")
                         self.notify_player_about_war(faction)
                         target_city = self.find_nearest_city(faction)
                         if target_city:
                             self.attack_city(target_city, faction)
                     else:
-                        print(f"Отношения с {faction} < 30%, но сила противника слишком велика.")
+                        print(f"Отношения с {faction} < 30%, но силы примерно равны — война не объявлена.")
 
             if our_strength > 0:
                 target_city = self.find_nearest_neutral_city()
@@ -3429,7 +3420,7 @@ class AIController:
             message_content = ""
             resource_offer = ""
 
-            if relations_with_player > 95:
+            if relations_with_player > 95 and not self._is_allied_with_player():
                 # Предлагаем союз и помощь в войне
                 message_content = f"[СОЮЗ] {self.faction} предлагает вам военный союз и помощь в войнах."
 
@@ -4278,8 +4269,8 @@ class AIController:
         if same_ideo and rel > 30 and random.random() < 0.50:
             return self._try_send_trade_offer(p, rel)
 
-        # Союз ТОЛЬКО с единомышленниками
-        if same_ideo and rel > 40 and random.random() < 0.40:
+        # Союз ТОЛЬКО с единомышленниками (если ещё не союзники)
+        if same_ideo and rel > 40 and random.random() < 0.40 and not self._is_allied_with_player():
             msg = f"[СОЮЗ] Пророчества ясны: наш путь един. {city_word(ctx['our_cities'])} и "
             msg += f"{warrior_word(ctx.get('our_units', 0))} — всё это ваше, если вы с нами. "
             msg += f"Адепты выбирают одного союзника — и стоят за него до конца."
@@ -4354,9 +4345,28 @@ class AIController:
             print(f"[AI] Ошибка при сборе контекста: {e}")
         return ctx
 
+    def _is_allied_with_player(self):
+        """Проверяет, заключён ли уже союз с игроком."""
+        try:
+            player = self._get_player_faction_name()
+            if not player:
+                return False
+            cursor = self.db_connection.cursor()
+            cursor.execute(
+                "SELECT relationship FROM diplomacies WHERE faction1 = ? AND faction2 = ?",
+                (self.faction, player)
+            )
+            row = cursor.fetchone()
+            return row and row[0] == 'союз'
+        except Exception:
+            return False
+
     def _try_send_alliance_proposal(self, personality, relations):
         """Предложение военного союза — приоритет одинаковой идеологии."""
         try:
+            if self._is_allied_with_player():
+                return False
+
             ctx = self._get_game_context()
             if ctx.get('our_strength', 0) < 500:
                 return False
