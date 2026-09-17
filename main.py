@@ -1902,30 +1902,9 @@ class KingdomSelectionWidget(MDFloatLayout):
         }
         self._faction_bg_images = _FACTION_BG_IMAGES
 
-        self._faction_bg = Image(
-            source='',
-            allow_stretch=True,
-            keep_ratio=False,
-            size_hint=(1, 1),
-            pos_hint={'x': 0, 'y': 0},
-            opacity=0,
-        )
-        self.add_widget(self._faction_bg)
-
-        # Тёмный градиент поверх фракционного фона — чтобы текст читался
-        self._faction_bg_overlay = Widget(size_hint=(1, 1), pos_hint={'x': 0, 'y': 0})
-        with self._faction_bg_overlay.canvas:
-            Color(0, 0, 0, 0.52)
-            self._faction_bg_overlay_rect = BgRect(
-                pos=self._faction_bg_overlay.pos,
-                size=self._faction_bg_overlay.size
-            )
-        self._faction_bg_overlay.bind(
-            pos=lambda i, v: setattr(self._faction_bg_overlay_rect, 'pos', v),
-            size=lambda i, v: setattr(self._faction_bg_overlay_rect, 'size', v)
-        )
-        self._faction_bg_overlay.opacity = 0
-        self.add_widget(self._faction_bg_overlay)
+        # Фракционный фон — создаётся лениво при первом выборе
+        self._faction_bg = None
+        self._faction_bg_overlay = None
 
         # ======== ОБЩИЙ КОНТЕЙНЕР ДЛЯ ВСЕХ ЭЛЕМЕНТОВ ========
         self.main_container = MDFloatLayout()
@@ -2557,6 +2536,38 @@ class KingdomSelectionWidget(MDFloatLayout):
         img_path = self._faction_bg_images.get(faction_name, '')
         if not img_path:
             return
+
+        # Ленивое создание виджетов фона при первом вызове
+        if self._faction_bg is None:
+            from kivy.graphics import Rectangle as BgRect
+            self._faction_bg = Image(
+                source=img_path,
+                allow_stretch=True,
+                keep_ratio=False,
+                size_hint=(1, 1),
+                pos_hint={'x': 0, 'y': 0},
+                opacity=0,
+            )
+            self._faction_bg_overlay = Widget(size_hint=(1, 1), pos_hint={'x': 0, 'y': 0})
+            with self._faction_bg_overlay.canvas:
+                Color(0, 0, 0, 0.52)
+                self._faction_bg_overlay._rect = BgRect(
+                    pos=self._faction_bg_overlay.pos,
+                    size=self._faction_bg_overlay.size
+                )
+            self._faction_bg_overlay.bind(
+                pos=lambda w, v: setattr(w._rect, 'pos', v),
+                size=lambda w, v: setattr(w._rect, 'size', v)
+            )
+            self._faction_bg_overlay.opacity = 0
+            # Вставляем под main_container (индекс 0 и 1)
+            children_count = len(self.children)
+            self.add_widget(self._faction_bg, index=children_count)
+            self.add_widget(self._faction_bg_overlay, index=children_count)
+            Animation(opacity=1, duration=0.4).start(self._faction_bg)
+            Animation(opacity=1, duration=0.4).start(self._faction_bg_overlay)
+            return
+
         bg = self._faction_bg
         overlay = self._faction_bg_overlay
 
