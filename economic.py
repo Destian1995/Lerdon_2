@@ -2801,52 +2801,25 @@ def start_economy_mode(faction, game_area, db_conn, season_manager):
     from kivy.uix.widget import Widget
     is_android = platform == 'android'
 
-    if is_android:
-        from kivy.uix.scrollview import ScrollView as EcoScrollView
-
-        eco_scroll_wrapper = EcoScrollView(
-            size_hint=(1.0, None),
-            height=dp(70),
-            pos_hint={'x': 0, 'y': 0},
-            do_scroll_y=False,
-            do_scroll_x=True,
-            bar_width=dp(3)
-        )
-
-        economy_layout = BoxLayout(
-            orientation='horizontal',
-            size_hint_y=1,
-            size_hint_x=None,
-            spacing=dp(6),
-            padding=[dp(6), dp(5), dp(6), dp(5)]
-        )
-        economy_layout.bind(minimum_width=economy_layout.setter('width'))
-    else:
-        eco_scroll_wrapper = None
-        economy_layout = BoxLayout(
-            orientation='horizontal',
-            size_hint=(0.88, None),
-            height=60,
-            pos_hint={'x': 0, 'y': 0},
-            spacing=10,
-            padding=[10, 5, 10, 5]
-        )
+    eco_scroll_wrapper = None
+    economy_layout = BoxLayout(
+        orientation='horizontal',
+        size_hint=(1, None),
+        height=dp(62) if is_android else dp(54),
+        pos_hint={'x': 0, 'y': 0},
+        spacing=dp(4) if is_android else dp(6),
+        padding=[dp(4), dp(4), dp(4), dp(4)]
+    )
 
     def create_styled_button(text, on_press_callback):
         button = Button(
             text=text,
-            size_hint_y=None,
-            height=dp(60) if is_android else 50,
+            size_hint=(1, 1),
             background_color=(0, 0, 0, 0),
             color=(1, 1, 1, 1),
-            font_size=sp(14) if is_android else 16,
+            font_size=sp(12) if is_android else sp(14),
             bold=True
         )
-        if is_android:
-            button.size_hint_x = None
-            button.width = dp(112)
-        else:
-            button.size_hint_x = 1
 
         with button.canvas.before:
             Color(0.2, 0.8, 0.2, 1)
@@ -2871,8 +2844,4 @@ def start_economy_mode(faction, game_area, db_conn, season_manager):
     economy_layout.add_widget(trade_btn)
     economy_layout.add_widget(tax_btn)
 
-    if eco_scroll_wrapper:
-        eco_scroll_wrapper.add_widget(economy_layout)
-        game_area.add_widget(eco_scroll_wrapper)
-    else:
-        game_area.add_widget(economy_layout)
+    game_area.add_widget(economy_layout)

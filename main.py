@@ -2542,22 +2542,9 @@ class KingdomSelectionWidget(MDFloatLayout):
         if self.bg_video:
             self.bg_video.state = 'stop'
 
-        # Создаем оверлей с видео
-        overlay = MDFloatLayout(size=Window.size)
-        self.overlay = overlay
-        self.add_widget(overlay)
-        self.start_video = Video(
-            source='files/menu/start_game.mp4',
-            state='play',
-            options={'eos': 'stop'},
-            allow_stretch=True,
-            keep_ratio=False,
-            size=Window.size,
-            pos=(0, 0)
-        )
-        overlay.add_widget(self.start_video)
-        self.start_video.bind(on_eos=self.on_start_video_end)
-        Clock.schedule_once(self.force_start_game, 3)
+        self.start_video = None
+        self.overlay = None
+        Clock.schedule_once(lambda _: self.cleanup_and_start_game(), 0)
 
     def on_start_video_end(self, instance, value):
         if value or (self.start_video and self.start_video.state == 'stop'):
