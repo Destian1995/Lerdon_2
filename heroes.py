@@ -888,42 +888,18 @@ def open_artifacts_popup(faction, season_manager):
     cost_filter_layout.add_widget(cost_spinner)
     filters_container.add_widget(cost_filter_layout)
 
-    # --- Контейнер характеристик героя (будет добавлен в правую панель) ---
-    _stats_h = dp(50) if is_android else dp(60)
-    _sc_outer = BoxLayout(
-        orientation='vertical',
-        size_hint=(None, None),
-        height=_stats_h,
-        width=dp(200),
-        padding=[dp(6), dp(3)],
-        spacing=dp(1)
-    )
-    with _sc_outer.canvas.before:
-        Color(0.85, 0.68, 0.15, 0.80)
-        _sc_outer._border = RoundedRectangle(pos=_sc_outer.pos, size=_sc_outer.size, radius=[dp(8)])
-        Color(0.06, 0.05, 0.14, 1)
-        _sc_outer._inner = RoundedRectangle(
-            pos=(_sc_outer.x + dp(2), _sc_outer.y + dp(2)),
-            size=(_sc_outer.width - dp(4), _sc_outer.height - dp(4)),
-            radius=[dp(6)])
-
-    def _upd_sc(inst, val):
-        inst._border.pos = inst.pos
-        inst._border.size = inst.size
-        inst._inner.pos = (inst.x + dp(2), inst.y + dp(2))
-        inst._inner.size = (inst.width - dp(4), inst.height - dp(4))
-    _sc_outer.bind(pos=_upd_sc, size=_upd_sc)
-
+    # --- Характеристики героя (без рамки, просто текст в правой панели) ---
     _hero_stats_lbl = Label(
         text="[color=aaaaaa]Герой не нанят[/color]",
         halign='center', valign='middle',
         font_size=font_size_small if is_android else '12sp',
-        color=COLOR_TEXT, markup=True, size_hint=(1, 1)
+        color=COLOR_TEXT, markup=True,
+        size_hint=(None, None),
+        height=dp(24) if is_android else dp(28),
+        width=dp(200),
     )
     _hero_stats_lbl.bind(size=_hero_stats_lbl.setter('text_size'))
-
-    _sc_outer.add_widget(_hero_stats_lbl)
-    hero_stats_container = _sc_outer
+    hero_stats_container = _hero_stats_lbl
     hero_stats_widget = _hero_stats_lbl
 
     # --- Собираем левую панель ---
