@@ -1239,61 +1239,39 @@ def show_faction_bonuses_popup(conn, faction):
     popup.open()
 
 
-def start_politic_mode(faction, game_area, class_faction, conn):
+def start_politic_mode(faction, game_area, class_faction, conn, root_overlay=None):
     """Инициализация политического режима для выбранной фракции"""
 
     from kivy.metrics import dp, sp
-    from kivy.uix.widget import Widget
+    from kivy.core.window import Window
 
     is_android = platform == 'android'
 
-    if is_android:
-        from kivy.uix.scrollview import ScrollView
+    btn_h = dp(62) if is_android else dp(54)
+    right_margin = dp(100) + dp(6)
+    left_start = Window.width * 0.145
 
-        scroll_wrapper = ScrollView(
-            size_hint=(0.88, None),
-            height=dp(70),
-            pos_hint={'x': 0, 'y': 0},
-            do_scroll_y=False,
-            do_scroll_x=True,
-            bar_width=0
-        )
+    btn_total_w = Window.width - left_start - right_margin
 
-        politics_layout = BoxLayout(
-            orientation='horizontal',
-            size_hint_y=1,
-            size_hint_x=None,
-            spacing=dp(6),
-            padding=[dp(6), dp(5), dp(6), dp(5)]
-        )
-        politics_layout.bind(minimum_width=politics_layout.setter('width'))
-    else:
-        scroll_wrapper = None
-        politics_layout = BoxLayout(
-            orientation='horizontal',
-            size_hint=(0.88, None),
-            height=60,
-            pos_hint={'x': 0, 'y': 0},
-            spacing=10,
-            padding=[10, 5, 10, 5]
-        )
+    politics_layout = BoxLayout(
+        orientation='horizontal',
+        size_hint=(None, None),
+        width=btn_total_w,
+        height=btn_h,
+        spacing=dp(4) if is_android else dp(6),
+        padding=[dp(4), dp(4), dp(4), dp(4)]
+    )
+    politics_layout.pos = (left_start, dp(4))
 
     def styled_btn(text, callback):
         btn = Button(
             text=text,
-            size_hint_y=None,
-            height=dp(60) if is_android else 50,
+            size_hint=(1, 1),
             background_color=(0, 0, 0, 0),
             color=(1, 1, 1, 1),
-            font_size=sp(14) if is_android else 16,
+            font_size=sp(12) if is_android else sp(14),
             bold=True
         )
-        if is_android:
-            btn.size_hint_x = None
-            btn.width = dp(130)
-        else:
-            btn.size_hint_x = 1
-
         with btn.canvas.before:
             Color(0.2, 0.6, 1, 1)
             btn.rect = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[15])
@@ -1306,21 +1284,12 @@ def start_politic_mode(faction, game_area, class_faction, conn):
         btn.bind(on_release=callback)
         return btn
 
-    # Добавляем кнопки в нужном порядке
-    btn_army = styled_btn("Сила армий", lambda btn: show_ratings_popup(conn))
-    btn_diplomacy = styled_btn("Отношения", lambda btn: show_diplomacy_window(faction, conn))
-    btn_nobles = styled_btn("Совет", lambda btn: show_nobles_window(conn, faction, class_faction))
-    btn_diversion = styled_btn("Диверсия", lambda btn: show_diversion_window(conn, faction, class_faction))
-    btn_bonuses = styled_btn("Бонусы", lambda btn: show_faction_bonuses_popup(conn, faction))
+    politics_layout.add_widget(styled_btn("Сила армий", lambda btn: show_ratings_popup(conn)))
+    politics_layout.add_widget(styled_btn("Отношения", lambda btn: show_diplomacy_window(faction, conn)))
+    politics_layout.add_widget(styled_btn("Совет", lambda btn: show_nobles_window(conn, faction, class_faction)))
+    politics_layout.add_widget(styled_btn("Диверсия", lambda btn: show_diversion_window(conn, faction, class_faction)))
+    politics_layout.add_widget(styled_btn("Бонусы", lambda btn: show_faction_bonuses_popup(conn, faction)))
 
-    politics_layout.add_widget(btn_army)
-    politics_layout.add_widget(btn_diplomacy)
-    politics_layout.add_widget(btn_nobles)
-    politics_layout.add_widget(btn_diversion)
-    politics_layout.add_widget(btn_bonuses)
-
-    if scroll_wrapper:
-        scroll_wrapper.add_widget(politics_layout)
-        game_area.add_widget(scroll_wrapper)
-    else:
-        game_area.add_widget(politics_layout)
+    politics_layout._is_economy_bar = True
+    target = root_overlay if root_overlay is not None else game_area
+    target.add_widget(politics_layout)

@@ -2696,7 +2696,8 @@ class GameScreen(Screen):
             self.selected_faction,
             self.game_area,
             self.game_state_manager.faction,
-            self.conn
+            self.conn,
+            root_overlay=self.root_overlay
         )
 
     def show_advisor(self, instance, preselect_faction=None):
