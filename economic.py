@@ -2223,7 +2223,7 @@ def handle_trade(game_instance, action, quantity, trade_popup):
 # -----------------------------------
 def open_tax_popup(faction):
     is_android = platform == 'android'
-    popup_size_hint = (0.75, 0.60) if is_android else (0.55, 0.55)
+    popup_size_hint = (0.88, 0.72) if is_android else (0.60, 0.60)
 
     try:
         current_tax_rate = int(faction.current_tax_rate.strip('%')) \
