@@ -1686,7 +1686,7 @@ class FactionButton(Button):
         self._is_selected = False
 
         accent = self._FACTION_ACCENTS.get(self.text, (0.4, 0.4, 0.5, 1))
-        img_size = dp(46)
+        img_size = dp(38)
 
         with self.canvas.before:
             # Внешняя рамка — светится цветом фракции при выборе
@@ -1975,24 +1975,23 @@ class KingdomSelectionWidget(MDFloatLayout):
         self.faction_data = self.load_factions_from_db()
 
         # ======== КНОПКИ ФРАКЦИЙ ========
-        # Увеличиваем размер кнопок для Android
         if is_android:
             if is_landscape:
-                button_height = dp(54)
-                spacing_val = dp(6)
-                button_font_size = self.base_font_size * 1.0
+                button_height = dp(44)
+                spacing_val = dp(4)
+                button_font_size = self.base_font_size * 1.15
             else:
-                button_height = dp(58)
-                spacing_val = dp(7)
-                button_font_size = self.base_font_size * 1.05
+                button_height = dp(48)
+                spacing_val = dp(5)
+                button_font_size = self.base_font_size * 1.2
         else:
-            button_height = dp(60)
-            spacing_val = dp(8)
-            button_font_size = self.base_font_size * 1.05
+            button_height = dp(52)
+            spacing_val = dp(6)
+            button_font_size = self.base_font_size * 1.15
 
         # Рассчитываем общую высоту для панели
         num_factions = len(self.faction_data)
-        total_height = button_height * num_factions + spacing_val * (num_factions - 1) + dp(15)  # УМЕНЬШИЛ padding
+        total_height = button_height * num_factions + spacing_val * (num_factions - 1) + dp(10)
 
         self.kingdom_buttons = MDBoxLayout(
             orientation='vertical',
@@ -2050,28 +2049,28 @@ class KingdomSelectionWidget(MDFloatLayout):
 
         # Рассчитываем высоту для каждого контейнера в настройках
         if is_android:
-            ideology_container_height = dp(108)
-            allies_container_height = dp(112)
-            faction_info_container_height = dp(96)
+            ideology_container_height = dp(88)
+            allies_container_height = dp(92)
+            faction_info_container_height = dp(90)
+            spinner_height = dp(30)
+            bonus_height = dp(26)
+            label_height = dp(20)
+            stat_row_height = dp(16)
+        else:
+            ideology_container_height = dp(110)
+            allies_container_height = dp(110)
+            faction_info_container_height = dp(100)
             spinner_height = dp(36)
-            bonus_height = dp(32)
+            bonus_height = dp(34)
             label_height = dp(22)
             stat_row_height = dp(18)
-        else:
-            ideology_container_height = dp(125)
-            allies_container_height = dp(125)
-            faction_info_container_height = dp(105)
-            spinner_height = dp(40)
-            bonus_height = dp(40)
-            label_height = dp(25)
-            stat_row_height = dp(20)
 
         total_settings_height = ideology_container_height + allies_container_height + faction_info_container_height + dp(40)
 
         # Скроллируемый контейнер для настроек
         from kivy.uix.scrollview import ScrollView as SV
         settings_scroll = SV(
-            size_hint=(0.85, 0.9),
+            size_hint=(0.90, 0.92),
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
             do_scroll_x=False,
             bar_width=dp(3),
@@ -2119,7 +2118,7 @@ class KingdomSelectionWidget(MDFloatLayout):
             height=spinner_height,
             background_color=(0.2, 0.3, 0.4, 1),
             color=(1, 1, 1, 1),
-            font_size=self.base_font_size * 0.75  # УМЕНЬШИЛ шрифт
+            font_size=self.base_font_size * 0.9
         )
         self.ideology_spinner.bind(text=self.on_ideology_selected)
         ideology_container.add_widget(self.ideology_spinner)
@@ -2169,7 +2168,7 @@ class KingdomSelectionWidget(MDFloatLayout):
             text_color=(0.8, 0.9, 1.0, 1),
             halign='left',
             valign='middle',
-            font_size=self.base_font_size * 0.65  # УМЕНЬШИЛ шрифт
+            font_size=self.base_font_size * 0.8
         )
         self.ideology_bonus_label.bind(size=self.ideology_bonus_label.setter('text_size'))
 
@@ -2210,7 +2209,7 @@ class KingdomSelectionWidget(MDFloatLayout):
             height=spinner_height,
             background_color=(0.2, 0.3, 0.4, 1),
             color=(1, 1, 1, 1),
-            font_size=self.base_font_size * 0.75  # УМЕНЬШИЛ шрифт
+            font_size=self.base_font_size * 0.9
         )
         self.allies_spinner.bind(text=self.on_allies_selected)
         allies_container.add_widget(self.allies_spinner)
@@ -2251,7 +2250,7 @@ class KingdomSelectionWidget(MDFloatLayout):
             text_color=(0.8, 0.9, 1.0, 1),
             halign='left',
             valign='middle',
-            font_size=self.base_font_size * 0.65  # УМЕНЬШИЛ шрифт
+            font_size=self.base_font_size * 0.8
         )
         self.allies_count_label.bind(size=self.allies_count_label.setter('text_size'))
 
@@ -2286,7 +2285,7 @@ class KingdomSelectionWidget(MDFloatLayout):
                 text_color=(0.9, 0.9, 0.9, 1),
                 size_hint_x=0.6,
                 halign='left',
-                font_size=self.base_font_size * 0.65  # УМЕНЬШИЛ шрифт
+                font_size=self.base_font_size * 0.8
             )
             label.bind(size=label.setter('text_size'))
 
