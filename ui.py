@@ -1507,7 +1507,7 @@ class FortressInfoPopup(Popup):
                     elif unit_exp >= 7:
                         rank_text = "[color=#FFD700]Ветеран[/color] (+15%)"
                     elif unit_exp >= 3:
-                        rank_text = "[color=#88CCFF]Бывалый[/color] (+5%)"
+                        rank_text = "[color=#88CCFF]Воин[/color] (+5%)"
                     else:
                         rank_text = "[color=#888888]Новобранец[/color]"
                     exp_lbl = Label(
