@@ -6,6 +6,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
 from kivy.uix.button import Button
+from kivy.uix.widget import Widget
 from kivy.utils import platform as kivy_platform
 
 from kivy.uix.textinput import TextInput
@@ -639,36 +640,49 @@ class EnhancedDiplomacyChat():
         self.relation_info_label.color = color
 
 
-    def _make_bubble(self, message, timestamp, is_player, max_w_ratio=0.68, font='14sp'):
-        """Универсальное создание пузырька сообщения."""
-        max_width = Window.width * max_w_ratio
-        pad_h, pad_v = dp(14), dp(8)
+    def _make_bubble(self, message, timestamp, is_player, max_w_ratio=0.75, font='13sp'):
+        """Универсальное создание пузырька сообщения.
 
-        # Вычисляем высоту заранее
+        Возвращает row (BoxLayout ширина=1) со спейсером для выравнивания.
+        Это корректно работает внутри вертикального BoxLayout (chat_container).
+        """
+        # Правая панель = 70% экрана; пузырь — до max_w_ratio от панели
+        panel_w = Window.width * 0.70
+        max_width = panel_w * max_w_ratio
+        pad_h, pad_v = dp(10), dp(6)
+
+        # Предрасчёт размеров через temp Label
         temp = Label(text=message, font_size=font,
                      text_size=(max_width - pad_h * 2, None))
         temp.texture_update()
         text_h = max(temp.texture_size[1], dp(18))
-        bubble_w = min(max_width, max(temp.texture_size[0] + pad_h * 2, dp(80)))
-        bubble_h = text_h + dp(28) + pad_v * 2
+        bubble_w = min(max_width, max(temp.texture_size[0] + pad_h * 2, dp(60)))
+        bubble_h = text_h + dp(18) + pad_v * 2  # +dp(18) под timestamp
 
-        ph = {'right': 0.97} if is_player else {'x': 0.03}
-        bubble = BoxLayout(
-            orientation='vertical',
-            size_hint=(None, None),
-            width=bubble_w,
-            height=bubble_h,
-            padding=[pad_h, pad_v],
-            spacing=dp(2),
-            pos_hint=ph
+        # Строка-обёртка на всю ширину — BoxLayout сам выравнивает содержимое
+        row = BoxLayout(
+            orientation='horizontal',
+            size_hint=(1, None),
+            height=bubble_h + dp(6),
+            padding=[dp(4), dp(2)],
+            spacing=0,
         )
 
-        bg_color = (0.18, 0.44, 0.80, 1) if is_player else (0.18, 0.20, 0.30, 1)
+        # Пузырь фиксированной ширины
+        bubble = BoxLayout(
+            orientation='vertical',
+            size_hint=(None, 1),
+            width=bubble_w,
+            padding=[pad_h, pad_v],
+            spacing=dp(2),
+        )
+
+        bg_color = (0.18, 0.44, 0.80, 1) if is_player else (0.15, 0.18, 0.26, 1)
         with bubble.canvas.before:
             Color(*bg_color)
             _bg = RoundedRectangle(pos=bubble.pos, size=bubble.size,
-                                   radius=[dp(14), dp(4), dp(14), dp(14)] if is_player
-                                   else [dp(4), dp(14), dp(14), dp(14)])
+                                   radius=[dp(12), dp(4), dp(12), dp(12)] if is_player
+                                   else [dp(4), dp(12), dp(12), dp(12)])
         bubble.bind(
             pos=lambda i, v: setattr(_bg, 'pos', v),
             size=lambda i, v: setattr(_bg, 'size', v)
@@ -681,27 +695,36 @@ class EnhancedDiplomacyChat():
             halign='left',
             valign='top',
             size_hint=(1, None),
-            height=text_h
+            height=text_h,
         )
-        # Привязываем text_size к ширине bubble через Clock чтобы избежать 0
         def _set_ts(*_):
             text_label.text_size = (bubble.width - pad_h * 2, None)
-        Clock.schedule_once(lambda dt: _set_ts(), 0)
+        Clock.schedule_once(lambda _: _set_ts(), 0)
         bubble.bind(width=lambda i, v: _set_ts())
 
         time_label = Label(
             text=timestamp,
-            font_size='10sp',
-            color=(0.65, 0.65, 0.75, 1),
+            font_size='9sp',
+            color=(0.60, 0.62, 0.72, 1),
             size_hint=(1, None),
-            height=dp(16),
-            halign='right' if is_player else 'left'
+            height=dp(14),
+            halign='right' if is_player else 'left',
         )
         time_label.bind(size=time_label.setter('text_size'))
 
         bubble.add_widget(text_label)
         bubble.add_widget(time_label)
-        return bubble
+
+        spacer = Widget(size_hint=(1, 1))
+
+        if is_player:
+            row.add_widget(spacer)
+            row.add_widget(bubble)
+        else:
+            row.add_widget(bubble)
+            row.add_widget(spacer)
+
+        return row
 
     def add_chat_message(self, message, sender, timestamp, is_player=False):
         """Добавляет сообщение в чат."""
@@ -711,7 +734,7 @@ class EnhancedDiplomacyChat():
 
     def add_chat_message_android(self, message, sender, timestamp, is_player=False):
         """Добавляет сообщение в чат (Android — единый путь через _make_bubble)."""
-        bubble = self._make_bubble(message, timestamp, is_player, max_w_ratio=0.80, font='14sp')
+        bubble = self._make_bubble(message, timestamp, is_player)
         self.chat_container.add_widget(bubble)
 
         # Прокручиваем вниз (задержка для Android)
