@@ -2015,28 +2015,28 @@ class KingdomSelectionWidget(MDFloatLayout):
 
         # Рассчитываем высоту для каждого контейнера в настройках
         if is_android:
-            ideology_container_height = dp(90)   # УМЕНЬШИЛ еще на 5dp
-            allies_container_height = dp(95)      # УМЕНЬШИЛ на 5dp
-            faction_info_container_height = dp(80) # УМЕНЬШИЛ на 5dp
-            spinner_height = dp(32)                # УМЕНЬШИЛ на 3dp
-            bonus_height = dp(28)                   # УМЕНЬШИЛ на 2dp
-            label_height = dp(18)                    # УМЕНЬШИЛ на 2dp
-            stat_row_height = dp(16)                 # УМЕНЬШИЛ на 2dp
-        else:
-            ideology_container_height = dp(115)
-            allies_container_height = dp(115)
-            faction_info_container_height = dp(95)
-            spinner_height = dp(38)
-            bonus_height = dp(38)
-            label_height = dp(23)
+            ideology_container_height = dp(108)
+            allies_container_height = dp(112)
+            faction_info_container_height = dp(96)
+            spinner_height = dp(36)
+            bonus_height = dp(32)
+            label_height = dp(22)
             stat_row_height = dp(18)
+        else:
+            ideology_container_height = dp(125)
+            allies_container_height = dp(125)
+            faction_info_container_height = dp(105)
+            spinner_height = dp(40)
+            bonus_height = dp(40)
+            label_height = dp(25)
+            stat_row_height = dp(20)
 
-        total_settings_height = ideology_container_height + allies_container_height + faction_info_container_height + dp(25)  # УМЕНЬШИЛ общий отступ
+        total_settings_height = ideology_container_height + allies_container_height + faction_info_container_height + dp(40)
 
         # Основной контейнер для вертикального расположения всех блоков
         self.settings_content_container = MDBoxLayout(
             orientation='vertical',
-            spacing=dp(4) if is_android else dp(12),  # ЕЩЕ УМЕНЬШИЛ spacing
+            spacing=dp(10) if is_android else dp(18),
             size_hint=(0.85, 0.9),
             pos_hint={'center_x': 0.5, 'center_y': 0.5}
         )
@@ -2045,7 +2045,7 @@ class KingdomSelectionWidget(MDFloatLayout):
         # ======== ВЫБОР ИДЕОЛОГИИ ========
         ideology_container = MDBoxLayout(
             orientation='vertical',
-            spacing=dp(2) if is_android else dp(6),  # ЕЩЕ УМЕНЬШИЛ spacing
+            spacing=dp(6) if is_android else dp(10),
             size_hint=(1, None),
             height=ideology_container_height,
         )
@@ -2136,7 +2136,7 @@ class KingdomSelectionWidget(MDFloatLayout):
         # ======== ВЫБОР КОЛИЧЕСТВА СОЮЗНИКОВ ========
         allies_container = MDBoxLayout(
             orientation='vertical',
-            spacing=dp(2) if is_android else dp(6),  # УМЕНЬШИЛ spacing
+            spacing=dp(6) if is_android else dp(10),
             size_hint=(1, None),
             height=allies_container_height,
         )

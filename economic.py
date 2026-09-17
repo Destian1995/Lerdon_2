@@ -2804,9 +2804,9 @@ def start_economy_mode(faction, game_area, db_conn, season_manager):
     eco_scroll_wrapper = None
     economy_layout = BoxLayout(
         orientation='horizontal',
-        size_hint=(1, None),
+        size_hint=(1.20, None),
         height=dp(62) if is_android else dp(54),
-        pos_hint={'x': 0, 'y': 0},
+        pos_hint={'x': -0.14, 'y': 0},
         spacing=dp(4) if is_android else dp(6),
         padding=[dp(4), dp(4), dp(4), dp(4)]
     )
