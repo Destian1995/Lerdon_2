@@ -888,22 +888,24 @@ def open_artifacts_popup(faction, season_manager):
     cost_filter_layout.add_widget(cost_spinner)
     filters_container.add_widget(cost_filter_layout)
 
-    # --- Красивый контейнер характеристик героя (левая панель) ---
+    # --- Контейнер характеристик героя (будет добавлен в правую панель) ---
+    _stats_h = dp(50) if is_android else dp(60)
     _sc_outer = BoxLayout(
         orientation='vertical',
-        size_hint_y=None,
-        height=dp(85) if is_android else dp(105),
-        padding=[dp(4), dp(3)],
+        size_hint=(None, None),
+        height=_stats_h,
+        width=dp(200),
+        padding=[dp(6), dp(3)],
         spacing=dp(1)
     )
     with _sc_outer.canvas.before:
         Color(0.85, 0.68, 0.15, 0.80)
-        _sc_outer._border = RoundedRectangle(pos=_sc_outer.pos, size=_sc_outer.size, radius=[dp(10)])
+        _sc_outer._border = RoundedRectangle(pos=_sc_outer.pos, size=_sc_outer.size, radius=[dp(8)])
         Color(0.06, 0.05, 0.14, 1)
         _sc_outer._inner = RoundedRectangle(
             pos=(_sc_outer.x + dp(2), _sc_outer.y + dp(2)),
             size=(_sc_outer.width - dp(4), _sc_outer.height - dp(4)),
-            radius=[dp(8)])
+            radius=[dp(6)])
 
     def _upd_sc(inst, val):
         inst._border.pos = inst.pos
@@ -912,23 +914,14 @@ def open_artifacts_popup(faction, season_manager):
         inst._inner.size = (inst.width - dp(4), inst.height - dp(4))
     _sc_outer.bind(pos=_upd_sc, size=_upd_sc)
 
-    _sc_title = Label(
-        text="[b]Характеристики героя[/b]", markup=True,
-        font_size=font_size_small, color=COLOR_GOLD,
-        size_hint_y=None, height=dp(20) if is_android else dp(24),
-        halign='center', valign='middle'
-    )
-    _sc_title.bind(size=_sc_title.setter('text_size'))
-
     _hero_stats_lbl = Label(
         text="[color=aaaaaa]Герой не нанят[/color]",
         halign='center', valign='middle',
-        font_size=font_size_small if is_android else '13sp',
-        color=COLOR_TEXT, markup=True, size_hint_y=1
+        font_size=font_size_small if is_android else '12sp',
+        color=COLOR_TEXT, markup=True, size_hint=(1, 1)
     )
     _hero_stats_lbl.bind(size=_hero_stats_lbl.setter('text_size'))
 
-    _sc_outer.add_widget(_sc_title)
     _sc_outer.add_widget(_hero_stats_lbl)
     hero_stats_container = _sc_outer
     hero_stats_widget = _hero_stats_lbl
@@ -936,7 +929,6 @@ def open_artifacts_popup(faction, season_manager):
     # --- Собираем левую панель ---
     left_panel.add_widget(money_info_label)
     left_panel.add_widget(filters_container)
-    left_panel.add_widget(hero_stats_container)
 
     # Заголовок списка
     art_header = Label(
@@ -1065,7 +1057,8 @@ def open_artifacts_popup(faction, season_manager):
         right_panel.add_widget(no_hero_label)
         hero_image_widget = None
 
-    # Характеристики героя перенесены в левую панель (hero_stats_container / hero_stats_widget)
+    # Добавляем контейнер характеристик в правую панель
+    right_panel.add_widget(hero_stats_container)
 
     # --- Позиционирование слотов вокруг героя ---
     def position_slots(dt):
@@ -1095,6 +1088,14 @@ def open_artifacts_popup(faction, season_manager):
             '2': (center_x - slot_w / 2, center_y - half_hero_h - slot_h - offset),
             '4': (center_x + half_hero_w + offset, center_y + half_hero_h + offset),
         }
+
+        # Позиционируем характеристики героя внизу правой панели
+        stats_w = panel_width * 0.85
+        hero_stats_container.width = stats_w
+        hero_stats_container.pos = (
+            panel_x + (panel_width - stats_w) / 2,
+            panel_y + dp(6)
+        )
 
         for slot_type, pos in slot_positions.items():
             if slot_type in slot_name_labels:
