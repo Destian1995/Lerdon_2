@@ -888,9 +888,55 @@ def open_artifacts_popup(faction, season_manager):
     cost_filter_layout.add_widget(cost_spinner)
     filters_container.add_widget(cost_filter_layout)
 
+    # --- Красивый контейнер характеристик героя (левая панель) ---
+    _sc_outer = BoxLayout(
+        orientation='vertical',
+        size_hint_y=None,
+        height=dp(85) if is_android else dp(105),
+        padding=[dp(4), dp(3)],
+        spacing=dp(1)
+    )
+    with _sc_outer.canvas.before:
+        Color(0.85, 0.68, 0.15, 0.80)
+        _sc_outer._border = RoundedRectangle(pos=_sc_outer.pos, size=_sc_outer.size, radius=[dp(10)])
+        Color(0.06, 0.05, 0.14, 1)
+        _sc_outer._inner = RoundedRectangle(
+            pos=(_sc_outer.x + dp(2), _sc_outer.y + dp(2)),
+            size=(_sc_outer.width - dp(4), _sc_outer.height - dp(4)),
+            radius=[dp(8)])
+
+    def _upd_sc(inst, val):
+        inst._border.pos = inst.pos
+        inst._border.size = inst.size
+        inst._inner.pos = (inst.x + dp(2), inst.y + dp(2))
+        inst._inner.size = (inst.width - dp(4), inst.height - dp(4))
+    _sc_outer.bind(pos=_upd_sc, size=_upd_sc)
+
+    _sc_title = Label(
+        text="[b]Характеристики героя[/b]", markup=True,
+        font_size=font_size_small, color=COLOR_GOLD,
+        size_hint_y=None, height=dp(20) if is_android else dp(24),
+        halign='center', valign='middle'
+    )
+    _sc_title.bind(size=_sc_title.setter('text_size'))
+
+    _hero_stats_lbl = Label(
+        text="[color=aaaaaa]Герой не нанят[/color]",
+        halign='center', valign='middle',
+        font_size=font_size_small if is_android else '13sp',
+        color=COLOR_TEXT, markup=True, size_hint_y=1
+    )
+    _hero_stats_lbl.bind(size=_hero_stats_lbl.setter('text_size'))
+
+    _sc_outer.add_widget(_sc_title)
+    _sc_outer.add_widget(_hero_stats_lbl)
+    hero_stats_container = _sc_outer
+    hero_stats_widget = _hero_stats_lbl
+
     # --- Собираем левую панель ---
     left_panel.add_widget(money_info_label)
     left_panel.add_widget(filters_container)
+    left_panel.add_widget(hero_stats_container)
 
     # Заголовок списка
     art_header = Label(
@@ -1019,33 +1065,7 @@ def open_artifacts_popup(faction, season_manager):
         right_panel.add_widget(no_hero_label)
         hero_image_widget = None
 
-    # --- Характеристики героя (внизу правой панели, в BoxLayout) ---
-    hero_stats_container = BoxLayout(
-        orientation='vertical',
-        size_hint=(0.95, None),
-        height=dp(80) if is_android else dp(110),
-        padding=(dp(6), dp(4)),
-        spacing=dp(2)
-    )
-    hero_stats_container.pos_hint = {'center_x': 0.5, 'y': 0.01}
-    with hero_stats_container.canvas.before:
-        Color(0.08, 0.09, 0.16, 0.85)
-        hero_stats_container._bg = RoundedRectangle(
-            pos=hero_stats_container.pos, size=hero_stats_container.size,
-            radius=[dp(6)])
-    hero_stats_container.bind(
-        pos=lambda i, v: setattr(i._bg, 'pos', v),
-        size=lambda i, v: setattr(i._bg, 'size', v))
-
-    hero_stats_label = Label(
-        text="", halign='center', valign='top',
-        font_size=font_size_medium if is_android else '15sp',
-        bold=False, color=COLOR_TEXT, markup=True
-    )
-    hero_stats_label.bind(size=hero_stats_label.setter('text_size'))
-    hero_stats_container.add_widget(hero_stats_label)
-    right_panel.add_widget(hero_stats_container)
-    hero_stats_widget = hero_stats_label
+    # Характеристики героя перенесены в левую панель (hero_stats_container / hero_stats_widget)
 
     # --- Позиционирование слотов вокруг героя ---
     def position_slots(dt):
@@ -1156,8 +1176,14 @@ def open_artifacts_popup(faction, season_manager):
         if hero_stats_widget:
             try:
                 hero_stats_data = load_hero_stats_from_db(faction)
-                formatted_stats = format_hero_stats(hero_stats_data)
-                hero_stats_widget.text = formatted_stats
+                atk = hero_stats_data.get('attack', 0)
+                dfn = hero_stats_data.get('defense', 0)
+                hp = hero_stats_data.get('durability', 0)
+                hero_stats_widget.text = (
+                    f"[color=ff7777][b]Атака:[/b][/color] {atk}    "
+                    f"[color=7799ff][b]Защита:[/b][/color] {dfn}    "
+                    f"[color=77ee77][b]Здоровье:[/b][/color] {hp}"
+                )
             except Exception as e:
                 print(f"Ошибка обновления характеристик героя: {e}")
                 import traceback

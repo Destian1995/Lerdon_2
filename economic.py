@@ -2603,7 +2603,7 @@ def open_development_popup(faction):
 
     dev_popup = Popup(
         title="Развитие",
-        size_hint=(0.92, 0.65) if is_mobile else (0.6, 0.65),
+        size_hint=(0.92, 0.92) if is_mobile else (0.6, 0.75),
         background_color=(0.08, 0.10, 0.16, 0.98),
         separator_color=(0.25, 0.52, 0.92, 0.55),
         title_color=(0.75, 0.92, 1, 1),
@@ -2805,12 +2805,12 @@ def start_economy_mode(faction, game_area, db_conn, season_manager):
         from kivy.uix.scrollview import ScrollView as EcoScrollView
 
         eco_scroll_wrapper = EcoScrollView(
-            size_hint=(0.88, None),
+            size_hint=(1.0, None),
             height=dp(70),
             pos_hint={'x': 0, 'y': 0},
             do_scroll_y=False,
             do_scroll_x=True,
-            bar_width=0
+            bar_width=dp(3)
         )
 
         economy_layout = BoxLayout(
@@ -2844,7 +2844,7 @@ def start_economy_mode(faction, game_area, db_conn, season_manager):
         )
         if is_android:
             button.size_hint_x = None
-            button.width = dp(130)
+            button.width = dp(112)
         else:
             button.size_hint_x = 1
 
