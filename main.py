@@ -1894,12 +1894,11 @@ class KingdomSelectionWidget(MDFloatLayout):
 
         # ======== ФРАКЦИОННЫЙ ФОН (Image, меняется при выборе фракции) ========
         _FACTION_BG_IMAGES = {
-            'Вампиры': 'files/menu/choise/vampire.png',
-            'Эльфы':   'files/menu/choise/elfs.png',
-            'Север':   'files/menu/choise/people.png',
-            # Адепты и Элины — пока берём ближайший похожий
-            'Адепты':  'files/menu/choise/people.png',
-            'Элины':   'files/menu/choise/elfs.png',
+            'Вампиры': 'files/menu/choise/vampire.jpg',
+            'Эльфы':   'files/menu/choise/elfs.jpg',
+            'Север':   'files/menu/choise/people.jpg',
+            'Адепты':  'files/menu/choise/people.jpg',
+            'Элины':   'files/menu/choise/elfs.jpg',
         }
         self._faction_bg_images = _FACTION_BG_IMAGES
 
