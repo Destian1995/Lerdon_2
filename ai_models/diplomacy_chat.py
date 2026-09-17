@@ -5450,125 +5450,221 @@ class EnhancedDiplomacyChat():
             return "Твои слова оскорбительны. Пожалуйста, веди себя прилично."
 
     def create_diplomacy_interface(self):
-        """Создает адаптивный интерфейс дипломатического чата с полем ввода вверху окна"""
-        # Создаем основной контейнер
-        diplomacy_window = BoxLayout(
-            orientation='vertical',
-            size_hint=(1, 1),
-            spacing=0,
-            padding=0
-        )
+        FACTION_ICONS = {
+            'Север': 'files/sov/people.jpg',
+            'Эльфы': 'files/sov/elfs.jpg',
+            'Вампиры': 'files/sov/vampire.jpg',
+            'Адепты': 'files/sov/adept.jpg',
+            'Элины': 'files/sov/poly.jpg',
+        }
+        FACTION_ACCENTS = {
+            'Север': (0.25, 0.52, 0.92, 1),
+            'Эльфы': (0.22, 0.76, 0.32, 1),
+            'Вампиры': (0.85, 0.08, 0.14, 1),
+            'Адепты': (0.62, 0.22, 0.88, 1),
+            'Элины': (0.95, 0.72, 0.08, 1),
+        }
 
-        # Фон (упрощенный)
-        with diplomacy_window.canvas.before:
-            Color(0.08, 0.08, 0.12, 1)
-            self.bg_rect = Rectangle(pos=diplomacy_window.pos, size=diplomacy_window.size)
+        self._faction_buttons = {}
+        self._active_faction_btn = None
 
-        # Обновляем фон при изменении размеров
-        diplomacy_window.bind(
-            pos=lambda w, v: setattr(self.bg_rect, 'pos', v),
-            size=lambda w, v: setattr(self.bg_rect, 'size', v)
-        )
+        root = BoxLayout(orientation='horizontal', size_hint=(1, 1))
 
-        # 1. ПОЛЕ ВВОДА (САМОЕ ВЕРХ) - УПРОЩЕННАЯ ВЕРСИЯ
-        input_panel = self.create_input_panel_safe()
-        diplomacy_window.add_widget(input_panel)
+        with root.canvas.before:
+            Color(0.05, 0.07, 0.09, 1)
+            _bg = Rectangle(pos=root.pos, size=root.size)
+        root.bind(pos=lambda w, v: setattr(_bg, 'pos', v),
+                  size=lambda w, v: setattr(_bg, 'size', v))
 
-        # 2. ИСТОРИЯ ЧАТА (СЕРЕДИНА) - ОСНОВНАЯ ОБЛАСТЬ
-        chat_area = self.create_chat_area_safe()
-        diplomacy_window.add_widget(chat_area)
+        # --- ЛЕВАЯ ПАНЕЛЬ ---
+        left = BoxLayout(orientation='vertical', size_hint=(0.3, 1), spacing=0)
+        with left.canvas.before:
+            Color(0.086, 0.106, 0.133, 1)
+            _lbg = Rectangle(pos=left.pos, size=left.size)
+        left.bind(pos=lambda w, v: setattr(_lbg, 'pos', v),
+                  size=lambda w, v: setattr(_lbg, 'size', v))
 
-        # 3. ПАНЕЛЬ УПРАВЛЕНИЯ (НИЗ)
-        control_panel = self.create_control_panel_safe()
-        diplomacy_window.add_widget(control_panel)
-
-        return diplomacy_window
-
-    def create_input_panel_safe(self):
-        """Создает безопасную панель ввода для Android"""
-        panel = BoxLayout(
-            orientation='horizontal',
+        left_header = Label(
+            text='Фракции',
+            font_size='13sp',
+            bold=True,
+            color=(0.6, 0.65, 0.75, 1),
             size_hint=(1, None),
-            height=dp(50),
-            spacing=dp(8),
-            padding=[dp(4), dp(4)]
+            height=dp(40),
+            halign='center',
+            valign='middle',
         )
+        left_header.bind(size=left_header.setter('text_size'))
+        left.add_widget(left_header)
 
-        # Упрощенное поле ввода
-        self.message_input = TextInput(
-            hint_text="Введите сообщение...",
-            multiline=False,
-            background_normal='',
-            background_color=(0.18, 0.18, 0.25, 1),
-            foreground_color=(1, 1, 1, 1),
-            cursor_color=(0.5, 0.7, 1, 1),
-            padding=[dp(8), dp(8)],
-            font_size='14sp',
-            size_hint=(0.8, 1)
+        factions_scroll = ScrollView(size_hint=(1, 1), do_scroll_x=False)
+        factions_box = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(2), padding=[dp(4), dp(4)])
+        factions_box.bind(minimum_height=factions_box.setter('height'))
+
+        factions = self.load_factions_from_db() or []
+        factions = [f for f in factions if f != self.faction]
+
+        self.faction_spinner = Spinner(text='Выберите фракцию', values=factions, opacity=0, size_hint=(0, 0), height=0)
+
+        def make_faction_btn(fname):
+            accent = FACTION_ACCENTS.get(fname, (0.3, 0.4, 0.6, 1))
+            btn = Button(
+                text=fname,
+                size_hint=(1, None),
+                height=dp(52),
+                background_normal='',
+                background_color=(0, 0, 0, 0),
+                color=(0.9, 0.9, 0.95, 1),
+                font_size='12sp',
+                halign='left',
+                valign='middle',
+                padding_x=dp(10),
+            )
+            btn._accent = accent
+            btn._active = False
+
+            with btn.canvas.before:
+                btn._bg_color_instr = Color(0.12, 0.14, 0.18, 1)
+                btn._bg_rect = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(6)])
+            btn.bind(pos=lambda w, v: setattr(w._bg_rect, 'pos', v),
+                     size=lambda w, v: setattr(w._bg_rect, 'size', v))
+
+            def on_press(instance):
+                if self._active_faction_btn and self._active_faction_btn is not instance:
+                    prev = self._active_faction_btn
+                    prev._active = False
+                    prev._bg_color_instr.rgba = (0.12, 0.14, 0.18, 1)
+                self._active_faction_btn = instance
+                instance._active = True
+                instance._bg_color_instr.rgba = instance._accent
+                self.selected_faction = fname
+                self.on_faction_selected_android(self.faction_spinner, fname)
+
+            btn.bind(on_press=on_press)
+            self._faction_buttons[fname] = btn
+            return btn
+
+        for f in factions:
+            factions_box.add_widget(make_faction_btn(f))
+
+        factions_scroll.add_widget(factions_box)
+        left.add_widget(factions_scroll)
+
+        # --- ПРАВАЯ ПАНЕЛЬ ---
+        right = BoxLayout(orientation='vertical', size_hint=(0.7, 1), spacing=0)
+        with right.canvas.before:
+            Color(0.051, 0.067, 0.090, 1)
+            _rbg = Rectangle(pos=right.pos, size=right.size)
+        right.bind(pos=lambda w, v: setattr(_rbg, 'pos', v),
+                   size=lambda w, v: setattr(_rbg, 'size', v))
+
+        # Шапка правой панели
+        header = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(50),
+                           spacing=dp(6), padding=[dp(10), dp(6)])
+        with header.canvas.before:
+            Color(0.086, 0.106, 0.133, 1)
+            _hbg = Rectangle(pos=header.pos, size=header.size)
+        header.bind(pos=lambda w, v: setattr(_hbg, 'pos', v),
+                    size=lambda w, v: setattr(_hbg, 'size', v))
+
+        self.relation_info_label = Label(
+            text='Выберите фракцию',
+            font_size='12sp',
+            color=(0.7, 0.75, 0.85, 1),
+            halign='left',
+            valign='middle',
+            size_hint=(1, 1),
         )
+        self.relation_info_label.bind(size=self.relation_info_label.setter('text_size'))
 
-        # Упрощенная кнопка отправки
-        send_btn = Button(
-            text=">",
-            size_hint=(0.2, 1),
+        detail_btn = Button(
+            text='Подробнее',
+            size_hint=(None, 1),
+            width=dp(80),
             background_normal='',
             background_color=(0, 0, 0, 0),
-            color=(1, 1, 1, 1),
-            font_size='16sp',
-            bold=True
+            color=(0.4, 0.65, 1, 1),
+            font_size='11sp',
+            on_press=self.show_relation_info,
         )
-        with send_btn.canvas.before:
-            send_btn._bc = Color(0.20, 0.50, 0.88, 1)
-            send_btn._br = RoundedRectangle(pos=send_btn.pos, size=send_btn.size, radius=[dp(8)])
-        send_btn.bind(
-            pos=lambda i, v: setattr(i._br, 'pos', v),
-            size=lambda i, v: setattr(i._br, 'size', v)
-        )
-        send_btn.bind(on_press=self.send_diplomatic_message)
+        self.show_relation_info_btn = detail_btn
 
-        panel.add_widget(self.message_input)
-        panel.add_widget(send_btn)
+        header.add_widget(self.relation_info_label)
+        header.add_widget(detail_btn)
 
-        # Простой фон без сложных привязок
-        with panel.canvas.before:
-            Color(0.14, 0.14, 0.2, 1)
-            panel.bg = Rectangle(pos=panel.pos, size=panel.size)
-
-        def update_bg(instance, value):
-            instance.bg.pos = instance.pos
-            instance.bg.size = instance.size
-
-        panel.bind(pos=update_bg, size=update_bg)
-
-        return panel
-
-    def create_chat_area_safe(self):
-        """Создает безопасную область чата для Android"""
-        # Основной контейнер
-        main_container = BoxLayout(orientation='vertical')
-
-        # ScrollView с упрощенными настройками
-        self.chat_scroll = ScrollView(
-            size_hint=(1, 1),
-            do_scroll_x=False,
-            bar_width=dp(6),
-            scroll_type=['bars'],
-            bar_color=(0.3, 0.3, 0.5, 0.5)
-        )
-
-        # Контейнер для сообщений
+        # Область чата
+        self.chat_scroll = ScrollView(size_hint=(1, 1), do_scroll_x=False,
+                                      bar_width=dp(4), bar_color=(0.3, 0.35, 0.5, 0.5))
         self.chat_container = BoxLayout(
             orientation='vertical',
             size_hint_y=None,
-            spacing=dp(4),
-            padding=[dp(4), dp(4)]
+            spacing=dp(6),
+            padding=[dp(8), dp(8)],
         )
         self.chat_container.bind(minimum_height=self.chat_container.setter('height'))
-
         self.chat_scroll.add_widget(self.chat_container)
-        main_container.add_widget(self.chat_scroll)
 
-        return main_container
+        # Панель ввода
+        input_row = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(50),
+                              spacing=dp(6), padding=[dp(6), dp(6)])
+        with input_row.canvas.before:
+            Color(0.086, 0.106, 0.133, 1)
+            _ibg = Rectangle(pos=input_row.pos, size=input_row.size)
+        input_row.bind(pos=lambda w, v: setattr(_ibg, 'pos', v),
+                       size=lambda w, v: setattr(_ibg, 'size', v))
+
+        self.message_input = TextInput(
+            hint_text='Введите сообщение...',
+            multiline=False,
+            background_normal='',
+            background_color=(0.13, 0.16, 0.21, 1),
+            foreground_color=(1, 1, 1, 1),
+            cursor_color=(0.4, 0.65, 1, 1),
+            hint_text_color=(0.4, 0.45, 0.55, 1),
+            padding=[dp(10), dp(10)],
+            font_size='13sp',
+            size_hint=(1, 1),
+        )
+
+        send_btn = Button(
+            text='>',
+            size_hint=(None, 1),
+            width=dp(42),
+            background_normal='',
+            background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1),
+            font_size='18sp',
+            bold=True,
+        )
+        with send_btn.canvas.before:
+            send_btn._sbc = Color(0.18, 0.44, 0.80, 1)
+            send_btn._sbr = RoundedRectangle(pos=send_btn.pos, size=send_btn.size, radius=[dp(8)])
+        send_btn.bind(pos=lambda w, v: setattr(w._sbr, 'pos', v),
+                      size=lambda w, v: setattr(w._sbr, 'size', v))
+        send_btn.bind(on_press=self.send_diplomatic_message)
+
+        input_row.add_widget(self.message_input)
+        input_row.add_widget(send_btn)
+
+        right.add_widget(header)
+        right.add_widget(self.chat_scroll)
+        right.add_widget(input_row)
+
+        root.add_widget(left)
+        root.add_widget(right)
+        root.add_widget(self.faction_spinner)
+
+        preselect = getattr(self.advisor, 'preselect_faction', None)
+        if preselect and preselect in factions:
+            Clock.schedule_once(lambda dt: self._faction_buttons[preselect].dispatch('on_press'), 0.1)
+
+        return root
+
+    def create_input_panel_safe(self):
+        return BoxLayout()
+
+    def create_chat_area_safe(self):
+        return BoxLayout()
 
     def load_factions_from_db(self):
         """Загружает список живых фракций (имеющих хотя бы 1 город)"""
@@ -5585,118 +5681,7 @@ class EnhancedDiplomacyChat():
             return None
 
     def create_control_panel_safe(self):
-        """Создает безопасную панель управления для Android"""
-        panel = BoxLayout(
-            orientation='vertical',
-            size_hint=(1, None),
-            height=dp(100),
-            spacing=dp(4),
-            padding=[dp(4), dp(4)]
-        )
-
-        # Верхняя строка: выбор фракции
-        faction_row = BoxLayout(
-            orientation='horizontal',
-            size_hint=(1, 0.4),
-            spacing=dp(4)
-        )
-
-        faction_label = Label(
-            text="Фракция:",
-            font_size='12sp',
-            color=(0.8, 0.8, 0.9, 1),
-            size_hint=(0.3, 1),
-            valign='middle'
-        )
-
-        self.faction_spinner = Spinner(
-            text='Выберите фракцию',
-            values=[],
-            size_hint=(0.7, 1),
-            background_color=(0.2, 0.3, 0.5, 1),
-            font_size='12sp'
-        )
-
-        # Заполняем список фракций из базы данных
-        factions = self.load_factions_from_db()
-        if factions:
-            for faction in factions:
-                if faction != self.faction:
-                    self.faction_spinner.values.append(faction)
-
-            if not self.faction_spinner.values:
-                self.faction_spinner.text = "Нет доступных фракций"
-                self.faction_spinner.disabled = True
-        else:
-            # Фолбэк — загружаем живые фракции из городов
-            try:
-                _cur = self.db_connection.cursor()
-                _cur.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал' AND faction != 'Мятежники' AND faction != 'Нежить'")
-                for _row in _cur.fetchall():
-                    if _row[0] != self.faction:
-                        self.faction_spinner.values.append(_row[0])
-            except Exception:
-                pass
-
-        self.faction_spinner.bind(text=self.on_faction_selected_android)
-
-        # Автовыбор фракции если передана через уведомление
-        preselect = getattr(self.advisor, 'preselect_faction', None)
-        if preselect and preselect in self.faction_spinner.values:
-            self.faction_spinner.text = preselect
-
-        faction_row.add_widget(faction_label)
-        faction_row.add_widget(self.faction_spinner)
-
-        # Средняя строка: информация об отношениях
-        info_row = BoxLayout(
-            orientation='horizontal',
-            size_hint=(1, 0.3),
-            spacing=dp(4)
-        )
-
-        self.relation_info_label = Label(
-            text="Выберите фракцию",
-            font_size='11sp',
-            color=(0.7, 0.7, 0.8, 1),
-            halign='center',
-            size_hint=(0.8, 1)
-        )
-
-        info_row.add_widget(self.relation_info_label)
-
-        # Нижняя строка: кнопка
-        button_row = BoxLayout(
-            orientation='horizontal',
-            size_hint=(1, 0.3),
-            spacing=dp(4)
-        )
-
-        info_button = Button(
-            text="Подробнее",
-            size_hint=(1, 1),
-            background_color=(0.3, 0.3, 0.5, 1),
-            font_size='10sp',
-            on_press=self.show_relation_info
-        )
-        button_row.add_widget(info_button)
-
-        panel.add_widget(faction_row)
-        panel.add_widget(info_row)
-        panel.add_widget(button_row)
-
-        # Простой фон
-        with panel.canvas.before:
-            Color(0.12, 0.12, 0.18, 1)
-            panel.bg = Rectangle(pos=panel.pos, size=panel.size)
-
-        def update_bg(instance, value):
-            instance.bg.pos = instance.pos
-            instance.bg.size = instance.size
-
-        panel.bind(pos=update_bg, size=update_bg)
-
-        return panel
+        return BoxLayout()
 
     def create_chat_interface(self):
         """Альтернативный упрощенный интерфейс"""
