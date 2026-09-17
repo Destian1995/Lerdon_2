@@ -2675,7 +2675,8 @@ class GameScreen(Screen):
             self.game_state_manager.faction,
             self.game_area,
             self.conn,
-            self.season_manager
+            self.season_manager,
+            root_overlay=self.root_overlay
         )
 
     def switch_to_army(self, instance):
@@ -2707,8 +2708,13 @@ class GameScreen(Screen):
         self.mark_messages_as_read()
 
     def clear_game_area(self):
-        """Очистка центральной области."""
+        """Очистка центральной области и economy-кнопок из root_overlay."""
         self.game_area.clear_widgets()
+        # Удаляем economy_layout если он был добавлен в root_overlay
+        to_remove = [w for w in self.root_overlay.children
+                     if getattr(w, '_is_economy_bar', False)]
+        for w in to_remove:
+            self.root_overlay.remove_widget(w)
 
     def on_stop(self):
         Window.unbind(on_resize=self.update_resource_box_position)

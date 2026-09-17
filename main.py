@@ -1903,13 +1903,15 @@ class KingdomSelectionWidget(MDFloatLayout):
         }
         self._faction_bg_images = _FACTION_BG_IMAGES
 
-        self._faction_bg = Image(
+        from kivy.uix.image import AsyncImage
+        self._faction_bg = AsyncImage(
             source='',
             allow_stretch=True,
             keep_ratio=False,
             size_hint=(1, 1),
             pos_hint={'x': 0, 'y': 0},
-            opacity=0
+            opacity=0,
+            nocache=True
         )
         self.add_widget(self._faction_bg)
 
@@ -2552,13 +2554,11 @@ class KingdomSelectionWidget(MDFloatLayout):
 
         def _do_switch(*_):
             bg.source = img_path
-            bg.reload()
             Animation(opacity=1, duration=0.4).start(bg)
             Animation(opacity=1, duration=0.4).start(overlay)
 
         if bg.opacity > 0:
-            # Сначала гасим, потом меняем
-            anim = Animation(opacity=0, duration=0.2)
+            anim = Animation(opacity=0, duration=0.18)
             anim.bind(on_complete=_do_switch)
             anim.start(bg)
         else:

@@ -2795,21 +2795,31 @@ def open_development_popup(faction):
 
 
 # --------------------------
-def start_economy_mode(faction, game_area, db_conn, season_manager):
+def start_economy_mode(faction, game_area, db_conn, season_manager, root_overlay=None):
     """Инициализация экономического режима для выбранной фракции"""
     from kivy.metrics import dp, sp
-    from kivy.uix.widget import Widget
+    from kivy.core.window import Window
     is_android = platform == 'android'
 
-    eco_scroll_wrapper = None
+    btn_h = dp(62) if is_android else dp(54)
+    # Правая панель режимов занимает dp(100) от правого края + кнопка Выход dp(100)
+    # Ресурсная панель — левые ~25% экрана
+    right_margin = dp(100) + dp(6)  # не залезать под панель режимов
+    left_start = Window.width * 0.145  # правее ресурсной панели
+
+    btn_total_w = Window.width - left_start - right_margin
+    spacing_v = dp(4) if is_android else dp(6)
+
     economy_layout = BoxLayout(
         orientation='horizontal',
-        size_hint=(1.20, None),
-        height=dp(62) if is_android else dp(54),
-        pos_hint={'x': -0.14, 'y': 0},
-        spacing=dp(4) if is_android else dp(6),
+        size_hint=(None, None),
+        width=btn_total_w,
+        height=btn_h,
+        spacing=spacing_v,
         padding=[dp(4), dp(4), dp(4), dp(4)]
     )
+    # Позиционируем абсолютно: прижимаем к нижнему краю экрана
+    economy_layout.pos = (left_start, dp(4))
 
     def create_styled_button(text, on_press_callback):
         button = Button(
@@ -2820,7 +2830,6 @@ def start_economy_mode(faction, game_area, db_conn, season_manager):
             font_size=sp(12) if is_android else sp(14),
             bold=True
         )
-
         with button.canvas.before:
             Color(0.2, 0.8, 0.2, 1)
             button.rect = RoundedRectangle(pos=button.pos, size=button.size, radius=[15])
@@ -2833,15 +2842,13 @@ def start_economy_mode(faction, game_area, db_conn, season_manager):
         button.bind(on_release=on_press_callback)
         return button
 
-    dev_btn = create_styled_button("Развитие", lambda x: open_development_popup(faction))
-    trade_btn = create_styled_button("Рынок", lambda x: open_trade_popup(faction))
-    tax_btn = create_styled_button("Налоги", lambda x: open_tax_popup(faction))
-
     economy_layout.add_widget(create_styled_button("Мастерская", lambda x: workshop(faction, db_conn)))
-    economy_layout.add_widget(
-        create_styled_button("Артефакты", lambda x: open_artifacts_popup(faction, season_manager)))
-    economy_layout.add_widget(dev_btn)
-    economy_layout.add_widget(trade_btn)
-    economy_layout.add_widget(tax_btn)
+    economy_layout.add_widget(create_styled_button("Артефакты", lambda x: open_artifacts_popup(faction, season_manager)))
+    economy_layout.add_widget(create_styled_button("Развитие", lambda x: open_development_popup(faction)))
+    economy_layout.add_widget(create_styled_button("Рынок", lambda x: open_trade_popup(faction)))
+    economy_layout.add_widget(create_styled_button("Налоги", lambda x: open_tax_popup(faction)))
 
-    game_area.add_widget(economy_layout)
+    economy_layout._is_economy_bar = True
+    # Добавляем в root_overlay (весь экран) чтобы не перекрывалось боковой панелью
+    target = root_overlay if root_overlay is not None else game_area
+    target.add_widget(economy_layout)
