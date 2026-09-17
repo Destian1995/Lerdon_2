@@ -2223,7 +2223,7 @@ def handle_trade(game_instance, action, quantity, trade_popup):
 # -----------------------------------
 def open_tax_popup(faction):
     is_android = platform == 'android'
-    popup_size_hint = (0.85, 0.55) if is_android else (0.72, 0.50)
+    popup_size_hint = (0.75, 0.60) if is_android else (0.55, 0.55)
 
     try:
         current_tax_rate = int(faction.current_tax_rate.strip('%')) \
@@ -2242,13 +2242,18 @@ def open_tax_popup(faction):
         prefix = "+" if effect > 0 else ""
         return f"{prefix}{effect}% прироста населения"
 
-    # === Основной контейнер ===
-    main_layout = BoxLayout(orientation='vertical', padding=dp(16), spacing=dp(12))
-    with main_layout.canvas.before:
+    # === Основной контейнер со скроллом ===
+    outer_layout = BoxLayout(orientation='vertical', spacing=0)
+    with outer_layout.canvas.before:
         Color(0.07, 0.08, 0.13, 1)
-        main_layout._bg = Rectangle(pos=main_layout.pos, size=main_layout.size)
-    main_layout.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-                     size=lambda i, v: setattr(i._bg, 'size', v))
+        outer_layout._bg = Rectangle(pos=outer_layout.pos, size=outer_layout.size)
+    outer_layout.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                      size=lambda i, v: setattr(i._bg, 'size', v))
+
+    scroll = ScrollView(size_hint=(1, 1), do_scroll_x=False)
+    main_layout = BoxLayout(orientation='vertical', size_hint_y=None,
+                            padding=[dp(16), dp(12)], spacing=dp(10))
+    main_layout.bind(minimum_height=main_layout.setter('height'))
 
     # === Карточка с отображением налога ===
     card = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(70),
@@ -2269,6 +2274,7 @@ def open_tax_popup(faction):
         size_hint_y=None,
         height=dp(30)
     )
+    tax_label.bind(size=tax_label.setter('text_size'))
     effect_label = Label(
         text=_effect_text(initial_effect),
         color=_effect_color(initial_effect),
@@ -2277,6 +2283,7 @@ def open_tax_popup(faction):
         size_hint_y=None,
         height=dp(22)
     )
+    effect_label.bind(size=effect_label.setter('text_size'))
     card.add_widget(tax_label)
     card.add_widget(effect_label)
     main_layout.add_widget(card)
@@ -2297,11 +2304,13 @@ def open_tax_popup(faction):
     main_layout.add_widget(tax_status)
 
     # === Ползунок ===
+    slider_container = BoxLayout(orientation='vertical', size_hint_y=None,
+                                 height=dp(54) if is_android else dp(48),
+                                 padding=[0, dp(6)])
     tax_slider = Slider(
         min=0, max=100, value=current_tax_rate, step=1,
         orientation='horizontal',
-        size_hint=(1, None),
-        height=dp(44) if is_android else dp(38),
+        size_hint=(1, 1),
         background_width=dp(8),
         cursor_size=(dp(36), dp(36)),
         value_track=False
@@ -2315,10 +2324,8 @@ def open_tax_popup(faction):
         effect_label.color = _effect_color(effect)
 
     tax_slider.bind(value=update_tax_label)
-    main_layout.add_widget(tax_slider)
-
-    # Распорка
-    main_layout.add_widget(BoxLayout(size_hint_y=1))
+    slider_container.add_widget(tax_slider)
+    main_layout.add_widget(slider_container)
 
     # === Кнопка "Применить" ===
     set_tax_button = Button(
@@ -2352,9 +2359,12 @@ def open_tax_popup(faction):
     set_tax_button.bind(on_release=set_tax)
     main_layout.add_widget(set_tax_button)
 
+    scroll.add_widget(main_layout)
+    outer_layout.add_widget(scroll)
+
     tax_popup = Popup(
         title="Управление налогами",
-        content=main_layout,
+        content=outer_layout,
         size_hint=popup_size_hint,
         background_color=(0.07, 0.08, 0.13, 1),
         separator_color=(0.25, 0.72, 0.35, 0.7),

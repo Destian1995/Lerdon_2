@@ -1978,7 +1978,7 @@ class KingdomSelectionWidget(MDFloatLayout):
 
         self.faction_panel_container = MDFloatLayout(
             size_hint=(panel_width, panel_height),
-            pos_hint={'x': 0.05, 'center_y': panel_y_center}
+            pos_hint={'x': 0.02, 'center_y': panel_y_center}
         )
 
         # Фон для панели фракций
@@ -2054,8 +2054,8 @@ class KingdomSelectionWidget(MDFloatLayout):
 
         # ======== ПАНЕЛЬ НАСТРОЕК (правая часть) ========
         self.settings_panel_container = MDFloatLayout(
-            size_hint=(0.4, panel_height),
-            pos_hint={'right': 0.95, 'center_y': panel_y_center}
+            size_hint=(0.42, panel_height),
+            pos_hint={'right': 0.98, 'center_y': panel_y_center}
         )
 
         # Фон для панели настроек
@@ -2093,14 +2093,25 @@ class KingdomSelectionWidget(MDFloatLayout):
 
         total_settings_height = ideology_container_height + allies_container_height + faction_info_container_height + dp(40)
 
-        # Основной контейнер для вертикального расположения всех блоков
+        # Скроллируемый контейнер для настроек
+        from kivy.uix.scrollview import ScrollView as SV
+        settings_scroll = SV(
+            size_hint=(0.85, 0.9),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            do_scroll_x=False,
+            bar_width=dp(3),
+            bar_color=(0.3, 0.35, 0.5, 0.4),
+        )
         self.settings_content_container = MDBoxLayout(
             orientation='vertical',
             spacing=dp(10) if is_android else dp(18),
-            size_hint=(0.85, 0.9),
-            pos_hint={'center_x': 0.5, 'center_y': 0.5}
+            size_hint_y=None,
         )
-        self.settings_panel_container.add_widget(self.settings_content_container)
+        self.settings_content_container.bind(
+            minimum_height=self.settings_content_container.setter('height')
+        )
+        settings_scroll.add_widget(self.settings_content_container)
+        self.settings_panel_container.add_widget(settings_scroll)
 
         # ======== ВЫБОР ИДЕОЛОГИИ ========
         ideology_container = MDBoxLayout(

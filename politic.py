@@ -1114,19 +1114,26 @@ def show_faction_bonuses_popup(conn, faction):
     bonus_rows = faction_info['calc']()
 
     # === UI ===
-    content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(12))
-    with content.canvas.before:
+    from kivy.uix.scrollview import ScrollView
+    accent = faction_info['color']
+
+    outer = BoxLayout(orientation='vertical', spacing=0)
+    with outer.canvas.before:
         Color(0.07, 0.08, 0.13, 1)
-        content._bg = Rectangle(pos=content.pos, size=content.size)
-    content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-                 size=lambda i, v: setattr(i._bg, 'size', v))
+        outer._bg = Rectangle(pos=outer.pos, size=outer.size)
+    outer.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+               size=lambda i, v: setattr(i._bg, 'size', v))
+
+    scroll = ScrollView(size_hint=(1, 1), do_scroll_x=False)
+    content = BoxLayout(orientation='vertical', size_hint_y=None,
+                        spacing=dp(8), padding=[dp(12), dp(10)])
+    content.bind(minimum_height=content.setter('height'))
 
     # Заголовок способности
-    accent = faction_info['color']
     title = Label(
         text=f"[b]{faction_info['name']}[/b]", markup=True,
         font_size=sp(18), color=accent,
-        size_hint_y=None, height=dp(30), halign='center', valign='middle'
+        size_hint_y=None, height=dp(28), halign='center', valign='middle'
     )
     title.bind(size=title.setter('text_size'))
     content.add_widget(title)
@@ -1149,11 +1156,11 @@ def show_faction_bonuses_popup(conn, faction):
 
     # Строки бонусов
     for label_text, value_text, detail_text in bonus_rows:
-        row = BoxLayout(size_hint_y=None, height=dp(28), spacing=dp(4))
-        lbl = Label(text=label_text, font_size=sp(13), color=(0.85, 0.85, 0.85, 1),
+        row = BoxLayout(size_hint_y=None, height=dp(26), spacing=dp(4))
+        lbl = Label(text=label_text, font_size=sp(12), color=(0.85, 0.85, 0.85, 1),
                     halign='left', valign='middle', size_hint_x=0.35)
         lbl.bind(size=lbl.setter('text_size'))
-        val = Label(text=f"[b]{value_text}[/b]", markup=True, font_size=sp(14),
+        val = Label(text=f"[b]{value_text}[/b]", markup=True, font_size=sp(13),
                     color=accent, halign='center', valign='middle', size_hint_x=0.2)
         val.bind(size=val.setter('text_size'))
         det = Label(text=detail_text, markup=True, font_size=sp(11),
@@ -1183,7 +1190,7 @@ def show_faction_bonuses_popup(conn, faction):
 
     bld_title = Label(
         text="[b]Бонусы от зданий и советников[/b]", markup=True,
-        font_size=sp(14), color=(0.85, 0.75, 0.4, 1),
+        font_size=sp(13), color=(0.85, 0.75, 0.4, 1),
         size_hint_y=None, height=dp(24), halign='left', valign='middle'
     )
     bld_title.bind(size=bld_title.setter('text_size'))
@@ -1212,9 +1219,12 @@ def show_faction_bonuses_popup(conn, faction):
     season_lbl.bind(size=season_lbl.setter('text_size'))
     content.add_widget(season_lbl)
 
-    # Кнопка закрыть
+    scroll.add_widget(content)
+    outer.add_widget(scroll)
+
+    # Кнопка закрыть — вне скролла, фиксирована внизу
     close_btn = Button(
-        text="Закрыть", size_hint_y=None, height=dp(44), font_size=sp(14), bold=True,
+        text="Закрыть", size_hint=(1, None), height=dp(44), font_size=sp(14), bold=True,
         background_color=(0, 0, 0, 0), background_normal='', color=(1, 1, 1, 1)
     )
     with close_btn.canvas.before:
@@ -1225,8 +1235,8 @@ def show_faction_bonuses_popup(conn, faction):
 
     popup = Popup(
         title=f"Бонусы — {faction}",
-        content=content,
-        size_hint=(0.95 if is_mobile else 0.7, 0.88 if is_mobile else 0.75),
+        content=outer,
+        size_hint=(0.80 if is_mobile else 0.60, 0.75 if is_mobile else 0.70),
         auto_dismiss=False,
         background_color=(0.07, 0.08, 0.13, 1),
         separator_color=accent[:3] + (0.7,),
@@ -1235,7 +1245,7 @@ def show_faction_bonuses_popup(conn, faction):
         title_align='center'
     )
     close_btn.bind(on_release=lambda x: popup.dismiss())
-    content.add_widget(close_btn)
+    outer.add_widget(close_btn)
     popup.open()
 
 
