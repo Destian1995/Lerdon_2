@@ -639,133 +639,79 @@ class EnhancedDiplomacyChat():
         self.relation_info_label.color = color
 
 
-    def add_chat_message(self, message, sender, timestamp, is_player=False):
-        """Добавляет сообщение в чат (с автоматическим выбором версии)"""
-        if kivy_platform == 'android':
-            return self.add_chat_message_android(message, sender, timestamp, is_player)
+    def _make_bubble(self, message, timestamp, is_player, max_w_ratio=0.68, font='14sp'):
+        """Универсальное создание пузырька сообщения."""
+        max_width = Window.width * max_w_ratio
+        pad_h, pad_v = dp(14), dp(8)
 
-        # Десктопная версия
-        max_width = Window.width * 0.65
-
-        temp = Label(
-            text=message,
-            font_size='13sp',
-            text_size=(max_width - dp(24), None)
-        )
+        # Вычисляем высоту заранее
+        temp = Label(text=message, font_size=font,
+                     text_size=(max_width - pad_h * 2, None))
         temp.texture_update()
-        text_height = temp.texture_size[1]
+        text_h = max(temp.texture_size[1], dp(18))
+        bubble_w = min(max_width, max(temp.texture_size[0] + pad_h * 2, dp(80)))
+        bubble_h = text_h + dp(28) + pad_v * 2
 
+        ph = {'right': 0.97} if is_player else {'x': 0.03}
         bubble = BoxLayout(
             orientation='vertical',
             size_hint=(None, None),
-            width=min(max_width, temp.texture_size[0] + dp(30)),
-            height=text_height + dp(36),
-            padding=[dp(12), dp(10)],
-            pos_hint={'right': 1} if is_player else {'x': 0}
+            width=bubble_w,
+            height=bubble_h,
+            padding=[pad_h, pad_v],
+            spacing=dp(2),
+            pos_hint=ph
         )
 
-        bg_color = (0.22, 0.42, 0.8, 1) if is_player else (0.28, 0.28, 0.36, 1)
-
+        bg_color = (0.18, 0.44, 0.80, 1) if is_player else (0.18, 0.20, 0.30, 1)
         with bubble.canvas.before:
             Color(*bg_color)
-            bg = RoundedRectangle(pos=bubble.pos, size=bubble.size, radius=[dp(10)])
-
+            _bg = RoundedRectangle(pos=bubble.pos, size=bubble.size,
+                                   radius=[dp(14), dp(4), dp(14), dp(14)] if is_player
+                                   else [dp(4), dp(14), dp(14), dp(14)])
         bubble.bind(
-            pos=lambda i, v: setattr(bg, 'pos', v),
-            size=lambda i, v: setattr(bg, 'size', v)
+            pos=lambda i, v: setattr(_bg, 'pos', v),
+            size=lambda i, v: setattr(_bg, 'size', v)
         )
 
         text_label = Label(
             text=message,
-            font_size='13sp',
+            font_size=font,
             color=(1, 1, 1, 1),
             halign='left',
             valign='top',
-            text_size=(bubble.width - dp(24), None)
+            size_hint=(1, None),
+            height=text_h
         )
-        text_label.bind(
-            size=lambda i, v: setattr(i, 'text_size', (v[0], None))
-        )
+        # Привязываем text_size к ширине bubble через Clock чтобы избежать 0
+        def _set_ts(*_):
+            text_label.text_size = (bubble.width - pad_h * 2, None)
+        Clock.schedule_once(lambda dt: _set_ts(), 0)
+        bubble.bind(width=lambda i, v: _set_ts())
 
         time_label = Label(
             text=timestamp,
             font_size='10sp',
-            color=(0.7, 0.7, 0.7, 1),
+            color=(0.65, 0.65, 0.75, 1),
             size_hint=(1, None),
-            height=dp(14),
-            halign='right'
+            height=dp(16),
+            halign='right' if is_player else 'left'
         )
+        time_label.bind(size=time_label.setter('text_size'))
 
         bubble.add_widget(text_label)
         bubble.add_widget(time_label)
+        return bubble
 
+    def add_chat_message(self, message, sender, timestamp, is_player=False):
+        """Добавляет сообщение в чат."""
+        bubble = self._make_bubble(message, timestamp, is_player)
         self.chat_container.add_widget(bubble)
-        Clock.schedule_once(lambda dt: self.scroll_chat_to_bottom(), 0)
+        Clock.schedule_once(lambda dt: self.scroll_chat_to_bottom(), 0.05)
 
     def add_chat_message_android(self, message, sender, timestamp, is_player=False):
-        """Добавляет сообщение в чат (специальная версия для Android)"""
-        max_width = Window.width * 0.85  # Шире для мобильных
-
-        # Вычисляем высоту текста
-        temp = Label(
-            text=message,
-            font_size='14sp',  # Чуть больше для мобильных
-            text_size=(max_width - dp(20), None)
-        )
-        temp.texture_update()
-        text_height = temp.texture_size[1]
-
-        # Минимальная высота для коротких сообщений
-        min_height = dp(50) if kivy_platform == 'android' else dp(40)
-        bubble_height = max(min_height, text_height + dp(28))
-
-        # Создаем контейнер для сообщения
-        bubble = BoxLayout(
-            orientation='vertical',
-            size_hint=(None, None),
-            width=min(max_width, temp.texture_size[0] + dp(24)),
-            height=bubble_height,
-            padding=[dp(10), dp(8)],
-            pos_hint={'right': 0.95} if is_player else {'x': 0.05}  # Отступы от краев
-        )
-
-        # Цвет фона в зависимости от отправителя
-        bg_color = (0.22, 0.42, 0.8, 1) if is_player else (0.28, 0.28, 0.36, 1)
-
-        with bubble.canvas.before:
-            Color(*bg_color)
-            bg = RoundedRectangle(pos=bubble.pos, size=bubble.size, radius=[dp(12)])
-
-        bubble.bind(
-            pos=lambda i, v: setattr(bg, 'pos', v),
-            size=lambda i, v: setattr(bg, 'size', v)
-        )
-
-        # Текст сообщения
-        text_label = Label(
-            text=message,
-            font_size='14sp',
-            color=(1, 1, 1, 1),
-            halign='left',
-            valign='top',
-            text_size=(bubble.width - dp(20), None),
-            size_hint=(1, 1)
-        )
-
-        # Время отправки (компактное)
-        time_label = Label(
-            text=timestamp,
-            font_size='10sp',
-            color=(0.7, 0.7, 0.7, 0.9),
-            size_hint=(1, None),
-            height=dp(14),
-            halign='right'
-        )
-
-        bubble.add_widget(text_label)
-        bubble.add_widget(time_label)
-
-        # Добавляем сообщение в контейнер
+        """Добавляет сообщение в чат (Android — единый путь через _make_bubble)."""
+        bubble = self._make_bubble(message, timestamp, is_player, max_w_ratio=0.80, font='14sp')
         self.chat_container.add_widget(bubble)
 
         # Прокручиваем вниз (задержка для Android)
