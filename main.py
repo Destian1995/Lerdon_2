@@ -1902,15 +1902,13 @@ class KingdomSelectionWidget(MDFloatLayout):
         }
         self._faction_bg_images = _FACTION_BG_IMAGES
 
-        from kivy.uix.image import AsyncImage
-        self._faction_bg = AsyncImage(
+        self._faction_bg = Image(
             source='',
             allow_stretch=True,
             keep_ratio=False,
             size_hint=(1, 1),
             pos_hint={'x': 0, 'y': 0},
             opacity=0,
-            nocache=True
         )
         self.add_widget(self._faction_bg)
 
