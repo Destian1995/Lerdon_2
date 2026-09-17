@@ -269,11 +269,11 @@ def _declare_war_to_all(cursor):
     for faction in factions:
         try:
             cursor.execute(
-                "INSERT OR IGNORE INTO relations (faction1, faction2, value) VALUES (?, ?, ?)",
+                "INSERT OR IGNORE INTO relations (faction1, faction2, relationship) VALUES (?, ?, ?)",
                 (UNDEAD_FACTION_NAME, faction, 0)
             )
             cursor.execute(
-                "INSERT OR IGNORE INTO relations (faction1, faction2, value) VALUES (?, ?, ?)",
+                "INSERT OR IGNORE INTO relations (faction1, faction2, relationship) VALUES (?, ?, ?)",
                 (faction, UNDEAD_FACTION_NAME, 0)
             )
         except sqlite3.Error:

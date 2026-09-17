@@ -1692,18 +1692,12 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
 
         # === Обновление опыта выживших юнитов (+1 за бой) ===
         try:
-            # Выжившие в городе победителя получают опыт
-            target_city = defending_city if winner == 'attacking' else defending_city
-            cursor.execute("""
-                UPDATE garrisons SET experience = COALESCE(experience, 0) + 1
-                WHERE city_name = ? AND unit_count > 0
-            """, (target_city,))
-            # Выжившие в городе атакующего тоже (если проиграли — они остались дома)
-            if winner != 'attacking':
+            # Все выжившие юниты обеих сторон получают опыт
+            for city in (attacking_city, defending_city):
                 cursor.execute("""
                     UPDATE garrisons SET experience = COALESCE(experience, 0) + 1
                     WHERE city_name = ? AND unit_count > 0
-                """, (attacking_city,))
+                """, (city,))
         except Exception as e:
             print(f"[EXP] Ошибка обновления опыта: {e}")
 
