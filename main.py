@@ -1859,7 +1859,7 @@ class KingdomSelectionWidget(MDFloatLayout):
             self.panel_height_ratio = 0.6
             self.panel_y_offset = 0.0
 
-        # ======== ФОН (статический fallback для Android) ========
+        # ======== ФОН (статический fallback) ========
         from kivy.graphics import Rectangle as BgRect
         with self.canvas.before:
             Color(0.05, 0.06, 0.11, 1)
@@ -1867,7 +1867,7 @@ class KingdomSelectionWidget(MDFloatLayout):
         self.bind(pos=lambda i, v: setattr(self._bg_rect, 'pos', v),
                   size=lambda i, v: setattr(self._bg_rect, 'size', v))
 
-        # ======== ФОН ВИДЕО (только не-Android, ffpyplayer может отсутствовать) ========
+        # ======== ФОН ВИДЕО (только не-Android) ========
         self.bg_video = None
         self._video_check_event = None
         if not is_android:
@@ -1885,13 +1885,48 @@ class KingdomSelectionWidget(MDFloatLayout):
                 self.bg_video.bind(on_eos=self.loop_video)
                 self.add_widget(self.bg_video)
 
-                # Periodic check: restart video if it stopped unexpectedly
                 def _check_video(dt):
                     if self.bg_video and self.bg_video.state != 'play':
                         self.bg_video.state = 'play'
                 self._video_check_event = Clock.schedule_interval(_check_video, 2.0)
             except Exception:
                 self.bg_video = None
+
+        # ======== ФРАКЦИОННЫЙ ФОН (Image, меняется при выборе фракции) ========
+        _FACTION_BG_IMAGES = {
+            'Вампиры': 'files/menu/choise/vampire.png',
+            'Эльфы':   'files/menu/choise/elfs.png',
+            'Север':   'files/menu/choise/people.png',
+            # Адепты и Элины — пока берём ближайший похожий
+            'Адепты':  'files/menu/choise/people.png',
+            'Элины':   'files/menu/choise/elfs.png',
+        }
+        self._faction_bg_images = _FACTION_BG_IMAGES
+
+        self._faction_bg = Image(
+            source='',
+            allow_stretch=True,
+            keep_ratio=False,
+            size_hint=(1, 1),
+            pos_hint={'x': 0, 'y': 0},
+            opacity=0
+        )
+        self.add_widget(self._faction_bg)
+
+        # Тёмный градиент поверх фракционного фона — чтобы текст читался
+        self._faction_bg_overlay = Widget(size_hint=(1, 1), pos_hint={'x': 0, 'y': 0})
+        with self._faction_bg_overlay.canvas:
+            Color(0, 0, 0, 0.52)
+            self._faction_bg_overlay_rect = BgRect(
+                pos=self._faction_bg_overlay.pos,
+                size=self._faction_bg_overlay.size
+            )
+        self._faction_bg_overlay.bind(
+            pos=lambda i, v: setattr(self._faction_bg_overlay_rect, 'pos', v),
+            size=lambda i, v: setattr(self._faction_bg_overlay_rect, 'size', v)
+        )
+        self._faction_bg_overlay.opacity = 0
+        self.add_widget(self._faction_bg_overlay)
 
         # ======== ОБЩИЙ КОНТЕЙНЕР ДЛЯ ВСЕХ ЭЛЕМЕНТОВ ========
         self.main_container = MDFloatLayout()
@@ -2501,10 +2536,33 @@ class KingdomSelectionWidget(MDFloatLayout):
             instance.set_selected(True)
 
         kingdom_name = instance.text
+        self._switch_faction_bg(kingdom_name)
         self.update_faction_stats(kingdom_name)
         from kivy.app import App
         app = App.get_running_app()
         app.selected_kingdom = kingdom_name
+
+    def _switch_faction_bg(self, faction_name):
+        """Плавная смена фонового изображения при выборе фракции."""
+        img_path = self._faction_bg_images.get(faction_name, '')
+        if not img_path:
+            return
+        bg = self._faction_bg
+        overlay = self._faction_bg_overlay
+
+        def _do_switch(*_):
+            bg.source = img_path
+            bg.reload()
+            Animation(opacity=1, duration=0.4).start(bg)
+            Animation(opacity=1, duration=0.4).start(overlay)
+
+        if bg.opacity > 0:
+            # Сначала гасим, потом меняем
+            anim = Animation(opacity=0, duration=0.2)
+            anim.bind(on_complete=_do_switch)
+            anim.start(bg)
+        else:
+            _do_switch()
 
     FACTION_ABILITIES = {
         'Север': '[b]Шквал[/b] — если бонусы увеличили урон в 20+ раз, x1.7 к урону',
