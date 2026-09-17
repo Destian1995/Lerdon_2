@@ -1655,17 +1655,16 @@ class RectangularButton(Button):
 
 
 class FactionButton(Button):
-    """Кнопка выбора фракции с цветовой полоской и иконкой."""
-    _DEFAULT_COLOR = [0.10, 0.14, 0.24, 0.95]
-    _SELECTED_COLOR = [0.18, 0.22, 0.35, 1]
+    """Кнопка выбора фракции — RPG-стиль с фракционным изображением и свечением."""
+    _DEFAULT_COLOR = [0.07, 0.08, 0.15, 0.92]
+    _SELECTED_COLOR = [0.14, 0.10, 0.22, 0.97]
 
-    # Цвета акцентных полосок
     _FACTION_ACCENTS = {
         'Север': (0.25, 0.52, 0.92, 1),
         'Эльфы': (0.22, 0.76, 0.32, 1),
-        'Вампиры': (0.78, 0.10, 0.16, 1),
+        'Вампиры': (0.85, 0.08, 0.14, 1),
         'Адепты': (0.62, 0.22, 0.88, 1),
-        'Элины': (0.92, 0.70, 0.10, 1),
+        'Элины': (0.95, 0.72, 0.08, 1),
     }
 
     _FACTION_ICONS = {
@@ -1677,60 +1676,84 @@ class FactionButton(Button):
     }
 
     def __init__(self, **kwargs):
-        btn_color = list(kwargs.pop('background_color', self._DEFAULT_COLOR))
+        kwargs.pop('background_color', None)
         super().__init__(**kwargs)
         self.background_normal = ''
         self.background_down = ''
         self.background_color = (0, 0, 0, 0)
-        self._default_color = btn_color
-        self.halign = 'left'
-        self.padding = [dp(48), 0]
+        self.halign = 'center'
+        self.valign = 'middle'
+        self._is_selected = False
 
         accent = self._FACTION_ACCENTS.get(self.text, (0.4, 0.4, 0.5, 1))
+        img_size = dp(46)
 
         with self.canvas.before:
-            # Тень
-            Color(0, 0, 0, 0.2)
-            self._shadow = RoundedRectangle(
-                pos=(self.x + dp(2), self.y - dp(1)),
-                size=self.size, radius=[dp(10)]
+            # Внешняя рамка — светится цветом фракции при выборе
+            self._border_col = Color(*accent[:3], 0.0)
+            self._border_rr = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(13)])
+            # Основной фон
+            self._ci = Color(*self._DEFAULT_COLOR)
+            self._rr = RoundedRectangle(
+                pos=(self.x + dp(2), self.y + dp(2)),
+                size=(self.width - dp(4), self.height - dp(4)),
+                radius=[dp(11)]
             )
-            # Фон
-            self._ci = Color(*btn_color)
-            self._rr = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(10)])
-            # Акцентная полоска слева
+            # Акцентная полоска слева (широкая)
             Color(*accent)
             self._accent = RoundedRectangle(
-                pos=self.pos,
-                size=(dp(5), self.height),
-                radius=[dp(10), 0, 0, dp(10)]
+                pos=(self.x + dp(2), self.y + dp(2)),
+                size=(dp(7), self.height - dp(4)),
+                radius=[dp(11), 0, 0, dp(11)]
+            )
+            # Светлая линия вдоль нижнего края для глубины
+            Color(1, 1, 1, 0.06)
+            self._shine = RoundedRectangle(
+                pos=(self.x + dp(10), self.y + dp(2)),
+                size=(self.width - dp(12), dp(1)),
+                radius=[dp(1)]
             )
 
-        # Иконка фракции
+        # Изображение фракции (крупное, левый край)
         icon_path = self._FACTION_ICONS.get(self.text, '')
         if icon_path:
             self._icon = Image(
                 source=icon_path,
                 size_hint=(None, None),
-                size=(dp(32), dp(32)),
-                pos=(self.x + dp(8), self.center_y - dp(16)),
-                allow_stretch=True, keep_ratio=True,
+                size=(img_size, img_size),
+                allow_stretch=True,
+                keep_ratio=True,
             )
             self.add_widget(self._icon)
         else:
             self._icon = None
 
+        self._img_size = img_size
         self.bind(pos=self._update_gfx, size=self._update_gfx)
 
     def _update_gfx(self, *args):
-        self._rr.pos = self.pos
-        self._rr.size = self.size
-        self._shadow.pos = (self.x + dp(2), self.y - dp(1))
-        self._shadow.size = self.size
-        self._accent.pos = self.pos
-        self._accent.size = (dp(5), self.height)
+        self._border_rr.pos = self.pos
+        self._border_rr.size = self.size
+        self._rr.pos = (self.x + dp(2), self.y + dp(2))
+        self._rr.size = (self.width - dp(4), self.height - dp(4))
+        self._accent.pos = (self.x + dp(2), self.y + dp(2))
+        self._accent.size = (dp(7), self.height - dp(4))
+        self._shine.pos = (self.x + dp(10), self.y + dp(2))
+        self._shine.size = (self.width - dp(12), dp(1))
         if self._icon:
-            self._icon.pos = (self.x + dp(8), self.center_y - dp(16))
+            s = self._img_size
+            self._icon.pos = (self.x + dp(12), self.center_y - s / 2)
+            self._icon.size = (s, s)
+
+    def set_selected(self, selected: bool):
+        self._is_selected = selected
+        accent = self._FACTION_ACCENTS.get(self.text, (0.4, 0.4, 0.5, 1))
+        if selected:
+            self._border_col.rgba = (*accent[:3], 0.95)
+            self._ci.rgba = self._SELECTED_COLOR
+        else:
+            self._border_col.rgba = (*accent[:3], 0.0)
+            self._ci.rgba = self._DEFAULT_COLOR
 
 
 class ModernSpinnerOption(SpinnerOption):
@@ -1943,17 +1966,17 @@ class KingdomSelectionWidget(MDFloatLayout):
         # Увеличиваем размер кнопок для Android
         if is_android:
             if is_landscape:
-                button_height = dp(38)  # УМЕНЬШИЛ на 2dp
-                spacing_val = dp(3)      # УМЕНЬШИЛ spacing
-                button_font_size = self.base_font_size * 0.95  # УМЕНЬШИЛ шрифт
+                button_height = dp(54)
+                spacing_val = dp(6)
+                button_font_size = self.base_font_size * 1.0
             else:
-                button_height = dp(40)   # УМЕНЬШИЛ на 2dp
-                spacing_val = dp(3)      # УМЕНЬШИЛ spacing
-                button_font_size = self.base_font_size * 1.0   # Немного уменьшил шрифт
+                button_height = dp(58)
+                spacing_val = dp(7)
+                button_font_size = self.base_font_size * 1.05
         else:
-            button_height = dp(42)        # УМЕНЬШИЛ на 3dp
-            spacing_val = dp(4)           # УМЕНЬШИЛ spacing
-            button_font_size = self.base_font_size
+            button_height = dp(60)
+            spacing_val = dp(8)
+            button_font_size = self.base_font_size * 1.05
 
         # Рассчитываем общую высоту для панели
         num_factions = len(self.faction_data)
@@ -2467,13 +2490,15 @@ class KingdomSelectionWidget(MDFloatLayout):
         if getattr(self, 'buttons_locked', False):
             return
 
-        # Сбрасываем цвет предыдущей выбранной кнопки
+        # Сбрасываем предыдущую выбранную кнопку
         if self.selected_button and self.selected_button is not instance:
-            self.selected_button._ci.rgba = FactionButton._DEFAULT_COLOR
+            if hasattr(self.selected_button, 'set_selected'):
+                self.selected_button.set_selected(False)
 
-        # Устанавливаем новую выбранную кнопку (золотой цвет)
+        # Выделяем новую кнопку
         self.selected_button = instance
-        instance._ci.rgba = FactionButton._SELECTED_COLOR
+        if hasattr(instance, 'set_selected'):
+            instance.set_selected(True)
 
         kingdom_name = instance.text
         self.update_faction_stats(kingdom_name)
