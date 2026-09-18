@@ -24,17 +24,14 @@ INVASION_TURN_MAX = 26
 # Начальная армия нежити — 250к разово
 UNDEAD_INITIAL_ARMY = 250000
 
-# Подкрепления: 40к/ход в течение 10 ходов после инвазии
+# Подкрепления: 40к/ход в течение 10 ходов после инвазии (сёрдж)
 UNDEAD_SURGE_TURNS = 10
 UNDEAD_SURGE_PER_TURN = 40000
-# Обычные подкрепления после 10 ходов
-UNDEAD_REINFORCEMENTS_MIN = 2000
-UNDEAD_REINFORCEMENTS_MAX = 5000
 
 # Характеристики Царя Мёртвых
-KING_OF_DEAD_ATTACK = 500
-KING_OF_DEAD_DEFENSE = 600
-KING_OF_DEAD_DURABILITY = 50
+KING_OF_DEAD_ATTACK = 800
+KING_OF_DEAD_DEFENSE = 950
+KING_OF_DEAD_DURABILITY = 80
 KING_OF_DEAD_NAME = "Царь Мёртвых"
 
 # Характеристики юнитов нежити
@@ -44,6 +41,36 @@ UNDEAD_UNIT_DEFENSE = 7
 UNDEAD_UNIT_DURABILITY = 3
 UNDEAD_UNIT_COST = 2.5
 UNDEAD_UNIT_CONSUMPTION = 0.8
+
+# Зомби — пехота, массовый юнит, чуть сильнее Призрака
+ZOMBIE_UNIT_NAME = "Зомби"
+ZOMBIE_UNIT_ATTACK = 38
+ZOMBIE_UNIT_DEFENSE = 15
+ZOMBIE_UNIT_DURABILITY = 8
+ZOMBIE_UNIT_COST = 4.0
+ZOMBIE_UNIT_CONSUMPTION = 1.0
+
+# Банши — маг, высокий урон, хрупкая
+BANSHEE_UNIT_NAME = "Банши"
+BANSHEE_UNIT_ATTACK = 55
+BANSHEE_UNIT_DEFENSE = 5
+BANSHEE_UNIT_DURABILITY = 2
+BANSHEE_UNIT_COST = 6.0
+BANSHEE_UNIT_CONSUMPTION = 1.5
+
+# Костяной Голем — осадный, танк
+GOLEM_UNIT_NAME = "Костяной Голем"
+GOLEM_UNIT_ATTACK = 250
+GOLEM_UNIT_DEFENSE = 600
+GOLEM_UNIT_DURABILITY = 120
+GOLEM_UNIT_COST = 50.0
+GOLEM_UNIT_CONSUMPTION = 5.0
+
+# Конверсия пленных — 20% убитых врагов
+UNDEAD_CONVERSION_RATE = 0.20
+
+# Постоянные подкрепления (без спада)
+UNDEAD_REINFORCEMENTS_CONSTANT = 18000
 
 UNDEAD_FACTION_NAME = "Нежить"
 
@@ -123,10 +150,23 @@ def initialize_undead_invasion(conn):
 def _create_undead_units(cursor):
     """Создаёт юнитов нежити в таблицах units и units_default."""
     cursor.execute("SELECT COUNT(*) FROM units WHERE faction = ?", (UNDEAD_FACTION_NAME,))
-    if cursor.fetchone()[0] > 0:
-        return
+    existing = cursor.fetchone()[0]
 
-    unit_data_class1 = (
+    insert_sql = """
+        INSERT OR REPLACE INTO units (faction, unit_name, cost_money, cost_time, image_path,
+                          attack, defense, durability, unit_class, consumption,
+                          initiative, unit_type, morale, aura_attack, aura_defense, crit_chance)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """
+    insert_default_sql = """
+        INSERT OR REPLACE INTO units_default (faction, unit_name, cost_money, cost_time, image_path,
+                                  attack, defense, durability, unit_class, consumption,
+                                  initiative, unit_type, morale, aura_attack, aura_defense, crit_chance)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """
+
+    # Призрак — пехота
+    unit_ghost = (
         UNDEAD_FACTION_NAME, UNDEAD_UNIT_NAME,
         UNDEAD_UNIT_COST, 1,
         'files/army/death/solder.png',
@@ -136,38 +176,62 @@ def _create_undead_units(cursor):
         0, 0, 7
     )
 
-    unit_data_king = (
+    # Зомби — пехота, крепче Призрака
+    unit_zombie = (
+        UNDEAD_FACTION_NAME, ZOMBIE_UNIT_NAME,
+        ZOMBIE_UNIT_COST, 1,
+        'files/army/death/zombie.png',
+        ZOMBIE_UNIT_ATTACK, ZOMBIE_UNIT_DEFENSE, ZOMBIE_UNIT_DURABILITY,
+        '1', ZOMBIE_UNIT_CONSUMPTION,
+        40, 'infantry', 100,
+        0, 0, 5
+    )
+
+    # Банши — маг, высокий урон
+    unit_banshee = (
+        UNDEAD_FACTION_NAME, BANSHEE_UNIT_NAME,
+        BANSHEE_UNIT_COST, 1,
+        'files/army/death/banshee.png',
+        BANSHEE_UNIT_ATTACK, BANSHEE_UNIT_DEFENSE, BANSHEE_UNIT_DURABILITY,
+        '1', BANSHEE_UNIT_CONSUMPTION,
+        70, 'mage', 100,
+        0, 0, 15
+    )
+
+    # Костяной Голем — осадный танк
+    unit_golem = (
+        UNDEAD_FACTION_NAME, GOLEM_UNIT_NAME,
+        GOLEM_UNIT_COST, 1,
+        'files/army/death/golem.png',
+        GOLEM_UNIT_ATTACK, GOLEM_UNIT_DEFENSE, GOLEM_UNIT_DURABILITY,
+        '1', GOLEM_UNIT_CONSUMPTION,
+        20, 'siege', 100,
+        0, 0, 3
+    )
+
+    # Царь Мёртвых — герой (класс 2)
+    unit_king = (
         UNDEAD_FACTION_NAME, KING_OF_DEAD_NAME,
         50000, 1,
         'files/army/death/king_.png',
         KING_OF_DEAD_ATTACK, KING_OF_DEAD_DEFENSE, KING_OF_DEAD_DURABILITY,
         '2', 100,
         85, 'infantry', 100,
-        15, 15, 12
+        25, 25, 18
     )
 
-    insert_sql = """
-        INSERT INTO units (faction, unit_name, cost_money, cost_time, image_path,
-                          attack, defense, durability, unit_class, consumption,
-                          initiative, unit_type, morale, aura_attack, aura_defense, crit_chance)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """
-
-    insert_default_sql = """
-        INSERT INTO units_default (faction, unit_name, cost_money, cost_time, image_path,
-                                  attack, defense, durability, unit_class, consumption,
-                                  initiative, unit_type, morale, aura_attack, aura_defense, crit_chance)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """
-
-    for unit_data in [unit_data_class1, unit_data_king]:
+    all_units = [unit_ghost, unit_zombie, unit_banshee, unit_golem, unit_king]
+    for unit_data in all_units:
         cursor.execute(insert_sql, unit_data)
         try:
             cursor.execute(insert_default_sql, unit_data)
         except sqlite3.Error:
             pass
 
-    print(f"[UNDEAD] Созданы юниты нежити: {UNDEAD_UNIT_NAME} и {KING_OF_DEAD_NAME}")
+    if existing == 0:
+        print(f"[UNDEAD] Созданы юниты нежити: Призрак, Зомби, Банши, Костяной Голем, Царь Мёртвых")
+    else:
+        print(f"[UNDEAD] Статы юнитов нежити обновлены")
 
 
 def check_and_trigger_invasion(conn, current_turn, player_faction):
@@ -210,13 +274,23 @@ def check_and_trigger_invasion(conn, current_turn, player_faction):
         (UNDEAD_FACTION_NAME, '#33BF99', chosen_city_id)
     )
 
-    # Спавним 50000 призраков + Царя Мёртвых в одном городе
-    cursor.execute("""
+    # Спавним разнообразную армию нежити + Царя Мёртвых
+    # 60% Призраки, 20% Зомби, 10% Банши, 500 Големов + Царь
+    ghost_count = int(UNDEAD_INITIAL_ARMY * 0.60)
+    zombie_count = int(UNDEAD_INITIAL_ARMY * 0.20)
+    banshee_count = int(UNDEAD_INITIAL_ARMY * 0.10)
+    golem_count = 500
+
+    _spawn_undead_unit = """
         INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
         VALUES (?, ?, ?, ?)
         ON CONFLICT(city_name, unit_name) DO UPDATE SET
             unit_count = unit_count + excluded.unit_count
-    """, (chosen_city_name, UNDEAD_UNIT_NAME, UNDEAD_INITIAL_ARMY, 'files/army/death/solder.png'))
+    """
+    cursor.execute(_spawn_undead_unit, (chosen_city_name, UNDEAD_UNIT_NAME, ghost_count, 'files/army/death/solder.png'))
+    cursor.execute(_spawn_undead_unit, (chosen_city_name, ZOMBIE_UNIT_NAME, zombie_count, 'files/army/death/zombie.png'))
+    cursor.execute(_spawn_undead_unit, (chosen_city_name, BANSHEE_UNIT_NAME, banshee_count, 'files/army/death/banshee.png'))
+    cursor.execute(_spawn_undead_unit, (chosen_city_name, GOLEM_UNIT_NAME, golem_count, 'files/army/death/golem.png'))
 
     cursor.execute("""
         INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
@@ -346,19 +420,23 @@ def _respawn_king_if_dead(cursor):
     else:
         respawn_city = best[0]
 
-    # Царь возрождается с 10 000 призраков
+    # Царь возрождается с разнообразной армией
+    _spawn_sql = """
+        INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(city_name, unit_name) DO UPDATE SET
+            unit_count = unit_count + excluded.unit_count
+    """
     cursor.execute("""
         INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
         VALUES (?, ?, 1, ?)
     """, (respawn_city, KING_OF_DEAD_NAME, 'files/army/death/king_.png'))
-    cursor.execute("""
-        INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
-        VALUES (?, ?, 10000, ?)
-        ON CONFLICT(city_name, unit_name) DO UPDATE SET
-            unit_count = unit_count + 10000
-    """, (respawn_city, UNDEAD_UNIT_NAME, 'files/army/death/solder.png'))
+    cursor.execute(_spawn_sql, (respawn_city, UNDEAD_UNIT_NAME, 6000, 'files/army/death/solder.png'))
+    cursor.execute(_spawn_sql, (respawn_city, ZOMBIE_UNIT_NAME, 3000, 'files/army/death/zombie.png'))
+    cursor.execute(_spawn_sql, (respawn_city, BANSHEE_UNIT_NAME, 1500, 'files/army/death/banshee.png'))
+    cursor.execute(_spawn_sql, (respawn_city, GOLEM_UNIT_NAME, 100, 'files/army/death/golem.png'))
 
-    print(f"[UNDEAD] {KING_OF_DEAD_NAME} возродился в {respawn_city} с 10 000 призраков!")
+    print(f"[UNDEAD] {KING_OF_DEAD_NAME} возродился в {respawn_city} с 10 600 юнитов!")
 
 
 def process_undead_turn(conn, current_turn):
@@ -425,15 +503,20 @@ def process_undead_turn(conn, current_turn):
                     "UPDATE cities SET faction = ?, color_faction = ? WHERE id = ?",
                     (UNDEAD_FACTION_NAME, '#33BF99', wave_city_id)
                 )
-                cursor.execute("""
+                # Разнообразная армия волны
+                _wave_sql = """
                     INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
                     VALUES (?, ?, ?, ?)
                     ON CONFLICT(city_name, unit_name) DO UPDATE SET
                         unit_count = unit_count + excluded.unit_count
-                """, (wave_city_name, UNDEAD_UNIT_NAME, wave_army, 'files/army/death/solder.png'))
+                """
+                cursor.execute(_wave_sql, (wave_city_name, UNDEAD_UNIT_NAME, int(wave_army * 0.55), 'files/army/death/solder.png'))
+                cursor.execute(_wave_sql, (wave_city_name, ZOMBIE_UNIT_NAME, int(wave_army * 0.25), 'files/army/death/zombie.png'))
+                cursor.execute(_wave_sql, (wave_city_name, BANSHEE_UNIT_NAME, int(wave_army * 0.12), 'files/army/death/banshee.png'))
+                cursor.execute(_wave_sql, (wave_city_name, GOLEM_UNIT_NAME, max(50, int(wave_army * 0.005)), 'files/army/death/golem.png'))
                 _respawn_king_if_dead(cursor)
                 conn.commit()
-                print(f"[UNDEAD] Новая волна! {wave_army} призраков в {wave_city_name}!")
+                print(f"[UNDEAD] Новая волна! {wave_army} юнитов в {wave_city_name}!")
             return
 
     # Находим город Царя Мёртвых — все подкрепления идут к нему
@@ -456,26 +539,36 @@ def process_undead_turn(conn, current_turn):
     """, (UNDEAD_FACTION_NAME, UNDEAD_UNIT_NAME))
     current_army = cursor.fetchone()[0]
 
-    # Все подкрепления идут в город Царя
-    if turns_since_invasion <= UNDEAD_SURGE_TURNS:
-        # 40к призраков каждый ход в течение 10 ходов
-        cursor.execute("""
-            INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(city_name, unit_name) DO UPDATE SET
-                unit_count = unit_count + excluded.unit_count
-        """, (king_city, UNDEAD_UNIT_NAME, UNDEAD_SURGE_PER_TURN, 'files/army/death/solder.png'))
+    # Подкрепления: сёрдж 10 ходов, потом постоянные 18к/ход (без спада)
+    _reinforce_sql = """
+        INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(city_name, unit_name) DO UPDATE SET
+            unit_count = unit_count + excluded.unit_count
+    """
 
-        print(f"[UNDEAD] Подкрепление в {king_city}: +{UNDEAD_SURGE_PER_TURN} призраков "
-              f"(ход {turns_since_invasion}/{UNDEAD_SURGE_TURNS})")
+    if turns_since_invasion <= UNDEAD_SURGE_TURNS:
+        total = UNDEAD_SURGE_PER_TURN
+        label = f"(сёрдж {turns_since_invasion}/{UNDEAD_SURGE_TURNS})"
     else:
-        reinforcements = random.randint(UNDEAD_REINFORCEMENTS_MIN, UNDEAD_REINFORCEMENTS_MAX)
-        cursor.execute("""
-            INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(city_name, unit_name) DO UPDATE SET
-                unit_count = unit_count + excluded.unit_count
-        """, (king_city, UNDEAD_UNIT_NAME, reinforcements, 'files/army/death/solder.png'))
+        total = UNDEAD_REINFORCEMENTS_CONSTANT
+        label = "(постоянные)"
+
+    # Распределяем подкрепления: 55% призраки, 25% зомби, 12% банши, 50 големов
+    ghost_r = int(total * 0.55)
+    zombie_r = int(total * 0.25)
+    banshee_r = int(total * 0.12)
+    golem_r = max(30, int(total * 0.005))
+
+    cursor.execute(_reinforce_sql, (king_city, UNDEAD_UNIT_NAME, ghost_r, 'files/army/death/solder.png'))
+    cursor.execute(_reinforce_sql, (king_city, ZOMBIE_UNIT_NAME, zombie_r, 'files/army/death/zombie.png'))
+    cursor.execute(_reinforce_sql, (king_city, BANSHEE_UNIT_NAME, banshee_r, 'files/army/death/banshee.png'))
+    cursor.execute(_reinforce_sql, (king_city, GOLEM_UNIT_NAME, golem_r, 'files/army/death/golem.png'))
+
+    print(f"[UNDEAD] Подкрепление в {king_city}: +{total} юнитов {label}")
+
+    # Чума — города рядом с нежитью теряют население
+    _apply_plague(cursor)
 
     # Попытка купить артефакт для Царя Мёртвых (всегда жив после респавна)
     _buy_artifact_for_king(cursor)
@@ -523,6 +616,80 @@ def _buy_artifact_for_king(cursor):
 
     except sqlite3.Error as e:
         print(f"[UNDEAD] Ошибка покупки артефакта: {e}")
+
+
+def _apply_plague(cursor):
+    """
+    Чума Нежити: города соседние с городами нежити теряют население каждый ход.
+    Радиус заражения — 200 единиц координат. Потери: -3% населения.
+    """
+    import math
+    import ast
+    try:
+        # Получаем координаты городов нежити
+        cursor.execute("SELECT name, coordinates FROM cities WHERE faction = ?", (UNDEAD_FACTION_NAME,))
+        undead_cities = cursor.fetchall()
+        if not undead_cities:
+            return
+
+        undead_coords = []
+        for _, coords_str in undead_cities:
+            try:
+                undead_coords.append(ast.literal_eval(coords_str))
+            except Exception:
+                continue
+
+        if not undead_coords:
+            return
+
+        # Получаем все не-нежить города
+        cursor.execute(
+            "SELECT name, coordinates, faction FROM cities WHERE faction != ? AND faction != 'Нейтрал'",
+            (UNDEAD_FACTION_NAME,)
+        )
+        other_cities = cursor.fetchall()
+
+        plague_radius = 200
+        plague_rate = 0.03  # -3% населения
+
+        for city_name, coords_str, city_faction in other_cities:
+            try:
+                cc = ast.literal_eval(coords_str)
+            except Exception:
+                continue
+
+            # Проверяем расстояние до ближайшего города нежити
+            min_dist = min(math.hypot(cc[0] - uc[0], cc[1] - uc[1]) for uc in undead_coords)
+            if min_dist > plague_radius:
+                continue
+
+            # Уменьшаем население города
+            cursor.execute(
+                "SELECT population FROM cities WHERE name = ?", (city_name,)
+            )
+            pop_row = cursor.fetchone()
+            if not pop_row or not pop_row[0]:
+                continue
+
+            pop = pop_row[0]
+            loss = max(1, int(pop * plague_rate))
+            new_pop = max(10, pop - loss)  # Минимум 10
+
+            cursor.execute(
+                "UPDATE cities SET population = ? WHERE name = ?",
+                (new_pop, city_name)
+            )
+
+            # Также уменьшаем гарнизон на 1% (мор среди солдат)
+            cursor.execute(
+                "UPDATE garrisons SET unit_count = MAX(1, unit_count - MAX(1, unit_count / 100)) "
+                "WHERE city_name = ?",
+                (city_name,)
+            )
+
+        print(f"[UNDEAD PLAGUE] Чума распространяется от {len(undead_cities)} городов нежити")
+    except Exception as e:
+        print(f"[UNDEAD PLAGUE] Ошибка: {e}")
 
 
 def get_undead_army_limit(conn):

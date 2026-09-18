@@ -2411,6 +2411,10 @@ class AIController:
         Войска собираются только из городов, связанных по своей территории.
         """
         try:
+            # Никогда не атакуем союзников
+            if faction != "Нейтрал" and self.is_faction_ally(faction):
+                print(f"{self.faction}: {faction} — союзник. Атака отменена.")
+                return
             # Находим свой город, из которого есть дорога к цели
             allied_city = self._find_staging_city_for_attack(city_name)
             if not allied_city:
@@ -2692,6 +2696,10 @@ class AIController:
             print("our_strength:", type(our_strength), our_strength)
 
             for faction, relationship in self.relations.items():
+                # Никогда не атакуем союзников
+                if self.is_faction_ally(faction):
+                    continue
+
                 # Проверяем перемирие
                 if self._is_truce_active(faction):
                     print(f"{self.faction}: перемирие с {faction} ещё действует. Пропускаем.")
@@ -3618,10 +3626,12 @@ class AIController:
                 print(f"[AI PRISONERS] {self.faction} принял {captured_count} пленных {enemy_faction} в армию")
 
             elif decision == 'execute':
-                # Казнить — ухудшаем отношения со всеми
+                # Казнить — ухудшаем отношения со всеми, кроме союзников
                 cursor.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал' AND faction != ?",
                                (self.faction,))
                 for row in cursor.fetchall():
+                    if self.is_faction_ally(row[0]):
+                        continue
                     cursor.execute("""
                         UPDATE relations SET relationship = MAX(0, relationship - 5)
                         WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
@@ -3629,7 +3639,7 @@ class AIController:
                 print(f"[AI PRISONERS] {self.faction} казнил {captured_count} пленных {enemy_faction}")
 
             else:  # release
-                # Отпустить — улучшаем отношения
+                # Отпустить — улучшаем отношения (кроме союзников — у них и так максимум)
                 cursor.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал' AND faction != ?",
                                (self.faction,))
                 for row in cursor.fetchall():
@@ -4685,10 +4695,11 @@ class AIController:
             print(f"[UNDEAD] Атака {from_city} -> {target_city}: {result.get('winner', '?')}")
 
             if result["winner"] == "attacker":
-                # Пленные -> призраки в город откуда атаковали
+                # Пленные -> призраки (20% убитых врагов конвертируются)
                 defending_losses = result.get('defending_losses', 0)
                 if defending_losses > 0:
-                    captured = max(1, int(defending_losses * 0.10))
+                    from undead_invasion import UNDEAD_CONVERSION_RATE
+                    captured = max(1, int(defending_losses * UNDEAD_CONVERSION_RATE))
                     self._ai_handle_prisoners(captured, target_faction, from_city)
 
                 # Захватываем город
@@ -4724,72 +4735,81 @@ class AIController:
 
     def _undead_attack_nearest_cities(self):
         """
-        Армия мёртвых атакует только из города Царя Мёртвых.
-        Все призраки ходят с Царём как единая армия.
+        Армия мёртвых атакует 2-3 ближайших города за ход.
+        Каждая атака направлена на город ДРУГОЙ фракции (не повторяет фракцию).
+        Все юниты ходят с Царём как единая армия, перемещаясь после каждой победы.
         """
         import math
         import ast
         from undead_invasion import KING_OF_DEAD_NAME
         try:
-            # Находим город Царя Мёртвых
-            self.cursor.execute(
-                "SELECT city_name FROM garrisons WHERE unit_name = ?",
-                (KING_OF_DEAD_NAME,)
-            )
-            king_row = self.cursor.fetchone()
-            if not king_row:
-                print("[UNDEAD AI] Царь Мёртвых не найден — нежить не атакует")
-                return
+            max_attacks = random.randint(2, 3)
+            attacked_factions = set()  # Фракции, которые уже атакованы в этот ход
 
-            king_city = king_row[0]
+            for attack_num in range(max_attacks):
+                # Находим город Царя Мёртвых (может меняться после каждой победы)
+                self.cursor.execute(
+                    "SELECT city_name FROM garrisons WHERE unit_name = ?",
+                    (KING_OF_DEAD_NAME,)
+                )
+                king_row = self.cursor.fetchone()
+                if not king_row:
+                    print("[UNDEAD AI] Царь Мёртвых не найден — нежить не атакует")
+                    return
 
-            # Координаты города Царя
-            self.cursor.execute("SELECT coordinates FROM cities WHERE name = ?", (king_city,))
-            coords_row = self.cursor.fetchone()
-            if not coords_row:
-                return
-            try:
-                king_coords = ast.literal_eval(coords_row[0])
-            except Exception:
-                return
+                king_city = king_row[0]
 
-            # Проверяем размер гарнизона
-            self.cursor.execute(
-                "SELECT COALESCE(SUM(unit_count), 0) FROM garrisons WHERE city_name = ?",
-                (king_city,)
-            )
-            garrison_size = self.cursor.fetchone()[0]
-            if garrison_size < 100:
-                print("[UNDEAD AI] Слишком мало войск для атаки")
-                return
-
-            # Получаем все вражеские города
-            self.cursor.execute(
-                "SELECT name, coordinates, faction FROM cities WHERE faction != 'Нежить' AND faction != 'Нейтрал'"
-            )
-            target_cities = self.cursor.fetchall()
-            if not target_cities:
-                return
-
-            # Ищем ближайший вражеский город
-            best_dist = float('inf')
-            best_target = None
-            best_faction = None
-
-            for target_name, target_coords_str, target_faction in target_cities:
+                self.cursor.execute("SELECT coordinates FROM cities WHERE name = ?", (king_city,))
+                coords_row = self.cursor.fetchone()
+                if not coords_row:
+                    return
                 try:
-                    tc = ast.literal_eval(target_coords_str)
-                    dist = math.hypot(king_coords[0] - tc[0], king_coords[1] - tc[1])
-                    if dist < best_dist:
-                        best_dist = dist
-                        best_target = target_name
-                        best_faction = target_faction
+                    king_coords = ast.literal_eval(coords_row[0])
                 except Exception:
-                    continue
+                    return
 
-            if best_target:
-                print(f"[UNDEAD AI] {KING_OF_DEAD_NAME} из {king_city} атакует {best_target} ({best_faction}), дистанция: {best_dist:.0f}")
-                self._undead_direct_attack(king_city, best_target, best_faction)
+                # Проверяем размер гарнизона
+                self.cursor.execute(
+                    "SELECT COALESCE(SUM(unit_count), 0) FROM garrisons WHERE city_name = ?",
+                    (king_city,)
+                )
+                garrison_size = self.cursor.fetchone()[0]
+                if garrison_size < 100:
+                    print("[UNDEAD AI] Слишком мало войск для атаки")
+                    return
+
+                # Получаем все вражеские города, исключая уже атакованные фракции
+                self.cursor.execute(
+                    "SELECT name, coordinates, faction FROM cities WHERE faction != 'Нежить' AND faction != 'Нейтрал'"
+                )
+                target_cities = self.cursor.fetchall()
+                if not target_cities:
+                    return
+
+                # Ищем ближайший город фракции, которую ещё не атаковали
+                best_dist = float('inf')
+                best_target = None
+                best_faction = None
+
+                for target_name, target_coords_str, target_faction in target_cities:
+                    if target_faction in attacked_factions:
+                        continue  # Пропускаем — эту фракцию уже атаковали
+                    try:
+                        tc = ast.literal_eval(target_coords_str)
+                        dist = math.hypot(king_coords[0] - tc[0], king_coords[1] - tc[1])
+                        if dist < best_dist:
+                            best_dist = dist
+                            best_target = target_name
+                            best_faction = target_faction
+                    except Exception:
+                        continue
+
+                if best_target:
+                    attacked_factions.add(best_faction)
+                    print(f"[UNDEAD AI] Атака {attack_num+1}/{max_attacks}: {king_city} -> {best_target} ({best_faction}), дист: {best_dist:.0f}")
+                    self._undead_direct_attack(king_city, best_target, best_faction)
+                else:
+                    break  # Нет новых фракций для атаки
 
         except Exception as e:
             print(f"[UNDEAD AI] Ошибка в логике атаки нежити: {e}")

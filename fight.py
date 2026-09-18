@@ -60,6 +60,7 @@ FACTION_PEAK_SEASON = {
     'Эльфы': 2,    # Лето
     'Адепты': 3,   # Осень
     'Элины': 2,    # Лето
+    'Нежить': 0,   # Зима — Ужас Смерти усиливается
 }
 
 
@@ -561,6 +562,20 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             stats = u.get('units_stats', {})
             stats['Защита'] = stats.get('Защита', 0) * (1 + adept_bonus)
 
+    # Нежить: Ужас Смерти — -15% атаки у врагов (в Зиму -25%)
+    # Применяется к стороне, которая сражается ПРОТИВ Нежити
+    _undead_fear = 0.0
+    if attacking_fraction == 'Нежить':
+        _undead_fear = 0.25 if _season_mult('Нежить') > 1 else 0.15
+        for u in def_army:
+            stats = u.get('units_stats', {})
+            stats['Урон'] = stats.get('Урон', 0) * (1 - _undead_fear)
+    elif defending_fraction == 'Нежить':
+        _undead_fear = 0.25 if _season_mult('Нежить') > 1 else 0.15
+        for u in atk_army:
+            stats = u.get('units_stats', {})
+            stats['Урон'] = stats.get('Урон', 0) * (1 - _undead_fear)
+
     # === Бонусы от зданий города-защитника ===
     city_wall_bonus = 0.0    # +15% защита за каждую Стену
     city_smithy_bonus = 0.0  # +5% атака за каждую Кузницу (бонус защитнику)
@@ -832,22 +847,45 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
 
     if is_user_involved:
         try:
-            # Показываем анимацию боя
-            def show_report():
-                report_data = generate_battle_report(
-                    atk_army, def_army,
-                    winner=legacy_winner,
-                    attacking_fraction=attacking_fraction,
-                    defending_fraction=defending_fraction,
-                    user_faction=user_faction,
-                    city=defending_city
-                )
-                show_battle_report(report_data, is_user_involved=is_user_involved,
-                                   user_faction=user_faction, conn=conn,
-                                   attacking_fraction=attacking_fraction,
-                                   defending_fraction=defending_fraction)
-            
-            show_battle_animation(battle_rounds, attacking_fraction, defending_fraction, winner, user_faction, attacking_city, defending_city, callback=show_report)
+            from kivy.clock import Clock as _BattleClock
+
+            # Копируем данные для безопасной передачи в главный поток
+            _atk_army_copy = copy.deepcopy(atk_army)
+            _def_army_copy = copy.deepcopy(def_army)
+            _battle_rounds_copy = list(battle_rounds)
+            _legacy_winner = legacy_winner
+            _attacking_fraction = attacking_fraction
+            _defending_fraction = defending_fraction
+            _user_faction = user_faction
+            _defending_city = defending_city
+            _attacking_city = attacking_city
+            _is_user_involved = is_user_involved
+            _conn = conn
+
+            def _show_battle_on_main_thread(dt):
+                try:
+                    def show_report():
+                        report_data = generate_battle_report(
+                            _atk_army_copy, _def_army_copy,
+                            winner=_legacy_winner,
+                            attacking_fraction=_attacking_fraction,
+                            defending_fraction=_defending_fraction,
+                            user_faction=_user_faction,
+                            city=_defending_city
+                        )
+                        show_battle_report(report_data, is_user_involved=_is_user_involved,
+                                           user_faction=_user_faction, conn=_conn,
+                                           attacking_fraction=_attacking_fraction,
+                                           defending_fraction=_defending_fraction)
+
+                    show_battle_animation(_battle_rounds_copy, _attacking_fraction,
+                                          _defending_fraction, winner, _user_faction,
+                                          _attacking_city, _defending_city,
+                                          callback=show_report)
+                except Exception as e:
+                    print(f"[ERROR] battle animation/report (main thread): {e}")
+
+            _BattleClock.schedule_once(_show_battle_on_main_thread, 0)
         except Exception as e:
             print(f"[ERROR] battle animation/report: {e}")
 

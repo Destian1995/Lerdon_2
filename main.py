@@ -1859,46 +1859,32 @@ class KingdomSelectionWidget(MDFloatLayout):
             self.panel_height_ratio = 0.6
             self.panel_y_offset = 0.0
 
-        # ======== ФОН (статический fallback) ========
+        # ======== ФОН (фракционное изображение, стартует с Вампиров) ========
         from kivy.graphics import Rectangle as BgRect
+        from kivy.core.image import Image as CoreImage
+        _start_tex = None
+        try:
+            _start_tex = CoreImage('files/menu/choise/vampire.jpg').texture
+        except Exception:
+            pass
         with self.canvas.before:
-            Color(0.05, 0.06, 0.11, 1)
+            Color(1, 1, 1, 1)
             self._bg_rect = BgRect(pos=self.pos, size=self.size)
+            if _start_tex:
+                self._bg_rect.texture = _start_tex
         self.bind(pos=lambda i, v: setattr(self._bg_rect, 'pos', v),
                   size=lambda i, v: setattr(self._bg_rect, 'size', v))
 
-        # ======== ФОН ВИДЕО (только не-Android) ========
         self.bg_video = None
         self._video_check_event = None
-        if not is_android:
-            try:
-                self.bg_video = Video(
-                    source='files/menu/choice.mp4',
-                    state='play',
-                    volume=0,
-                    options={'eos': 'loop'},
-                    allow_stretch=True,
-                    keep_ratio=False,
-                    size_hint=(1, 1),
-                    pos_hint={'x': 0, 'y': 0}
-                )
-                self.bg_video.bind(on_eos=self.loop_video)
-                self.add_widget(self.bg_video)
-
-                def _check_video(dt):
-                    if self.bg_video and self.bg_video.state != 'play':
-                        self.bg_video.state = 'play'
-                self._video_check_event = Clock.schedule_interval(_check_video, 2.0)
-            except Exception:
-                self.bg_video = None
 
         # ======== ФРАКЦИОННЫЙ ФОН (Image, меняется при выборе фракции) ========
         _FACTION_BG_IMAGES = {
             'Вампиры': 'files/menu/choise/vampire.jpg',
             'Эльфы':   'files/menu/choise/elfs.jpg',
             'Север':   'files/menu/choise/people.jpg',
-            'Адепты':  'files/menu/choise/people.jpg',
-            'Элины':   'files/menu/choise/elfs.jpg',
+            'Адепты':  'files/menu/choise/adepts.jpg',
+            'Элины':   'files/menu/choise/elins.jpg',
         }
         self._faction_bg_images = _FACTION_BG_IMAGES
 
@@ -1956,9 +1942,9 @@ class KingdomSelectionWidget(MDFloatLayout):
             pos_hint={'x': 0.02, 'center_y': panel_y_center}
         )
 
-        # Фон для панели фракций
+        # Фон для панели фракций (полупрозрачный, чтобы фоновое изображение просвечивало)
         with self.faction_panel_container.canvas.before:
-            Color(0.05, 0.06, 0.11, 0.92)
+            Color(0.05, 0.06, 0.11, 0.45)
             self.faction_bg = RoundedRectangle(
                 pos=self.faction_panel_container.pos,
                 size=self.faction_panel_container.size,
@@ -2032,40 +2018,58 @@ class KingdomSelectionWidget(MDFloatLayout):
             pos_hint={'right': 0.98, 'center_y': panel_y_center}
         )
 
-        # Фон для панели настроек
+        # Фон для панели настроек — стеклянный эффект
         with self.settings_panel_container.canvas.before:
-            Color(0.05, 0.06, 0.11, 0.92)
+            Color(0.03, 0.04, 0.09, 0.55)
             self.settings_bg = RoundedRectangle(
                 pos=self.settings_panel_container.pos,
                 size=self.settings_panel_container.size,
-                radius=[dp(20)]
+                radius=[dp(16)]
+            )
+            Color(1, 1, 1, 0.08)
+            self._settings_border = RoundedRectangle(
+                pos=self.settings_panel_container.pos,
+                size=self.settings_panel_container.size,
+                radius=[dp(16)]
             )
 
         def update_settings_bg(instance, value):
             self.settings_bg.pos = instance.pos
             self.settings_bg.size = instance.size
+            self._settings_border.pos = (instance.x - dp(1), instance.y - dp(1))
+            self._settings_border.size = (instance.width + dp(2), instance.height + dp(2))
 
         self.settings_panel_container.bind(pos=update_settings_bg, size=update_settings_bg)
 
         # Рассчитываем высоту для каждого контейнера в настройках
         if is_android:
-            ideology_container_height = dp(88)
-            allies_container_height = dp(92)
-            faction_info_container_height = dp(90)
-            spinner_height = dp(30)
-            bonus_height = dp(26)
-            label_height = dp(20)
-            stat_row_height = dp(16)
+            if is_landscape:
+                ideology_container_height = dp(72)
+                allies_container_height = dp(72)
+                faction_info_container_height = dp(108)
+                spinner_height = dp(24)
+                bonus_height = dp(20)
+                label_height = dp(15)
+                stat_row_height = dp(16)
+                ability_label_height = dp(28)
+            else:
+                ideology_container_height = dp(85)
+                allies_container_height = dp(85)
+                faction_info_container_height = dp(125)
+                spinner_height = dp(28)
+                bonus_height = dp(24)
+                label_height = dp(18)
+                stat_row_height = dp(20)
+                ability_label_height = dp(36)
         else:
             ideology_container_height = dp(110)
             allies_container_height = dp(110)
-            faction_info_container_height = dp(100)
+            faction_info_container_height = dp(160)
             spinner_height = dp(36)
             bonus_height = dp(34)
             label_height = dp(22)
-            stat_row_height = dp(18)
-
-        total_settings_height = ideology_container_height + allies_container_height + faction_info_container_height + dp(40)
+            stat_row_height = dp(26)
+            ability_label_height = dp(44)
 
         # Скроллируемый контейнер для настроек
         from kivy.uix.scrollview import ScrollView as SV
@@ -2078,7 +2082,7 @@ class KingdomSelectionWidget(MDFloatLayout):
         )
         self.settings_content_container = MDBoxLayout(
             orientation='vertical',
-            spacing=dp(10) if is_android else dp(18),
+            spacing=dp(6) if (is_android and is_landscape) else (dp(8) if is_android else dp(14)),
             size_hint_y=None,
         )
         self.settings_content_container.bind(
@@ -2087,240 +2091,215 @@ class KingdomSelectionWidget(MDFloatLayout):
         settings_scroll.add_widget(self.settings_content_container)
         self.settings_panel_container.add_widget(settings_scroll)
 
+        # --- Вспомогательная: секционный заголовок ---
+        def _section_label(text_val):
+            lbl = MDLabel(
+                text=text_val,
+                font_style="Body1",
+                theme_text_color="Custom",
+                text_color=(1.0, 0.85, 0.40, 1),
+                size_hint_y=None,
+                height=label_height,
+                halign='left',
+                bold=True,
+                font_size=self.base_font_size * 0.9
+            )
+            lbl.bind(size=lbl.setter('text_size'))
+            return lbl
+
+        # --- Вспомогательная: подложка-карточка ---
+        def _card_container(inner_widget, h=bonus_height):
+            card = MDFloatLayout(size_hint=(1, None), height=h)
+            with card.canvas.before:
+                Color(0.08, 0.10, 0.18, 0.70)
+                _bg = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(8)])
+            card.bind(
+                pos=lambda inst, v: setattr(_bg, 'pos', v),
+                size=lambda inst, v: setattr(_bg, 'size', v)
+            )
+            inner_widget.size_hint = (0.92, 0.85)
+            inner_widget.pos_hint = {'center_x': 0.5, 'center_y': 0.5}
+            card.add_widget(inner_widget)
+            return card
+
         # ======== ВЫБОР ИДЕОЛОГИИ ========
         ideology_container = MDBoxLayout(
             orientation='vertical',
-            spacing=dp(6) if is_android else dp(10),
+            spacing=dp(6) if is_android else dp(8),
             size_hint=(1, None),
             height=ideology_container_height,
         )
+        ideology_container.add_widget(_section_label("Идеология"))
 
-        # Заголовок идеологии
-        ideology_label = MDLabel(
-            text="Идеология:",
-            font_style="Body1",
-            theme_text_color="Custom",
-            text_color=(0.75, 0.55, 0.15, 1),
-            size_hint_y=None,
-            height=label_height,
-            halign='left',
-            bold=True,
-            font_size=self.base_font_size * 0.85
-        )
-        ideology_label.bind(size=ideology_label.setter('text_size'))
-        ideology_container.add_widget(ideology_label)
-
-        # Выпадающий список идеологии
         self.ideology_spinner = ModernSpinner(
             text='Случайная',
             values=('Случайная', 'Смирение', 'Борьба'),
             size_hint=(1, None),
             height=spinner_height,
-            background_color=(0.2, 0.3, 0.4, 1),
+            background_color=(0.12, 0.18, 0.28, 0.85),
             color=(1, 1, 1, 1),
             font_size=self.base_font_size * 0.9
         )
         self.ideology_spinner.bind(text=self.on_ideology_selected)
         ideology_container.add_widget(self.ideology_spinner)
 
-        # КОНТЕЙНЕР ДЛЯ БОНУСОВ ИДЕОЛОГИИ
-        self.ideology_bonus_container = MDFloatLayout(
-            size_hint=(1, None),
-            height=bonus_height,
-        )
-
-        # Фон для бонуса
-        with self.ideology_bonus_container.canvas.before:
-            Color(0.10, 0.14, 0.22, 0.90)
-            self.ideology_bonus_bg = RoundedRectangle(
-                pos=self.ideology_bonus_container.pos,
-                size=self.ideology_bonus_container.size,
-                radius=[4]  # УМЕНЬШИЛ радиус
-            )
-
-        def update_ideology_bonus_bg(instance, value):
-            self.ideology_bonus_bg.pos = instance.pos
-            self.ideology_bonus_bg.size = instance.size
-
-        self.ideology_bonus_container.bind(pos=update_ideology_bonus_bg, size=update_ideology_bonus_bg)
-
-        # Иконка и текст бонуса
+        # Бонус идеологии
         ideology_bonus_layout = MDBoxLayout(
             orientation='horizontal',
-            spacing=dp(6),  # УМЕНЬШИЛ spacing
-            size_hint=(0.95, 0.85),
-            pos_hint={'center_x': 0.5, 'center_y': 0.5}
+            spacing=dp(6),
         )
-
-        # Создаем Image-виджет для иконки бонуса
         self.ideology_bonus_icon = Image(
             source='files/pict/menu/bonus_icon.png',
             size_hint=(None, None),
-            size=(dp(18) if is_android else dp(22), dp(18) if is_android else dp(22)),  # УМЕНЬШИЛ размер
-            allow_stretch=True,
-            keep_ratio=True
+            size=(dp(18) if is_android else dp(22), dp(18) if is_android else dp(22)),
+            allow_stretch=True, keep_ratio=True
         )
-
         self.ideology_bonus_label = MDLabel(
             text="Бонус не выбран",
             font_style="Caption",
             theme_text_color="Custom",
-            text_color=(0.8, 0.9, 1.0, 1),
-            halign='left',
-            valign='middle',
+            text_color=(0.75, 0.85, 1.0, 1),
+            halign='left', valign='middle',
             font_size=self.base_font_size * 0.8
         )
         self.ideology_bonus_label.bind(size=self.ideology_bonus_label.setter('text_size'))
-
         ideology_bonus_layout.add_widget(self.ideology_bonus_icon)
         ideology_bonus_layout.add_widget(self.ideology_bonus_label)
-        self.ideology_bonus_container.add_widget(ideology_bonus_layout)
+        self.ideology_bonus_container = _card_container(ideology_bonus_layout, bonus_height)
         ideology_container.add_widget(self.ideology_bonus_container)
         self.settings_content_container.add_widget(ideology_container)
 
         # ======== ВЫБОР КОЛИЧЕСТВА СОЮЗНИКОВ ========
         allies_container = MDBoxLayout(
             orientation='vertical',
-            spacing=dp(6) if is_android else dp(10),
+            spacing=dp(6) if is_android else dp(8),
             size_hint=(1, None),
             height=allies_container_height,
         )
+        allies_container.add_widget(_section_label("Единомышленники"))
 
-        # Заголовок союзников
-        allies_label = MDLabel(
-            text="Единомышленники:",
-            font_style="Body1",
-            theme_text_color="Custom",
-            text_color=(0.75, 0.55, 0.15, 1),
-            size_hint_y=None,
-            height=label_height,
-            halign='left',
-            bold=True,
-            font_size=self.base_font_size * 0.85
-        )
-        allies_label.bind(size=allies_label.setter('text_size'))
-        allies_container.add_widget(allies_label)
-
-        # Выпадающий список союзников
         self.allies_spinner = ModernSpinner(
             text='Случайное количество',
             values=('Случайное количество', '1', '2'),
             size_hint=(1, None),
             height=spinner_height,
-            background_color=(0.2, 0.3, 0.4, 1),
+            background_color=(0.12, 0.18, 0.28, 0.85),
             color=(1, 1, 1, 1),
             font_size=self.base_font_size * 0.9
         )
         self.allies_spinner.bind(text=self.on_allies_selected)
         allies_container.add_widget(self.allies_spinner)
 
-        # КОНТЕЙНЕР ДЛЯ ИНФОРМАЦИИ О СОЮЗНИКАХ
-        self.allies_info_container = MDFloatLayout(
-            size_hint=(1, None),
-            height=bonus_height,
-        )
-
-        # Фон для информации о союзниках
-        with self.allies_info_container.canvas.before:
-            Color(0.10, 0.14, 0.22, 0.90)
-            self.allies_info_bg = RoundedRectangle(
-                pos=self.allies_info_container.pos,
-                size=self.allies_info_container.size,
-                radius=[4]  # УМЕНЬШИЛ радиус
-            )
-
-        def update_allies_info_bg(instance, value):
-            self.allies_info_bg.pos = instance.pos
-            self.allies_info_bg.size = instance.size
-
-        self.allies_info_container.bind(pos=update_allies_info_bg, size=update_allies_info_bg)
-
-        # Иконки и текст союзников
         allies_info_layout = MDBoxLayout(
-            orientation='horizontal',
-            spacing=dp(8),  # УМЕНЬШИЛ spacing
-            size_hint=(0.95, 0.85),
-            pos_hint={'center_x': 0.5, 'center_y': 0.5}
+            orientation='horizontal', spacing=dp(8),
         )
-
         self.allies_count_label = MDLabel(
             text="Случайно 1 или 2 союзника",
             font_style="Caption",
             theme_text_color="Custom",
-            text_color=(0.8, 0.9, 1.0, 1),
-            halign='left',
-            valign='middle',
+            text_color=(0.75, 0.85, 1.0, 1),
+            halign='left', valign='middle',
             font_size=self.base_font_size * 0.8
         )
         self.allies_count_label.bind(size=self.allies_count_label.setter('text_size'))
-
         allies_info_layout.add_widget(self.allies_count_label)
-        self.allies_info_container.add_widget(allies_info_layout)
+        self.allies_info_container = _card_container(allies_info_layout, bonus_height)
         allies_container.add_widget(self.allies_info_container)
         self.settings_content_container.add_widget(allies_container)
 
-        # ======== ИНФОРМАЦИЯ О ФРАКЦИИ ========
+        # ======== ХАРАКТЕРИСТИКИ ФРАКЦИИ (полосы-бары) ========
         self.faction_info_container = MDBoxLayout(
             orientation='vertical',
-            spacing=dp(2) if is_android else dp(4),  # УМЕНЬШИЛ spacing
+            spacing=dp(4) if is_android else dp(6),
             size_hint=(1, None),
             height=faction_info_container_height,
         )
+        self.faction_info_container.add_widget(_section_label("Характеристики"))
 
+        _STAT_BAR_COLORS = {
+            "Экономика":  (0.95, 0.78, 0.15),
+            "Кристаллы":  (0.40, 0.75, 1.0),
+            "Армия":      (0.85, 0.25, 0.22),
+        }
         self.stats_labels = {}
-        stats_names = ["Доход Крон:", "Доход Кристаллов:", "Армия:"]
+        self._stat_bars = {}
 
-        for stat_name in stats_names:
+        from kivy.uix.widget import Widget as _BarWidget
+        for stat_name in ["Экономика", "Кристаллы", "Армия"]:
             stat_row = MDBoxLayout(
                 orientation='horizontal',
                 size_hint_y=None,
                 height=stat_row_height,
-                spacing=dp(2)  # УМЕНЬШИЛ spacing
+                spacing=dp(8),
             )
-
             label = MDLabel(
                 text=stat_name,
                 font_style="Caption",
                 theme_text_color="Custom",
-                text_color=(0.9, 0.9, 0.9, 1),
-                size_hint_x=0.6,
-                halign='left',
-                font_size=self.base_font_size * 0.8
+                text_color=(0.88, 0.90, 0.95, 1),
+                size_hint_x=0.35,
+                halign='left', valign='middle',
+                font_size=self.base_font_size * 0.8,
+                bold=True,
             )
             label.bind(size=label.setter('text_size'))
 
-            icons_box = MDBoxLayout(
-                orientation='horizontal',
-                size_hint_x=0.4,
-                spacing=dp(1)  # УМЕНЬШИЛ spacing
+            bar_bg = MDFloatLayout(size_hint_x=0.65, size_hint_y=1)
+            bar_fill = _BarWidget(size_hint=(None, None))
+            bar_color = _STAT_BAR_COLORS.get(stat_name, (0.5, 0.5, 0.5))
+
+            with bar_bg.canvas.before:
+                Color(0.12, 0.14, 0.22, 0.80)
+                _bar_bg_rect = RoundedRectangle(pos=bar_bg.pos, size=bar_bg.size, radius=[dp(6)])
+            bar_bg.bind(
+                pos=lambda inst, v, r=_bar_bg_rect: setattr(r, 'pos', v),
+                size=lambda inst, v, r=_bar_bg_rect: setattr(r, 'size', v)
             )
 
-            # Заполняем серыми иконками по умолчанию
-            icon_size = dp(10) if is_android else dp(12)  # УМЕНЬШИЛ размер иконок
-            for i in range(3):
-                img = Image(
-                    source='files/pict/menu/grey.png',
-                    size_hint=(None, None),
-                    size=(icon_size, icon_size)
-                )
-                icons_box.add_widget(img)
+            with bar_fill.canvas:
+                Color(*bar_color, 0.90)
+                _bar_fill_rect = RoundedRectangle(pos=bar_fill.pos, size=bar_fill.size, radius=[dp(6)])
+                Color(1, 1, 1, 0.15)
+                _bar_shine = RoundedRectangle(pos=bar_fill.pos, size=bar_fill.size, radius=[dp(6)])
+
+            ratio_holder = [0.0]
+
+            def _make_bar_updater(bg_w, fill_w, fill_rect, shine_rect, rh):
+                def _update(*args):
+                    r = rh[0]
+                    fill_w.pos = bg_w.pos
+                    fill_w.size = (bg_w.width * r, bg_w.height)
+                    fill_rect.pos = fill_w.pos
+                    fill_rect.size = fill_w.size
+                    shine_rect.pos = (fill_w.x, fill_w.y + fill_w.height * 0.55)
+                    shine_rect.size = (fill_w.width, fill_w.height * 0.40)
+                return _update
+
+            updater = _make_bar_updater(bar_bg, bar_fill, _bar_fill_rect, _bar_shine, ratio_holder)
+            bar_bg.bind(pos=updater, size=updater)
+            bar_bg.add_widget(bar_fill)
 
             stat_row.add_widget(label)
-            stat_row.add_widget(icons_box)
+            stat_row.add_widget(bar_bg)
             self.faction_info_container.add_widget(stat_row)
-            self.stats_labels[stat_name] = icons_box
+            self.stats_labels[stat_name] = bar_bg
+            self._stat_bars[stat_name] = {
+                'ratio': ratio_holder,
+                'updater': updater,
+                'bar_bg': bar_bg,
+            }
 
         # Описание уникальной способности фракции
         self.faction_ability_label = MDLabel(
             text="",
             font_style="Caption",
             theme_text_color="Custom",
-            text_color=(0.85, 0.75, 0.4, 1),
+            text_color=(1.0, 0.85, 0.40, 0.95),
             size_hint_y=None,
-            height=dp(36),
+            height=ability_label_height,
             halign='left',
-            valign='middle',
-            font_size=self.base_font_size * 0.6,
+            valign='top',
+            font_size=self.base_font_size * (0.6 if is_android else 0.7),
             markup=True,
         )
         self.faction_ability_label.bind(size=self.faction_ability_label.setter('text_size'))
@@ -2465,6 +2444,13 @@ class KingdomSelectionWidget(MDFloatLayout):
         self.buttons_locked = True
         Clock.schedule_once(lambda dt: setattr(self, 'buttons_locked', False), 1.5)
 
+        # Авто-выбор первой фракции (Вампиры) при загрузке
+        def _auto_select_first(dt):
+            first_btn = self.kingdom_button_widgets.get('Вампиры')
+            if first_btn:
+                self.select_kingdom(first_btn)
+        Clock.schedule_once(_auto_select_first, 1.6)
+
     def loop_video(self, instance):
         if not instance:
             return
@@ -2551,39 +2537,26 @@ class KingdomSelectionWidget(MDFloatLayout):
     }
 
     def update_faction_stats(self, kingdom):
-        """Обновляет статистику и способность выбранной фракции"""
+        """Обновляет полосы-бары характеристик и способность выбранной фракции."""
+        # Шкала от 0.0 до 1.0 (5 уровней: 0.2, 0.4, 0.6, 0.8, 1.0)
+        # Баланс по economic.py: tax_rate, money_loss, food_loss, buildings_info,
+        # фракционные бонусы (Элины: кристаллы; Адепты: защита; и т.д.)
         stats = {
-            "Север": {"Доход Крон:": 3, "Доход Кристаллов:": 1, "Армия:": 2},
-            "Эльфы": {"Доход Крон:": 2, "Доход Кристаллов:": 2, "Армия:": 2},
-            "Вампиры": {"Доход Крон:": 2, "Доход Кристаллов:": 2, "Армия:": 3},
-            "Элины": {"Доход Крон:": 1, "Доход Кристаллов:": 3, "Армия:": 1},
-            "Адепты": {"Доход Крон:": 1, "Доход Кристаллов:": 2, "Армия:": 3}
+            "Север":   {"Экономика": 0.8, "Кристаллы": 0.3, "Армия": 0.6},
+            "Эльфы":   {"Экономика": 0.55, "Кристаллы": 0.55, "Армия": 0.5},
+            "Вампиры": {"Экономика": 0.45, "Кристаллы": 0.5, "Армия": 0.8},
+            "Элины":   {"Экономика": 0.3, "Кристаллы": 0.9, "Армия": 0.3},
+            "Адепты":  {"Экономика": 0.35, "Кристаллы": 0.5, "Армия": 0.8},
         }
         data = stats.get(kingdom)
         if not data:
             return
-        # Обновляем иконки для каждой характеристики
-        for stat_name, icons_box in self.stats_labels.items():
-            value = data.get(stat_name, 0)
-            # Очищаем старые иконки
-            icons_box.clear_widgets()
-            # Добавляем новые иконки
-            for i in range(3):
-                if i < value:
-                    img = Image(
-                        source='files/pict/menu/full.png',
-                        size_hint=(None, None),
-                        size=(dp(16), dp(16))
-                    )
-                else:
-                    img = Image(
-                        source='files/pict/menu/grey.png',
-                        size_hint=(None, None),
-                        size=(dp(16), dp(16))
-                    )
-                icons_box.add_widget(img)
 
-        # Обновляем описание уникальной способности
+        for stat_name, bar_info in self._stat_bars.items():
+            target = data.get(stat_name, 0.0)
+            bar_info['ratio'][0] = target
+            bar_info['updater']()
+
         ability_text = self.FACTION_ABILITIES.get(kingdom, '')
         if hasattr(self, 'faction_ability_label'):
             self.faction_ability_label.text = ability_text
