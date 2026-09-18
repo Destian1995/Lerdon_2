@@ -888,15 +888,15 @@ def open_artifacts_popup(faction, season_manager):
     cost_filter_layout.add_widget(cost_spinner)
     filters_container.add_widget(cost_filter_layout)
 
-    # --- Характеристики героя (без рамки, просто текст в правой панели) ---
+    # --- Характеристики героя (столбик вверху-слева правой панели) ---
     _hero_stats_lbl = Label(
         text="[color=aaaaaa]Герой не нанят[/color]",
-        halign='center', valign='middle',
+        halign='left', valign='top',
         font_size=font_size_small if is_android else '12sp',
         color=COLOR_TEXT, markup=True,
         size_hint=(None, None),
-        height=dp(24) if is_android else dp(28),
-        width=dp(200),
+        height=dp(60) if is_android else dp(72),
+        width=dp(140) if is_android else dp(160),
     )
     _hero_stats_lbl.bind(size=_hero_stats_lbl.setter('text_size'))
     hero_stats_container = _hero_stats_lbl
@@ -1065,12 +1065,10 @@ def open_artifacts_popup(faction, season_manager):
             '4': (center_x + half_hero_w + offset, center_y + half_hero_h + offset),
         }
 
-        # Позиционируем характеристики героя внизу правой панели
-        stats_w = panel_width * 0.85
-        hero_stats_container.width = stats_w
+        # Позиционируем характеристики героя вверху-слева правой панели
         hero_stats_container.pos = (
-            panel_x + (panel_width - stats_w) / 2,
-            panel_y + dp(6)
+            panel_x + dp(8),
+            panel_y + panel_height - hero_stats_container.height - dp(8)
         )
 
         for slot_type, pos in slot_positions.items():
@@ -1157,8 +1155,8 @@ def open_artifacts_popup(faction, season_manager):
                 dfn = hero_stats_data.get('defense', 0)
                 hp = hero_stats_data.get('durability', 0)
                 hero_stats_widget.text = (
-                    f"[color=ff7777][b]Атака:[/b][/color] {atk}    "
-                    f"[color=7799ff][b]Защита:[/b][/color] {dfn}    "
+                    f"[color=ff7777][b]Атака:[/b][/color] {atk}\n"
+                    f"[color=7799ff][b]Защита:[/b][/color] {dfn}\n"
                     f"[color=77ee77][b]Здоровье:[/b][/color] {hp}"
                 )
             except Exception as e:
