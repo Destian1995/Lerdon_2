@@ -650,7 +650,6 @@ def _apply_plague(cursor):
         other_cities = cursor.fetchall()
 
         plague_radius = 200
-        plague_rate = 0.03  # -3% населения
 
         for city_name, coords_str, city_faction in other_cities:
             try:
@@ -663,26 +662,9 @@ def _apply_plague(cursor):
             if min_dist > plague_radius:
                 continue
 
-            # Уменьшаем население города
+            # Чума: уменьшаем гарнизон на 3% (мор среди солдат)
             cursor.execute(
-                "SELECT population FROM cities WHERE name = ?", (city_name,)
-            )
-            pop_row = cursor.fetchone()
-            if not pop_row or not pop_row[0]:
-                continue
-
-            pop = pop_row[0]
-            loss = max(1, int(pop * plague_rate))
-            new_pop = max(10, pop - loss)  # Минимум 10
-
-            cursor.execute(
-                "UPDATE cities SET population = ? WHERE name = ?",
-                (new_pop, city_name)
-            )
-
-            # Также уменьшаем гарнизон на 1% (мор среди солдат)
-            cursor.execute(
-                "UPDATE garrisons SET unit_count = MAX(1, unit_count - MAX(1, unit_count / 100)) "
+                "UPDATE garrisons SET unit_count = MAX(1, unit_count - MAX(1, unit_count * 3 / 100)) "
                 "WHERE city_name = ?",
                 (city_name,)
             )
