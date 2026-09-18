@@ -3378,7 +3378,7 @@ class MenuWidget(FloatLayout):
 
         # ======== Фоновое изображение ========
         self.bg_image = Image(
-            source='files/menu/vampire.jpg',
+            source='files/menu/choise/vampire.jpg',
             allow_stretch=True,
             keep_ratio=False,
             size_hint=(1, 1),
@@ -3386,10 +3386,10 @@ class MenuWidget(FloatLayout):
         )
         self.add_widget(self.bg_image)
 
-        # ======== Затемнение для читабельности ========
+        # ======== Лёгкое затемнение для читабельности текста ========
         overlay = Widget(size_hint=(1, 1))
         with overlay.canvas:
-            Color(0, 0, 0, 0.35)
+            Color(0, 0, 0, 0.10)
             overlay._rect = Rectangle(pos=overlay.pos, size=overlay.size)
         overlay.bind(
             pos=lambda i, v: setattr(i._rect, 'pos', v),
