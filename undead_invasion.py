@@ -191,7 +191,7 @@ def _create_undead_units(cursor):
     unit_banshee = (
         UNDEAD_FACTION_NAME, BANSHEE_UNIT_NAME,
         BANSHEE_UNIT_COST, 1,
-        'files/army/death/banshee.png',
+        'files/army/death/banshi.png',
         BANSHEE_UNIT_ATTACK, BANSHEE_UNIT_DEFENSE, BANSHEE_UNIT_DURABILITY,
         '1', BANSHEE_UNIT_CONSUMPTION,
         70, 'mage', 100,
@@ -289,7 +289,7 @@ def check_and_trigger_invasion(conn, current_turn, player_faction):
     """
     cursor.execute(_spawn_undead_unit, (chosen_city_name, UNDEAD_UNIT_NAME, ghost_count, 'files/army/death/solder.png'))
     cursor.execute(_spawn_undead_unit, (chosen_city_name, ZOMBIE_UNIT_NAME, zombie_count, 'files/army/death/zombie.png'))
-    cursor.execute(_spawn_undead_unit, (chosen_city_name, BANSHEE_UNIT_NAME, banshee_count, 'files/army/death/banshee.png'))
+    cursor.execute(_spawn_undead_unit, (chosen_city_name, BANSHEE_UNIT_NAME, banshee_count, 'files/army/death/banshi.png'))
     cursor.execute(_spawn_undead_unit, (chosen_city_name, GOLEM_UNIT_NAME, golem_count, 'files/army/death/golem.png'))
 
     cursor.execute("""
@@ -433,7 +433,7 @@ def _respawn_king_if_dead(cursor):
     """, (respawn_city, KING_OF_DEAD_NAME, 'files/army/death/king_.png'))
     cursor.execute(_spawn_sql, (respawn_city, UNDEAD_UNIT_NAME, 6000, 'files/army/death/solder.png'))
     cursor.execute(_spawn_sql, (respawn_city, ZOMBIE_UNIT_NAME, 3000, 'files/army/death/zombie.png'))
-    cursor.execute(_spawn_sql, (respawn_city, BANSHEE_UNIT_NAME, 1500, 'files/army/death/banshee.png'))
+    cursor.execute(_spawn_sql, (respawn_city, BANSHEE_UNIT_NAME, 1500, 'files/army/death/banshi.png'))
     cursor.execute(_spawn_sql, (respawn_city, GOLEM_UNIT_NAME, 100, 'files/army/death/golem.png'))
 
     print(f"[UNDEAD] {KING_OF_DEAD_NAME} возродился в {respawn_city} с 10 600 юнитов!")
@@ -512,7 +512,7 @@ def process_undead_turn(conn, current_turn):
                 """
                 cursor.execute(_wave_sql, (wave_city_name, UNDEAD_UNIT_NAME, int(wave_army * 0.55), 'files/army/death/solder.png'))
                 cursor.execute(_wave_sql, (wave_city_name, ZOMBIE_UNIT_NAME, int(wave_army * 0.25), 'files/army/death/zombie.png'))
-                cursor.execute(_wave_sql, (wave_city_name, BANSHEE_UNIT_NAME, int(wave_army * 0.12), 'files/army/death/banshee.png'))
+                cursor.execute(_wave_sql, (wave_city_name, BANSHEE_UNIT_NAME, int(wave_army * 0.12), 'files/army/death/banshi.png'))
                 cursor.execute(_wave_sql, (wave_city_name, GOLEM_UNIT_NAME, max(50, int(wave_army * 0.005)), 'files/army/death/golem.png'))
                 _respawn_king_if_dead(cursor)
                 conn.commit()
@@ -562,7 +562,7 @@ def process_undead_turn(conn, current_turn):
 
     cursor.execute(_reinforce_sql, (king_city, UNDEAD_UNIT_NAME, ghost_r, 'files/army/death/solder.png'))
     cursor.execute(_reinforce_sql, (king_city, ZOMBIE_UNIT_NAME, zombie_r, 'files/army/death/zombie.png'))
-    cursor.execute(_reinforce_sql, (king_city, BANSHEE_UNIT_NAME, banshee_r, 'files/army/death/banshee.png'))
+    cursor.execute(_reinforce_sql, (king_city, BANSHEE_UNIT_NAME, banshee_r, 'files/army/death/banshi.png'))
     cursor.execute(_reinforce_sql, (king_city, GOLEM_UNIT_NAME, golem_r, 'files/army/death/golem.png'))
 
     print(f"[UNDEAD] Подкрепление в {king_city}: +{total} юнитов {label}")
