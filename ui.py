@@ -2419,8 +2419,9 @@ class FortressInfoPopup(Popup):
                 if destination_owner == current_player_kingdom or self.is_ally(current_player_kingdom,
                                                                                destination_owner):
                     self.move_troops(source_fortress_name, destination_fortress_name, unit_name, taken_count)
-                    cursor.execute("UPDATE turn_check_move SET can_move = ? WHERE faction = ?",
-                                   (False, current_player_kingdom))
+                    cursor.execute(
+                        "UPDATE turn_check_move SET moves_left = MAX(0, moves_left - 1) WHERE faction = ?",
+                        (current_player_kingdom,))
                     self.conn.commit()
                     return True
 
@@ -2435,8 +2436,9 @@ class FortressInfoPopup(Popup):
                             show_popup_message("Невозможно", "Тёмная сила защищает это место. Город невозможно захватить.")
                             return False
                     self.capture_city(destination_fortress_name, current_player_kingdom, self.selected_group)
-                    cursor.execute("UPDATE turn_check_move SET can_move = ? WHERE faction = ?",
-                                   (False, current_player_kingdom))
+                    cursor.execute(
+                        "UPDATE turn_check_move SET moves_left = MAX(0, moves_left - 1) WHERE faction = ?",
+                        (current_player_kingdom,))
                     self.conn.commit()
                     return True
 
