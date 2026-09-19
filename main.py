@@ -1455,17 +1455,17 @@ class MapWidget(Widget):
             sy = cy * self.map_scale + self.map_pos[1]
             plague_cities.append((city_name, losses, sx, sy))
 
-        # Инициализируем частицы для каждого города
+        # Инициализируем частицы для каждого города — густой туман
         for city_name, losses, sx, sy in plague_cities:
-            for _ in range(6):
+            for _ in range(18):
                 self._plague_particles.append({
                     'cx': sx, 'cy': sy,
-                    'x': sx + _rnd.uniform(-30, 30),
-                    'y': sy + _rnd.uniform(-30, 30),
-                    'dx': _rnd.uniform(-0.5, 0.5),
-                    'dy': _rnd.uniform(0.2, 0.8),
-                    'size': _rnd.uniform(8, 20),
-                    'alpha': _rnd.uniform(0.05, 0.15),
+                    'x': sx + _rnd.uniform(-45, 45),
+                    'y': sy + _rnd.uniform(-45, 45),
+                    'dx': _rnd.uniform(-0.4, 0.4),
+                    'dy': _rnd.uniform(-0.3, 0.5),
+                    'size': _rnd.uniform(18, 45),
+                    'alpha': _rnd.uniform(0.08, 0.22),
                     'phase': _rnd.uniform(0, 6.28),
                 })
 
@@ -1503,21 +1503,22 @@ class MapWidget(Widget):
             group = InstructionGroup()
 
             for p in self._plague_particles:
-                p['phase'] += dt * 1.5
-                p['x'] += p['dx'] + math.sin(p['phase']) * 0.3
-                p['y'] += p['dy'] * 0.3
+                p['phase'] += dt * 1.2
+                p['x'] += p['dx'] + math.sin(p['phase']) * 0.5
+                p['y'] += p['dy'] * 0.4 + math.cos(p['phase'] * 0.7) * 0.3
 
-                # Перезапуск частицы если ушла далеко
+                # Частицы дрейфуют в пределах сектора города (радиус ~60)
                 dist = math.hypot(p['x'] - p['cx'], p['y'] - p['cy'])
-                if dist > 40:
-                    p['x'] = p['cx'] + _rnd.uniform(-20, 20)
-                    p['y'] = p['cy'] + _rnd.uniform(-20, 20)
-                    p['alpha'] = _rnd.uniform(0.05, 0.15)
+                if dist > 60:
+                    p['x'] = p['cx'] + _rnd.uniform(-40, 40)
+                    p['y'] = p['cy'] + _rnd.uniform(-40, 40)
+                    p['size'] = _rnd.uniform(18, 45)
+                    p['alpha'] = _rnd.uniform(0.08, 0.22)
 
                 # Пульсация прозрачности
-                alpha = p['alpha'] * (0.7 + 0.3 * math.sin(p['phase'] * 2))
+                alpha = p['alpha'] * (0.6 + 0.4 * math.sin(p['phase'] * 1.5))
                 s = p['size']
-                group.add(Color(0.15, 0.65, 0.1, alpha))
+                group.add(Color(0.12, 0.55, 0.08, alpha))
                 group.add(GlEllipse(pos=(p['x'] - s/2, p['y'] - s/2), size=(s, s)))
 
             self._plague_group = group
