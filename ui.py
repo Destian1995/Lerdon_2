@@ -2252,6 +2252,13 @@ class FortressInfoPopup(Popup):
             current_player_kingdom = self.player_fraction
             cursor = self.conn.cursor()
 
+            # Миграция: добавляем moves_left если нет
+            try:
+                cursor.execute("ALTER TABLE turn_check_move ADD COLUMN moves_left INTEGER DEFAULT 1")
+                self.conn.commit()
+            except Exception:
+                pass
+
             # Проверка возможности перемещения в рамках хода
             cursor.execute(
                 "SELECT can_move FROM turn_check_move WHERE faction = ?",
