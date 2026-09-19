@@ -2356,12 +2356,7 @@ class FortressInfoPopup(Popup):
                     if is_war_destination:
                         break
 
-            # Фиксируем факт использования перемещения (уменьшаем moves_left)
-            cursor.execute(
-                "UPDATE turn_check_move SET moves_left = MAX(0, moves_left - 1) WHERE faction = ?",
-                (current_player_kingdom,)
-            )
-            self.conn.commit()
+            # moves_left уменьшается внутри transfer_troops_between_cities
 
             # Закрываем попап и обновляем интерфейс
             if hasattr(self, 'current_popup') and self.current_popup:
