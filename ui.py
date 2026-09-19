@@ -2356,7 +2356,12 @@ class FortressInfoPopup(Popup):
                     if is_war_destination:
                         break
 
-            # moves_left уменьшается внутри transfer_troops_between_cities
+            # Фиксируем одно использование перемещения (один раз за всю группу)
+            cursor.execute(
+                "UPDATE turn_check_move SET moves_left = MAX(0, moves_left - 1) WHERE faction = ?",
+                (current_player_kingdom,)
+            )
+            self.conn.commit()
 
             # Закрываем попап и обновляем интерфейс
             if hasattr(self, 'current_popup') and self.current_popup:
@@ -2416,10 +2421,6 @@ class FortressInfoPopup(Popup):
                 if destination_owner == current_player_kingdom or self.is_ally(current_player_kingdom,
                                                                                destination_owner):
                     self.move_troops(source_fortress_name, destination_fortress_name, unit_name, taken_count)
-                    cursor.execute(
-                        "UPDATE turn_check_move SET moves_left = MAX(0, moves_left - 1) WHERE faction = ?",
-                        (current_player_kingdom,))
-                    self.conn.commit()
                     return True
 
                 # Нейтральный город — захват без боя (кроме скрытых городов нежити до инвазии)
@@ -2433,34 +2434,13 @@ class FortressInfoPopup(Popup):
                             show_popup_message("Невозможно", "Тёмная сила защищает это место. Город невозможно захватить.")
                             return False
                     self.capture_city(destination_fortress_name, current_player_kingdom, self.selected_group)
-                    cursor.execute(
-                        "UPDATE turn_check_move SET moves_left = MAX(0, moves_left - 1) WHERE faction = ?",
-                        (current_player_kingdom,))
-                    self.conn.commit()
                     return True
 
                 # Вражеский город — начинаем атаку
                 relationship = self.get_relationship(current_player_kingdom, destination_owner)
 
                 if relationship == "война":
-                    # Проверяем moves_left (атака тоже тратит перемещение)
-                    cursor.execute(
-                        "SELECT moves_left FROM turn_check_move WHERE faction = ?",
-                        (current_player_kingdom,)
-                    )
-                    _atk_ml = cursor.fetchone()
-                    _atk_moves = _atk_ml[0] if _atk_ml and _atk_ml[0] is not None else 0
-                    if _atk_moves <= 0:
-                        show_popup_message("Ошибка",
-                                           "Вы уже использовали все перемещения/атаки на этом ходу.")
-                        return False
-
-                    # Фиксируем использование атаки (уменьшаем moves_left)
-                    cursor.execute(
-                        "UPDATE turn_check_move SET moves_left = MAX(0, moves_left - 1) WHERE faction = ?",
-                        (current_player_kingdom,)
-                    )
-                    self.conn.commit()
+                    # moves_left проверяется и уменьшается в move_selected_group_to_city
 
                     # Запускаем бой
                     battle_units = attacking_units if attacking_units is not None else self.selected_group
