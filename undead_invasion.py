@@ -303,9 +303,9 @@ def check_and_trigger_invasion(conn, current_turn, player_faction):
     invasion_message = (
         f"ПРИХОД МОРА!\n\n"
         f"Из древнего некрополя восстала армия мёртвых!\n"
-        f"{KING_OF_DEAD_NAME} ведёт 250 000 призраков.\n\n"
+        f"{KING_OF_DEAD_NAME} ведёт за собой огромную армию нежити.\n\n"
         f"Город {chosen_city_name} захвачен нежитью.\n"
-        f"Мор распространяется — армия мёртвых будет расти!"
+        f"Чума распространяется — армия мёртвых будет только расти!"
     )
 
     return True, invasion_message
