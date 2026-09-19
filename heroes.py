@@ -1,6 +1,8 @@
 import os
 from kivy.graphics import PopMatrix, PushMatrix
 from kivy.uix.checkbox import CheckBox
+from kivy.uix.spinner import SpinnerOption
+from kivy.metrics import dp
 
 from db_lerdon_connect import *
 from seasons import SeasonManager
@@ -338,10 +340,40 @@ def style_rounded_button(button, bg_color=(0.2, 0.6, 0.8, 1), radius=dp(10), has
 
     button.bind(pos=update_button_graphics, size=update_button_graphics)
 
+class _ArtifactSpinnerOption(SpinnerOption):
+    """Стилизованный элемент выпадающего списка для лавки артефактов."""
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.background_normal = ''
+        self.background_down = ''
+        self.background_color = (0.12, 0.15, 0.28, 0.95)
+        self.color = (0.9, 0.92, 1.0, 1)
+        self.font_size = dp(13)
+        self.halign = 'center'
+
+        with self.canvas.before:
+            from kivy.graphics import Color, RoundedRectangle
+            Color(0.18, 0.22, 0.35, 0.3)
+            self._sep = RoundedRectangle(pos=self.pos, size=(self.width, dp(1)), radius=[0])
+
+        self.bind(pos=self._upd, size=self._upd)
+
+    def _upd(self, *args):
+        self._sep.pos = (self.x, self.y)
+        self._sep.size = (self.width, dp(1))
+
+    def on_press(self, *args):
+        self.background_color = (0.22, 0.28, 0.50, 1)
+
+    def on_release(self, *args):
+        self.background_color = (0.12, 0.15, 0.28, 0.95)
+
+
 def style_rounded_spinner(spinner, bg_color=(0.4, 0.4, 0.4, 1), text_color=(1, 1, 1, 1), radius=dp(8)):
-    """Применяет стиль скругленного спиннера."""
+    """Применяет стиль скругленного спиннера с кастомным dropdown."""
+    spinner.option_cls = _ArtifactSpinnerOption
     spinner.background_normal = ''
-    spinner.background_color = (0, 0, 0, 0) # Прозрачный фон
+    spinner.background_color = (0, 0, 0, 0)
     spinner.color = text_color
     spinner.canvas.before.clear()
     with spinner.canvas.before:
@@ -361,6 +393,22 @@ def style_rounded_spinner(spinner, bg_color=(0.4, 0.4, 0.4, 1), text_color=(1, 1
                 spinner.rect = RoundedRectangle(pos=spinner.pos, size=spinner.size, radius=[radius])
 
     spinner.bind(pos=update_spinner_graphics, size=update_spinner_graphics)
+
+    # Стилизация dropdown фона
+    def _style_dropdown(spinner_inst, is_open):
+        if is_open and hasattr(spinner_inst, '_dropdown'):
+            dd = spinner_inst._dropdown
+            dd.canvas.before.clear()
+            with dd.canvas.before:
+                from kivy.graphics import Color, RoundedRectangle
+                Color(0.08, 0.10, 0.20, 0.95)
+                dd._bg = RoundedRectangle(pos=dd.pos, size=dd.size, radius=[dp(8)])
+            dd.bind(
+                pos=lambda i, v: setattr(i._bg, 'pos', v) if hasattr(i, '_bg') else None,
+                size=lambda i, v: setattr(i._bg, 'size', v) if hasattr(i, '_bg') else None
+            )
+
+    spinner.bind(on_is_open=_style_dropdown)
 
 # --- Основная функция сборки и построения интерфейса артефактов---
 
