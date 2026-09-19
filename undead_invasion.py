@@ -229,10 +229,7 @@ def _create_undead_units(cursor):
         except sqlite3.Error:
             pass
 
-    if existing == 0:
-        print(f"[UNDEAD] Созданы юниты нежити: Призрак, Зомби, Банши, Костяной Голем, Царь Мёртвых")
-    else:
-        print(f"[UNDEAD] Статы юнитов нежити обновлены")
+    print(f"[UNDEAD] Юниты нежити обновлены: Призрак, Зомби, Банши, Костяной Голем, Царь Мёртвых")
 
 
 def check_and_trigger_invasion(conn, current_turn, player_faction):
