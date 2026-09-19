@@ -2380,6 +2380,7 @@ class AIController:
                 FROM garrisons g
                 JOIN units u ON g.unit_name = u.unit_name
                 WHERE g.city_name = ?
+                GROUP BY g.unit_name
             """
             self.cursor.execute(query, (city_name,))
             defending_units = self.cursor.fetchall()

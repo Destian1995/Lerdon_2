@@ -1147,87 +1147,73 @@ def show_battle_report(report_data, is_user_involved=False, user_faction=None, c
         left_units = defending_units
         right_units = attacking_units
 
-    row_h = dp(36) if not is_small else dp(32)
-    header_h = dp(40) if not is_small else dp(34)
-    table_total_h = header_h + row_h * max_rows
+    row_h = dp(30) if not is_small else dp(26)
+    header_h = dp(34) if not is_small else dp(28)
+    _fs = 14 if not is_small else 12  # шрифт для строк
+    _fs_h = 15 if not is_small else 13  # шрифт для заголовков
 
-    table_container = BoxLayout(orientation='vertical', size_hint_y=None, height=table_total_h)
+    # Вспомогательная: формат статуса юнита
+    def _unit_status(u):
+        init, fin = u.get('initial_count', 0), u.get('final_count', 0)
+        losses = u.get('losses', 0)
+        if init == 1 and fin == 1:
+            return "[color=#4CAF50]Выжил![/color]"
+        elif init == 1 and fin == 0:
+            return "[color=#FF5733]Погиб...[/color]"
+        else:
+            return f"[color=#FF5733]{losses}[/color] | [color={'#4CAF50' if fin > 0 else '#FF5733'}]{fin}[/color]"
 
+    # Таблица в ScrollView
+    from kivy.uix.scrollview import ScrollView as _SV
+    table_inner = BoxLayout(orientation='vertical', size_hint_y=None)
+    table_inner.bind(minimum_height=table_inner.setter('height'))
+
+    # Заголовки колонок
     headers_row = BoxLayout(orientation='horizontal', size_hint_y=None, height=header_h)
-    headers_row.add_widget(Label(size_hint_x=0.05))
-    headers_row.add_widget(make_label("Юнит", font_sp=18 if not is_small else 16, markup=True,
-                                      halign='left', height_dp=header_h, size_hint_x=0.2, bold=True))
-    headers_row.add_widget(make_label("Потери | Осталось", font_sp=18 if not is_small else 16, markup=True,
-                                      halign='left', height_dp=header_h, size_hint_x=0.25, bold=True))
-    headers_row.add_widget(Label(size_hint_x=0.1))
-    headers_row.add_widget(make_label("Юнит", font_sp=18 if not is_small else 16, markup=True,
-                                      halign='left', height_dp=header_h, size_hint_x=0.2, bold=True))
-    headers_row.add_widget(make_label("Потери | Осталось", font_sp=18 if not is_small else 16, markup=True,
-                                      halign='left', height_dp=header_h, size_hint_x=0.25, bold=True))
-    headers_row.add_widget(Label(size_hint_x=0.05))
-    table_container.add_widget(headers_row)
+    headers_row.add_widget(make_label("Юнит", font_sp=_fs_h, markup=True,
+                                      halign='left', height_dp=header_h, size_hint_x=0.22, bold=True))
+    headers_row.add_widget(make_label("Потери | Ост.", font_sp=_fs_h, markup=True,
+                                      halign='left', height_dp=header_h, size_hint_x=0.28, bold=True))
+    headers_row.add_widget(Label(size_hint_x=0.02))
+    headers_row.add_widget(make_label("Юнит", font_sp=_fs_h, markup=True,
+                                      halign='left', height_dp=header_h, size_hint_x=0.22, bold=True))
+    headers_row.add_widget(make_label("Потери | Ост.", font_sp=_fs_h, markup=True,
+                                      halign='left', height_dp=header_h, size_hint_x=0.28, bold=True))
+    table_inner.add_widget(headers_row)
 
     for i in range(max_rows):
         row = BoxLayout(orientation='horizontal', size_hint_y=None, height=row_h)
-        row.add_widget(Label(size_hint_x=0.05))
 
-        # Левая сторона (ИИ)
+        # Левая сторона
         if i < len(left_units):
             u = left_units[i]
-            name = u.get('unit_name', '—')
-            init, fin = u.get('initial_count', 0), u.get('final_count', 0)
-            losses = u.get('losses', 0)
-
-            if init == 1 and fin == 1:
-                status = "[color=#4CAF50]Выжил![/color]"
-            elif init == 1 and fin == 0:
-                status = "[color=#FF5733]Погиб...[/color]"
-            else:
-                losses_color = "#FF5733"
-                remaining_color = "#4CAF50" if fin > 0 else "#FF5733"
-                status = f"[color={losses_color}]{losses}[/color] | [color={remaining_color}]{fin}[/color]"
-
-            unit_lbl = make_label(f"[b]{name}[/b]", font_sp=16 if not is_small else 14, markup=True,
-                                  halign='left', height_dp=row_h, size_hint_x=0.2, bold=True)
-            status_lbl = make_label(status, font_sp=16 if not is_small else 14, markup=True,
-                                    halign='left', height_dp=row_h, size_hint_x=0.25, bold=True)
+            row.add_widget(make_label(f"[b]{u.get('unit_name', '—')}[/b]", font_sp=_fs, markup=True,
+                                      halign='left', height_dp=row_h, size_hint_x=0.22))
+            row.add_widget(make_label(_unit_status(u), font_sp=_fs, markup=True,
+                                      halign='left', height_dp=row_h, size_hint_x=0.28))
         else:
-            unit_lbl = make_label("", font_sp=16 if not is_small else 14, height_dp=row_h, size_hint_x=0.2)
-            status_lbl = make_label("", font_sp=16 if not is_small else 14, height_dp=row_h, size_hint_x=0.25)
-        row.add_widget(unit_lbl)
-        row.add_widget(status_lbl)
+            row.add_widget(Label(size_hint_x=0.22, size_hint_y=None, height=row_h))
+            row.add_widget(Label(size_hint_x=0.28, size_hint_y=None, height=row_h))
 
-        row.add_widget(Label(size_hint_x=0.1))
+        row.add_widget(Label(size_hint_x=0.02, size_hint_y=None, height=row_h))
 
-        # Правая сторона (Игрок)
+        # Правая сторона
         if i < len(right_units):
             u = right_units[i]
-            name = u.get('unit_name', '—')
-            init, fin = u.get('initial_count', 0), u.get('final_count', 0)
-            losses = u.get('losses', 0)
-
-            if init == 1 and fin == 1:
-                status = "[color=#4CAF50]Выжил![/color]"
-            elif init == 1 and fin == 0:
-                status = "[color=#FF5733]Погиб...[/color]"
-            else:
-                losses_color = "#FF5733"
-                remaining_color = "#4CAF50" if fin > 0 else "#FF5733"
-                status = f"[color={losses_color}]{losses}[/color] | [color={remaining_color}]{fin}[/color]"
-
-            unit_lbl = make_label(f"[b]{name}[/b]", font_sp=16 if not is_small else 14, markup=True,
-                                  halign='left', height_dp=row_h, size_hint_x=0.2, bold=True)
-            status_lbl = make_label(status, font_sp=16 if not is_small else 14, markup=True,
-                                    halign='left', height_dp=row_h, size_hint_x=0.25, bold=True)
+            row.add_widget(make_label(f"[b]{u.get('unit_name', '—')}[/b]", font_sp=_fs, markup=True,
+                                      halign='left', height_dp=row_h, size_hint_x=0.22))
+            row.add_widget(make_label(_unit_status(u), font_sp=_fs, markup=True,
+                                      halign='left', height_dp=row_h, size_hint_x=0.28))
         else:
-            unit_lbl = make_label("", font_sp=16 if not is_small else 14, height_dp=row_h, size_hint_x=0.2)
-            status_lbl = make_label("", font_sp=16 if not is_small else 14, height_dp=row_h, size_hint_x=0.25)
-        row.add_widget(unit_lbl)
-        row.add_widget(status_lbl)
-        row.add_widget(Label(size_hint_x=0.05))
-        table_container.add_widget(row)
+            row.add_widget(Label(size_hint_x=0.22, size_hint_y=None, height=row_h))
+            row.add_widget(Label(size_hint_x=0.28, size_hint_y=None, height=row_h))
 
-    content.add_widget(table_container)
+        table_inner.add_widget(row)
+
+    table_scroll = _SV(do_scroll_x=False, bar_width=dp(4),
+                        bar_color=(0.4, 0.5, 0.8, 0.5))
+    table_scroll.add_widget(table_inner)
+    content.add_widget(table_scroll)
 
     # Кнопка закрытия
     btn_box = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(48))

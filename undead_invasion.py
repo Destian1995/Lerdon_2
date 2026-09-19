@@ -149,17 +149,18 @@ def initialize_undead_invasion(conn):
 
 def _create_undead_units(cursor):
     """Создаёт юнитов нежити в таблицах units и units_default."""
-    cursor.execute("SELECT COUNT(*) FROM units WHERE faction = ?", (UNDEAD_FACTION_NAME,))
-    existing = cursor.fetchone()[0]
+    # Удаляем старые записи чтобы избежать дублей
+    cursor.execute("DELETE FROM units WHERE faction = ?", (UNDEAD_FACTION_NAME,))
+    cursor.execute("DELETE FROM units_default WHERE faction = ?", (UNDEAD_FACTION_NAME,))
 
     insert_sql = """
-        INSERT OR REPLACE INTO units (faction, unit_name, cost_money, cost_time, image_path,
+        INSERT INTO units (faction, unit_name, cost_money, cost_time, image_path,
                           attack, defense, durability, unit_class, consumption,
                           initiative, unit_type, morale, aura_attack, aura_defense, crit_chance)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     insert_default_sql = """
-        INSERT OR REPLACE INTO units_default (faction, unit_name, cost_money, cost_time, image_path,
+        INSERT INTO units_default (faction, unit_name, cost_money, cost_time, image_path,
                                   attack, defense, durability, unit_class, consumption,
                                   initiative, unit_type, morale, aura_attack, aura_defense, crit_chance)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
