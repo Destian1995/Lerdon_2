@@ -3191,19 +3191,23 @@ class GameScreen(Screen):
 
     def initialize_turn_check_move(self):
         """
-        Сбрасывает can_move=True и moves_left для всех фракций.
-        Элины получают 2 перемещения, остальные — 1.
+        Сбрасывает moves_left для всех фракций каждый ход.
+        Элины получают 2 действия, остальные — 1.
         """
         cursor = self.conn.cursor()
         try:
-            # Элины: 2 перемещения за ход
-            cursor.execute(
-                "UPDATE turn_check_move SET can_move = ?, moves_left = CASE WHEN faction = 'Элины' THEN 2 ELSE 1 END",
-                (True,)
-            )
+            try:
+                cursor.execute("ALTER TABLE turn_check_move ADD COLUMN moves_left INTEGER DEFAULT 1")
+            except Exception:
+                pass
+
+            # Все фракции = 1
+            cursor.execute("UPDATE turn_check_move SET moves_left = 1")
+            # Элины = 2 (и как игрок, и как ИИ)
+            cursor.execute("UPDATE turn_check_move SET moves_left = 2 WHERE faction = 'Элины'")
             self.conn.commit()
         except sqlite3.Error as e:
-            print(f"Ошибка при сбросе флагов can_move: {e}")
+            print(f"Ошибка при сбросе moves_left: {e}")
 
     def refresh_player_ideology(self):
         """
