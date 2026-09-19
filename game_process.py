@@ -13,7 +13,7 @@ from results_game import ResultsGame
 from seasons import SeasonManager
 from nobles_generator import generate_initial_nobles
 from nobles_generator import process_nobles_turn
-from ui_components import TutorialHint, DiplomacyMailbox
+from ui_components import TutorialHint, DiplomacyMailbox, show_message
 
 
 from utils.helpers import parse_formatted_number
