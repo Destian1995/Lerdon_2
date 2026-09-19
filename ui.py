@@ -2444,25 +2444,22 @@ class FortressInfoPopup(Popup):
                 relationship = self.get_relationship(current_player_kingdom, destination_owner)
 
                 if relationship == "война":
-                    # проверка, была ли атака уже
+                    # Проверяем moves_left (атака тоже тратит перемещение)
                     cursor.execute(
-                        "SELECT check_attack FROM turn_check_attack_faction WHERE faction = ?",
-                        (destination_owner,)
+                        "SELECT moves_left FROM turn_check_move WHERE faction = ?",
+                        (current_player_kingdom,)
                     )
-                    attack_data = cursor.fetchone()
-                    if attack_data and attack_data[0]:
+                    _atk_ml = cursor.fetchone()
+                    _atk_moves = _atk_ml[0] if _atk_ml and _atk_ml[0] is not None else 0
+                    if _atk_moves <= 0:
                         show_popup_message("Ошибка",
-                                           f"Фракция '{destination_owner}' уже была атакована на этом ходу.")
+                                           "Вы уже использовали все перемещения/атаки на этом ходу.")
                         return False
 
-                    # Обновляем данные об атаке и возможности движения
+                    # Фиксируем использование атаки (уменьшаем moves_left)
                     cursor.execute(
-                        "INSERT OR REPLACE INTO turn_check_attack_faction (faction, check_attack) VALUES (?, ?)",
-                        (destination_owner, True)
-                    )
-                    cursor.execute(
-                        "UPDATE turn_check_move SET can_move = ? WHERE faction = ?",
-                        (False, current_player_kingdom)
+                        "UPDATE turn_check_move SET moves_left = MAX(0, moves_left - 1) WHERE faction = ?",
+                        (current_player_kingdom,)
                     )
                     self.conn.commit()
 
