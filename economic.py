@@ -1710,7 +1710,7 @@ class Faction:
                 pass
 
     def _get_trade_bonus(self):
-        """Возвращает множитель торговли: бонус от Рынков + фракционный."""
+        """Возвращает множитель торговли: бонус от Рынков + фракционный + советники."""
         bonus = 1.0 + self.markets * 0.10  # +10% за каждый Рынок
         if self.faction == 'Элины':
             try:
@@ -1720,6 +1720,13 @@ class Faction:
             except Exception:
                 _is_peak = False
             bonus += 0.25 * 2.75 if _is_peak else 0.25  # Элины: +25% (лето +68.75%)
+        # Бонус от советников (усредняем кроны и кристаллы)
+        try:
+            council_crowns, council_crystals = self._get_council_bonuses()
+            council_trade = (council_crowns + council_crystals) / 2.0
+            bonus += council_trade / 100.0  # Процент → множитель
+        except Exception:
+            pass
         return bonus
 
     def trade_raw_material(self, action, quantity):
