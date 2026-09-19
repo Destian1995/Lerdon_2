@@ -1445,7 +1445,6 @@ class MapWidget(Widget):
 
         import random as _rnd
         from kivy.graphics import InstructionGroup, Ellipse as GlEllipse
-        from kivy.uix.label import Label as _Lbl
         from kivy.animation import Animation as _Anim
 
         # Подготавливаем координаты на экране
@@ -1469,26 +1468,26 @@ class MapWidget(Widget):
                     'phase': _rnd.uniform(0, 6.28),
                 })
 
-            # Всплывающие цифры потерь
+            # Всплывающая иконка черепа при потерях
             if losses > 0:
-                loss_lbl = _Lbl(
-                    text=f"[b]-{losses}[/b]",
-                    markup=True,
-                    font_size=sp(14),
-                    color=(0.2, 0.85, 0.15, 0.9),
+                from kivy.uix.image import Image as _Img
+                skull = _Img(
+                    source='files/army/death/death.png',
                     size_hint=(None, None),
-                    size=(dp(80), dp(24)),
-                    pos=(sx - dp(40), sy + dp(30)),
+                    size=(dp(24), dp(24)),
+                    pos=(sx - dp(12), sy + dp(25)),
+                    opacity=0.9,
+                    allow_stretch=True,
+                    keep_ratio=True,
                 )
-                self.add_widget(loss_lbl)
-                self._plague_labels.append(loss_lbl)
-                # Анимация: всплывает вверх и исчезает
+                self.add_widget(skull)
+                self._plague_labels.append(skull)
                 _Anim(
-                    y=loss_lbl.y + dp(40),
-                    color=(0.2, 0.85, 0.15, 0),
-                    duration=3.0,
+                    y=skull.y + dp(35),
+                    opacity=0,
+                    duration=2.5,
                     t='out_cubic'
-                ).start(loss_lbl)
+                ).start(skull)
 
         # Анимация частиц — зелёный туман
         import math
