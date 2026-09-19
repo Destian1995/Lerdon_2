@@ -68,18 +68,20 @@ class FortressInfoPopup(Popup):
         coords_str = f"[{self.city_coords[0]}, {self.city_coords[1]}]"
         # Получаем информацию о городе из таблицы cities
         self.cursor.execute("""
-            SELECT name FROM cities 
+            SELECT name, faction FROM cities
             WHERE coordinates = ?
         """, (coords_str,))
 
         city_data = self.cursor.fetchone()
         if city_data:
             self.city_name = city_data[0]
+            self.city_faction = city_data[1] if city_data[1] else ''
         else:
             print(f"Город с координатами {self.city_coords} не найден в базе данных")
             return
 
-        self.title = f"Информация о поселении {self.city_name}"
+        faction_label = f" ({self.city_faction})" if self.city_faction and self.city_faction != 'Нейтрал' else ""
+        self.title = f"Информация о поселении {self.city_name}{faction_label}"
         self.create_ui()
 
     def create_ui(self):

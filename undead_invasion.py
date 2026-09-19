@@ -621,12 +621,24 @@ def _buy_artifact_for_king(cursor):
 
 def _apply_plague(cursor):
     """
-    Чума Нежити: города соседние с городами нежити теряют население каждый ход.
-    Радиус заражения — 200 единиц координат. Потери: -3% населения.
+    Чума Нежити: города соседние с городами нежити теряют гарнизон каждый ход.
+    Радиус заражения — 200 единиц координат. Потери: -3% гарнизона.
+    Сохраняет данные о чуме в таблицу plague_effects для визуализации.
     """
     import math
     import ast
     try:
+        # Создаём таблицу для визуальных эффектов чумы (если нет)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS plague_effects (
+                city_name TEXT PRIMARY KEY,
+                losses INTEGER DEFAULT 0,
+                coord_x REAL DEFAULT 0,
+                coord_y REAL DEFAULT 0
+            )
+        """)
+        cursor.execute("DELETE FROM plague_effects")
+
         # Получаем координаты городов нежити
         cursor.execute("SELECT name, coordinates FROM cities WHERE faction = ?", (UNDEAD_FACTION_NAME,))
         undead_cities = cursor.fetchall()
@@ -643,6 +655,17 @@ def _apply_plague(cursor):
         if not undead_coords:
             return
 
+        # Записываем города нежити как источники чумы (losses=0)
+        for city_name, coords_str in undead_cities:
+            try:
+                cc = ast.literal_eval(coords_str)
+                cursor.execute(
+                    "INSERT OR REPLACE INTO plague_effects (city_name, losses, coord_x, coord_y) VALUES (?, 0, ?, ?)",
+                    (city_name, cc[0], cc[1])
+                )
+            except Exception:
+                continue
+
         # Получаем все не-нежить города
         cursor.execute(
             "SELECT name, coordinates, faction FROM cities WHERE faction != ? AND faction != 'Нейтрал'",
@@ -651,6 +674,7 @@ def _apply_plague(cursor):
         other_cities = cursor.fetchall()
 
         plague_radius = 200
+        total_losses = 0
 
         for city_name, coords_str, city_faction in other_cities:
             try:
@@ -658,19 +682,39 @@ def _apply_plague(cursor):
             except Exception:
                 continue
 
-            # Проверяем расстояние до ближайшего города нежити
             min_dist = min(math.hypot(cc[0] - uc[0], cc[1] - uc[1]) for uc in undead_coords)
             if min_dist > plague_radius:
                 continue
 
-            # Чума: уменьшаем гарнизон на 3% (мор среди солдат)
+            # Считаем потери до обновления
+            cursor.execute(
+                "SELECT COALESCE(SUM(unit_count), 0) FROM garrisons WHERE city_name = ?",
+                (city_name,)
+            )
+            before = cursor.fetchone()[0]
+
+            # Чума: уменьшаем гарнизон на 3%
             cursor.execute(
                 "UPDATE garrisons SET unit_count = MAX(1, unit_count - MAX(1, unit_count * 3 / 100)) "
                 "WHERE city_name = ?",
                 (city_name,)
             )
 
-        print(f"[UNDEAD PLAGUE] Чума распространяется от {len(undead_cities)} городов нежити")
+            cursor.execute(
+                "SELECT COALESCE(SUM(unit_count), 0) FROM garrisons WHERE city_name = ?",
+                (city_name,)
+            )
+            after = cursor.fetchone()[0]
+            city_losses = before - after
+
+            if city_losses > 0:
+                cursor.execute(
+                    "INSERT OR REPLACE INTO plague_effects (city_name, losses, coord_x, coord_y) VALUES (?, ?, ?, ?)",
+                    (city_name, city_losses, cc[0], cc[1])
+                )
+                total_losses += city_losses
+
+        print(f"[UNDEAD PLAGUE] Чума: {total_losses} потерь в окрестных городах")
     except Exception as e:
         print(f"[UNDEAD PLAGUE] Ошибка: {e}")
 

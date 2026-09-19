@@ -762,6 +762,10 @@ class MapWidget(Widget):
         self._undead_shield_data = []  # Данные для анимации щитов нежити
         self._undead_shield_group = None
         self._undead_anim_event = None
+        self._plague_group = None       # Визуал чумы на карте
+        self._plague_anim_event = None
+        self._plague_particles = []     # Частицы чумы
+        self._plague_labels = []        # Всплывающие цифры потерь
         self._player_territory_colors = []  # Color инструкции территории игрока
         self._player_pulse_event = None
         self._player_pulse_phase = 0.0
@@ -1243,6 +1247,9 @@ class MapWidget(Widget):
         # --- Запуск анимации щитов нежити ---
         self._start_undead_shield_animation()
 
+        # --- Запуск анимации чумы ---
+        self._start_plague_animation()
+
         # --- Обновляем icon_coordinates в БД ---
         try:
             cursor2 = self.conn.cursor()
@@ -1404,6 +1411,119 @@ class MapWidget(Widget):
 
         # Молнии обновляются 3 раза в секунду
         self._undead_anim_event = Clock.schedule_interval(_update_lightning, 0.3)
+
+    def _start_plague_animation(self):
+        """Анимация чумы: зелёный туман вокруг заражённых городов + всплывающие потери."""
+        # Очистка предыдущей анимации
+        if self._plague_anim_event:
+            self._plague_anim_event.cancel()
+            self._plague_anim_event = None
+        if self._plague_group:
+            try:
+                self.canvas.after.remove(self._plague_group)
+            except Exception:
+                pass
+            self._plague_group = None
+        for lbl in self._plague_labels:
+            try:
+                self.remove_widget(lbl)
+            except Exception:
+                pass
+        self._plague_labels = []
+        self._plague_particles = []
+
+        # Загружаем данные чумы из БД
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT city_name, losses, coord_x, coord_y FROM plague_effects")
+            plague_data = cursor.fetchall()
+        except Exception:
+            plague_data = []
+
+        if not plague_data:
+            return
+
+        import random as _rnd
+        from kivy.graphics import InstructionGroup, Ellipse as GlEllipse
+        from kivy.uix.label import Label as _Lbl
+        from kivy.animation import Animation as _Anim
+
+        # Подготавливаем координаты на экране
+        plague_cities = []
+        for city_name, losses, cx, cy in plague_data:
+            sx = cx * self.map_scale + self.map_pos[0]
+            sy = cy * self.map_scale + self.map_pos[1]
+            plague_cities.append((city_name, losses, sx, sy))
+
+        # Инициализируем частицы для каждого города
+        for city_name, losses, sx, sy in plague_cities:
+            for _ in range(6):
+                self._plague_particles.append({
+                    'cx': sx, 'cy': sy,
+                    'x': sx + _rnd.uniform(-30, 30),
+                    'y': sy + _rnd.uniform(-30, 30),
+                    'dx': _rnd.uniform(-0.5, 0.5),
+                    'dy': _rnd.uniform(0.2, 0.8),
+                    'size': _rnd.uniform(8, 20),
+                    'alpha': _rnd.uniform(0.05, 0.15),
+                    'phase': _rnd.uniform(0, 6.28),
+                })
+
+            # Всплывающие цифры потерь
+            if losses > 0:
+                loss_lbl = _Lbl(
+                    text=f"[b]-{losses}[/b]",
+                    markup=True,
+                    font_size=sp(14),
+                    color=(0.2, 0.85, 0.15, 0.9),
+                    size_hint=(None, None),
+                    size=(dp(80), dp(24)),
+                    pos=(sx - dp(40), sy + dp(30)),
+                )
+                self.add_widget(loss_lbl)
+                self._plague_labels.append(loss_lbl)
+                # Анимация: всплывает вверх и исчезает
+                _Anim(
+                    y=loss_lbl.y + dp(40),
+                    color=(0.2, 0.85, 0.15, 0),
+                    duration=3.0,
+                    t='out_cubic'
+                ).start(loss_lbl)
+
+        # Анимация частиц — зелёный туман
+        import math
+
+        def _update_plague(dt):
+            if self._plague_group:
+                try:
+                    self.canvas.after.remove(self._plague_group)
+                except Exception:
+                    pass
+
+            group = InstructionGroup()
+
+            for p in self._plague_particles:
+                p['phase'] += dt * 1.5
+                p['x'] += p['dx'] + math.sin(p['phase']) * 0.3
+                p['y'] += p['dy'] * 0.3
+
+                # Перезапуск частицы если ушла далеко
+                dist = math.hypot(p['x'] - p['cx'], p['y'] - p['cy'])
+                if dist > 40:
+                    p['x'] = p['cx'] + _rnd.uniform(-20, 20)
+                    p['y'] = p['cy'] + _rnd.uniform(-20, 20)
+                    p['alpha'] = _rnd.uniform(0.05, 0.15)
+
+                # Пульсация прозрачности
+                alpha = p['alpha'] * (0.7 + 0.3 * math.sin(p['phase'] * 2))
+                s = p['size']
+                group.add(Color(0.15, 0.65, 0.1, alpha))
+                group.add(GlEllipse(pos=(p['x'] - s/2, p['y'] - s/2), size=(s, s)))
+
+            self._plague_group = group
+            self.canvas.after.add(group)
+
+        self._plague_anim_event = Clock.schedule_interval(_update_plague, 0.08)
 
     def animate_city_capture(self, city_data):
         """Анимация вспышки при захвате города."""
