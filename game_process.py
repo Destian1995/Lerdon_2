@@ -1342,15 +1342,20 @@ class GameScreen(Screen):
             return
 
         # Обновляем ресурсы игрока (быстро)
-        self.season_manager.apply_artifact_bonuses(self.conn)
-        profit_details = self.faction.update_resources()
-        bonus_details = self.faction.apply_player_bonuses()
-
+        # Элины: двойной ход — ресурсы начисляются дважды
+        _eliny_turns = 2 if self.selected_faction == 'Элины' else 1
         delta_resources = {}
-        for res in profit_details:
-            base_gain = profit_details[res]
-            bonus_gain = bonus_details.get(res, 0)
-            delta_resources[res] = {"base": base_gain, "bonus": bonus_gain}
+        for _et in range(_eliny_turns):
+            self.season_manager.apply_artifact_bonuses(self.conn)
+            profit_details = self.faction.update_resources()
+            bonus_details = self.faction.apply_player_bonuses()
+            for res in profit_details:
+                base_gain = profit_details[res]
+                bonus_gain = bonus_details.get(res, 0)
+                if res not in delta_resources:
+                    delta_resources[res] = {"base": 0, "bonus": 0}
+                delta_resources[res]["base"] += base_gain
+                delta_resources[res]["bonus"] += bonus_gain
 
         self.resource_box.update_resources(delta=delta_resources)
         self.faction.save_resources_to_db()
@@ -1381,6 +1386,9 @@ class GameScreen(Screen):
                 # Ход ИИ — самая тяжёлая часть
                 for faction_name, ai_controller in self.ai_controllers.items():
                     ai_controller.make_turn()
+                    # Элины: двойной ход (торговая империя — быстрая мобилизация)
+                    if faction_name == 'Элины':
+                        ai_controller.make_turn()
 
                 self.enforce_garrison_hero_limits()
                 self.update_destroyed_factions()
