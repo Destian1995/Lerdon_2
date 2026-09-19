@@ -166,19 +166,18 @@ class ArmyCash:
                 )
                 return False
 
-            # Проверяем, есть ли уже живой герой этого класса в armies
+            # Проверяем, есть ли уже живой герой этого класса в armies или garrisons
             try:
-                # unit_class хранится в armies как строка вида "N класс"
                 self.cursor.execute("""
                     SELECT 1
                     FROM armies
-                    WHERE faction = ? AND unit_class LIKE ?
+                    WHERE faction = ? AND (unit_class = ? OR unit_class LIKE ?)
                     LIMIT 1
-                """, (self.faction, f"{unit_class} %"))
+                """, (self.faction, str(unit_class), f"{unit_class} %"))
 
                 exists_in_armies = self.cursor.fetchone()
 
-                # Проверка в garrisons через units (unit_class в units — целое число)
+                # Проверка в garrisons через units
                 self.cursor.execute("""
                     SELECT 1
                     FROM garrisons g
