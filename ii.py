@@ -3640,14 +3640,24 @@ class AIController:
                 print(f"[AI PRISONERS] {self.faction} казнил {captured_count} пленных {enemy_faction}")
 
             else:  # release
-                # Отпустить — улучшаем отношения (кроме союзников — у них и так максимум)
+                # Отпустить — улучшаем отношения (кроме союзников и фракций в состоянии войны)
                 cursor.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал' AND faction != ?",
                                (self.faction,))
                 for row in cursor.fetchall():
+                    other_faction = row[0]
+                    if self.is_faction_ally(other_faction):
+                        continue
+                    # Не улучшаем отношения с фракциями в состоянии войны
+                    cursor.execute(
+                        "SELECT relationship FROM diplomacies WHERE faction1=? AND faction2=?",
+                        (self.faction, other_faction))
+                    _dip = cursor.fetchone()
+                    if _dip and _dip[0] == 'война':
+                        continue
                     cursor.execute("""
                         UPDATE relations SET relationship = MIN(100, relationship + 3)
                         WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
-                    """, (self.faction, row[0], row[0], self.faction))
+                    """, (self.faction, other_faction, other_faction, self.faction))
                 print(f"[AI PRISONERS] {self.faction} отпустил {captured_count} пленных {enemy_faction}")
 
             self.db_connection.commit()

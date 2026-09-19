@@ -1484,6 +1484,16 @@ class Faction:
 
             # Проверяем отношения с каждой живой фракцией
             for other_faction in alive_factions:
+                # Если хоть одна фракция в состоянии войны — мир невозможен
+                self.cursor.execute("""
+                    SELECT relationship FROM diplomacies
+                    WHERE faction1 = ? AND faction2 = ?
+                """, (self.faction, other_faction))
+                dip_row = self.cursor.fetchone()
+                if dip_row and dip_row[0] == 'война':
+                    print(f"В состоянии войны с {other_faction}. Мир невозможен.")
+                    return False
+
                 self.cursor.execute("""
                     SELECT relationship FROM relations
                     WHERE faction1 = ? AND faction2 = ?
@@ -1550,17 +1560,26 @@ class Faction:
                 print(message)
                 return False, message
 
-            # Проверка все отношения > 95%
-            if self.check_all_relations_high():
-                message = "Мир во всем мире"
-                print(message)
-                return False, message
+            # Пока нежить жива — игра не может завершиться победой
+            _undead_active = False
+            try:
+                from undead_invasion import is_invasion_active
+                _undead_active = is_invasion_active(self.conn)
+            except Exception:
+                pass
 
-            # Проверка остались ли другие фракции
-            if not self.check_remaining_factions():
-                message = "Все фракции были уничтожены"
-                print(message)
-                return False, message
+            if not _undead_active:
+                # Проверка все отношения > 95%
+                if self.check_all_relations_high():
+                    message = "Мир во всем мире"
+                    print(message)
+                    return False, message
+
+                # Проверка остались ли другие фракции
+                if not self.check_remaining_factions():
+                    message = "Все фракции были уничтожены"
+                    print(message)
+                    return False, message
 
             # Если ни одно из условий не выполнено, игра продолжается
             return True, "Игра продолжается."
@@ -1976,10 +1995,14 @@ def open_trade_popup(game_instance):
 
     # === РАСЧЕТ ЛИМИТОВ ДЛЯ СЛАЙДЕРА ===
     current_price = game_instance.current_raw_material_price
+    trade_bonus = game_instance._get_trade_bonus()
+    # Для покупки: цена со скидкой; для продажи: доход с бонусом
+    buy_price = current_price / trade_bonus  # Элины покупают дешевле
+    sell_price = current_price * trade_bonus  # Элины продают дороже
     crowns = game_instance.resources.get("Кроны", 0)
 
-    # Максимум покупки: сколько лотов влезает в кроны
-    max_buy_lots = int(crowns // current_price) if current_price > 0 else 0
+    # Максимум покупки: сколько лотов влезает в кроны (с учётом бонуса)
+    max_buy_lots = int(crowns // buy_price) if buy_price > 0 else 0
 
     # Максимум продажи: сколько лотов есть в наличии
     max_sell_lots = game_instance.get_available_raw_material_lots()
@@ -2100,13 +2123,13 @@ def open_trade_popup(game_instance):
         val = int(value)
         if val > 0:
             crystals_gain = val * 100
-            cost = int(val * current_price)
+            cost = int(val * buy_price)
             trade_info_label.text = f"Купить {format_number(crystals_gain)} кристаллов за {format_number(cost)} крон"
             trade_info_label.color = (0, 1, 0, 1)
         elif val < 0:
             lots = abs(val)
             crystals_spent = lots * 100
-            income = int(lots * current_price)
+            income = int(lots * sell_price)
             trade_info_label.text = f"Продать {format_number(crystals_spent)} кристаллов за {format_number(income)} крон"
             trade_info_label.color = (1, 0, 0, 1)
         else:
@@ -2124,7 +2147,7 @@ def open_trade_popup(game_instance):
             trade_slider.disabled = True
             trade_slider.value = -max_sell_lots
             crystals_spent = max_sell_lots * 100
-            income = int(max_sell_lots * current_price)
+            income = int(max_sell_lots * sell_price)
             trade_info_label.text = f"Продать ВСЁ: {format_number(crystals_spent)} кристаллов за {format_number(income)} крон"
             trade_info_label.color = (1, 0, 0, 1)
             buy_btn.disabled = True
