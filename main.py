@@ -1413,7 +1413,12 @@ class MapWidget(Widget):
         self._undead_anim_event = Clock.schedule_interval(_update_lightning, 0.3)
 
     def _start_plague_animation(self):
-        """Анимация чумы: зелёный туман вокруг заражённых городов + всплывающие потери."""
+        """
+        Анимация чумы — отдельный слой поверх карты.
+        Работает ТОЛЬКО при активной инвазии нежити.
+        Туман — на городах нежити и заражённых городах.
+        Черепа — ТОЛЬКО на городах с потерями (losses > 0).
+        """
         # Очистка предыдущей анимации
         if self._plague_anim_event:
             self._plague_anim_event.cancel()
@@ -1424,13 +1429,21 @@ class MapWidget(Widget):
             except Exception:
                 pass
             self._plague_group = None
-        for lbl in self._plague_labels:
+        for w in self._plague_labels:
             try:
-                self.remove_widget(lbl)
+                self.remove_widget(w)
             except Exception:
                 pass
         self._plague_labels = []
         self._plague_particles = []
+
+        # Проверяем — инвазия активна?
+        try:
+            from undead_invasion import is_invasion_active
+            if not is_invasion_active(self.conn):
+                return
+        except Exception:
+            return
 
         # Загружаем данные чумы из БД
         try:
@@ -1438,92 +1451,87 @@ class MapWidget(Widget):
             cursor.execute("SELECT city_name, losses, coord_x, coord_y FROM plague_effects")
             plague_data = cursor.fetchall()
         except Exception:
-            plague_data = []
+            return
 
         if not plague_data:
             return
 
+        import math
         import random as _rnd
-        from kivy.graphics import InstructionGroup, Ellipse as GlEllipse
+        from kivy.graphics import InstructionGroup, Ellipse as _Ell
+        from kivy.uix.image import Image as _Img
         from kivy.animation import Animation as _Anim
+        from kivy.uix.widget import Widget as _W
 
-        # Подготавливаем координаты на экране
+        # Отдельный виджет-слой для чумы (не загрязняет canvas карты)
+        plague_layer = _W(size_hint=(1, 1))
+        self.add_widget(plague_layer)
+        self._plague_labels.append(plague_layer)
+
+        # Экранные координаты
         plague_cities = []
         for city_name, losses, cx, cy in plague_data:
             sx = cx * self.map_scale + self.map_pos[0]
             sy = cy * self.map_scale + self.map_pos[1]
             plague_cities.append((city_name, losses, sx, sy))
 
-        # Инициализируем частицы для каждого города — густой туман
+        # Частицы тумана — 14 на город, крупные, плавные
         for city_name, losses, sx, sy in plague_cities:
-            for _ in range(18):
+            for _ in range(14):
+                angle = _rnd.uniform(0, 6.28)
+                dist = _rnd.uniform(5, 50)
                 self._plague_particles.append({
                     'cx': sx, 'cy': sy,
-                    'x': sx + _rnd.uniform(-45, 45),
-                    'y': sy + _rnd.uniform(-45, 45),
-                    'dx': _rnd.uniform(-0.4, 0.4),
-                    'dy': _rnd.uniform(-0.3, 0.5),
-                    'size': _rnd.uniform(18, 45),
-                    'alpha': _rnd.uniform(0.08, 0.22),
+                    'x': sx + math.cos(angle) * dist,
+                    'y': sy + math.sin(angle) * dist,
+                    'speed': _rnd.uniform(0.15, 0.35),
+                    'angle': angle,
+                    'size': _rnd.uniform(22, 50),
+                    'alpha': _rnd.uniform(0.06, 0.16),
                     'phase': _rnd.uniform(0, 6.28),
                 })
 
-            # Всплывающая иконка черепа при потерях
+            # Черепа — ТОЛЬКО на городах с потерями
             if losses > 0:
-                from kivy.uix.image import Image as _Img
                 skull = _Img(
                     source='files/army/death/death.png',
                     size_hint=(None, None),
-                    size=(dp(24), dp(24)),
-                    pos=(sx - dp(12), sy + dp(25)),
-                    opacity=0.9,
+                    size=(dp(22), dp(22)),
+                    pos=(sx - dp(11), sy + dp(28)),
+                    opacity=0.85,
                     allow_stretch=True,
                     keep_ratio=True,
                 )
                 self.add_widget(skull)
                 self._plague_labels.append(skull)
                 _Anim(
-                    y=skull.y + dp(35),
+                    y=skull.y + dp(30),
                     opacity=0,
-                    duration=2.5,
-                    t='out_cubic'
+                    duration=3.5,
+                    t='out_quad'
                 ).start(skull)
 
-        # Анимация частиц — зелёный туман
-        import math
-
+        # Плавная анимация тумана на отдельном слое
         def _update_plague(dt):
-            if self._plague_group:
-                try:
-                    self.canvas.after.remove(self._plague_group)
-                except Exception:
-                    pass
+            plague_layer.canvas.clear()
+            with plague_layer.canvas:
+                for p in self._plague_particles:
+                    p['phase'] += dt * 0.8
+                    p['angle'] += dt * p['speed'] * 0.3
 
-            group = InstructionGroup()
+                    # Плавное круговое движение вокруг центра
+                    orbit_r = 30 + 15 * math.sin(p['phase'] * 0.5)
+                    p['x'] = p['cx'] + math.cos(p['angle']) * orbit_r
+                    p['y'] = p['cy'] + math.sin(p['angle']) * orbit_r
 
-            for p in self._plague_particles:
-                p['phase'] += dt * 1.2
-                p['x'] += p['dx'] + math.sin(p['phase']) * 0.5
-                p['y'] += p['dy'] * 0.4 + math.cos(p['phase'] * 0.7) * 0.3
+                    # Плавная пульсация прозрачности
+                    alpha = p['alpha'] * (0.5 + 0.5 * math.sin(p['phase'] * 0.6))
+                    s = p['size'] + 4 * math.sin(p['phase'] * 0.4)
 
-                # Частицы дрейфуют в пределах сектора города (радиус ~60)
-                dist = math.hypot(p['x'] - p['cx'], p['y'] - p['cy'])
-                if dist > 60:
-                    p['x'] = p['cx'] + _rnd.uniform(-40, 40)
-                    p['y'] = p['cy'] + _rnd.uniform(-40, 40)
-                    p['size'] = _rnd.uniform(18, 45)
-                    p['alpha'] = _rnd.uniform(0.08, 0.22)
+                    Color(0.10, 0.50, 0.06, max(0, alpha))
+                    _Ell(pos=(p['x'] - s / 2, p['y'] - s / 2), size=(s, s))
 
-                # Пульсация прозрачности
-                alpha = p['alpha'] * (0.6 + 0.4 * math.sin(p['phase'] * 1.5))
-                s = p['size']
-                group.add(Color(0.12, 0.55, 0.08, alpha))
-                group.add(GlEllipse(pos=(p['x'] - s/2, p['y'] - s/2), size=(s, s)))
-
-            self._plague_group = group
-            self.canvas.after.add(group)
-
-        self._plague_anim_event = Clock.schedule_interval(_update_plague, 0.08)
+        self._plague_anim_event = Clock.schedule_interval(_update_plague, 0.05)
 
     def animate_city_capture(self, city_data):
         """Анимация вспышки при захвате города."""
