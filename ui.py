@@ -2273,8 +2273,10 @@ class FortressInfoPopup(Popup):
                     (current_player_kingdom, True, _init_moves)
                 )
                 self.conn.commit()
+                print(f"[MOVE CHECK] Создана запись для {current_player_kingdom}, moves_left={_init_moves}")
             else:
                 _moves_left = _ml_row[0] if _ml_row[0] is not None else 0
+                print(f"[MOVE CHECK] {current_player_kingdom} moves_left={_moves_left}")
                 if _moves_left <= 0:
                     show_popup_message("Ошибка", "Вы уже использовали своё перемещение на этом ходу.")
                     return

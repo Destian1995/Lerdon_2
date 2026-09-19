@@ -3206,6 +3206,10 @@ class GameScreen(Screen):
             # Элины = 2 (и как игрок, и как ИИ)
             cursor.execute("UPDATE turn_check_move SET moves_left = 2 WHERE faction = 'Элины'")
             self.conn.commit()
+            # Дебаг
+            cursor.execute("SELECT faction, moves_left FROM turn_check_move WHERE faction = 'Элины'")
+            _dbg = cursor.fetchone()
+            print(f"[MOVE RESET] Элины moves_left = {_dbg[1] if _dbg else 'NOT FOUND'}")
         except sqlite3.Error as e:
             print(f"Ошибка при сбросе moves_left: {e}")
 
