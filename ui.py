@@ -2259,34 +2259,25 @@ class FortressInfoPopup(Popup):
             except Exception:
                 pass
 
-            # Проверка возможности перемещения в рамках хода
+            # Проверяем moves_left — единый счётчик перемещений
             cursor.execute(
-                "SELECT can_move FROM turn_check_move WHERE faction = ?",
+                "SELECT moves_left FROM turn_check_move WHERE faction = ?",
                 (current_player_kingdom,)
             )
-            move_data = cursor.fetchone()
-            if not move_data:
+            _ml_row = cursor.fetchone()
+            if not _ml_row:
+                # Нет записи — создаём (Элины: 2, остальные: 1)
+                _init_moves = 2 if current_player_kingdom == 'Элины' else 1
                 cursor.execute(
-                    "INSERT INTO turn_check_move (faction, can_move) VALUES (?, ?)",
-                    (current_player_kingdom, True)
+                    "INSERT INTO turn_check_move (faction, can_move, moves_left) VALUES (?, ?, ?)",
+                    (current_player_kingdom, True, _init_moves)
                 )
                 self.conn.commit()
-                can_move_this_turn = True
             else:
-                can_move_this_turn = move_data[0]
-
-            if not can_move_this_turn:
-                # Элины: проверяем есть ли второй ход
-                cursor.execute(
-                    "SELECT moves_left FROM turn_check_move WHERE faction = ?",
-                    (current_player_kingdom,)
-                )
-                _ml_row = cursor.fetchone()
-                _moves_left = _ml_row[0] if _ml_row and _ml_row[0] is not None else 0
+                _moves_left = _ml_row[0] if _ml_row[0] is not None else 0
                 if _moves_left <= 0:
                     show_popup_message("Ошибка", "Вы уже использовали своё перемещение на этом ходу.")
                     return
-                # Есть оставшиеся ходы — продолжаем
 
             # Если город назначения принадлежит текущей фракции — перемещение без ограничений
             cursor.execute(
@@ -2363,24 +2354,11 @@ class FortressInfoPopup(Popup):
                     if is_war_destination:
                         break
 
-            # Фиксируем факт использования перемещения
-            # Элины: 2 перемещения за ход — используем moves_left
+            # Фиксируем факт использования перемещения (уменьшаем moves_left)
             cursor.execute(
-                "SELECT moves_left FROM turn_check_move WHERE faction = ?",
+                "UPDATE turn_check_move SET moves_left = MAX(0, moves_left - 1) WHERE faction = ?",
                 (current_player_kingdom,)
             )
-            _ml = cursor.fetchone()
-            _cur_moves = _ml[0] if _ml and _ml[0] is not None else 0
-            if _cur_moves > 1:
-                cursor.execute(
-                    "UPDATE turn_check_move SET moves_left = moves_left - 1 WHERE faction = ?",
-                    (current_player_kingdom,)
-                )
-            else:
-                cursor.execute(
-                    "UPDATE turn_check_move SET can_move = ?, moves_left = 0 WHERE faction = ?",
-                    (False, current_player_kingdom)
-                )
             self.conn.commit()
 
             # Закрываем попап и обновляем интерфейс
