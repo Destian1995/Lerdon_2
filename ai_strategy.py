@@ -1070,8 +1070,11 @@ def make_turn_v2(self):
                     self.hire_army()
 
                 # Шаг 4: войны и атаки
-                _diag(self, "шаг 4: check_and_declare_war")
-                self.check_and_declare_war()
+                # Элины: двойное перемещение/атака за ход
+                _war_rounds = 2 if self.faction == 'Элины' else 1
+                for _wr in range(_war_rounds):
+                    _diag(self, f"шаг 4: check_and_declare_war (раунд {_wr+1}/{_war_rounds})")
+                    self.check_and_declare_war()
 
                 # Шаг 5: стройка
                 _diag(self, "шаг 5: manage_buildings")

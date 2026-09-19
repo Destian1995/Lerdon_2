@@ -1342,20 +1342,15 @@ class GameScreen(Screen):
             return
 
         # Обновляем ресурсы игрока (быстро)
-        # Элины: двойной ход — ресурсы начисляются дважды
-        _eliny_turns = 2 if self.selected_faction == 'Элины' else 1
+        self.season_manager.apply_artifact_bonuses(self.conn)
+        profit_details = self.faction.update_resources()
+        bonus_details = self.faction.apply_player_bonuses()
+
         delta_resources = {}
-        for _et in range(_eliny_turns):
-            self.season_manager.apply_artifact_bonuses(self.conn)
-            profit_details = self.faction.update_resources()
-            bonus_details = self.faction.apply_player_bonuses()
-            for res in profit_details:
-                base_gain = profit_details[res]
-                bonus_gain = bonus_details.get(res, 0)
-                if res not in delta_resources:
-                    delta_resources[res] = {"base": 0, "bonus": 0}
-                delta_resources[res]["base"] += base_gain
-                delta_resources[res]["bonus"] += bonus_gain
+        for res in profit_details:
+            base_gain = profit_details[res]
+            bonus_gain = bonus_details.get(res, 0)
+            delta_resources[res] = {"base": base_gain, "bonus": bonus_gain}
 
         self.resource_box.update_resources(delta=delta_resources)
         self.faction.save_resources_to_db()
@@ -1386,9 +1381,6 @@ class GameScreen(Screen):
                 # Ход ИИ — самая тяжёлая часть
                 for faction_name, ai_controller in self.ai_controllers.items():
                     ai_controller.make_turn()
-                    # Элины: двойной ход (торговая империя — быстрая мобилизация)
-                    if faction_name == 'Элины':
-                        ai_controller.make_turn()
 
                 self.enforce_garrison_hero_limits()
                 self.update_destroyed_factions()
@@ -3199,17 +3191,17 @@ class GameScreen(Screen):
 
     def initialize_turn_check_move(self):
         """
-        Инициализирует запись о возможности перемещения для текущей фракции.
-        Устанавливает значение 'can_move' = True по умолчанию.
+        Сбрасывает can_move=True и moves_left для всех фракций.
+        Элины получают 2 перемещения, остальные — 1.
         """
         cursor = self.conn.cursor()
         try:
-            cursor.execute("""
-                UPDATE turn_check_move
-                SET can_move = ?
-            """, (True,))
+            # Элины: 2 перемещения за ход
+            cursor.execute(
+                "UPDATE turn_check_move SET can_move = ?, moves_left = CASE WHEN faction = 'Элины' THEN 2 ELSE 1 END",
+                (True,)
+            )
             self.conn.commit()
-            print("Флаги can_move успешно сброшены на True.")
         except sqlite3.Error as e:
             print(f"Ошибка при сбросе флагов can_move: {e}")
 

@@ -2205,31 +2205,38 @@ class FortressInfoPopup(Popup):
     def initialize_turn_check_move(self):
         """
         Инициализирует запись о возможности перемещения для текущей фракции.
-        Устанавливает значение 'can_move' = True по умолчанию.
+        Элины получают 2 перемещения за ход, остальные — 1.
         """
         try:
             cursor = self.conn.cursor()
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS turn_check_move (
                     faction TEXT PRIMARY KEY,
-                    can_move BOOLEAN
+                    can_move BOOLEAN,
+                    moves_left INTEGER DEFAULT 1
                 )
             """)
+            # Миграция: добавляем moves_left если нет
+            try:
+                cursor.execute("ALTER TABLE turn_check_move ADD COLUMN moves_left INTEGER DEFAULT 1")
+            except sqlite3.OperationalError:
+                pass
             self.conn.commit()
 
-            # Проверяем, существует ли запись для текущей фракции
+            moves = 2 if self.player_fraction == 'Элины' else 1
             cursor.execute("SELECT faction FROM turn_check_move WHERE faction = ?", (self.player_fraction,))
             result = cursor.fetchone()
             if not result:
-                # Если записи нет, создаем новую с can_move = True
-                cursor.execute("""
-                    INSERT INTO turn_check_move (faction, can_move)
-                    VALUES (?, ?)
-                """, (self.player_fraction, True))
-                self.conn.commit()
-                print(f"Инициализирована запись для фракции {self.player_fraction} с can_move=True")
+                cursor.execute(
+                    "INSERT INTO turn_check_move (faction, can_move, moves_left) VALUES (?, ?, ?)",
+                    (self.player_fraction, True, moves)
+                )
             else:
-                print(f"Запись для фракции {self.player_fraction} уже существует.")
+                cursor.execute(
+                    "UPDATE turn_check_move SET can_move = ?, moves_left = ? WHERE faction = ?",
+                    (True, moves, self.player_fraction)
+                )
+            self.conn.commit()
         except sqlite3.Error as e:
             print(f"Ошибка при инициализации turn_check_move: {e}")
 
@@ -2262,8 +2269,17 @@ class FortressInfoPopup(Popup):
                 can_move_this_turn = move_data[0]
 
             if not can_move_this_turn:
-                show_popup_message("Ошибка", "Вы уже использовали своё перемещение на этом ходу.")
-                return
+                # Элины: проверяем есть ли второй ход
+                cursor.execute(
+                    "SELECT moves_left FROM turn_check_move WHERE faction = ?",
+                    (current_player_kingdom,)
+                )
+                _ml_row = cursor.fetchone()
+                _moves_left = _ml_row[0] if _ml_row and _ml_row[0] is not None else 0
+                if _moves_left <= 0:
+                    show_popup_message("Ошибка", "Вы уже использовали своё перемещение на этом ходу.")
+                    return
+                # Есть оставшиеся ходы — продолжаем
 
             # Если город назначения принадлежит текущей фракции — перемещение без ограничений
             cursor.execute(
@@ -2341,10 +2357,23 @@ class FortressInfoPopup(Popup):
                         break
 
             # Фиксируем факт использования перемещения
+            # Элины: 2 перемещения за ход — используем moves_left
             cursor.execute(
-                "UPDATE turn_check_move SET can_move = ? WHERE faction = ?",
-                (False, current_player_kingdom)
+                "SELECT moves_left FROM turn_check_move WHERE faction = ?",
+                (current_player_kingdom,)
             )
+            _ml = cursor.fetchone()
+            _cur_moves = _ml[0] if _ml and _ml[0] is not None else 0
+            if _cur_moves > 1:
+                cursor.execute(
+                    "UPDATE turn_check_move SET moves_left = moves_left - 1 WHERE faction = ?",
+                    (current_player_kingdom,)
+                )
+            else:
+                cursor.execute(
+                    "UPDATE turn_check_move SET can_move = ?, moves_left = 0 WHERE faction = ?",
+                    (False, current_player_kingdom)
+                )
             self.conn.commit()
 
             # Закрываем попап и обновляем интерфейс
