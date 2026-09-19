@@ -2039,8 +2039,10 @@ def open_trade_popup(game_instance):
     price_card.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
                     size=lambda i, v: setattr(i._bg, 'size', v))
 
+    _bonus_pct = int((trade_bonus - 1.0) * 100)
+    _bonus_text = f"  [color=#44dd44](бонус +{_bonus_pct}%)[/color]" if _bonus_pct > 0 else ""
     current_price_label = Label(
-        text=f"[b]Цена 1 лота (100 ед.):[/b]  {current_price} крон",
+        text=f"[b]Цена 1 лота (100 ед.):[/b]  {current_price} крон{_bonus_text}",
         markup=True,
         font_size=sp(16),
         color=arrow_color,
@@ -2131,13 +2133,19 @@ def open_trade_popup(game_instance):
         if val > 0:
             crystals_gain = val * 100
             cost = int(val * buy_price)
-            trade_info_label.text = f"Купить {format_number(crystals_gain)} кристаллов за {format_number(cost)} крон"
+            base_cost = int(val * current_price)
+            saving = base_cost - cost
+            saving_txt = f" (выгода {format_number(saving)})" if saving > 0 else ""
+            trade_info_label.text = f"Купить {format_number(crystals_gain)} кристаллов за {format_number(cost)} крон{saving_txt}"
             trade_info_label.color = (0, 1, 0, 1)
         elif val < 0:
             lots = abs(val)
             crystals_spent = lots * 100
             income = int(lots * sell_price)
-            trade_info_label.text = f"Продать {format_number(crystals_spent)} кристаллов за {format_number(income)} крон"
+            base_income = int(lots * current_price)
+            extra = income - base_income
+            extra_txt = f" (выгода +{format_number(extra)})" if extra > 0 else ""
+            trade_info_label.text = f"Продать {format_number(crystals_spent)} кристаллов за {format_number(income)} крон{extra_txt}"
             trade_info_label.color = (1, 0, 0, 1)
         else:
             trade_info_label.text = "Нет операции"
@@ -2155,7 +2163,10 @@ def open_trade_popup(game_instance):
             trade_slider.value = -max_sell_lots
             crystals_spent = max_sell_lots * 100
             income = int(max_sell_lots * sell_price)
-            trade_info_label.text = f"Продать ВСЁ: {format_number(crystals_spent)} кристаллов за {format_number(income)} крон"
+            base_income = int(max_sell_lots * current_price)
+            extra = income - base_income
+            extra_txt = f" (выгода +{format_number(extra)})" if extra > 0 else ""
+            trade_info_label.text = f"Продать ВСЁ: {format_number(crystals_spent)} кристаллов за {format_number(income)} крон{extra_txt}"
             trade_info_label.color = (1, 0, 0, 1)
             buy_btn.disabled = True
             sell_btn.disabled = False
