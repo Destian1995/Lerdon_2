@@ -1210,14 +1210,40 @@ def show_faction_bonuses_popup(conn, faction):
         row.add_widget(e_lbl)
         content.add_widget(row)
 
-    # Сезон
-    season_lbl = Label(
-        text=f"Сезон: {season_names.get(season_idx, '?')}", font_size=sp(12),
-        color=(0.5, 0.7, 0.9, 1), size_hint_y=None, height=dp(20),
-        halign='center', valign='middle'
+    # Сезонные эффекты на экономику
+    sep3 = Widget(size_hint_y=None, height=dp(1))
+    with sep3.canvas:
+        Color(0.3, 0.3, 0.3, 0.3)
+        sep3._r = Rectangle(pos=sep3.pos, size=sep3.size)
+    sep3.bind(pos=lambda i, v: setattr(i._r, 'pos', v), size=lambda i, v: setattr(i._r, 'size', v))
+    content.add_widget(sep3)
+
+    _season_effects = {
+        0: ("Зима", "+20% рождаемость", "-15% производство фабрик"),
+        1: ("Весна", "+30% рождаемость", "+10% производство фабрик"),
+        2: ("Лето", "+10% рождаемость", "+25% производство фабрик"),
+        3: ("Осень", "+15% рождаемость", "+20% производство фабрик"),
+    }
+    _se = _season_effects.get(season_idx)
+
+    season_title = Label(
+        text=f"[b]Сезон: {season_names.get(season_idx, '?')}[/b]", markup=True,
+        font_size=sp(13), color=(0.5, 0.7, 0.9, 1),
+        size_hint_y=None, height=dp(24), halign='left', valign='middle'
     )
-    season_lbl.bind(size=season_lbl.setter('text_size'))
-    content.add_widget(season_lbl)
+    season_title.bind(size=season_title.setter('text_size'))
+    content.add_widget(season_title)
+
+    if _se:
+        for effect_text in [_se[1], _se[2]]:
+            _color = (0.6, 0.85, 0.5, 1) if '+' in effect_text else (0.9, 0.5, 0.4, 1)
+            eff_lbl = Label(
+                text=effect_text, font_size=sp(12),
+                color=_color, size_hint_y=None, height=dp(20),
+                halign='center', valign='middle'
+            )
+            eff_lbl.bind(size=eff_lbl.setter('text_size'))
+            content.add_widget(eff_lbl)
 
     scroll.add_widget(content)
     outer.add_widget(scroll)
