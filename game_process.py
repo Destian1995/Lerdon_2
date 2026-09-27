@@ -249,6 +249,10 @@ class ResourceBox(BoxLayout):
     def update_resources(self, delta=None):
         if delta is None:
             delta = {}
+
+        # Извлекаем сезонную информацию (не ресурс)
+        _season_info = delta.pop('_season_info', None)
+
         # --- Отменить предыдущую анимацию бонуса, если она была ---
         if self.scheduled_animate_event:
             Clock.unschedule(self.scheduled_animate_event)
@@ -258,6 +262,21 @@ class ResourceBox(BoxLayout):
         self._label_values.clear()
 
         resources = self.resource_manager.get_resources()
+
+        # Показываем сезонный эффект если есть
+        if _season_info:
+            season_lbl = Label(
+                text=f"[i]{_season_info}[/i]",
+                markup=True,
+                font_size=sp(11),
+                color=(0.7, 0.85, 0.5, 0.9),
+                size_hint=(1, None),
+                height=dp(18),
+                halign='center',
+                valign='middle',
+            )
+            season_lbl.bind(size=season_lbl.setter('text_size'))
+            self.add_widget(season_lbl)
 
         parsed = {}
         for name, val in resources.items():
@@ -1346,11 +1365,26 @@ class GameScreen(Screen):
         profit_details = self.faction.update_resources()
         bonus_details = self.faction.apply_player_bonuses()
 
+        # Сезонная информация из profit_details
+        _season_name = profit_details.pop('_season', '')
+        _season_pop = profit_details.pop('_season_pop', 1.0)
+        _season_factory = profit_details.pop('_season_factory', 1.0)
+
         delta_resources = {}
         for res in profit_details:
             base_gain = profit_details[res]
             bonus_gain = bonus_details.get(res, 0)
             delta_resources[res] = {"base": base_gain, "bonus": bonus_gain}
+
+        # Добавляем сезонный бонус как отдельную информацию
+        if _season_name:
+            _pop_pct = int((_season_pop - 1.0) * 100)
+            _fac_pct = int((_season_factory - 1.0) * 100)
+            _pop_sign = '+' if _pop_pct >= 0 else ''
+            _fac_sign = '+' if _fac_pct >= 0 else ''
+            delta_resources['_season_info'] = (
+                f"{_season_name}: рождаемость {_pop_sign}{_pop_pct}%, фабрики {_fac_sign}{_fac_pct}%"
+            )
 
         self.resource_box.update_resources(delta=delta_resources)
         self.faction.save_resources_to_db()

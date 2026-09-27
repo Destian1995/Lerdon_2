@@ -1391,14 +1391,22 @@ class Faction:
 
         # profit_details для UI может включать базовую прибыль и бонусы, если нужно отображать отдельно.
         # В текущем виде, profit_details отражает чистое изменение ресурса за ход до бонусов UI.
+        # Сезонные названия для UI
+        _season_names = {0: 'Зима', 1: 'Весна', 2: 'Лето', 3: 'Осень'}
+        _season_name = _season_names.get(_season, '') if '_season' in dir() else ''
+
         profit_details = {
             "Кроны": net_profit_coins,
-            "Кристаллы": net_profit_raw,  # Это прибыль до бонусов, но отражает чистое изменение за ход
+            "Кристаллы": net_profit_raw,
         }
         # Оставляем только положительные значения для UI
         profit_details = {k: v for k, v in profit_details.items() if v > 0}
 
-        # Возвращаем словарь с прибылью (базовой, до бонусов UI)
+        # Сезонная информация для отображения в UI
+        profit_details['_season'] = _season_name
+        profit_details['_season_pop'] = _season_pop_mult if '_season_pop_mult' in dir() else 1.0
+        profit_details['_season_factory'] = _season_factory_mult if '_season_factory_mult' in dir() else 1.0
+
         return profit_details
 
     def get_resource_now(self, resource_type):
