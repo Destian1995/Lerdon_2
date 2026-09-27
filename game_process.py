@@ -1466,6 +1466,27 @@ class GameScreen(Screen):
             print("Фракция 'Мятежники' обнаружена в городах. Создаём AIController.")
             self.ai_controllers['Мятежники'] = AIController('Мятежники', self.conn)
 
+            # Если нежить активна — мятежники сразу в войне с ней
+            try:
+                from undead_invasion import is_invasion_active, UNDEAD_FACTION_NAME
+                if is_invasion_active(self.conn):
+                    cursor.execute(
+                        "INSERT OR IGNORE INTO diplomacies (faction1, faction2, relationship) VALUES (?, ?, ?)",
+                        ('Мятежники', UNDEAD_FACTION_NAME, 'война'))
+                    cursor.execute(
+                        "INSERT OR IGNORE INTO diplomacies (faction1, faction2, relationship) VALUES (?, ?, ?)",
+                        (UNDEAD_FACTION_NAME, 'Мятежники', 'война'))
+                    cursor.execute(
+                        "INSERT OR IGNORE INTO relations (faction1, faction2, relationship) VALUES (?, ?, ?)",
+                        ('Мятежники', UNDEAD_FACTION_NAME, 0))
+                    cursor.execute(
+                        "INSERT OR IGNORE INTO relations (faction1, faction2, relationship) VALUES (?, ?, ?)",
+                        (UNDEAD_FACTION_NAME, 'Мятежники', 0))
+                    self.conn.commit()
+                    print("[UNDEAD] Мятежники автоматически в войне с Нежитью")
+            except Exception as e:
+                print(f"[WARN] Ошибка при объявлении войны мятежников нежити: {e}")
+
 
     def get_city_data(self):
         """Получает стратегически важные данные о городах для ИИ"""
