@@ -1232,8 +1232,34 @@ class Faction:
             raise ValueError(f"Фракция '{faction}' не найдена.")
         coeffs = faction_coefficients[faction]
 
-        # Обновление ресурсов с учетом коэффициентов
-        self.born_peoples = int(self.hospitals * 50)
+        # === Сезонные модификаторы экономики ===
+        # Зима: население +20%, фабрики -15% (холод)
+        # Весна: население +30%, фабрики +10% (расцвет)
+        # Лето: население +10%, фабрики +25% (пик производства)
+        # Осень: население +15%, фабрики +20% (урожай)
+        _season_pop_mult = 1.0    # множитель рождаемости
+        _season_factory_mult = 1.0  # множитель производства фабрик
+        try:
+            self.cursor.execute("SELECT season_index FROM season LIMIT 1")
+            _s_row = self.cursor.fetchone()
+            _season = _s_row[0] if _s_row else -1
+            if _season == 0:    # Зима
+                _season_pop_mult = 1.20
+                _season_factory_mult = 0.85
+            elif _season == 1:  # Весна
+                _season_pop_mult = 1.30
+                _season_factory_mult = 1.10
+            elif _season == 2:  # Лето
+                _season_pop_mult = 1.10
+                _season_factory_mult = 1.25
+            elif _season == 3:  # Осень
+                _season_pop_mult = 1.15
+                _season_factory_mult = 1.20
+        except Exception:
+            pass
+
+        # Обновление ресурсов с учетом коэффициентов и сезона
+        self.born_peoples = int(self.hospitals * 50 * _season_pop_mult)
         self.work_peoples = int(self.factories * 20)
         self.clear_up_peoples = self.born_peoples - self.work_peoples
 
@@ -1241,21 +1267,18 @@ class Faction:
         self.load_resources_from_db()
 
         # Выполняем расчеты
-        # Изменение свободных рабочих только от разницы рожденных/работающих
         self.free_peoples += self.clear_up_peoples
         base_income = int(self.calculate_tax_income() - (self.hospitals * coeffs['money_loss']))
         # Бонус от Рынков: +10% дохода крон за каждый рынок
         market_bonus = 1.0 + self.markets * 0.10
-        # Элины: бонус к доходу от рынков (фракционный бафф к кристаллам отдельно в trade)
-        # Базовый бонус рынков работает для всех одинаково
         boosted_income = int(base_income * market_bonus)
         self.money += boosted_income
         self.money_info = int(self.hospitals * coeffs['money_loss'])
         self.money_up = boosted_income
         self.taxes_info = int(self.calculate_tax_income())
 
-        # Рассчитываем базовый прирост Кристаллов (до бонусов городов)
-        base_raw_material_production = (self.factories * 105) - (self.population * coeffs['food_loss'])
+        # Рассчитываем базовый прирост Кристаллов с сезонным модификатором
+        base_raw_material_production = int((self.factories * 105 * _season_factory_mult) - (self.population * coeffs['food_loss']))
 
         # Загружаем коэффициенты kf_crystal только для городов,
         # связанных дорогами с основной территорией (снабжение)

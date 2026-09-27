@@ -2653,7 +2653,7 @@ class AIController:
 
             # Очищаем self.buildings и обновляем его только для актуальных городов
             updated_buildings = {}
-            for city_name, city_name in current_cities.items():
+            for city_id, city_name in current_cities.items():
                 updated_buildings[city_name] = {"Здания": {"Больница": 0, "Фабрика": 0}}
 
             # Загружаем данные о зданиях для актуальных городов
