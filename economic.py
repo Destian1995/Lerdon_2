@@ -1333,7 +1333,7 @@ class Faction:
             self.free_peoples = 0  # Все рабочие обнуляются, так как Кристаллы нет
 
         # Принудительные лимиты на сами поля (а не только на dict)
-        _res_cap = 25_000_000 if self.faction == 'Элины' else 10_000_000
+        _res_cap = 15_000_000 if self.faction == 'Элины' else 10_000_000
         self.money = max(min(round(self.money, 2), _res_cap), 0)
         self.free_peoples = max(min(round(self.free_peoples, 2), 500_000), 0)
         self.raw_material = max(min(round(self.raw_material, 2), _res_cap), 0)
@@ -1395,6 +1395,8 @@ class Faction:
             self.raw_material = new_amount
         elif resource_type == 'Население':
             self.population = new_amount
+        # Синхронизируем dict для немедленного отображения в UI
+        self.resources[resource_type] = new_amount
 
     def get_resources(self):
         """Получение текущих ресурсов с форматированием чисел."""
@@ -1553,10 +1555,7 @@ class Faction:
                 return False, message
 
             if self.get_city_count() == 0:
-                if self.has_army_units():
-                    print("У фракции нет городов, но армия ещё есть. Игра продолжается.")
-                    return True, ""
-                message = "Противник завоевал все города"
+                message = "Противник завоевал все ваши города. Поражение!"
                 print(message)
                 return False, message
 
@@ -1690,7 +1689,7 @@ class Faction:
     def _sync_resources(self):
         """Синхронизирует self.resources dict с внутренними полями и обновляет UI."""
         # Принудительные лимиты перед синхронизацией
-        _res_cap = 25_000_000 if self.faction == 'Элины' else 10_000_000
+        _res_cap = 15_000_000 if self.faction == 'Элины' else 10_000_000
         self.money = max(min(self.money, _res_cap), 0)
         self.raw_material = max(min(self.raw_material, _res_cap), 0)
         self.population = max(min(self.population, 100_000_000), 0)
