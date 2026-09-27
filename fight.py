@@ -817,14 +817,14 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     visible_atk_army = [u for u in atk_army if u.get('initial_count', 0) > 0]
     visible_def_army = [u for u in def_army if u.get('initial_count', 0) > 0]
 
-    # results — убитая нежить даёт x100 к рейтингу (1000 нежити = 100 обычных)
-    UNDEAD_RATING_MULT = 100
+    # results — убитая нежить даёт x0.01 к рейтингу (1000 нежити = 10 обычных)
+    UNDEAD_RATING_MULT = 0.01
     total_attacking_losses = sum(u['killed_count'] for u in visible_atk_army)
     total_defending_losses = sum(u['killed_count'] for u in visible_def_army)
 
-    # Для рейтинга: потери врага умножаются если враг — Нежить
-    rating_atk_enemy_losses = total_defending_losses * UNDEAD_RATING_MULT if defending_fraction == 'Нежить' else total_defending_losses
-    rating_def_enemy_losses = total_attacking_losses * UNDEAD_RATING_MULT if attacking_fraction == 'Нежить' else total_attacking_losses
+    # Для рейтинга: потери нежити уменьшаются (1000 нежити = 10 обычных)
+    rating_atk_enemy_losses = max(1, int(total_defending_losses * UNDEAD_RATING_MULT)) if defending_fraction == 'Нежить' else total_defending_losses
+    rating_def_enemy_losses = max(1, int(total_attacking_losses * UNDEAD_RATING_MULT)) if attacking_fraction == 'Нежить' else total_attacking_losses
 
     try:
         update_results_table(db_connection=conn, faction=attacking_fraction,
