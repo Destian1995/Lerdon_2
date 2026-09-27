@@ -4072,13 +4072,34 @@ class EnhancedDiplomacyChat():
 
                 return random.choice(deal_responses)
 
+            # Проверяем, являемся ли мы союзниками с просителем
+            _is_ally = False
+            try:
+                cursor.execute(
+                    "SELECT relationship FROM diplomacies WHERE faction1 = ? AND faction2 = ?",
+                    (self.faction, faction))
+                _ally_row = cursor.fetchone()
+                _is_ally = _ally_row and _ally_row[0] == 'союз'
+            except Exception:
+                pass
+
+            # ========== СОЮЗНИК — атакуем немедленно без условий ==========
+            if _is_ally:
+                self._declare_war_on_faction(self.faction, target_faction)
+
+                ally_responses = [
+                    f"Союзник, твой враг — мой враг! Война {target_faction} объявлена!",
+                    f"Для союзника не нужны объяснения! Наши войска идут на {target_faction}!",
+                    f"Раз ты просишь — так тому и быть! {target_faction} теперь наши враги!",
+                    f"Наш союз нерушим! Объявляю войну {target_faction} по твоей просьбе!",
+                    f"Мы связаны клятвой! {target_faction} падёт перед нашей общей силой!"
+                ]
+                return random.choice(ally_responses)
+
             # ========== УРОВЕНЬ 4: Отношения 80-90 ==========
             if 80 <= relation_level < 90:
-                # 75% вероятность согласиться бесплатно
                 if random.random() < 0.75:
-                    # Соглашаемся бесплатно
                     if target_relation >= 60:
-                        # Но не на друзей
                         responses = [
                             f"Хотя я тебе доверяю, но нападать на {target_faction} не могу. Они наши друзья.",
                             f"Друг, я бы помог, но {target_faction} нам не враги. Не могу предать.",
@@ -4087,8 +4108,7 @@ class EnhancedDiplomacyChat():
                         ]
                         return random.choice(responses)
 
-                    # Объявляем войну
-                    self._declare_war_on_faction(faction, target_faction)
+                    self._declare_war_on_faction(self.faction, target_faction)
 
                     free_responses = [
                         f"Для друга ничего не жалко! Объявляю войну {target_faction}!",
@@ -4098,16 +4118,13 @@ class EnhancedDiplomacyChat():
                     ]
                     return random.choice(free_responses)
                 else:
-                    # 25% вероятность потребовать плату
                     required_amount = random.randint(5000, 15000)
-
                     self.negotiation_context[faction] = {
                         "stage": "provocation_deal",
                         "target_faction": target_faction,
                         "required_amount": required_amount,
                         "counter_offers": 0
                     }
-
                     payment_responses = [
                         f"Друг, я бы помог, но война с {target_faction} обойдётся в {required_amount:,} крон. Можешь оплатить?",
                         f"Я подумал... Помогу, но за {required_amount:,} крон. Согласен?",
@@ -4118,9 +4135,7 @@ class EnhancedDiplomacyChat():
 
             # ========== УРОВЕНЬ 5: Отношения 90-100 ==========
             if relation_level >= 90:
-                # Всегда соглашаемся
                 if target_relation >= 70:
-                    # Но не на очень близких друзей
                     responses = [
                         f"Брат, ты что? {target_faction} - наши кровные союзники! Я не могу на них напасть!",
                         f"Даже для тебя я не предам {target_faction}! Мы связаны клятвой!",
@@ -4129,8 +4144,7 @@ class EnhancedDiplomacyChat():
                     ]
                     return random.choice(responses)
 
-                # Объявляем войну
-                self._declare_war_on_faction(faction, target_faction)
+                self._declare_war_on_faction(self.faction, target_faction)
 
                 always_agree_responses = [
                     f"Без вопросов! Для брата всё что угодно! Война {target_faction} объявлена!",
