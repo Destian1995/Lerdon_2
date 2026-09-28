@@ -5631,8 +5631,8 @@ class EnhancedDiplomacyChat():
         input_row.add_widget(send_btn)
 
         right.add_widget(header)
-        right.add_widget(self.chat_scroll)
         right.add_widget(input_row)
+        right.add_widget(self.chat_scroll)
 
         root.add_widget(left)
         root.add_widget(right)
