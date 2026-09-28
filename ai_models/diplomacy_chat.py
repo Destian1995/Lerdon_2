@@ -571,15 +571,17 @@ class EnhancedDiplomacyChat():
                     f"У меня {real_resources[resource_type]:,} {resource_type.lower()}."]))
 
     def _on_textinput_focus_android(self, instance, value):
-        """Обработка фокуса для Android с адаптивной прокруткой"""
+        """Обработка фокуса для Android — сжимаем окно при клавиатуре"""
         if kivy_platform != 'android':
             return
 
-        if value:  # Если поле получило фокус
-            # Даем время клавиатуре появиться
-            Clock.schedule_once(lambda dt: self._adjust_for_keyboard_android(), 0.2)
+        from kivy.core.window import Window
+        if value:  # Клавиатура появляется
+            Window.softinput_mode = 'resize'
+            Clock.schedule_once(lambda dt: self._adjust_for_keyboard_android(), 0.3)
         else:
-            # При скрытии клавиатуры возвращаем нормальную прокрутку
+            # Клавиатура скрывается
+            Window.softinput_mode = ''
             Clock.schedule_once(lambda dt: self.scroll_chat_to_bottom(), 0.1)
 
     def _adjust_for_keyboard_android(self):
@@ -588,9 +590,8 @@ class EnhancedDiplomacyChat():
             return
 
         try:
-            # Прокручиваем немного вверх, чтобы поле ввода было видно
             if hasattr(self.chat_scroll, 'scroll_y'):
-                Animation(scroll_y=0.1, duration=0.1).start(self.chat_scroll)
+                Animation(scroll_y=0, duration=0.15).start(self.chat_scroll)
         except:
             pass
 
