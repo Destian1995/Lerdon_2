@@ -467,10 +467,12 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                 row = _cur.fetchone()
                 u['experience'] = row[0] if row else 0
 
-                # Бонус от опыта: Новобранец(0), Воин(3+: +5%), Ветеран(7+: +15%), Элита(12+: +25%)
+                # Бонус от опыта: Новобранец(0), Воин(3+: +5%), Ветеран(7+: +15%), Элита(12+: +25% +35%/стак)
                 exp = u['experience']
                 if exp >= 12:
-                    exp_mult = 1.25
+                    # Элита: базовые +25% + 35% за каждые 3 опыта сверх 12
+                    elite_stacks = (exp - 12) // 3
+                    exp_mult = 1.25 + (elite_stacks * 0.35)
                 elif exp >= 7:
                     exp_mult = 1.15
                 elif exp >= 3:
