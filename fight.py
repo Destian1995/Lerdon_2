@@ -1712,11 +1712,12 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
                 # Если выжило меньше 2/3 (потери >= 1/3) — опыт засчитывается
                 threshold = int(initial_class1 * 2 / 3)
                 if survived_class1 < threshold:
+                    # +3 опыта за тяжёлый бой: 1 бой = Воин, 2 = Ветеран, 4 = Элита
                     cursor.execute("""
-                        UPDATE garrisons SET experience = COALESCE(experience, 0) + 1
+                        UPDATE garrisons SET experience = COALESCE(experience, 0) + 3
                         WHERE city_name = ? AND unit_count > 0
                     """, (city,))
-                    print(f"[EXP] Опыт +1 в {city}: выжило {survived_class1}/{initial_class1} (< {threshold})")
+                    print(f"[EXP] Опыт +3 в {city}: выжило {survived_class1}/{initial_class1} (< {threshold})")
                 else:
                     print(f"[EXP] Опыт не засчитан в {city}: выжило {survived_class1}/{initial_class1} (>= {threshold})")
         except Exception as e:
