@@ -1697,14 +1697,28 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
         reset_third_class_units_if_empty(conn, attacking_fraction)
         reset_third_class_units_if_empty(conn, defending_fraction)
 
-        # === Обновление опыта выживших юнитов (+1 за бой) ===
+        # === Обновление опыта: только если потери >= 1/3 от начального состава ===
+        # Логика: если выжило меньше 2/3 юнитов 1 класса — выжившие получают +1 опыт
         try:
-            # Все выжившие юниты обеих сторон получают опыт
-            for city in (attacking_city, defending_city):
-                cursor.execute("""
-                    UPDATE garrisons SET experience = COALESCE(experience, 0) + 1
-                    WHERE city_name = ? AND unit_count > 0
-                """, (city,))
+            for army, city in [(attacking_army, attacking_city if winner != 'attacking' else defending_city),
+                               (defending_army, defending_city)]:
+                # Считаем начальные и выжившие юниты 1 класса
+                initial_class1 = sum(u.get('initial_count', 0) for u in army if get_unit_class(u) == 1)
+                survived_class1 = sum(u['unit_count'] for u in army if get_unit_class(u) == 1 and u['unit_count'] > 0)
+
+                if initial_class1 <= 0:
+                    continue
+
+                # Если выжило меньше 2/3 (потери >= 1/3) — опыт засчитывается
+                threshold = int(initial_class1 * 2 / 3)
+                if survived_class1 < threshold:
+                    cursor.execute("""
+                        UPDATE garrisons SET experience = COALESCE(experience, 0) + 1
+                        WHERE city_name = ? AND unit_count > 0
+                    """, (city,))
+                    print(f"[EXP] Опыт +1 в {city}: выжило {survived_class1}/{initial_class1} (< {threshold})")
+                else:
+                    print(f"[EXP] Опыт не засчитан в {city}: выжило {survived_class1}/{initial_class1} (>= {threshold})")
         except Exception as e:
             print(f"[EXP] Ошибка обновления опыта: {e}")
 
