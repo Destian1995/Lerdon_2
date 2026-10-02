@@ -1082,6 +1082,8 @@ def show_battle_report(report_data, is_user_involved=False, user_faction=None, c
             return "[color=#4CAF50]Выжил[/color]"
         elif init == 1 and fin == 0:
             return "[color=#FF5733]Погиб[/color]"
+        elif losses <= 0:
+            return f"[color=#4CAF50]Без потерь[/color]  ост. {fin}"
         return f"[color=#FF5733]-{losses}[/color]  [color={'#4CAF50' if fin > 0 else '#FF5733'}]ост. {fin}[/color]"
 
     # === Основной контейнер (ScrollView) ===
