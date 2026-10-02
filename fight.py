@@ -742,6 +742,9 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         else:
             u['killed_count'] = 0
 
+    # Список сообщений о фракционных бонусах для отчёта
+    _faction_bonus_messages = []
+
     # Вампиры: Вампиризм — 5% убитых врагов воскресают (в свой сезон 8.75%)
     vamp_rate = 0.05 * _season_mult('Вампиры') if _season_mult('Вампиры') > 1 else 0.05
     def _apply_vampirism(vampire_army, enemy_army, faction):
@@ -751,10 +754,12 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         if enemy_killed <= 0:
             return
         resurrected = max(1, int(enemy_killed * vamp_rate))
-        # Добавляем к первому юниту 1 класса вампиров
         for u in vampire_army:
             if get_unit_class(u) == 1 and u['unit_count'] > 0:
                 u['unit_count'] += resurrected
+                _faction_bonus_messages.append(
+                    f"[color=#C71A28]Вампиризм:[/color] +{resurrected} воскрешено из врагов"
+                )
                 print(f"[Вампиризм] {resurrected} врагов воскрешены как юниты Вампиров")
                 break
 
@@ -766,6 +771,7 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     def _apply_elf_healing(army, faction):
         if faction != 'Эльфы':
             return
+        total_healed = 0
         for u in army:
             if get_unit_class(u) != 1:
                 continue
@@ -775,7 +781,12 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             healed = max(1, int(killed * elf_heal_rate))
             u['unit_count'] += healed
             u['killed_count'] -= healed
+            total_healed += healed
             print(f"[Исцеление] {healed} юнитов {u['unit_name']} вернулись в строй")
+        if total_healed > 0:
+            _faction_bonus_messages.append(
+                f"[color=#38C252]Исцеление:[/color] +{total_healed} вернулось в строй"
+            )
 
     atk_remaining = sum(u['unit_count'] for u in atk_army)
     def_remaining = sum(u['unit_count'] for u in def_army)
@@ -867,6 +878,7 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             _attacking_city = attacking_city
             _is_user_involved = is_user_involved
             _conn = conn
+            _bonus_msgs = list(_faction_bonus_messages)
 
             def _show_battle_on_main_thread(dt):
                 try:
@@ -882,7 +894,8 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                         show_battle_report(report_data, is_user_involved=_is_user_involved,
                                            user_faction=_user_faction, conn=_conn,
                                            attacking_fraction=_attacking_fraction,
-                                           defending_fraction=_defending_fraction)
+                                           defending_fraction=_defending_fraction,
+                                           bonus_messages=_bonus_msgs)
 
                     show_battle_animation(_battle_rounds_copy, _attacking_fraction,
                                           _defending_fraction, winner, _user_faction,
@@ -1012,7 +1025,7 @@ def generate_battle_report(attacking_army, defending_army, winner,
 
 
 def show_battle_report(report_data, is_user_involved=False, user_faction=None, conn=None,
-                       attacking_fraction=None, defending_fraction=None):
+                       attacking_fraction=None, defending_fraction=None, bonus_messages=None):
     """Финальный отчёт о бою — адаптивный вертикальный layout."""
     if not report_data:
         return
@@ -1138,6 +1151,25 @@ def show_battle_report(report_data, is_user_involved=False, user_faction=None, c
             sep.bind(pos=lambda i, v, r=_sr: setattr(r, 'pos', v),
                      size=lambda i, v, r=_sr: setattr(r, 'size', v))
             scroll_content.add_widget(sep)
+
+    # Бонусные сообщения (Вампиризм, Исцеление)
+    if bonus_messages:
+        bonus_sep = BoxLayout(size_hint_y=None, height=dp(1))
+        with bonus_sep.canvas:
+            Color(0.4, 0.6, 0.3, 0.5)
+            _bsr = Rectangle(pos=bonus_sep.pos, size=bonus_sep.size)
+        bonus_sep.bind(pos=lambda i, v, r=_bsr: setattr(r, 'pos', v),
+                       size=lambda i, v, r=_bsr: setattr(r, 'size', v))
+        scroll_content.add_widget(bonus_sep)
+
+        for msg in bonus_messages:
+            bonus_lbl = Label(
+                text=msg, markup=True,
+                font_size=_fs_title, halign='center', valign='middle',
+                size_hint_y=None, height=dp(26) if is_small else dp(30)
+            )
+            bonus_lbl.bind(size=bonus_lbl.setter('text_size'))
+            scroll_content.add_widget(bonus_lbl)
 
     scroll = ScrollView(do_scroll_x=False, bar_width=dp(3),
                          bar_color=(0.4, 0.5, 0.8, 0.4))
