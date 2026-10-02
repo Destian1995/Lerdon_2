@@ -1080,11 +1080,55 @@ class Faction:
             if self.current_consumption > self.max_army_limit:
                 excess_consumption = self.current_consumption - self.max_army_limit
 
-                for garrison in garrisons:
-                    city_name, unit_name, unit_count = garrison
+                # Сортируем: сначала класс 1, потом 2, 3, 4
+                # Герои умирают ТОЛЬКО после всех юнитов 1 класса
+                def _get_unit_class_int(uname):
+                    info = faction_units.get(uname, {})
+                    try:
+                        self.cursor.execute(
+                            "SELECT CAST(unit_class AS INTEGER) FROM units WHERE unit_name = ? LIMIT 1",
+                            (uname,))
+                        r = self.cursor.fetchone()
+                        return r[0] if r else 1
+                    except Exception:
+                        return 1
 
-                    if unit_count <= 0 or city_name not in own_cities:
-                        continue
+                # Фильтруем гарнизоны своих городов
+                own_garrisons = [
+                    (city_name, unit_name, unit_count)
+                    for city_name, unit_name, unit_count in garrisons
+                    if unit_count > 0 and city_name in own_cities
+                ]
+
+                # Сортируем: класс 1 первыми, потом 2, 3, 4
+                own_garrisons.sort(key=lambda g: _get_unit_class_int(g[1]))
+
+                for city_name, unit_name, unit_count in own_garrisons:
+                    if excess_consumption <= 0:
+                        break
+
+                    u_class = _get_unit_class_int(unit_name)
+
+                    # Герои (класс 2+): умирают только если не осталось юнитов 1 класса
+                    if u_class >= 2:
+                        # Проверяем есть ли ещё живые юниты 1 класса
+                        has_class1 = any(
+                            uc == 0 and cnt > 0
+                            for _, un, cnt in own_garrisons
+                            for uc in [_get_unit_class_int(un)]
+                            if uc == 1
+                        )
+                        # Пересчитываем из текущего состояния БД
+                        self.cursor.execute("""
+                            SELECT COALESCE(SUM(g.unit_count), 0)
+                            FROM garrisons g
+                            JOIN units u ON g.unit_name = u.unit_name
+                            WHERE g.city_name IN (SELECT name FROM cities WHERE faction = ?)
+                            AND CAST(u.unit_class AS INTEGER) = 1
+                        """, (self.faction,))
+                        class1_alive = self.cursor.fetchone()[0]
+                        if class1_alive > 0:
+                            continue  # Не трогаем героев пока есть солдаты
 
                     reduction = max(1, int(unit_count * 0.15))
 
@@ -1103,9 +1147,6 @@ class Faction:
                     else:
                         self.current_consumption -= faction_units[unit_name]['consumption'] * reduction
                         excess_consumption -= faction_units[unit_name]['consumption'] * reduction
-
-                    if excess_consumption <= 0:
-                        break
 
             # Шаг 3: Обновляем досье
             total_starved = sum(reduction for _, reduction in starving_units)
