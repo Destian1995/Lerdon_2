@@ -757,6 +757,7 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         for u in vampire_army:
             if get_unit_class(u) == 1 and u['unit_count'] > 0:
                 u['unit_count'] += resurrected
+                u['healed_count'] = u.get('healed_count', 0) + resurrected
                 if resurrected > 1:
                     _faction_bonus_messages.append(
                         f"[color=#C71A28]Вампиризм:[/color] +{resurrected} воскрешено из врагов"
@@ -781,6 +782,7 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                 continue
             healed = max(1, int(killed * elf_heal_rate))
             u['unit_count'] += healed
+            u['healed_count'] = u.get('healed_count', 0) + healed
             u['killed_count'] -= healed
             total_healed += healed
             print(f"[Исцеление] {healed} юнитов {u['unit_name']} вернулись в строй")
@@ -997,12 +999,17 @@ def generate_battle_report(attacking_army, defending_army, winner,
         for unit in army:
             initial_count = unit.get('initial_count', 0)
             final_count = unit['unit_count']
+            healed = unit.get('healed_count', 0)
+            # losses = чистые потери (после исцеления)
             losses = abs(initial_count - final_count)
+            # total_killed = потери до исцеления
+            total_killed = losses + healed
             report_data.append({
                 'unit_name': unit['unit_name'],
                 'initial_count': initial_count,
                 'final_count': final_count,
-                'losses': losses,
+                'losses': total_killed,
+                'healed': healed,
                 'side': side,
                 'result': result,
                 'city': city
@@ -1079,13 +1086,15 @@ def show_battle_report(report_data, is_user_involved=False, user_faction=None, c
     def _status(u):
         init, fin = u.get('initial_count', 0), u.get('final_count', 0)
         losses = u.get('losses', 0)
+        healed = u.get('healed', 0)
         if init == 1 and fin == 1:
             return "[color=#4CAF50]Выжил[/color]"
         elif init == 1 and fin == 0:
             return "[color=#FF5733]Погиб[/color]"
         elif losses <= 0:
             return f"[color=#4CAF50]Без потерь[/color]  ост. {fin}"
-        return f"[color=#FF5733]-{losses}[/color]  [color={'#4CAF50' if fin > 0 else '#FF5733'}]ост. {fin}[/color]"
+        heal_txt = f" [color=#4CAF50]/+{healed}[/color]" if healed > 1 else ""
+        return f"[color=#FF5733]-{losses}[/color]{heal_txt}  [color={'#4CAF50' if fin > 0 else '#FF5733'}]ост. {fin}[/color]"
 
     # === Основной контейнер (ScrollView) ===
     scroll_content = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(6),
