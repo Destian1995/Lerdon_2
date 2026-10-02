@@ -757,9 +757,10 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         for u in vampire_army:
             if get_unit_class(u) == 1 and u['unit_count'] > 0:
                 u['unit_count'] += resurrected
-                _faction_bonus_messages.append(
-                    f"[color=#C71A28]Вампиризм:[/color] +{resurrected} воскрешено из врагов"
-                )
+                if resurrected > 1:
+                    _faction_bonus_messages.append(
+                        f"[color=#C71A28]Вампиризм:[/color] +{resurrected} воскрешено из врагов"
+                    )
                 print(f"[Вампиризм] {resurrected} врагов воскрешены как юниты Вампиров")
                 break
 
@@ -783,7 +784,7 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             u['killed_count'] -= healed
             total_healed += healed
             print(f"[Исцеление] {healed} юнитов {u['unit_name']} вернулись в строй")
-        if total_healed > 0:
+        if total_healed > 1:
             _faction_bonus_messages.append(
                 f"[color=#38C252]Исцеление:[/color] +{total_healed} вернулось в строй"
             )
