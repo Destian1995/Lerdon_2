@@ -293,6 +293,21 @@ class DiplomacyManager:
         )
 
         # Кнопка закрытия
+        # Кнопка "Все отношения"
+        all_rel_btn = Button(
+            text="Отношения между фракциями",
+            size_hint=(1, None), height=dp(42),
+            font_size=sp(14), bold=True,
+            background_color=(0, 0, 0, 0), color=(1, 1, 1, 1)
+        )
+        with all_rel_btn.canvas.before:
+            Color(0.2, 0.45, 0.25, 1)
+            all_rel_btn._br = RoundedRectangle(pos=all_rel_btn.pos, size=all_rel_btn.size, radius=[dp(10)])
+        all_rel_btn.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                         size=lambda i, v: setattr(i._br, 'size', v))
+        all_rel_btn.bind(on_release=lambda inst: self._show_all_relations_popup())
+        content.add_widget(all_rel_btn)
+
         close_button = Button(
             text="Закрыть",
             size_hint=(1, None),
@@ -404,6 +419,94 @@ class DiplomacyManager:
         label.bind(size=label.setter('text_size'))
 
         return label
+
+    def _show_all_relations_popup(self):
+        """Показывает отношения между всеми фракциями."""
+        from kivy.utils import platform
+        is_mobile = platform in ('android', 'ios')
+
+        content = BoxLayout(orientation='vertical', spacing=dp(6), padding=dp(8))
+        with content.canvas.before:
+            Color(0.07, 0.08, 0.13, 1)
+            content._bg = Rectangle(pos=content.pos, size=content.size)
+        content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                     size=lambda i, v: setattr(i._bg, 'size', v))
+
+        # Загружаем фракции
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("""
+                SELECT DISTINCT faction FROM cities
+                WHERE faction != 'Нейтрал' AND faction != 'Мятежники' AND faction != 'Нежить'
+            """)
+            factions = [r[0] for r in cursor.fetchall()]
+        except Exception:
+            factions = []
+
+        table = GridLayout(cols=4, size_hint_y=None, spacing=dp(3), row_default_height=dp(36))
+        table.bind(minimum_height=table.setter('height'))
+
+        for h in ["Фракция 1", "Фракция 2", "Уровень", "Статус"]:
+            table.add_widget(self.create_header(h))
+
+        _status_colors = {
+            'союз': (0.2, 0.85, 0.3, 1),
+            'война': (0.9, 0.2, 0.2, 1),
+            'мир': (0.5, 0.7, 1, 1),
+        }
+
+        try:
+            cursor = self.conn.cursor()
+            for i, f1 in enumerate(factions):
+                for f2 in factions[i+1:]:
+                    cursor.execute(
+                        "SELECT relationship FROM relations WHERE faction1=? AND faction2=?", (f1, f2))
+                    r = cursor.fetchone()
+                    level = int(r[0]) if r else 50
+
+                    cursor.execute(
+                        "SELECT relationship FROM diplomacies WHERE faction1=? AND faction2=?", (f1, f2))
+                    d = cursor.fetchone()
+                    status = d[0] if d else 'нейтралитет'
+
+                    s_color = _status_colors.get(status, (0.6, 0.6, 0.6, 1))
+                    l_color = (0.2, 0.85, 0.3, 1) if level >= 70 else (
+                        (1, 0.8, 0.2, 1) if level >= 40 else (0.9, 0.3, 0.2, 1))
+
+                    for txt, col in [(f1, (0.85, 0.85, 0.85, 1)), (f2, (0.85, 0.85, 0.85, 1)),
+                                     (str(level), l_color), (status.upper(), s_color)]:
+                        lbl = Label(text=txt, font_size='12sp', color=col, bold=(txt == status.upper()),
+                                    halign='center', valign='middle', size_hint_y=None, height=dp(36))
+                        lbl.bind(size=lbl.setter('text_size'))
+                        table.add_widget(lbl)
+        except Exception as e:
+            print(f"[ALL RELATIONS] Ошибка: {e}")
+
+        scroll = ScrollView(size_hint=(1, 0.85), do_scroll_x=False, bar_width=dp(4))
+        scroll.add_widget(table)
+        content.add_widget(scroll)
+
+        back_btn = Button(text="Назад", size_hint=(1, None), height=dp(42),
+                          font_size=sp(14), bold=True, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+        with back_btn.canvas.before:
+            Color(0.227, 0.525, 0.835, 1)
+            back_btn._br = RoundedRectangle(pos=back_btn.pos, size=back_btn.size, radius=[dp(10)])
+        back_btn.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
+                      size=lambda i, v: setattr(i._br, 'size', v))
+        back_btn.bind(on_release=lambda inst: (all_popup.dismiss(),))
+        content.add_widget(back_btn)
+
+        all_popup = Popup(
+            title="Отношения между фракциями",
+            content=content,
+            size_hint=(0.85 if is_mobile else 0.7, 0.8),
+            auto_dismiss=True,
+            background_color=(0.07, 0.08, 0.13, 1),
+            separator_color=(0.20, 0.55, 0.88, 0.7),
+            title_color=(1, 0.85, 0.4, 1),
+            title_size=sp(16), title_align='center'
+        )
+        all_popup.open()
 
     def _create_action_button(self, target_faction, status, table, relations):
         """Создаёт кнопку действия: Объявить войну / Предложить мир."""
