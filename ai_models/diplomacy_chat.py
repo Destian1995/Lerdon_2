@@ -5689,21 +5689,99 @@ class EnhancedDiplomacyChat():
             return _on_press
 
         def _show_trade_submenu(inst):
-            """Показывает подменю выбора ресурса для торговли."""
+            """Показывает подменю: что хочешь купить — Кроны или Кристаллы."""
             quick_row.clear_widgets()
 
-            def _trade_resource(res_name):
-                def _on_press(inst2):
-                    # Спрашиваем AI сколько у него есть
-                    self.message_input.text = f"Сколько у тебя {res_name}? Хочу купить"
-                    self.send_diplomatic_message(inst2)
-                    # Возвращаем основные кнопки
-                    _show_main_buttons()
-                return _on_press
+            def _open_trade_popup(buy_resource):
+                """Открывает popup со слайдером для торговли."""
+                from kivy.uix.popup import Popup as _TPop
+                from kivy.uix.slider import Slider as _TSl
+                from kivy.uix.label import Label as _TLbl
 
-            for res_label, res_key in [("Кроны", "крон"), ("Кристаллы", "кристаллов")]:
+                if not hasattr(self, 'selected_faction') or not self.selected_faction:
+                    return
+
+                # Получаем ресурсы AI
+                ai_res = self._get_faction_resources(self.selected_faction)
+                player_res = self._get_faction_resources(self.faction)
+
+                if buy_resource == 'Кроны':
+                    ai_has = int(ai_res.get('Кроны', 0))
+                    player_pays_type = 'Кристаллы'
+                    player_has = int(player_res.get('Кристаллы', 0))
+                    rate = 2.0  # 1 крона = 2 кристалла
+                else:
+                    ai_has = int(ai_res.get('Кристаллы', 0))
+                    player_pays_type = 'Кроны'
+                    player_has = int(player_res.get('Кроны', 0))
+                    rate = 0.5  # 1 кристалл = 0.5 крон
+
+                max_can_buy = min(ai_has, int(player_has / rate)) if rate > 0 else 0
+                if max_can_buy <= 0:
+                    self.add_chat_message_system("Недостаточно ресурсов для торговли.")
+                    _show_main_buttons()
+                    return
+
+                content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(10))
+                info_lbl = _TLbl(
+                    text=f"У {self.selected_faction}: {ai_has:,} {buy_resource}\nВаши {player_pays_type}: {player_has:,}",
+                    font_size='13sp', size_hint_y=None, height=dp(40),
+                    halign='center', valign='middle', color=(0.8, 0.8, 0.8, 1)
+                )
+                info_lbl.bind(size=info_lbl.setter('text_size'))
+
+                deal_lbl = _TLbl(
+                    text="Выберите количество", markup=True,
+                    font_size='14sp', size_hint_y=None, height=dp(30),
+                    halign='center', color=(0.5, 1, 0.5, 1)
+                )
+                deal_lbl.bind(size=deal_lbl.setter('text_size'))
+
+                slider = _TSl(min=0, max=max_can_buy, value=0, step=max(1, max_can_buy // 100),
+                              size_hint_y=None, height=dp(40))
+
+                def _on_slider(inst, val):
+                    amount = int(val)
+                    cost = int(amount * rate)
+                    deal_lbl.text = (
+                        f"[b]Купить {amount:,} {buy_resource}[/b] за "
+                        f"[color=#FF7777]{cost:,} {player_pays_type}[/color]"
+                    )
+                slider.bind(value=_on_slider)
+
+                btn_row = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(8))
+                confirm_btn = Button(text="Отправить предложение", background_normal='',
+                                     background_color=(0.2, 0.6, 0.3, 1), font_size='13sp', bold=True)
+                cancel_btn = Button(text="Отмена", background_normal='',
+                                    background_color=(0.5, 0.2, 0.2, 1), font_size='13sp')
+
+                content.add_widget(info_lbl)
+                content.add_widget(slider)
+                content.add_widget(deal_lbl)
+                btn_row.add_widget(confirm_btn)
+                btn_row.add_widget(cancel_btn)
+                content.add_widget(btn_row)
+
+                popup = _TPop(title=f"Торговля: купить {buy_resource}",
+                              content=content, size_hint=(0.7, 0.45), auto_dismiss=False)
+
+                def _confirm(inst2):
+                    amount = int(slider.value)
+                    cost = int(amount * rate)
+                    if amount > 0:
+                        msg = f"Хочу купить {amount} {buy_resource} за {cost} {player_pays_type}"
+                        self.message_input.text = msg
+                        self.send_diplomatic_message(inst2)
+                    popup.dismiss()
+                    _show_main_buttons()
+
+                confirm_btn.bind(on_press=_confirm)
+                cancel_btn.bind(on_press=lambda i: (popup.dismiss(), _show_main_buttons()))
+                popup.open()
+
+            for res_label in ["Кроны", "Кристаллы"]:
                 rb = _styled_btn(res_label)
-                rb.bind(on_press=_trade_resource(res_key))
+                rb.bind(on_press=lambda i, r=res_label: _open_trade_popup(r))
                 quick_row.add_widget(rb)
 
             back_btn = _styled_btn("Назад")
