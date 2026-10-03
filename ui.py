@@ -2442,7 +2442,7 @@ class FortressInfoPopup(Popup):
                     def _transfer_to_ally(inst, _popup=None, _src=source_fortress_name,
                                           _dst=destination_fortress_name, _un=unit_name, _cnt=taken_count,
                                           _owner=destination_owner):
-                        # Передаём союзнику — вычитаем у игрока, добавляем союзнику
+                        # Передаём союзнику — вычитаем у игрока, добавляем юнит 1 класса союзника
                         try:
                             _cur = self.conn.cursor()
                             # Вычитаем из источника
@@ -2450,12 +2450,20 @@ class FortressInfoPopup(Popup):
                                 "UPDATE garrisons SET unit_count = unit_count - ? WHERE city_name = ? AND unit_name = ?",
                                 (_cnt, _src, _un))
                             _cur.execute("DELETE FROM garrisons WHERE unit_count <= 0")
-                            # Добавляем в город союзника (юниты того же типа)
-                            _cur.execute("""
-                                INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
-                                VALUES (?, ?, ?, '')
-                                ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
-                            """, (_dst, _un, _cnt, _cnt))
+
+                            # Находим юнит 1 класса союзника для замены
+                            _cur.execute(
+                                "SELECT unit_name, image_path FROM units WHERE faction = ? AND unit_class = '1' LIMIT 1",
+                                (_owner,))
+                            _ally_unit = _cur.fetchone()
+                            if _ally_unit:
+                                _ally_name, _ally_img = _ally_unit
+                                _cur.execute("""
+                                    INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                                    VALUES (?, ?, ?, ?)
+                                    ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
+                                """, (_dst, _ally_name, _cnt, _ally_img or '', _cnt))
+
                             self.conn.commit()
                             # Пересчитываем потребление и обновляем UI
                             try:
