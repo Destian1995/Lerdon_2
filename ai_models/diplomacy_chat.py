@@ -5636,35 +5636,62 @@ class EnhancedDiplomacyChat():
         # Быстрые кнопки
         quick_row = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(34),
                               spacing=dp(4), padding=[dp(6), dp(2)])
+        self._quick_row = quick_row
 
-        _quick_msgs = [
-            ("Союз", "Давай заключим союз"),
-            ("Торговля", "Хочу купить у тебя кроны за кристаллы"),
-            ("Мир", "Давай заключим мир"),
-            ("Война", "Атакуй наших врагов"),
-        ]
+        def _styled_btn(text):
+            b = Button(text=text, font_size='11sp', bold=True, size_hint=(1, 1),
+                       background_normal='', background_color=(0, 0, 0, 0),
+                       color=(0.7, 0.8, 1, 1))
+            with b.canvas.before:
+                Color(0.15, 0.20, 0.30, 0.8)
+                b._qbr = RoundedRectangle(pos=b.pos, size=b.size, radius=[dp(6)])
+            b.bind(pos=lambda w, v: setattr(w._qbr, 'pos', v),
+                   size=lambda w, v: setattr(w._qbr, 'size', v))
+            return b
 
-        def _make_quick_handler(msg):
+        def _send_quick(msg):
             def _on_press(inst):
                 self.message_input.text = msg
                 self.send_diplomatic_message(inst)
             return _on_press
 
-        for label, msg in _quick_msgs:
-            qb = Button(
-                text=label, font_size='11sp', bold=True,
-                size_hint=(1, 1),
-                background_normal='', background_color=(0, 0, 0, 0),
-                color=(0.7, 0.8, 1, 1),
-            )
-            with qb.canvas.before:
-                Color(0.15, 0.20, 0.30, 0.8)
-                qb._qbr = RoundedRectangle(pos=qb.pos, size=qb.size, radius=[dp(6)])
-            qb.bind(pos=lambda w, v: setattr(w._qbr, 'pos', v),
-                    size=lambda w, v: setattr(w._qbr, 'size', v))
-            qb.bind(on_press=_make_quick_handler(msg))
-            quick_row.add_widget(qb)
+        def _show_trade_submenu(inst):
+            """Показывает подменю выбора ресурса для торговли."""
+            quick_row.clear_widgets()
 
+            def _trade_resource(res_name):
+                def _on_press(inst2):
+                    # Спрашиваем AI сколько у него есть
+                    self.message_input.text = f"Сколько у тебя {res_name}? Хочу купить"
+                    self.send_diplomatic_message(inst2)
+                    # Возвращаем основные кнопки
+                    _show_main_buttons()
+                return _on_press
+
+            for res_label, res_key in [("Кроны", "крон"), ("Кристаллы", "кристаллов")]:
+                rb = _styled_btn(res_label)
+                rb.bind(on_press=_trade_resource(res_key))
+                quick_row.add_widget(rb)
+
+            back_btn = _styled_btn("Назад")
+            back_btn.color = (1, 0.6, 0.5, 1)
+            back_btn.bind(on_press=lambda inst2: _show_main_buttons())
+            quick_row.add_widget(back_btn)
+
+        def _show_main_buttons():
+            quick_row.clear_widgets()
+            _main = [
+                ("Союз", _send_quick("Давай заключим союз")),
+                ("Торговля", _show_trade_submenu),
+                ("Мир", _send_quick("Давай заключим мир")),
+                ("Война", _send_quick("Атакуй наших врагов")),
+            ]
+            for label, handler in _main:
+                b = _styled_btn(label)
+                b.bind(on_press=handler)
+                quick_row.add_widget(b)
+
+        _show_main_buttons()
         right.add_widget(quick_row)
         right.add_widget(self.chat_scroll)
 
