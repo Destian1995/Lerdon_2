@@ -5632,6 +5632,40 @@ class EnhancedDiplomacyChat():
 
         right.add_widget(header)
         right.add_widget(input_row)
+
+        # Быстрые кнопки
+        quick_row = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(34),
+                              spacing=dp(4), padding=[dp(6), dp(2)])
+
+        _quick_msgs = [
+            ("Союз", "Предлагаю заключить союз"),
+            ("Ресурсы", "Предлагаю торговое соглашение"),
+            ("Мир", "Предлагаю заключить мир"),
+            ("Атака", "Прошу напасть на наших общих врагов"),
+        ]
+
+        def _make_quick_handler(msg):
+            def _on_press(inst):
+                self.message_input.text = msg
+                self.send_diplomatic_message(inst)
+            return _on_press
+
+        for label, msg in _quick_msgs:
+            qb = Button(
+                text=label, font_size='11sp', bold=True,
+                size_hint=(1, 1),
+                background_normal='', background_color=(0, 0, 0, 0),
+                color=(0.7, 0.8, 1, 1),
+            )
+            with qb.canvas.before:
+                Color(0.15, 0.20, 0.30, 0.8)
+                qb._qbr = RoundedRectangle(pos=qb.pos, size=qb.size, radius=[dp(6)])
+            qb.bind(pos=lambda w, v: setattr(w._qbr, 'pos', v),
+                    size=lambda w, v: setattr(w._qbr, 'size', v))
+            qb.bind(on_press=_make_quick_handler(msg))
+            quick_row.add_widget(qb)
+
+        right.add_widget(quick_row)
         right.add_widget(self.chat_scroll)
 
         root.add_widget(left)

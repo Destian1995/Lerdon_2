@@ -2417,10 +2417,61 @@ class FortressInfoPopup(Popup):
             # 1) Сценарий: войска в своём городе
             if source_owner == current_player_kingdom:
 
-                # Свой город или союзник — просто перемещаем
-                if destination_owner == current_player_kingdom or self.is_ally(current_player_kingdom,
-                                                                               destination_owner):
+                # Свой город — просто перемещаем
+                if destination_owner == current_player_kingdom:
                     self.move_troops(source_fortress_name, destination_fortress_name, unit_name, taken_count)
+                    return True
+
+                # Город союзника — спрашиваем передать или оставить под контролем
+                if self.is_ally(current_player_kingdom, destination_owner):
+                    from kivy.uix.popup import Popup as _AllyPopup
+                    from kivy.uix.boxlayout import BoxLayout as _AllyBox
+                    from kivy.uix.button import Button as _AllyBtn
+                    from kivy.uix.label import Label as _AllyLbl
+                    from kivy.metrics import dp as _dp, sp as _sp
+
+                    ally_content = _AllyBox(orientation='vertical', spacing=_dp(8), padding=_dp(10))
+                    ally_content.add_widget(_AllyLbl(
+                        text=f"Передать армию фракции {destination_owner}\nили оставить под вашим контролем?",
+                        font_size=_sp(14), halign='center', valign='middle',
+                        size_hint_y=None, height=_dp(50)
+                    ))
+
+                    btn_row = _AllyBox(orientation='horizontal', size_hint_y=None, height=_dp(44), spacing=_dp(8))
+
+                    def _transfer_to_ally(inst, _popup=None, _src=source_fortress_name,
+                                          _dst=destination_fortress_name, _un=unit_name, _cnt=taken_count,
+                                          _owner=destination_owner):
+                        # Передаём союзнику — юниты переходят под его фракцию
+                        self.move_troops(_src, _dst, _un, _cnt)
+                        if _popup:
+                            _popup.dismiss()
+
+                    def _keep_control(inst, _popup=None, _src=source_fortress_name,
+                                      _dst=destination_fortress_name, _un=unit_name, _cnt=taken_count):
+                        # Оставляем под контролем игрока — просто перемещаем
+                        self.move_troops(_src, _dst, _un, _cnt)
+                        if _popup:
+                            _popup.dismiss()
+
+                    give_btn = _AllyBtn(text="Передать союзнику", background_color=(0.2, 0.6, 0.3, 1),
+                                        background_normal='', font_size=_sp(13), bold=True)
+                    keep_btn = _AllyBtn(text="Оставить под контролем", background_color=(0.2, 0.4, 0.8, 1),
+                                        background_normal='', font_size=_sp(13), bold=True)
+
+                    btn_row.add_widget(give_btn)
+                    btn_row.add_widget(keep_btn)
+                    ally_content.add_widget(btn_row)
+
+                    ally_popup = _AllyPopup(
+                        title="Армия на территории союзника",
+                        content=ally_content,
+                        size_hint=(0.6, 0.3),
+                        auto_dismiss=False
+                    )
+                    give_btn.bind(on_press=lambda inst: _transfer_to_ally(inst, _popup=ally_popup))
+                    keep_btn.bind(on_press=lambda inst: _keep_control(inst, _popup=ally_popup))
+                    ally_popup.open()
                     return True
 
                 # Нейтральный город — захват без боя (кроме скрытых городов нежити до инвазии)

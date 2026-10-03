@@ -1052,9 +1052,20 @@ class Faction:
         """
         try:
             self.current_consumption = 0
-            # Шаг 1: Получаем города текущей фракции
+            # Шаг 1: Получаем города текущей фракции + города союзников
+            # (армия на территории союзника считается как своя)
             self.cursor.execute("SELECT name FROM cities WHERE faction = ?", (self.faction,))
             own_cities = {row[0] for row in self.cursor.fetchall()}
+            try:
+                self.cursor.execute("""
+                    SELECT c.name FROM cities c
+                    JOIN diplomacies d ON c.faction = d.faction2
+                    WHERE d.faction1 = ? AND d.relationship = 'союз'
+                """, (self.faction,))
+                ally_cities = {row[0] for row in self.cursor.fetchall()}
+                own_cities |= ally_cities
+            except Exception:
+                pass
 
             # Шаг 2: Выгрузка гарнизонов только из своих городов
             self.cursor.execute("SELECT city_name, unit_name, unit_count FROM garrisons")

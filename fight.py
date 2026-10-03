@@ -759,6 +759,7 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         for u in vampire_army:
             if get_unit_class(u) == 1 and u['unit_count'] > 0:
                 u['unit_count'] += resurrected
+                u['killed_count'] = max(0, u.get('killed_count', 0) - resurrected)
                 u['healed_count'] = u.get('healed_count', 0) + resurrected
                 if resurrected > 1:
                     _faction_bonus_messages.append(
