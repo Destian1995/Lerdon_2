@@ -2442,8 +2442,24 @@ class FortressInfoPopup(Popup):
                     def _transfer_to_ally(inst, _popup=None, _src=source_fortress_name,
                                           _dst=destination_fortress_name, _un=unit_name, _cnt=taken_count,
                                           _owner=destination_owner):
-                        # Передаём союзнику — юниты переходят под его фракцию
-                        self.move_troops(_src, _dst, _un, _cnt)
+                        # Передаём союзнику — вычитаем у игрока, добавляем союзнику
+                        try:
+                            _cur = self.conn.cursor()
+                            # Вычитаем из источника
+                            _cur.execute(
+                                "UPDATE garrisons SET unit_count = unit_count - ? WHERE city_name = ? AND unit_name = ?",
+                                (_cnt, _src, _un))
+                            _cur.execute("DELETE FROM garrisons WHERE unit_count <= 0")
+                            # Добавляем в город союзника (юниты того же типа)
+                            _cur.execute("""
+                                INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                                VALUES (?, ?, ?, '')
+                                ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
+                            """, (_dst, _un, _cnt, _cnt))
+                            self.conn.commit()
+                            show_popup_message("Передача", f"{_cnt} юнитов передано фракции {_owner}")
+                        except Exception as e:
+                            print(f"[ALLY TRANSFER] Ошибка: {e}")
                         if _popup:
                             _popup.dismiss()
 

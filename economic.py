@@ -1052,20 +1052,13 @@ class Faction:
         """
         try:
             self.current_consumption = 0
-            # Шаг 1: Получаем города текущей фракции + города союзников
-            # (армия на территории союзника считается как своя)
+            # Шаг 1: Получаем города текущей фракции
+            # Потребление считается по владельцу города:
+            # - юниты в своих городах = потребление игрока
+            # - юниты переданные союзнику (в его городе) = потребление союзника
+            # - юниты оставленные под контролем (в городе союзника) = потребление игрока
             self.cursor.execute("SELECT name FROM cities WHERE faction = ?", (self.faction,))
             own_cities = {row[0] for row in self.cursor.fetchall()}
-            try:
-                self.cursor.execute("""
-                    SELECT c.name FROM cities c
-                    JOIN diplomacies d ON c.faction = d.faction2
-                    WHERE d.faction1 = ? AND d.relationship = 'союз'
-                """, (self.faction,))
-                ally_cities = {row[0] for row in self.cursor.fetchall()}
-                own_cities |= ally_cities
-            except Exception:
-                pass
 
             # Шаг 2: Выгрузка гарнизонов только из своих городов
             self.cursor.execute("SELECT city_name, unit_name, unit_count FROM garrisons")
@@ -1078,14 +1071,19 @@ class Faction:
                 for row in self.cursor.fetchall()
             }
 
-            # Потребление считается по принадлежности города, а не юнита:
-            # все юниты в городах фракции (включая пленных) потребляют её кристаллы
+            # Потребление: юниты в своих городах + свои юниты в городах союзников
+            # Переданные союзнику юниты НЕ потребляют у игрока
             for garrison in garrisons:
                 city_name, unit_name, unit_count = garrison
                 if unit_name not in faction_units:
                     continue
+                unit_info = faction_units[unit_name]
                 if city_name in own_cities:
-                    self.current_consumption += faction_units[unit_name]['consumption'] * unit_count
+                    # Юниты в своих городах — всегда потребляют
+                    self.current_consumption += unit_info['consumption'] * unit_count
+                elif unit_info.get('faction') == self.faction:
+                    # Свои юниты в чужих городах (оставлены под контролем у союзника)
+                    self.current_consumption += unit_info['consumption'] * unit_count
 
             starving_units = []
             if self.current_consumption > self.max_army_limit:
