@@ -5789,13 +5789,43 @@ class EnhancedDiplomacyChat():
             back_btn.bind(on_press=lambda inst2: _show_main_buttons())
             quick_row.add_widget(back_btn)
 
+        def _show_coalition_submenu(inst):
+            """Показывает подменю: против какой фракции создать коалицию."""
+            quick_row.clear_widgets()
+
+            # Все фракции кроме своей и текущего собеседника
+            try:
+                _cur = self.db_connection.cursor()
+                _cur.execute("""
+                    SELECT DISTINCT faction FROM cities
+                    WHERE faction != 'Нейтрал' AND faction != 'Мятежники' AND faction != 'Нежить'
+                    AND faction != ? AND faction != ?
+                """, (self.faction, self.selected_faction if hasattr(self, 'selected_faction') else ''))
+                _targets = [r[0] for r in _cur.fetchall()]
+            except Exception:
+                _targets = []
+
+            for target in _targets:
+                tb = _styled_btn(target)
+                tb.bind(on_press=lambda i, t=target: (
+                    setattr(self.message_input, 'text', f"Напади на {t}"),
+                    self.send_diplomatic_message(i),
+                    _show_main_buttons()
+                ))
+                quick_row.add_widget(tb)
+
+            back_btn = _styled_btn("Назад")
+            back_btn.color = (1, 0.6, 0.5, 1)
+            back_btn.bind(on_press=lambda i: _show_main_buttons())
+            quick_row.add_widget(back_btn)
+
         def _show_main_buttons():
             quick_row.clear_widgets()
             _main = [
                 ("Союз", _send_quick("Давай заключим союз")),
                 ("Торговля", _show_trade_submenu),
                 ("Мир", _send_quick("Давай заключим мир")),
-                ("Война", _send_quick("Атакуй наших врагов")),
+                ("Коалиция", _show_coalition_submenu),
             ]
             for label, handler in _main:
                 b = _styled_btn(label)
