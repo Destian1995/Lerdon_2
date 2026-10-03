@@ -434,13 +434,14 @@ class DiplomacyManager:
 
         # Загружаем фракции
         try:
-            cursor = self.conn.cursor()
+            cursor = self.db_connection.cursor()
             cursor.execute("""
                 SELECT DISTINCT faction FROM cities
                 WHERE faction != 'Нейтрал' AND faction != 'Мятежники' AND faction != 'Нежить'
             """)
             factions = [r[0] for r in cursor.fetchall()]
-        except Exception:
+        except Exception as e:
+            print(f"[ALL RELATIONS] Ошибка загрузки фракций: {e}")
             factions = []
 
         table = GridLayout(cols=4, size_hint_y=None, spacing=dp(3), row_default_height=dp(36))
@@ -456,7 +457,7 @@ class DiplomacyManager:
         }
 
         try:
-            cursor = self.conn.cursor()
+            cursor = self.db_connection.cursor()
             for i, f1 in enumerate(factions):
                 for f2 in factions[i+1:]:
                     cursor.execute(
