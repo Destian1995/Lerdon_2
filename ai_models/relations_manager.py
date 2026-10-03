@@ -303,10 +303,122 @@ class RelationsManager:
             pos=lambda inst, val: setattr(inst.border_line, "rectangle", (inst.x, inst.y, inst.width, inst.height))
         )
 
+        # Кнопка "Все отношения" — показывает отношения между всеми фракциями
+        all_relations_btn = Button(
+            text="Отношения между фракциями",
+            background_color=(0.3, 0.45, 0.25, 1),
+            font_size='14sp',
+            size_hint=(1, None),
+            height=calculate_font_size() * 0.9,
+            color=(1, 1, 1, 1),
+            background_normal='',
+            bold=True
+        )
+        all_relations_btn.bind(on_release=lambda x: self._show_all_factions_relations())
+        content.add_widget(all_relations_btn)
+
         # При нажатии — возвращаем исходный интерфейс
         back_button.bind(on_release=lambda x: self.advisor.return_to_main_tab())
 
         content.add_widget(back_button)
+        self.advisor.popup.content = content
+
+    def _show_all_factions_relations(self):
+        """Показывает отношения между всеми фракциями."""
+        from .advisor_view import calculate_font_size
+
+        content = BoxLayout(orientation='vertical', spacing=dp(6), padding=dp(8))
+
+        title = Label(
+            text="[b]Отношения между фракциями[/b]", markup=True,
+            font_size='16sp', color=(1, 0.85, 0.4, 1),
+            size_hint_y=None, height=dp(30),
+            halign='center', valign='middle'
+        )
+        title.bind(size=title.setter('text_size'))
+        content.add_widget(title)
+
+        # Загружаем все фракции
+        try:
+            cursor = self.db_connection.cursor()
+            cursor.execute("""
+                SELECT DISTINCT faction FROM cities
+                WHERE faction != 'Нейтрал' AND faction != 'Мятежники' AND faction != 'Нежить'
+            """)
+            factions = [row[0] for row in cursor.fetchall()]
+        except Exception:
+            factions = []
+
+        if not factions:
+            content.add_widget(Label(text="Нет данных", font_size='14sp'))
+            self.advisor.popup.content = content
+            return
+
+        # Таблица
+        table = GridLayout(
+            cols=4, size_hint_y=None, spacing=dp(3),
+            row_default_height=dp(32)
+        )
+        table.bind(minimum_height=table.setter('height'))
+
+        # Заголовки
+        for h in ["Фракция 1", "Фракция 2", "Уровень", "Статус"]:
+            table.add_widget(self.create_header(h))
+
+        # Все пары фракций
+        _status_colors = {
+            'союз': (0.2, 0.8, 0.3, 1),
+            'война': (0.9, 0.2, 0.2, 1),
+            'мир': (0.5, 0.7, 1, 1),
+        }
+
+        try:
+            cursor = self.db_connection.cursor()
+            for i, f1 in enumerate(factions):
+                for f2 in factions[i+1:]:
+                    # Уровень отношений
+                    cursor.execute("""
+                        SELECT relationship FROM relations
+                        WHERE faction1 = ? AND faction2 = ?
+                    """, (f1, f2))
+                    rel_row = cursor.fetchone()
+                    level = int(rel_row[0]) if rel_row else 50
+
+                    # Статус дипломатии
+                    cursor.execute("""
+                        SELECT relationship FROM diplomacies
+                        WHERE faction1 = ? AND faction2 = ?
+                    """, (f1, f2))
+                    dip_row = cursor.fetchone()
+                    status = dip_row[0] if dip_row else 'нейтралитет'
+
+                    status_color = _status_colors.get(status, (0.6, 0.6, 0.6, 1))
+
+                    table.add_widget(Label(text=f1, font_size='12sp', color=(0.85, 0.85, 0.85, 1),
+                                           halign='center', valign='middle'))
+                    table.add_widget(Label(text=f2, font_size='12sp', color=(0.85, 0.85, 0.85, 1),
+                                           halign='center', valign='middle'))
+                    table.add_widget(Label(text=str(level), font_size='12sp',
+                                           color=self.get_relation_color(level),
+                                           halign='center', valign='middle'))
+                    table.add_widget(Label(text=status.upper(), font_size='11sp', bold=True,
+                                           color=status_color, halign='center', valign='middle'))
+        except Exception as e:
+            print(f"[RELATIONS] Ошибка: {e}")
+
+        scroll = ScrollView(size_hint=(1, 0.75), do_scroll_x=False, bar_width=dp(4))
+        scroll.add_widget(table)
+        content.add_widget(scroll)
+
+        # Назад
+        back_btn = Button(
+            text="Назад", background_color=(0.227, 0.525, 0.835, 1),
+            font_size='14sp', size_hint=(1, None), height=dp(40),
+            background_normal='', bold=True, color=(1, 1, 1, 1)
+        )
+        back_btn.bind(on_release=lambda x: self.show_relations())
+        content.add_widget(back_btn)
+
         self.advisor.popup.content = content
 
     def create_value_cell(self, value):
