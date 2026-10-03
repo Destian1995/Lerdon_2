@@ -2457,6 +2457,12 @@ class FortressInfoPopup(Popup):
                                 ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
                             """, (_dst, _un, _cnt, _cnt))
                             self.conn.commit()
+                            # Обновляем UI ресурсов (потребление снизилось)
+                            try:
+                                from game_process import refresh_map
+                                refresh_map()
+                            except Exception:
+                                pass
                             show_popup_message("Передача", f"{_cnt} юнитов передано фракции {_owner}")
                         except Exception as e:
                             print(f"[ALLY TRANSFER] Ошибка: {e}")

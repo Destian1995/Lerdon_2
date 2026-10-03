@@ -1179,6 +1179,39 @@ class EnhancedDiplomacyChat():
         if ai_proposal_response:
             return ai_proposal_response
 
+        # 0.5. Сброс контекста при новых ключевых командах (союз/мир/дружба)
+        _new_topic_keywords = ['союз', 'альянс', 'мир', 'перемирие', 'дружить', 'дружбу', 'атакуй', 'напади']
+        if any(kw in message_lower for kw in _new_topic_keywords):
+            if target_faction in self.negotiation_context:
+                del self.negotiation_context[target_faction]
+
+        # 0.6. "Давай дружить" — улучшение отношений на +7
+        _friendship_keywords = ['дружить', 'давай дружить', 'дружбу', 'подружимся', 'будем друзьями']
+        if any(kw in message_lower for kw in _friendship_keywords):
+            if relation_level >= 30:
+                try:
+                    cursor = self.db_connection.cursor()
+                    new_level = min(100, relation_level + 7)
+                    cursor.execute("""
+                        UPDATE relations SET relationship = ?
+                        WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
+                    """, (new_level, self.faction, target_faction, target_faction, self.faction))
+                    self.db_connection.commit()
+                    _responses = [
+                        f"Дружба — великая сила! Наши отношения улучшились до {new_level}/100.",
+                        f"Я ценю твою открытость! Отношения: {new_level}/100.",
+                        f"Рад слышать! Будем дружить. Отношения теперь {new_level}/100.",
+                    ]
+                    return random.choice(_responses)
+                except Exception as e:
+                    print(f"[FRIENDSHIP] Ошибка: {e}")
+            else:
+                return random.choice([
+                    "Дружить? С тобой? Ха! Сначала заслужи моё доверие.",
+                    "Слова дешевы. Докажи делами что достоин дружбы.",
+                    "Рано говорить о дружбе. Наши отношения слишком плохие.",
+                ])
+
         # 1. Проверяем контекст переговоров
         context = self.negotiation_context.get(target_faction, {})
 
