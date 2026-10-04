@@ -1109,14 +1109,14 @@ class GameScreen(Screen):
         )
 
         with end_turn_container.canvas.before:
-            Color(1, 0.2, 0.2, 0.9)  # Цвет фона кнопки
-            RoundedRectangle(pos=end_turn_container.pos, size=end_turn_container.size, radius=[15])
+            Color(0.72, 0.14, 0.14, 0.95)
+            RoundedRectangle(pos=end_turn_container.pos, size=end_turn_container.size, radius=[dp(12)])
 
         def update_end_turn_rect(instance, value):
             instance.canvas.before.clear()
             with instance.canvas.before:
-                Color(1, 0.2, 0.2, 0.9)
-                RoundedRectangle(pos=instance.pos, size=instance.size, radius=[15])
+                Color(0.72, 0.14, 0.14, 0.95)
+                RoundedRectangle(pos=instance.pos, size=instance.size, radius=[dp(12)])
 
         end_turn_container.bind(pos=update_end_turn_rect, size=update_end_turn_rect)
 
@@ -1140,14 +1140,14 @@ class GameScreen(Screen):
             padding=dp(10)
         )
         with fraction_container.canvas.before:
-            Color(0.15, 0.2, 0.3, 0.95)
-            self.fraction_rect = RoundedRectangle(radius=[15])
+            Color(0.08, 0.10, 0.18, 0.90)
+            self.fraction_rect = RoundedRectangle(radius=[dp(10)])
 
         def update_fraction_rect(instance, value):
             instance.canvas.before.clear()
             with instance.canvas.before:
-                Color(0.15, 0.2, 0.3, 0.95)
-                self.fraction_rect = RoundedRectangle(pos=instance.pos, size=instance.size, radius=[15])
+                Color(0.08, 0.10, 0.18, 0.90)
+                self.fraction_rect = RoundedRectangle(pos=instance.pos, size=instance.size, radius=[dp(10)])
 
         fraction_container.bind(pos=update_fraction_rect, size=update_fraction_rect)
         self.faction_label = Label(
@@ -1247,14 +1247,14 @@ class GameScreen(Screen):
             spacing=dp(5)
         )
         with turn_counter_container.canvas.before:
-            Color(0.15, 0.2, 0.3, 0.9)
-            RoundedRectangle(pos=turn_counter_container.pos, size=turn_counter_container.size, radius=[15])
+            Color(0.08, 0.10, 0.18, 0.90)
+            RoundedRectangle(pos=turn_counter_container.pos, size=turn_counter_container.size, radius=[dp(10)])
 
         def update_turn_rect(instance, value):
             instance.canvas.before.clear()
             with instance.canvas.before:
-                Color(0.15, 0.2, 0.3, 0.9)
-                RoundedRectangle(pos=instance.pos, size=instance.size, radius=[15])
+                Color(0.08, 0.10, 0.18, 0.90)
+                RoundedRectangle(pos=instance.pos, size=instance.size, radius=[dp(10)])
 
         turn_counter_container.bind(pos=update_turn_rect, size=update_turn_rect)
         self.turn_label = Label(text=f"Текущий ход: {self.turn_counter}", font_size='18sp', color=(1, 1, 1, 1),
@@ -1272,14 +1272,14 @@ class GameScreen(Screen):
             spacing=dp(4)
         )
         with exit_container.canvas.before:
-            Color(0.1, 0.5, 0.1, 1)
-            RoundedRectangle(pos=exit_container.pos, size=exit_container.size, radius=[15])
+            Color(0.12, 0.16, 0.28, 0.95)
+            RoundedRectangle(pos=exit_container.pos, size=exit_container.size, radius=[dp(10)])
 
         def update_exit_rect(instance, value):
             instance.canvas.before.clear()
             with instance.canvas.before:
-                Color(0.15, 0.2, 0.3, 0.9)
-                RoundedRectangle(pos=instance.pos, size=instance.size, radius=[15])
+                Color(0.12, 0.16, 0.28, 0.95)
+                RoundedRectangle(pos=instance.pos, size=instance.size, radius=[dp(10)])
 
         exit_container.bind(pos=update_exit_rect, size=update_exit_rect)
         self.exit_button = Button(
