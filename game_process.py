@@ -2244,7 +2244,7 @@ class GameScreen(Screen):
 
         # Сообщение
         message = Label(
-            text="[b]Покинуть поле битвы?[/b]\n[color=#aaaaaa]Прогресс сохранён автоматически[/color]",
+            text="[b]Покинуть поле битвы?[/b]\n[color=#ff8888]Звание не будет присвоено![/color]",
             markup=True, font_size=sp(16),
             color=(0.95, 0.90, 0.75, 1),
             halign='center', valign='middle',
