@@ -2234,17 +2234,9 @@ class GameScreen(Screen):
         content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
                      size=lambda i, v: setattr(i._bg, 'size', v))
 
-        # Иконка
-        icon_lbl = Label(
-            text="⚔", font_size=sp(48),
-            size_hint_y=None, height=dp(60),
-            halign='center', valign='middle'
-        )
-        content.add_widget(icon_lbl)
-
         # Сообщение
         message = Label(
-            text="[b]Покинуть поле битвы?[/b]\n[color=#ff8888]Звание не будет присвоено![/color]",
+            text="[b]Устали, Ваше Величество?[/b]\n[color=#ff8888]Звание не будет присвоено![/color]",
             markup=True, font_size=sp(16),
             color=(0.95, 0.90, 0.75, 1),
             halign='center', valign='middle',
