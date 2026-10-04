@@ -1408,17 +1408,21 @@ def start_politic_mode(faction, game_area, class_faction, conn, root_overlay=Non
             text=text,
             size_hint=(1, 1),
             background_color=(0, 0, 0, 0),
-            color=(1, 1, 1, 1),
+            color=(0.85, 0.90, 1, 1),
             font_size=sp(12) if is_android else sp(14),
             bold=True
         )
         with btn.canvas.before:
-            Color(0.2, 0.6, 1, 1)
-            btn.rect = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[15])
+            Color(0.12, 0.16, 0.28, 0.95)
+            btn.rect = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(8)])
+            Color(0.25, 0.40, 0.65, 0.5)
+            btn._border_rr = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(8)])
 
         def update_rect(instance, value):
             instance.rect.pos = instance.pos
             instance.rect.size = instance.size
+            instance._border_rr.pos = (instance.x - dp(1), instance.y - dp(1))
+            instance._border_rr.size = (instance.width + dp(2), instance.height + dp(2))
 
         btn.bind(pos=update_rect, size=update_rect)
         btn.bind(on_release=callback)
