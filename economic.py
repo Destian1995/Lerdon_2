@@ -2966,13 +2966,13 @@ def start_economy_mode(faction, game_area, db_conn, season_manager, root_overlay
             button.rect = RoundedRectangle(pos=button.pos, size=button.size, radius=[dp(8)])
             # Тонкая рамка
             Color(0.25, 0.40, 0.65, 0.5)
-            button.border = RoundedRectangle(pos=button.pos, size=button.size, radius=[dp(8)])
+            button._border_rr = RoundedRectangle(pos=button.pos, size=button.size, radius=[dp(8)])
 
         def update_rect(instance, value):
             instance.rect.pos = instance.pos
             instance.rect.size = instance.size
-            instance.border.pos = (instance.x - dp(1), instance.y - dp(1))
-            instance.border.size = (instance.width + dp(2), instance.height + dp(2))
+            instance._border_rr.pos = (instance.x - dp(1), instance.y - dp(1))
+            instance._border_rr.size = (instance.width + dp(2), instance.height + dp(2))
 
         button.bind(pos=update_rect, size=update_rect)
         button.bind(on_release=on_press_callback)
