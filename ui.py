@@ -736,15 +736,39 @@ class FortressInfoPopup(Popup):
             )
             self.table_layout.add_widget(label)
 
+        _row_idx = 0
         for city_name, unit_name, unit_count, unit_image in troops_data:
-            city_lbl = Label(text=city_name, font_size=_fsize, size_hint_y=None, height=_row_h, color=(0.96, 0.96, 0.96, 1))
-            unit_lbl = Label(text=unit_name, font_size=_fsize, size_hint_y=None, height=_row_h, color=(0.96, 0.96, 0.96, 1))
-            count_lbl = Label(text=str(unit_count), font_size=_fsize, size_hint_y=None, height=_row_h, color=(0.65, 0.70, 0.80, 1))
+            # Чередование фона строк
+            _bg_alpha = 0.25 if _row_idx % 2 == 0 else 0.15
+            _row_idx += 1
+
+            city_lbl = Label(text=city_name, font_size=_fsize, size_hint_y=None, height=_row_h, color=(0.85, 0.88, 0.95, 1))
+            with city_lbl.canvas.before:
+                Color(0.12, 0.15, 0.22, _bg_alpha)
+                city_lbl._rbg = Rectangle(pos=city_lbl.pos, size=city_lbl.size)
+            city_lbl.bind(pos=lambda i, v: setattr(i._rbg, 'pos', v),
+                          size=lambda i, v: setattr(i._rbg, 'size', v))
+
+            unit_lbl = Label(text=unit_name, font_size=_fsize, size_hint_y=None, height=_row_h,
+                             color=(1, 0.92, 0.70, 1), bold=True)
+            with unit_lbl.canvas.before:
+                Color(0.12, 0.15, 0.22, _bg_alpha)
+                unit_lbl._rbg = Rectangle(pos=unit_lbl.pos, size=unit_lbl.size)
+            unit_lbl.bind(pos=lambda i, v: setattr(i._rbg, 'pos', v),
+                          size=lambda i, v: setattr(i._rbg, 'size', v))
+
+            count_lbl = Label(text=str(unit_count), font_size=_fsize, size_hint_y=None, height=_row_h,
+                              color=(0.5, 0.85, 0.5, 1), bold=True)
+            with count_lbl.canvas.before:
+                Color(0.12, 0.15, 0.22, _bg_alpha)
+                count_lbl._rbg = Rectangle(pos=count_lbl.pos, size=count_lbl.size)
+            count_lbl.bind(pos=lambda i, v: setattr(i._rbg, 'pos', v),
+                           size=lambda i, v: setattr(i._rbg, 'size', v))
 
             img_box = BoxLayout(size_hint_y=None, height=_img_h)
             with img_box.canvas.before:
-                img_box._bgc = Color(0.10, 0.13, 0.20, 1)
-                img_box._bgr = RoundedRectangle(pos=img_box.pos, size=img_box.size, radius=[dp(10)])
+                Color(0.08, 0.10, 0.16, 0.8)
+                img_box._bgr = RoundedRectangle(pos=img_box.pos, size=img_box.size, radius=[dp(6)])
             img_box.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
                          size=lambda i, v: setattr(i._bgr, 'size', v))
             img_box.add_widget(Image(source=unit_image, size=(_img_h, _img_h), size_hint=(None, None)))
@@ -759,8 +783,8 @@ class FortressInfoPopup(Popup):
                 color=(1, 1, 1, 1)
             )
             with btn_add.canvas.before:
-                btn_add._bc = Color(0.18, 0.62, 0.22, 1)
-                btn_add._br = RoundedRectangle(pos=btn_add.pos, size=btn_add.size, radius=[dp(12)])
+                Color(0.12, 0.16, 0.28, 0.95)
+                btn_add._br = RoundedRectangle(pos=btn_add.pos, size=btn_add.size, radius=[dp(8)])
             btn_add.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
                          size=lambda i, v: setattr(i._br, 'size', v))
             btn_add.bind(
@@ -795,8 +819,8 @@ class FortressInfoPopup(Popup):
             color=(1, 1, 1, 1)
         )
         with btn_add_all.canvas.before:
-            btn_add_all._bc = Color(0.16, 0.46, 0.82, 1)
-            btn_add_all._br = RoundedRectangle(pos=btn_add_all.pos, size=btn_add_all.size, radius=[dp(12)])
+            btn_add_all._bc = Color(0.12, 0.30, 0.65, 0.95)
+            btn_add_all._br = RoundedRectangle(pos=btn_add_all.pos, size=btn_add_all.size, radius=[dp(8)])
         btn_add_all.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
                          size=lambda i, v: setattr(i._br, 'size', v))
 
