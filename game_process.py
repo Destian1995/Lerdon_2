@@ -2220,90 +2220,78 @@ class GameScreen(Screen):
         return False
 
     def confirm_exit(self):
-        # === Создаём основное содержимое Popup с отступами ===
+        from kivy.graphics import RoundedRectangle as _RR
+        is_android = platform == 'android'
+
         content = BoxLayout(
             orientation='vertical',
-            spacing=dp(15),
-            padding=[dp(20), dp(20), dp(20), dp(20)]
+            spacing=dp(20),
+            padding=[dp(24), dp(24), dp(24), dp(20)]
         )
+        with content.canvas.before:
+            Color(0.08, 0.09, 0.14, 1)
+            content._bg = Rectangle(pos=content.pos, size=content.size)
+        content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                     size=lambda i, v: setattr(i._bg, 'size', v))
 
-        # --- Сообщение с увеличенным шрифтом и адаптивной шириной ---
+        # Иконка
+        icon_lbl = Label(
+            text="⚔", font_size=sp(48),
+            size_hint_y=None, height=dp(60),
+            halign='center', valign='middle'
+        )
+        content.add_widget(icon_lbl)
+
+        # Сообщение
         message = Label(
-            text="Устали, Ваше Величество?",
-            font_size=sp(18),
-            color=(1, 1, 1, 1),
-            halign='center',
-            valign='middle',
-            size_hint=(1, None)
+            text="[b]Покинуть поле битвы?[/b]\n[color=#aaaaaa]Прогресс сохранён автоматически[/color]",
+            markup=True, font_size=sp(16),
+            color=(0.95, 0.90, 0.75, 1),
+            halign='center', valign='middle',
+            size_hint_y=None, height=dp(50)
         )
+        message.bind(size=message.setter('text_size'))
+        content.add_widget(message)
 
-        # Привязываем ширину сообщения к ширине Popup (учитываем паддинг)
-        def update_message_size(instance, width):
-            # width здесь — ширина content, без padding по горизонтали
-            message.text_size = (width, None)
-            message.texture_update()
-            message.height = message.texture_size[1] + dp(10)
-
-        content.bind(width=update_message_size)
-        # Инициализируем высоту сразу
-        update_message_size(message, Window.width * 0.95 - dp(10))
-
-        # --- Горизонтальный контейнер для кнопок ---
+        # Кнопки
         btn_container = BoxLayout(
             orientation='horizontal',
-            size_hint=(1, None),
-            height=dp(48),
-            spacing=dp(10)
+            size_hint=(1, None), height=dp(50),
+            spacing=dp(12)
         )
 
-        # --- Кнопка «Да» (красная) ---
-        btn_yes = Button(
-            text="Да",
-            size_hint=(1, 1),
-            background_normal='',
-            background_color=get_color_from_hex('#E53E3E'),
-            font_size=sp(16),
-            bold=True,
-            color=(1, 1, 1, 1)
-        )
+        def _styled_exit_btn(text, bg_color):
+            btn = Button(
+                text=text, size_hint=(1, 1),
+                background_normal='', background_color=(0, 0, 0, 0),
+                font_size=sp(15), bold=True, color=(1, 1, 1, 1)
+            )
+            with btn.canvas.before:
+                Color(*bg_color)
+                btn._rr = _RR(pos=btn.pos, size=btn.size, radius=[dp(12)])
+            btn.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                     size=lambda i, v: setattr(i._rr, 'size', v))
+            return btn
 
-        # --- Кнопка «Нет» (зелёная) ---
-        btn_no = Button(
-            text="Нет",
-            size_hint=(1, 1),
-            background_normal='',
-            background_color=get_color_from_hex('#38A169'),
-            font_size=sp(16),
-            bold=True,
-            color=(1, 1, 1, 1)
-        )
+        btn_yes = _styled_exit_btn("Покинуть", (0.75, 0.18, 0.18, 1))
+        btn_no = _styled_exit_btn("Остаться", (0.18, 0.55, 0.30, 1))
 
         btn_container.add_widget(btn_yes)
         btn_container.add_widget(btn_no)
-
-        # Добавляем метку и контейнер с кнопками в основной контент
-        content.add_widget(message)
         content.add_widget(btn_container)
 
-        # --- Создаём сам Popup, делаем его адаптивным по размеру экрана ---
-        is_android = platform == 'android'
         popup = Popup(
-            title="Подтверждение выхода из матча",
-            title_size=sp(22) if is_android else sp(20),
-            title_align='center',
-            title_color=(1, 1, 1, 1),
+            title="",
             content=content,
-            size_hint=(0.95, None) if is_android else (0.9, None),
-            height=Window.height * 0.6 if is_android else Window.height * 0.51,
-            background_color=(0.1, 0.1, 0.1, 0.95),
-            separator_color=(0.3, 0.3, 0.3, 1),
-            auto_dismiss=False
+            size_hint=(0.55 if not is_android else 0.85, None),
+            height=dp(260),
+            background_color=(0.06, 0.06, 0.10, 0.95),
+            separator_height=0,
+            auto_dismiss=True
         )
 
-        # --- Привязываем действия к кнопкам ---
         btn_yes.bind(on_release=lambda x: (popup.dismiss(), App.get_running_app().restart_app()))
         btn_no.bind(on_release=popup.dismiss)
-
         popup.open()
 
     def show_war_declaration_popup(self, enemy_factions):
