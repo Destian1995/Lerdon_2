@@ -235,12 +235,12 @@ class FortressInfoPopup(Popup):
             'Ввести войска', (0.18, 0.62, 0.22, 1),
             on_rel=lambda btn: self.load_troops_by_type("Любые", None)
         ))
-        btn_row.add_widget(_make_btn(
-            'Разместить армию', (0.16, 0.46, 0.82, 1),
-            on_rel=self.place_army
-        ))
-        # Кнопка "Построить" — только для своих городов (не нежити)
+        # "Разместить армию" и "Построить" — только для своих городов
         if self.ai_fraction == self.player_fraction and not self._is_undead_city:
+            btn_row.add_widget(_make_btn(
+                'Разместить армию', (0.16, 0.46, 0.82, 1),
+                on_rel=self.place_army
+            ))
             btn_row.add_widget(_make_btn(
                 'Построить', (0.55, 0.35, 0.12, 1),
                 on_rel=lambda btn: self._open_build_menu()
