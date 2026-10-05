@@ -509,7 +509,7 @@ class CircularProgressButton(Button):
     def draw_circle(self, *args):
         self.canvas.after.clear()
         with self.canvas.after:
-            Color(1, 1, 1, 0.3)  # Цвет индикатора
+            Color(1, 1, 1, 0.3)
             self.circle = Line(
                 circle=(self.center_x, self.center_y, min(self.width, self.height) / 2 - dp(8), 0, 0),
                 width=dp(4),
@@ -557,6 +557,268 @@ class CircularProgressButton(Button):
         self.disabled = False
         self.anim = None
         self.canvas.after.clear()
+
+
+class TurnOverlay(FloatLayout):
+    """
+    Full-screen Total War-style overlay shown during AI turn processing.
+    Shows faction crests cycling with animated glow, progress bar, and particles.
+    """
+    FACTION_ICONS = {
+        'Север': 'files/sov/people.jpg',
+        'Эльфы': 'files/sov/elfs.jpg',
+        'Вампиры': 'files/sov/vampire.jpg',
+        'Адепты': 'files/sov/adept.jpg',
+        'Элины': 'files/sov/poly.jpg',
+    }
+
+    FACTION_COLORS = {
+        'Север': (0.3, 0.5, 0.9),
+        'Эльфы': (0.2, 0.8, 0.3),
+        'Вампиры': (0.7, 0.1, 0.2),
+        'Адепты': (0.8, 0.6, 0.1),
+        'Элины': (0.5, 0.3, 0.8),
+    }
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint = (1, 1)
+        self._particles = []
+        self._glow_angle = 0
+        self._pulse_val = 0
+        self._update_event = None
+        self._glow_anim = None
+
+        # Dark overlay background
+        with self.canvas.before:
+            self._bg_color = Color(0, 0, 0, 0)
+            self._bg_rect = Rectangle(pos=self.pos, size=self.size)
+
+        self.bind(pos=self._update_bg, size=self._update_bg)
+
+        # Central faction image (circular mask via stencil)
+        self._img_size = min(dp(160), dp(160))
+
+        # Glow ring behind the icon
+        self._glow_container = FloatLayout(size_hint=(None, None), size=(dp(200), dp(200)))
+        self._glow_container.pos_hint = {'center_x': 0.5, 'center_y': 0.55}
+        self.add_widget(self._glow_container)
+
+        # Faction image
+        self._faction_img = Image(
+            size_hint=(None, None),
+            size=(self._img_size, self._img_size),
+            pos_hint={'center_x': 0.5, 'center_y': 0.55},
+            allow_stretch=True,
+            keep_ratio=True,
+            opacity=0,
+        )
+        self.add_widget(self._faction_img)
+
+        # Faction name label
+        self._faction_label = Label(
+            text='',
+            font_size=sp(22),
+            bold=True,
+            color=(1, 1, 1, 0),
+            size_hint=(1, None),
+            height=dp(40),
+            pos_hint={'center_x': 0.5, 'center_y': 0.38},
+            halign='center',
+        )
+        self.add_widget(self._faction_label)
+
+        # Status label
+        self._status_label = Label(
+            text='Обработка хода...',
+            font_size=sp(14),
+            color=(0.7, 0.7, 0.8, 0),
+            size_hint=(1, None),
+            height=dp(30),
+            pos_hint={'center_x': 0.5, 'center_y': 0.33},
+            halign='center',
+        )
+        self.add_widget(self._status_label)
+
+        # Progress bar background
+        self._bar_bg = FloatLayout(
+            size_hint=(0.6, None),
+            height=dp(4),
+            pos_hint={'center_x': 0.5, 'center_y': 0.28},
+        )
+        with self._bar_bg.canvas:
+            Color(0.3, 0.3, 0.4, 0.5)
+            self._bar_bg_rect = RoundedRectangle(
+                pos=self._bar_bg.pos, size=self._bar_bg.size, radius=[dp(2)]
+            )
+        self._bar_bg.bind(pos=self._update_bar_bg, size=self._update_bar_bg)
+        self.add_widget(self._bar_bg)
+
+        # Progress bar fill
+        self._bar_fill = FloatLayout(
+            size_hint=(0, None),
+            height=dp(4),
+            pos_hint={'x': 0.2, 'center_y': 0.28},
+        )
+        with self._bar_fill.canvas:
+            self._bar_fill_color = Color(0.4, 0.6, 1.0, 0.8)
+            self._bar_fill_rect = RoundedRectangle(
+                pos=self._bar_fill.pos, size=self._bar_fill.size, radius=[dp(2)]
+            )
+        self._bar_fill.bind(pos=self._update_bar_fill, size=self._update_bar_fill)
+        self.add_widget(self._bar_fill)
+
+        self._total_factions = 1
+        self._current_index = 0
+
+    def _update_bg(self, *args):
+        self._bg_rect.pos = self.pos
+        self._bg_rect.size = self.size
+
+    def _update_bar_bg(self, *args):
+        self._bar_bg_rect.pos = self._bar_bg.pos
+        self._bar_bg_rect.size = self._bar_bg.size
+
+    def _update_bar_fill(self, *args):
+        self._bar_fill_rect.pos = self._bar_fill.pos
+        self._bar_fill_rect.size = self._bar_fill.size
+
+    def show(self, total_factions):
+        """Fade in the overlay."""
+        self._total_factions = max(total_factions, 1)
+        self._current_index = 0
+
+        # Fade in background
+        anim_bg = Animation(_bg_alpha=0.85, duration=0.3)
+        anim_bg.bind(on_progress=lambda a, w, p: setattr(self._bg_color, 'a', p * 0.85))
+        anim_bg.start(self)
+
+        # Fade in labels
+        Animation(opacity=1, duration=0.4).start(self._status_label)
+
+        # Start particle system
+        self._update_event = Clock.schedule_interval(self._update_particles, 1.0 / 30)
+
+    def set_faction(self, faction_name, index):
+        """Switch to showing a new faction (called from background thread via Clock)."""
+        self._current_index = index
+        icon_path = self.FACTION_ICONS.get(faction_name, '')
+        color = self.FACTION_COLORS.get(faction_name, (0.5, 0.5, 0.7))
+
+        # Update faction image
+        if icon_path:
+            self._faction_img.source = icon_path
+            self._faction_img.reload()
+
+        # Animate faction image in
+        self._faction_img.opacity = 0
+        Animation(opacity=1, duration=0.25).start(self._faction_img)
+
+        # Update label
+        self._faction_label.text = faction_name
+        self._faction_label.color = (*color, 0)
+        Animation(color=(*color, 1), duration=0.25).start(self._faction_label)
+
+        # Update status
+        self._status_label.text = f'Ход фракции: {faction_name}'
+        self._status_label.color = (0.7, 0.7, 0.8, 1)
+
+        # Update progress bar
+        progress_frac = (index + 1) / self._total_factions
+        self._bar_fill.size_hint_x = 0.6 * progress_frac
+        self._bar_fill_color.rgba = (*color, 0.9)
+        self._update_bar_fill()
+
+        # Update glow ring
+        self._draw_glow_ring(color)
+
+        # Start pulsing glow animation
+        if self._glow_anim:
+            self._glow_anim.cancel(self)
+        self._pulse_val = 0.6
+        a1 = Animation(_pulse_val=1.0, duration=0.8, t='in_out_sine')
+        a2 = Animation(_pulse_val=0.6, duration=0.8, t='in_out_sine')
+        self._glow_anim = a1 + a2
+        self._glow_anim.repeat = True
+        self._glow_anim.bind(on_progress=lambda a, w, p: self._draw_glow_ring(color))
+        self._glow_anim.start(self)
+
+    def _draw_glow_ring(self, color):
+        """Draw animated glow ring around faction icon."""
+        self._glow_container.canvas.clear()
+        cx = self._glow_container.width / 2
+        cy = self._glow_container.height / 2
+        pulse = getattr(self, '_pulse_val', 0.8)
+        radius = self._img_size / 2 + dp(12)
+
+        with self._glow_container.canvas:
+            # Outer glow
+            Color(*color, 0.15 * pulse)
+            Line(circle=(cx, cy, radius + dp(8), 0, 360), width=dp(6), cap='round')
+            # Inner glow
+            Color(*color, 0.4 * pulse)
+            Line(circle=(cx, cy, radius, 0, 360), width=dp(3), cap='round')
+
+    def _update_particles(self, dt):
+        """Spawn and update floating ember particles."""
+        import random as _rnd
+        # Spawn new particles
+        if len(self._particles) < 25:
+            px = _rnd.uniform(0.1, 0.9) * self.width
+            py = _rnd.uniform(0, 0.15) * self.height
+            speed = _rnd.uniform(dp(30), dp(80))
+            drift = _rnd.uniform(-dp(15), dp(15))
+            life = _rnd.uniform(1.5, 3.0)
+            size = _rnd.uniform(dp(2), dp(5))
+            self._particles.append({
+                'x': px, 'y': py, 'speed': speed, 'drift': drift,
+                'life': life, 'max_life': life, 'size': size,
+            })
+
+        # Update
+        alive = []
+        for p in self._particles:
+            p['y'] += p['speed'] * dt
+            p['x'] += p['drift'] * dt
+            p['life'] -= dt
+            if p['life'] > 0 and p['y'] < self.height:
+                alive.append(p)
+        self._particles = alive
+
+        # Redraw particles on canvas
+        self.canvas.after.clear()
+        with self.canvas.after:
+            for p in self._particles:
+                alpha = min(1.0, p['life'] / p['max_life']) * 0.6
+                Color(1.0, 0.7, 0.3, alpha)
+                Rectangle(
+                    pos=(p['x'] - p['size'] / 2, p['y'] - p['size'] / 2),
+                    size=(p['size'], p['size'])
+                )
+
+    def dismiss(self, on_complete=None):
+        """Fade out and remove overlay."""
+        if self._update_event:
+            self._update_event.cancel()
+            self._update_event = None
+        if self._glow_anim:
+            self._glow_anim.cancel(self)
+            self._glow_anim = None
+
+        self._particles.clear()
+        self.canvas.after.clear()
+        self._glow_container.canvas.clear()
+
+        anim = Animation(opacity=0, duration=0.3)
+
+        def _on_done(*args):
+            if self.parent:
+                self.parent.remove_widget(self)
+            if on_complete:
+                on_complete()
+
+        anim.bind(on_complete=_on_done)
+        anim.start(self)
 
 class TabImageButton(ImageButton):
     """Кнопка вкладки с поддержкой активного/неактивного состояния"""
@@ -1310,7 +1572,7 @@ class GameScreen(Screen):
 
         def on_end_turn(instance):
             instance.start_progress()
-            self.scheduled_events['process_turn'] = Clock.schedule_once(lambda dt: self.process_turn(None), 1.5)
+            self.process_turn(None)
 
         self.end_turn_button.bind(on_press=on_end_turn)
         end_turn_container.add_widget(self.end_turn_button)
@@ -1392,6 +1654,11 @@ class GameScreen(Screen):
         # Блокируем кнопку завершения хода на время обработки
         self.end_turn_button.disabled = True
 
+        # === Показываем оверлей обработки хода (Total War style) ===
+        self._turn_overlay = TurnOverlay()
+        self.root_overlay.add_widget(self._turn_overlay)
+        self._turn_overlay.show(len(self.ai_controllers))
+
         # === Фаза 2: Тяжёлые операции в фоновом потоке ===
         def _background_work():
             _new_season = None
@@ -1413,7 +1680,11 @@ class GameScreen(Screen):
                     process_undead_turn(self.conn, self.turn_counter)
 
                 # Ход ИИ — самая тяжёлая часть
-                for faction_name, ai_controller in self.ai_controllers.items():
+                faction_items = list(self.ai_controllers.items())
+                for idx, (faction_name, ai_controller) in enumerate(faction_items):
+                    Clock.schedule_once(
+                        lambda dt, fn=faction_name, i=idx: self._turn_overlay.set_faction(fn, i)
+                    )
                     ai_controller.make_turn()
 
                 self.enforce_garrison_hero_limits()
@@ -1471,6 +1742,9 @@ class GameScreen(Screen):
             print(f"Ход {self.turn_counter} завершён")
         finally:
             self.end_turn_button.disabled = False
+            if hasattr(self, '_turn_overlay') and self._turn_overlay:
+                self._turn_overlay.dismiss()
+                self._turn_overlay = None
 
     def _check_council_loyalty_warning(self):
         """Предупреждение если средняя лояльность советников ниже 40%"""
