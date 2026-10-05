@@ -3274,27 +3274,59 @@ class EnhancedDiplomacyChat():
         return f"Предложи больше {trade_info['get_type'].lower()} или меньше {trade_info['give_type'].lower()}"
 
     def create_trade_agreement(self, initiator, target_faction, give_resource, give_amount, get_resource, get_amount):
-        """Создает торговое соглашение"""
+        """Создает торговое соглашение и переводит ресурсы."""
         try:
             cursor = self.db_connection.cursor()
 
+            # Проверяем что у инициатора хватает ресурсов
+            cursor.execute("SELECT amount FROM resources WHERE faction=? AND resource_type=?",
+                           (initiator, give_resource))
+            _ini_res = cursor.fetchone()
+            if not _ini_res or _ini_res[0] < give_amount:
+                print(f"[TRADE] У {initiator} не хватает {give_resource}: нужно {give_amount}, есть {_ini_res[0] if _ini_res else 0}")
+                return False
+
+            # Проверяем что у цели хватает ресурсов
+            cursor.execute("SELECT amount FROM resources WHERE faction=? AND resource_type=?",
+                           (target_faction, get_resource))
+            _tgt_res = cursor.fetchone()
+            if not _tgt_res or _tgt_res[0] < get_amount:
+                print(f"[TRADE] У {target_faction} не хватает {get_resource}: нужно {get_amount}, есть {_tgt_res[0] if _tgt_res else 0}")
+                return False
+
+            # Переводим ресурсы: инициатор отдаёт give, получает get
+            cursor.execute("UPDATE resources SET amount = amount - ? WHERE faction=? AND resource_type=?",
+                           (give_amount, initiator, give_resource))
+            cursor.execute("UPDATE resources SET amount = amount + ? WHERE faction=? AND resource_type=?",
+                           (get_amount, initiator, get_resource))
+            # Цель: отдаёт get, получает give
+            cursor.execute("UPDATE resources SET amount = amount - ? WHERE faction=? AND resource_type=?",
+                           (get_amount, target_faction, get_resource))
+            cursor.execute("UPDATE resources SET amount = amount + ? WHERE faction=? AND resource_type=?",
+                           (give_amount, target_faction, give_resource))
+
+            # Записываем в историю
             cursor.execute('''
-                INSERT INTO trade_agreements 
-                (initiator, target_faction, initiator_type_resource, initiator_summ_resource, 
+                INSERT INTO trade_agreements
+                (initiator, target_faction, initiator_type_resource, initiator_summ_resource,
                  target_type_resource, target_summ_resource, agree)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                initiator,
-                target_faction,
-                give_resource,
-                give_amount,
-                get_resource,
-                get_amount,
-                0  # 0 = ожидает подтверждения, 1 = принято, 2 = отклонено
-            ))
+            ''', (initiator, target_faction, give_resource, give_amount, get_resource, get_amount, 1))
 
             self.db_connection.commit()
-            print(f"Создано торговое соглашение: {initiator} -> {target_faction}")
+            print(f"[TRADE] Сделка: {initiator} отдал {give_amount} {give_resource}, получил {get_amount} {get_resource}")
+
+            # Обновляем UI ресурсов
+            try:
+                from game_process import _active_game_screen
+                gs = _active_game_screen
+                if gs and hasattr(gs, 'faction'):
+                    gs.faction.refresh_from_db()
+                    if hasattr(gs, 'resource_box'):
+                        gs.resource_box.update_resources()
+            except Exception:
+                pass
+
             return True
 
         except Exception as e:
@@ -4281,8 +4313,8 @@ class EnhancedDiplomacyChat():
                     WHERE faction = ? AND resource_type = 'Кроны'
                 """, (required_amount, self.faction))
 
-                # Объявляем войну
-                self._declare_war_on_faction(faction, target_faction)
+                # Объявляем войну (AI объявляет, не игрок)
+                self._declare_war_on_faction(self.faction, target_faction)
 
                 # Добавляем запись о сделке
                 cursor.execute("""
