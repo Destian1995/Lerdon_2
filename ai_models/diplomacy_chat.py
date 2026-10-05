@@ -1215,6 +1215,58 @@ class EnhancedDiplomacyChat():
         # 1. Проверяем контекст переговоров
         context = self.negotiation_context.get(target_faction, {})
 
+        # Обработка ответа на предложение союза
+        if context.get("stage") == "alliance_offer":
+            _agree_words = ['согласен', 'да', 'давай', 'принимаю', 'окей', 'ок', 'идёт', 'договорились']
+            _refuse_words = ['нет', 'отказ', 'не хочу', 'дорого', 'не буду']
+            if any(w in message_lower for w in _agree_words):
+                alliance_cost = context.get("alliance_cost", 0)
+                try:
+                    cursor = self.db_connection.cursor()
+                    # Проверяем деньги
+                    cursor.execute("SELECT amount FROM resources WHERE faction=? AND resource_type='Кроны'",
+                                   (self.faction,))
+                    _cr = cursor.fetchone()
+                    player_money = _cr[0] if _cr else 0
+                    if player_money < alliance_cost:
+                        del self.negotiation_context[target_faction]
+                        return f"У тебя не хватает крон! Нужно {alliance_cost:,}, а у тебя {int(player_money):,}."
+
+                    # Списываем деньги
+                    cursor.execute("UPDATE resources SET amount = amount - ? WHERE faction=? AND resource_type='Кроны'",
+                                   (alliance_cost, self.faction))
+                    # Создаём союз
+                    cursor.execute("UPDATE diplomacies SET relationship='союз' WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)",
+                                   (self.faction, target_faction, target_faction, self.faction))
+                    cursor.execute("INSERT OR IGNORE INTO diplomacies (faction1, faction2, relationship) VALUES (?, ?, 'союз')",
+                                   (self.faction, target_faction))
+                    cursor.execute("INSERT OR IGNORE INTO diplomacies (faction1, faction2, relationship) VALUES (?, ?, 'союз')",
+                                   (target_faction, self.faction))
+                    # Повышаем отношения до 90+
+                    cursor.execute("UPDATE relations SET relationship = MAX(relationship, 90) WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)",
+                                   (self.faction, target_faction, target_faction, self.faction))
+                    self.db_connection.commit()
+                    del self.negotiation_context[target_faction]
+                    return random.choice([
+                        f"Союз заключён! {alliance_cost:,} крон списано. Теперь мы вместе!",
+                        f"Отлично! Наш союз скреплён! -{alliance_cost:,} крон. Враги трепещут!",
+                        f"Да будет так! Союз создан за {alliance_cost:,} крон. Вместе мы сила!",
+                    ])
+                except Exception as e:
+                    print(f"[ALLIANCE] Ошибка создания союза: {e}")
+                    del self.negotiation_context[target_faction]
+                    return "Что-то пошло не так при заключении союза."
+            elif any(w in message_lower for w in _refuse_words):
+                del self.negotiation_context[target_faction]
+                return random.choice([
+                    "Жаль. Может в другой раз.",
+                    "Что ж, каждый решает сам. Возвращайся когда будешь готов.",
+                    "Понимаю. Союз — серьёзное решение.",
+                ])
+            else:
+                alliance_cost = context.get("alliance_cost", 0)
+                return f"Союз стоит {alliance_cost:,} крон. Скажи 'согласен' или 'нет'."
+
         # Добавляем обработку улучшения отношений в контекст
         if context.get("stage") == "improve_relations_choice":
             response = self._process_improvement_choice(player_message, target_faction, context)
@@ -3695,12 +3747,15 @@ class EnhancedDiplomacyChat():
                 target_city_count = cursor.fetchone()[0]
                 alliance_cost = 100_000 + (300_000 * target_city_count)
 
-                # Очень дружественные отношения (75-89)
+                # Очень дружественные отношения (75-89) — предлагаем союз за деньги
+                self.negotiation_context[faction] = {
+                    "stage": "alliance_offer",
+                    "alliance_cost": alliance_cost,
+                }
                 friendly_responses = [
-                    f"Друг, мы должны сильнее доверять друг другу, тогда союз будет крепким. Он обойдётся тебе в {alliance_cost:,} крон.",
-                    f"Твоё предложение лестно, но давай сначала укрепим наше взаимное доверие. Союз стоит {alliance_cost:,} крон.",
-                    f"Мы на верном пути! Ещё немного, и наши знамёна сольются воедино. Будь готов заплатить {alliance_cost:,} крон.",
-                    f"Сердце говорит 'да', но разум советует немного подождать. Укрепим дружбу, а потом поговорим о союзе за {alliance_cost:,} крон."
+                    f"Союз обойдётся в {alliance_cost:,} крон. Согласен?",
+                    f"Наши знамёна сольются воедино за {alliance_cost:,} крон. Готов заплатить?",
+                    f"Союз стоит {alliance_cost:,} крон. Скажи 'согласен' и мы объединимся!",
                 ]
                 return random.choice(friendly_responses)
 
@@ -3710,12 +3765,15 @@ class EnhancedDiplomacyChat():
                 target_city_count = cursor.fetchone()[0]
                 alliance_cost = 100_000 + (300_000 * target_city_count)
 
-                # Дружественные отношения (50-74)
+                # Дружественные отношения (50-74) — предлагаем союз за деньги
+                self.negotiation_context[faction] = {
+                    "stage": "alliance_offer",
+                    "alliance_cost": alliance_cost,
+                }
                 neutral_responses = [
-                    f"Приятель, пока рано говорить о союзе. Для начала {alliance_cost:,} крон нужно накопить.",
-                    f"Интересное предложение, но спешить не стоит. Союз стоит {alliance_cost:,} крон - серьёзная сумма.",
-                    f"Союз — серьёзный шаг. Начнём с малого, а там посмотрим. Кстати, цена вопроса: {alliance_cost:,} крон.",
-                    f"Ты забегаешь вперёд, друг мой. Сначала докажи, что вам можно доверять. {alliance_cost:,} крон. были бы убедительным доводом"
+                    f"Союз возможен за {alliance_cost:,} крон. Согласен?",
+                    f"Цена вопроса: {alliance_cost:,} крон. Готов заплатить — скажи 'согласен'.",
+                    f"Союз стоит {alliance_cost:,} крон. Серьёзная сумма, но если согласен — действуем.",
                 ]
                 return random.choice(neutral_responses)
 
