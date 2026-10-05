@@ -1621,24 +1621,33 @@ class FortressInfoPopup(Popup):
             )
             content.add_widget(img)
 
-        # Характеристики
-        stats_row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(28), spacing=dp(8))
-        _stats = [
-            (f"⚔ {format_number(attack)}", (1.0, 0.6, 0.3, 1)),
-            (f"🛡 {format_number(defense)}", (0.4, 0.75, 1.0, 1)),
-            (f"♥ {format_number(durability)}", (0.5, 0.9, 0.5, 1)),
+        # Характеристики (иконки как в окне найма)
+        stats_icons = [
+            ('Урон',       'files/pict/hire/sword.png',  format_number(attack)),
+            ('Защита',     'files/pict/hire/shield.png', format_number(defense)),
+            ('Живучесть',  'files/pict/hire/health.png', format_number(durability)),
+            ('Класс',      'files/pict/hire/class.png',  unit_class),
         ]
         if unit_class == '1' and count > 0:
-            _stats.append((f"👥 {format_number(count)}", (1.0, 0.85, 0.3, 1)))
+            stats_icons.insert(3, ('Кол-во', 'files/pict/hire/consumption.png', format_number(count)))
 
-        for text, color in _stats:
-            lbl = Label(
-                text=text, font_size=sp(13) if _is_mobile else sp(14),
-                bold=True, color=color,
-                halign='center', valign='middle',
+        stats_box = BoxLayout(orientation='vertical', size_hint_y=None,
+                              height=dp(26) * len(stats_icons) + dp(4) * (len(stats_icons) - 1),
+                              spacing=dp(4), padding=[dp(6), dp(4)])
+        for label, icon, val in stats_icons:
+            row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(26), spacing=dp(6))
+            row.add_widget(Image(source=icon, size_hint=(None, None), size=(dp(22), dp(22)),
+                                 allow_stretch=True, keep_ratio=True))
+            stat_lbl = Label(
+                text=f'[color=#CCCCCC]{label}:[/color] [b]{val}[/b]',
+                markup=True, font_size=sp(12) if _is_mobile else sp(13),
+                color=(0.9, 0.9, 0.9, 1),
+                halign='left', valign='middle',
             )
-            stats_row.add_widget(lbl)
-        content.add_widget(stats_row)
+            stat_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+            row.add_widget(stat_lbl)
+            stats_box.add_widget(row)
+        content.add_widget(stats_box)
 
         # Кнопка закрыть
         close_btn = Button(
