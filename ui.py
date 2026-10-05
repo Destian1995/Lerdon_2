@@ -1557,13 +1557,14 @@ class FortressInfoPopup(Popup):
                             allow_stretch=True, keep_ratio=True
                         ))
 
-                # Обработчик нажатия — показать статы юнита
+                # Обработчик нажатия — показать статы и изображение юнита
                 _u_name = unit_name
                 _u_atk = unit_attack
                 _u_def = unit_defense
                 _u_dur = unit_durability
                 _u_cnt = unit_count
                 _u_cls = unit_class
+                _u_img = unit_image
 
                 def _on_card_touch(instance, touch, n=_u_name, a=_u_atk,
                                    d=_u_def, dur=_u_dur, cnt=_u_cnt, cls=_u_cls, img=_u_img):
