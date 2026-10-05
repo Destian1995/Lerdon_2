@@ -1375,18 +1375,19 @@ class FortressInfoPopup(Popup):
                             allow_stretch=True, keep_ratio=True
                         ))
 
-                # Обработчик нажатия — показать статы юнита
+                # Обработчик нажатия — показать статы и изображение юнита
                 _u_name = unit_name
                 _u_atk = unit_attack
                 _u_def = unit_defense
                 _u_dur = unit_durability
                 _u_cnt = unit_count
                 _u_cls = unit_class
+                _u_img = unit_image
 
                 def _on_card_touch(instance, touch, n=_u_name, a=_u_atk,
-                                   d=_u_def, dur=_u_dur, cnt=_u_cnt, cls=_u_cls):
+                                   d=_u_def, dur=_u_dur, cnt=_u_cnt, cls=_u_cls, img=_u_img):
                     if instance.collide_point(*touch.pos):
-                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls)
+                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls, img)
                         return True
                     return False
 
@@ -1565,9 +1566,9 @@ class FortressInfoPopup(Popup):
                 _u_cls = unit_class
 
                 def _on_card_touch(instance, touch, n=_u_name, a=_u_atk,
-                                   d=_u_def, dur=_u_dur, cnt=_u_cnt, cls=_u_cls):
+                                   d=_u_def, dur=_u_dur, cnt=_u_cnt, cls=_u_cls, img=_u_img):
                     if instance.collide_point(*touch.pos):
-                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls)
+                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls, img)
                         return True
                     return False
 
@@ -1591,61 +1592,75 @@ class FortressInfoPopup(Popup):
             error_label.bind(size=error_label.setter('text_size'))
             self.attacking_units_box.add_widget(error_label)
 
-    def _show_unit_stats_popup(self, name, attack, defense, durability, count, unit_class):
-        """Мини-попап со статами юнита при нажатии на карточку в гарнизоне"""
+    def _show_unit_stats_popup(self, name, attack, defense, durability, count, unit_class, unit_image=''):
+        """Полноэкранный попап с изображением юнита и характеристиками."""
         _is_mobile = platform in ('android', 'ios')
         class_labels = {'1': '', '2': 'Герой', '3': 'Чемпион', '4': 'Легенда'}
         cls_text = class_labels.get(unit_class, '')
         title = f"{name}  {cls_text}" if cls_text else name
 
         content = BoxLayout(
-            orientation='vertical', spacing=dp(6),
+            orientation='vertical', spacing=dp(8),
             padding=[dp(12), dp(8), dp(12), dp(8)]
         )
         with content.canvas.before:
-            Color(0.08, 0.09, 0.14, 1)
-            content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(12)])
+            Color(0.06, 0.07, 0.11, 1)
+            content._bg = Rectangle(pos=content.pos, size=content.size)
         content.bind(
             pos=lambda i, v: setattr(i._bg, 'pos', v),
             size=lambda i, v: setattr(i._bg, 'size', v)
         )
 
-        stats = [
-            (f"Атака: {format_number(attack)}", (1.0, 0.6, 0.3, 1)),
-            (f"Защита: {format_number(defense)}", (0.4, 0.75, 1.0, 1)),
-            (f"Живучесть: {format_number(durability)}", (0.5, 0.9, 0.5, 1)),
+        # Изображение юнита — крупное
+        if unit_image and os.path.exists(unit_image):
+            img = Image(
+                source=unit_image,
+                allow_stretch=True, keep_ratio=True,
+                size_hint=(1, 1),
+            )
+            content.add_widget(img)
+
+        # Характеристики
+        stats_row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(28), spacing=dp(8))
+        _stats = [
+            (f"⚔ {format_number(attack)}", (1.0, 0.6, 0.3, 1)),
+            (f"🛡 {format_number(defense)}", (0.4, 0.75, 1.0, 1)),
+            (f"♥ {format_number(durability)}", (0.5, 0.9, 0.5, 1)),
         ]
         if unit_class == '1' and count > 0:
-            stats.append((f"Бойцов: {format_number(count)}", (1.0, 0.85, 0.3, 1)))
+            _stats.append((f"👥 {format_number(count)}", (1.0, 0.85, 0.3, 1)))
 
-        for text, color in stats:
+        for text, color in _stats:
             lbl = Label(
-                text=text, font_size=sp(14) if _is_mobile else sp(15),
+                text=text, font_size=sp(13) if _is_mobile else sp(14),
                 bold=True, color=color,
                 halign='center', valign='middle',
-                size_hint_y=None, height=dp(26)
             )
-            lbl.bind(size=lbl.setter('text_size'))
-            content.add_widget(lbl)
+            stats_row.add_widget(lbl)
+        content.add_widget(stats_row)
 
+        # Кнопка закрыть
         close_btn = Button(
-            text="Закрыть",
-            size_hint_y=None, height=dp(40),
+            text="Закрыть", size_hint_y=None, height=dp(40),
             font_size=sp(14), bold=True,
-            background_color=(0.2, 0.5, 0.8, 1)
+            background_normal='', background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1)
         )
+        with close_btn.canvas.before:
+            Color(0.12, 0.16, 0.28, 0.95)
+            close_btn._rr = RoundedRectangle(pos=close_btn.pos, size=close_btn.size, radius=[dp(8)])
+        close_btn.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                       size=lambda i, v: setattr(i._rr, 'size', v))
         content.add_widget(close_btn)
 
-        popup_h = dp(50 + len(stats) * 30 + 60)
         popup = Popup(
             title=title,
             content=content,
-            size_hint=(0.7, None) if _is_mobile else (0.35, None),
-            height=popup_h,
-            background_color=(0.06, 0.07, 0.12, 0.95),
-            separator_color=(0.3, 0.55, 0.9, 0.6),
-            title_color=(0.9, 0.9, 0.95, 1),
-            title_size=sp(15) if _is_mobile else sp(16),
+            size_hint=(0.85 if _is_mobile else 0.45, 0.80 if _is_mobile else 0.75),
+            background_color=(0.04, 0.05, 0.09, 0.98),
+            separator_color=(0.3, 0.55, 0.9, 0.4),
+            title_color=(0.95, 0.90, 0.70, 1),
+            title_size=sp(16) if _is_mobile else sp(18),
             title_align='center'
         )
         close_btn.bind(on_release=popup.dismiss)
