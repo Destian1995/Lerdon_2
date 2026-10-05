@@ -19,7 +19,13 @@
       "Bash(python -c \"from economic import format_number; print\\(''''economic OK - format_number accessible''''\\)\")",
       "Bash(python -c \":*)",
       "Bash(python -c \"import main; print\\(''''main OK''''\\)\")",
-      "Bash(grep -r is_player /c/Users/lerdo/IdeaProjects/Lerdon_2/*.py)"
+      "Bash(grep -r is_player /c/Users/lerdo/IdeaProjects/Lerdon_2/*.py)",
+      "Bash(cp -r c:/Users/lerdo/IdeaProjects/Lerdon_2/* \"C:/Users/lerdo/Desktop/VirtMach/APK/project/\")",
+      "Bash(cp c:/Users/lerdo/IdeaProjects/Lerdon_2/economic.py \"C:/Users/lerdo/Desktop/VirtMach/APK/project/economic.py\")",
+      "Bash(cp c:/Users/lerdo/IdeaProjects/Lerdon_2/game_process.py \"C:/Users/lerdo/Desktop/VirtMach/APK/project/game_process.py\")",
+      "Bash(vagrant ssh -c \":*)",
+      "Bash(cp c:/Users/lerdo/IdeaProjects/Lerdon_2/main.py \"C:/Users/lerdo/Desktop/VirtMach/APK/project/main.py\")",
+      "Bash(cp c:/Users/lerdo/IdeaProjects/Lerdon_2/buildozer.spec \"C:/Users/lerdo/Desktop/VirtMach/APK/project/buildozer.spec\")"
     ]
   }
 }
