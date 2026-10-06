@@ -1384,10 +1384,15 @@ class FortressInfoPopup(Popup):
                 _u_cls = unit_class
                 _u_img = unit_image
 
+                _hba = _hero_bonus_atk
+                _hbd = _hero_bonus_def
+                _hbdu = _hero_bonus_dur
+
                 def _on_card_touch(instance, touch, n=_u_name, a=_u_atk,
-                                   d=_u_def, dur=_u_dur, cnt=_u_cnt, cls=_u_cls, img=_u_img):
+                                   d=_u_def, dur=_u_dur, cnt=_u_cnt, cls=_u_cls, img=_u_img,
+                                   hba=_hba, hbd=_hbd, hbdu=_hbdu):
                     if instance.collide_point(*touch.pos):
-                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls, img)
+                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls, img, hba, hbd, hbdu)
                         return True
                     return False
 
@@ -1441,6 +1446,24 @@ class FortressInfoPopup(Popup):
                 '3': (0.38, 0.26, 0.12, 1),   # Золотистый
                 '4': (0.38, 0.10, 0.10, 1),   # Тёмно-красный (легенда)
             }
+
+            # Вычисляем бонус героев (класс 2-3) для юнитов класса 1
+            _hero_bonus_atk = 0
+            _hero_bonus_def = 0
+            _hero_bonus_dur = 0
+            for rd in garrison_data:
+                try:
+                    self.cursor.execute(
+                        "SELECT unit_class, attack, defense, durability FROM units WHERE unit_name = ?",
+                        (rd[0],)
+                    )
+                    hi = self.cursor.fetchone()
+                    if hi and int(hi[0]) in (2, 3) and rd[1] > 0:
+                        _hero_bonus_atk += hi[1] or 0
+                        _hero_bonus_def += hi[2] or 0
+                        _hero_bonus_dur += hi[3] or 0
+                except Exception:
+                    pass
 
             for row_data in garrison_data:
                 unit_name, unit_count, unit_image = row_data[0], row_data[1], row_data[2]
@@ -1566,10 +1589,15 @@ class FortressInfoPopup(Popup):
                 _u_cls = unit_class
                 _u_img = unit_image
 
+                _hba = _hero_bonus_atk
+                _hbd = _hero_bonus_def
+                _hbdu = _hero_bonus_dur
+
                 def _on_card_touch(instance, touch, n=_u_name, a=_u_atk,
-                                   d=_u_def, dur=_u_dur, cnt=_u_cnt, cls=_u_cls, img=_u_img):
+                                   d=_u_def, dur=_u_dur, cnt=_u_cnt, cls=_u_cls, img=_u_img,
+                                   hba=_hba, hbd=_hbd, hbdu=_hbdu):
                     if instance.collide_point(*touch.pos):
-                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls, img)
+                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls, img, hba, hbd, hbdu)
                         return True
                     return False
 
@@ -1593,7 +1621,8 @@ class FortressInfoPopup(Popup):
             error_label.bind(size=error_label.setter('text_size'))
             self.attacking_units_box.add_widget(error_label)
 
-    def _show_unit_stats_popup(self, name, attack, defense, durability, count, unit_class, unit_image=''):
+    def _show_unit_stats_popup(self, name, attack, defense, durability, count, unit_class, unit_image='',
+                               hero_bonus_atk=0, hero_bonus_def=0, hero_bonus_dur=0):
         """Попап с изображением юнита справа и характеристиками слева."""
         _is_mobile = platform in ('android', 'ios')
         class_labels = {'1': '', '2': 'Герой', '3': 'Чемпион', '4': 'Легенда'}
@@ -1621,12 +1650,21 @@ class FortressInfoPopup(Popup):
             orientation='vertical', size_hint_x=0.35,
             spacing=dp(6), padding=[dp(8), dp(8)],
         )
-        # Формат: per_unit × count = total (для обычных юнитов с count > 1)
+        # Формат: (base+hero) × count = total (для юнитов класса 1)
         _cnt = max(count, 1)
+        _has_hero = unit_class == '1' and (hero_bonus_atk > 0 or hero_bonus_def > 0 or hero_bonus_dur > 0)
         if unit_class == '1' and _cnt > 1:
-            _atk_text = f'{format_number(attack)} × {format_number(_cnt)} = {format_number(attack * _cnt)}'
-            _def_text = f'{format_number(defense)} × {format_number(_cnt)} = {format_number(defense * _cnt)}'
-            _dur_text = f'{format_number(durability)} × {format_number(_cnt)} = {format_number(durability * _cnt)}'
+            _eff_atk = attack + hero_bonus_atk
+            _eff_def = defense + hero_bonus_def
+            _eff_dur = durability + hero_bonus_dur
+            if _has_hero:
+                _atk_text = f'({format_number(attack)}+{format_number(hero_bonus_atk)}) × {format_number(_cnt)} = {format_number(_eff_atk * _cnt)}'
+                _def_text = f'({format_number(defense)}+{format_number(hero_bonus_def)}) × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'
+                _dur_text = f'({format_number(durability)}+{format_number(hero_bonus_dur)}) × {format_number(_cnt)} = {format_number(_eff_dur * _cnt)}'
+            else:
+                _atk_text = f'{format_number(attack)} × {format_number(_cnt)} = {format_number(attack * _cnt)}'
+                _def_text = f'{format_number(defense)} × {format_number(_cnt)} = {format_number(defense * _cnt)}'
+                _dur_text = f'{format_number(durability)} × {format_number(_cnt)} = {format_number(durability * _cnt)}'
         else:
             _atk_text = format_number(attack)
             _def_text = format_number(defense)
@@ -1660,11 +1698,11 @@ class FortressInfoPopup(Popup):
         stats_box.add_widget(Widget(size_hint_y=1))
         body.add_widget(stats_box)
 
-        # === Правая часть: изображение (квадратный контейнер, заполняет область) ===
+        # === Правая часть: изображение (заполняет область, сохраняя пропорции) ===
         if unit_image and os.path.exists(unit_image):
             img = Image(
                 source=unit_image,
-                allow_stretch=True, keep_ratio=False,
+                allow_stretch=True, keep_ratio=True,
                 size_hint_x=0.65,
             )
             body.add_widget(img)
@@ -1688,7 +1726,7 @@ class FortressInfoPopup(Popup):
         popup = Popup(
             title=title,
             content=content,
-            size_hint=(0.92 if _is_mobile else 0.5, 0.75 if _is_mobile else 0.7),
+            size_hint=(0.75 if _is_mobile else 0.45, 0.85 if _is_mobile else 0.75),
             background_color=(0.04, 0.05, 0.09, 0.98),
             separator_color=(0.3, 0.55, 0.9, 0.4),
             title_color=(0.95, 0.90, 0.70, 1),
