@@ -1660,11 +1660,11 @@ class FortressInfoPopup(Popup):
         stats_box.add_widget(Widget(size_hint_y=1))
         body.add_widget(stats_box)
 
-        # === Правая часть: изображение (заполняет всю область) ===
+        # === Правая часть: изображение (квадратный контейнер, заполняет область) ===
         if unit_image and os.path.exists(unit_image):
             img = Image(
                 source=unit_image,
-                allow_stretch=True, keep_ratio=True,
+                allow_stretch=True, keep_ratio=False,
                 size_hint_x=0.65,
             )
             body.add_widget(img)
@@ -1688,7 +1688,7 @@ class FortressInfoPopup(Popup):
         popup = Popup(
             title=title,
             content=content,
-            size_hint=(0.85 if _is_mobile else 0.45, 0.55 if _is_mobile else 0.55),
+            size_hint=(0.92 if _is_mobile else 0.5, 0.75 if _is_mobile else 0.7),
             background_color=(0.04, 0.05, 0.09, 0.98),
             separator_color=(0.3, 0.55, 0.9, 0.4),
             title_color=(0.95, 0.90, 0.70, 1),

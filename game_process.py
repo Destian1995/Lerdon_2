@@ -565,11 +565,10 @@ class CircularProgressButton(Button):
 
 class TurnOverlay(FloatLayout):
     """
-    Full-screen Total War-style overlay shown during AI turn processing.
-    Shows faction crests cycling with animated glow, progress bar, and particles.
+    Full-screen overlay shown during AI turn processing.
+    Uses BoxLayout for fixed structure: image container + text container below.
     """
     _bg_alpha = NumericProperty(0)
-    _pulse_val = NumericProperty(0.6)
 
     FACTION_ICONS = {
         'Север': 'files/sov/people.jpg',
@@ -591,89 +590,86 @@ class TurnOverlay(FloatLayout):
         super().__init__(**kwargs)
         self.size_hint = (1, 1)
         self._particles = []
-        self._glow_angle = 0
         self._update_event = None
-        self._glow_anim = None
 
         # Dark overlay background
         with self.canvas.before:
             self._bg_color = Color(0, 0, 0, 0)
             self._bg_rect = Rectangle(pos=self.pos, size=self.size)
-
         self.bind(pos=self._update_bg, size=self._update_bg)
 
-        # Central faction image (circular mask via stencil)
-        self._img_size = min(dp(160), dp(160))
-
-        # Glow ring behind the icon
-        self._glow_container = FloatLayout(size_hint=(None, None), size=(dp(200), dp(200)))
-        self._glow_container.pos_hint = {'center_x': 0.5, 'center_y': 0.55}
-        self.add_widget(self._glow_container)
-
-        # Faction image
-        self._faction_img = KivyImage(
+        # Central column — BoxLayout ensures elements never overlap
+        column = BoxLayout(
+            orientation='vertical',
             size_hint=(None, None),
-            size=(self._img_size, self._img_size),
-            pos_hint={'center_x': 0.5, 'center_y': 0.55},
+            size=(dp(220), dp(300)),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            spacing=dp(6),
+        )
+
+        # Top spacer
+        column.add_widget(Label(size_hint_y=0.05))
+
+        # Image container (fixed height)
+        self._faction_img = KivyImage(
+            size_hint=(1, None),
+            height=dp(180),
             allow_stretch=True,
             keep_ratio=True,
             opacity=0,
         )
-        self.add_widget(self._faction_img)
+        column.add_widget(self._faction_img)
 
-        # Faction name label
+        # Faction name label (fixed height, below image)
         self._faction_label = Label(
             text='',
-            font_size=sp(22),
+            font_size=sp(20),
             bold=True,
             color=(1, 1, 1, 0),
             size_hint=(1, None),
-            height=dp(40),
-            pos_hint={'center_x': 0.5, 'center_y': 0.38},
+            height=dp(32),
             halign='center',
+            valign='middle',
         )
-        self.add_widget(self._faction_label)
+        self._faction_label.bind(size=self._faction_label.setter('text_size'))
+        column.add_widget(self._faction_label)
 
-        # Status label
+        # Status label (fixed height, below name)
         self._status_label = Label(
             text='Обработка хода...',
-            font_size=sp(14),
+            font_size=sp(13),
             color=(0.7, 0.7, 0.8, 0),
             size_hint=(1, None),
-            height=dp(30),
-            pos_hint={'center_x': 0.5, 'center_y': 0.33},
+            height=dp(24),
             halign='center',
+            valign='middle',
         )
-        self.add_widget(self._status_label)
+        self._status_label.bind(size=self._status_label.setter('text_size'))
+        column.add_widget(self._status_label)
 
-        # Progress bar background
-        self._bar_bg = FloatLayout(
-            size_hint=(0.6, None),
-            height=dp(4),
-            pos_hint={'center_x': 0.5, 'center_y': 0.28},
+        # Progress bar (fixed height, below status)
+        self._bar_container = BoxLayout(
+            size_hint=(1, None),
+            height=dp(6),
+            padding=[dp(10), 0],
         )
-        with self._bar_bg.canvas:
+        bar_inner = FloatLayout(size_hint=(1, 1))
+        with bar_inner.canvas:
             Color(0.3, 0.3, 0.4, 0.5)
-            self._bar_bg_rect = RoundedRectangle(
-                pos=self._bar_bg.pos, size=self._bar_bg.size, radius=[dp(2)]
-            )
-        self._bar_bg.bind(pos=self._update_bar_bg, size=self._update_bar_bg)
-        self.add_widget(self._bar_bg)
-
-        # Progress bar fill
-        self._bar_fill = FloatLayout(
-            size_hint=(0, None),
-            height=dp(4),
-            pos_hint={'x': 0.2, 'center_y': 0.28},
-        )
-        with self._bar_fill.canvas:
+            self._bar_bg_rect = RoundedRectangle(radius=[dp(3)])
+        with bar_inner.canvas:
             self._bar_fill_color = Color(0.4, 0.6, 1.0, 0.8)
-            self._bar_fill_rect = RoundedRectangle(
-                pos=self._bar_fill.pos, size=self._bar_fill.size, radius=[dp(2)]
-            )
-        self._bar_fill.bind(pos=self._update_bar_fill, size=self._update_bar_fill)
-        self.add_widget(self._bar_fill)
+            self._bar_fill_rect = RoundedRectangle(radius=[dp(3)])
+        bar_inner.bind(pos=self._update_bar, size=self._update_bar)
+        self._bar_inner = bar_inner
+        self._bar_progress = 0
+        self._bar_container.add_widget(bar_inner)
+        column.add_widget(self._bar_container)
 
+        # Bottom spacer
+        column.add_widget(Label(size_hint_y=0.05))
+
+        self.add_widget(column)
         self._total_factions = 1
         self._current_index = 0
 
@@ -681,110 +677,67 @@ class TurnOverlay(FloatLayout):
         self._bg_rect.pos = self.pos
         self._bg_rect.size = self.size
 
-    def _update_bar_bg(self, *args):
-        self._bar_bg_rect.pos = self._bar_bg.pos
-        self._bar_bg_rect.size = self._bar_bg.size
-
-    def _update_bar_fill(self, *args):
-        self._bar_fill_rect.pos = self._bar_fill.pos
-        self._bar_fill_rect.size = self._bar_fill.size
+    def _update_bar(self, *args):
+        bi = self._bar_inner
+        self._bar_bg_rect.pos = bi.pos
+        self._bar_bg_rect.size = bi.size
+        # Fill only the progress portion
+        self._bar_fill_rect.pos = bi.pos
+        self._bar_fill_rect.size = (bi.width * self._bar_progress, bi.height)
 
     def show(self, total_factions):
         """Fade in the overlay."""
         self._total_factions = max(total_factions, 1)
         self._current_index = 0
-
-        # Fade in background
         self.bind(_bg_alpha=lambda inst, val: setattr(self._bg_color, 'a', val))
         Animation(_bg_alpha=0.85, duration=0.3).start(self)
-
-        # Fade in labels
         Animation(opacity=1, duration=0.4).start(self._status_label)
-
-        # Start particle system
         self._update_event = Clock.schedule_interval(self._update_particles, 1.0 / 30)
 
     def set_faction(self, faction_name, index):
-        """Switch to showing a new faction (called from background thread via Clock)."""
+        """Switch to showing a new faction."""
         if not self.parent:
             return
         self._current_index = index
         icon_path = self.FACTION_ICONS.get(faction_name, '')
         color = self.FACTION_COLORS.get(faction_name, (0.5, 0.5, 0.7))
 
-        # Update faction image
         if icon_path:
             self._faction_img.source = icon_path
             self._faction_img.reload()
 
-        # Animate faction image in
         self._faction_img.opacity = 0
         Animation(opacity=1, duration=0.25).start(self._faction_img)
 
-        # Update label
         self._faction_label.text = faction_name
         self._faction_label.color = (*color, 0)
         Animation(color=(*color, 1), duration=0.25).start(self._faction_label)
 
-        # Update status
         self._status_label.text = f'Ход фракции: {faction_name}'
         self._status_label.color = (0.7, 0.7, 0.8, 1)
 
         # Update progress bar
-        progress_frac = (index + 1) / self._total_factions
-        self._bar_fill.size_hint_x = 0.6 * progress_frac
+        self._bar_progress = (index + 1) / self._total_factions
         self._bar_fill_color.rgba = (*color, 0.9)
-        self._update_bar_fill()
-
-        # Update glow ring
-        self._draw_glow_ring(color)
-
-        # Start pulsing glow animation
-        if self._glow_anim:
-            self._glow_anim.cancel(self)
-        self._pulse_val = 0.6
-        a1 = Animation(_pulse_val=1.0, duration=0.8, t='in_out_sine')
-        a2 = Animation(_pulse_val=0.6, duration=0.8, t='in_out_sine')
-        self._glow_anim = a1 + a2
-        self._glow_anim.repeat = True
-        self._glow_anim.bind(on_progress=lambda a, w, p: self._draw_glow_ring(color))
-        self._glow_anim.start(self)
-
-    def _draw_glow_ring(self, color):
-        """Draw animated glow ring around faction icon."""
-        self._glow_container.canvas.clear()
-        cx = self._glow_container.width / 2
-        cy = self._glow_container.height / 2
-        pulse = getattr(self, '_pulse_val', 0.8)
-        radius = self._img_size / 2 + dp(12)
-
-        with self._glow_container.canvas:
-            # Outer glow
-            Color(*color, 0.15 * pulse)
-            Line(circle=(cx, cy, radius + dp(8), 0, 360), width=dp(6), cap='round')
-            # Inner glow
-            Color(*color, 0.4 * pulse)
-            Line(circle=(cx, cy, radius, 0, 360), width=dp(3), cap='round')
+        self._update_bar()
 
     def _update_particles(self, dt):
         """Spawn and update floating ember particles."""
         if not self.parent:
             return
         import random as _rnd
-        # Spawn new particles
-        if len(self._particles) < 25:
+        if len(self._particles) < 20:
             px = _rnd.uniform(0.1, 0.9) * self.width
             py = _rnd.uniform(0, 0.15) * self.height
-            speed = _rnd.uniform(dp(30), dp(80))
-            drift = _rnd.uniform(-dp(15), dp(15))
-            life = _rnd.uniform(1.5, 3.0)
-            size = _rnd.uniform(dp(2), dp(5))
             self._particles.append({
-                'x': px, 'y': py, 'speed': speed, 'drift': drift,
-                'life': life, 'max_life': life, 'size': size,
+                'x': px, 'y': py,
+                'speed': _rnd.uniform(dp(30), dp(70)),
+                'drift': _rnd.uniform(-dp(12), dp(12)),
+                'life': _rnd.uniform(1.5, 3.0),
+                'max_life': _rnd.uniform(1.5, 3.0),
+                'size': _rnd.uniform(dp(2), dp(4)),
             })
 
-        # Update
         alive = []
         for p in self._particles:
             p['y'] += p['speed'] * dt
@@ -794,11 +747,10 @@ class TurnOverlay(FloatLayout):
                 alive.append(p)
         self._particles = alive
 
-        # Redraw particles on canvas
         self.canvas.after.clear()
         with self.canvas.after:
             for p in self._particles:
-                alpha = min(1.0, p['life'] / p['max_life']) * 0.6
+                alpha = min(1.0, p['life'] / p['max_life']) * 0.5
                 Color(1.0, 0.7, 0.3, alpha)
                 Rectangle(
                     pos=(p['x'] - p['size'] / 2, p['y'] - p['size'] / 2),
@@ -810,13 +762,8 @@ class TurnOverlay(FloatLayout):
         if self._update_event:
             self._update_event.cancel()
             self._update_event = None
-        if self._glow_anim:
-            self._glow_anim.cancel(self)
-            self._glow_anim = None
-
         self._particles.clear()
         self.canvas.after.clear()
-        self._glow_container.canvas.clear()
 
         anim = Animation(opacity=0, duration=0.3)
 
@@ -1580,7 +1527,6 @@ class GameScreen(Screen):
 
 
         def on_end_turn(instance):
-            instance.start_progress()
             self.process_turn(None)
 
         self.end_turn_button.bind(on_press=on_end_turn)
