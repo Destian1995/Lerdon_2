@@ -1621,10 +1621,21 @@ class FortressInfoPopup(Popup):
             orientation='vertical', size_hint_x=0.35,
             spacing=dp(6), padding=[dp(8), dp(8)],
         )
+        # Формат: per_unit × count = total (для обычных юнитов с count > 1)
+        _cnt = max(count, 1)
+        if unit_class == '1' and _cnt > 1:
+            _atk_text = f'{format_number(attack)} × {format_number(_cnt)} = {format_number(attack * _cnt)}'
+            _def_text = f'{format_number(defense)} × {format_number(_cnt)} = {format_number(defense * _cnt)}'
+            _dur_text = f'{format_number(durability)} × {format_number(_cnt)} = {format_number(durability * _cnt)}'
+        else:
+            _atk_text = format_number(attack)
+            _def_text = format_number(defense)
+            _dur_text = format_number(durability)
+
         stats_icons = [
-            ('Урон',       'files/pict/hire/sword.png',  format_number(attack)),
-            ('Защита',     'files/pict/hire/shield.png', format_number(defense)),
-            ('Живучесть',  'files/pict/hire/health.png', format_number(durability)),
+            ('Урон',       'files/pict/hire/sword.png',  _atk_text),
+            ('Защита',     'files/pict/hire/shield.png', _def_text),
+            ('Живучесть',  'files/pict/hire/health.png', _dur_text),
             ('Класс',      'files/pict/hire/class.png',  unit_class),
         ]
         if unit_class == '1' and count > 0:
