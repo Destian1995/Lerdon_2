@@ -67,10 +67,14 @@ class ImageButton(ButtonBehavior, Image):
 from kivy.animation import Animation
 from kivy.uix.popup import Popup
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
+from kivy.uix.image import Image as KivyImage
 from kivy.graphics import Color, Rectangle, RoundedRectangle, Line
 from kivy.metrics import dp, sp
+from kivy.properties import NumericProperty
+from kivy.clock import Clock
 
 
 class BlinkingImageButton(ImageButton):
@@ -564,6 +568,9 @@ class TurnOverlay(FloatLayout):
     Full-screen Total War-style overlay shown during AI turn processing.
     Shows faction crests cycling with animated glow, progress bar, and particles.
     """
+    _bg_alpha = NumericProperty(0)
+    _pulse_val = NumericProperty(0.6)
+
     FACTION_ICONS = {
         'Север': 'files/sov/people.jpg',
         'Эльфы': 'files/sov/elfs.jpg',
@@ -585,7 +592,6 @@ class TurnOverlay(FloatLayout):
         self.size_hint = (1, 1)
         self._particles = []
         self._glow_angle = 0
-        self._pulse_val = 0
         self._update_event = None
         self._glow_anim = None
 
@@ -605,7 +611,7 @@ class TurnOverlay(FloatLayout):
         self.add_widget(self._glow_container)
 
         # Faction image
-        self._faction_img = Image(
+        self._faction_img = KivyImage(
             size_hint=(None, None),
             size=(self._img_size, self._img_size),
             pos_hint={'center_x': 0.5, 'center_y': 0.55},
@@ -689,9 +695,8 @@ class TurnOverlay(FloatLayout):
         self._current_index = 0
 
         # Fade in background
-        anim_bg = Animation(_bg_alpha=0.85, duration=0.3)
-        anim_bg.bind(on_progress=lambda a, w, p: setattr(self._bg_color, 'a', p * 0.85))
-        anim_bg.start(self)
+        self.bind(_bg_alpha=lambda inst, val: setattr(self._bg_color, 'a', val))
+        Animation(_bg_alpha=0.85, duration=0.3).start(self)
 
         # Fade in labels
         Animation(opacity=1, duration=0.4).start(self._status_label)
@@ -701,6 +706,8 @@ class TurnOverlay(FloatLayout):
 
     def set_faction(self, faction_name, index):
         """Switch to showing a new faction (called from background thread via Clock)."""
+        if not self.parent:
+            return
         self._current_index = index
         icon_path = self.FACTION_ICONS.get(faction_name, '')
         color = self.FACTION_COLORS.get(faction_name, (0.5, 0.5, 0.7))
@@ -761,6 +768,8 @@ class TurnOverlay(FloatLayout):
 
     def _update_particles(self, dt):
         """Spawn and update floating ember particles."""
+        if not self.parent:
+            return
         import random as _rnd
         # Spawn new particles
         if len(self._particles) < 25:
@@ -1682,9 +1691,11 @@ class GameScreen(Screen):
                 # Ход ИИ — самая тяжёлая часть
                 faction_items = list(self.ai_controllers.items())
                 for idx, (faction_name, ai_controller) in enumerate(faction_items):
-                    Clock.schedule_once(
-                        lambda dt, fn=faction_name, i=idx: self._turn_overlay.set_faction(fn, i)
-                    )
+                    overlay = self._turn_overlay
+                    if overlay:
+                        Clock.schedule_once(
+                            lambda dt, fn=faction_name, i=idx, o=overlay: o.set_faction(fn, i)
+                        )
                     ai_controller.make_turn()
 
                 self.enforce_garrison_hero_limits()
