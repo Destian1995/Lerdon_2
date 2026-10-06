@@ -1267,6 +1267,10 @@ class EnhancedDiplomacyChat():
                 alliance_cost = context.get("alliance_cost", 0)
                 return f"Союз стоит {alliance_cost:,} крон. Скажи 'согласен' или 'нет'."
 
+        # Обработка сделки по коалиции/провокации
+        if context.get("stage") == "provocation_deal":
+            return self._handle_provocation_deal(player_message, target_faction, context)
+
         # Добавляем обработку улучшения отношений в контекст
         if context.get("stage") == "improve_relations_choice":
             response = self._process_improvement_choice(player_message, target_faction, context)
@@ -3894,9 +3898,12 @@ class EnhancedDiplomacyChat():
             # Если у противника нет армии
             if enemy_strength == 0 and player_strength >= enemy_strength:
                 cursor.execute("""
-                    UPDATE diplomacies SET relationship = 'нейтралитет' 
+                    UPDATE diplomacies SET relationship = 'нейтралитет'
                     WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
                 """, (self.faction, faction, faction, self.faction))
+                cursor.execute(
+                    "UPDATE relations SET relationship = MIN(100, relationship + 10) WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)",
+                    (self.faction, faction, faction, self.faction))
                 self.db_connection.commit()
 
                 enemy_weak_responses = [
@@ -3953,9 +3960,12 @@ class EnhancedDiplomacyChat():
                     response = random.choice(minimal_superiority_responses)
 
                 cursor.execute("""
-                    UPDATE diplomacies SET relationship = 'нейтралитет' 
+                    UPDATE diplomacies SET relationship = 'нейтралитет'
                     WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
                 """, (self.faction, faction, faction, self.faction))
+                cursor.execute(
+                    "UPDATE relations SET relationship = MIN(100, relationship + 10) WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)",
+                    (self.faction, faction, faction, self.faction))
                 self.db_connection.commit()
 
                 return response
@@ -4373,20 +4383,20 @@ class EnhancedDiplomacyChat():
             return "Назови сумму которую готов заплатить или ответь 'да'/'нет'."
 
     def _declare_war_on_faction(self, requesting_faction, target_faction):
-        """Вспомогательный метод для объявления войны фракции"""
+        """Вспомогательный метод для объявления войны фракции и немедленной атаки"""
         try:
             cursor = self.db_connection.cursor()
 
             # Объявляем войну
             cursor.execute("""
-                UPDATE diplomacies 
-                SET relationship = 'война' 
+                UPDATE diplomacies
+                SET relationship = 'война'
                 WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
             """, (requesting_faction, target_faction, target_faction, requesting_faction))
 
             cursor.execute("""
-                UPDATE relations 
-                SET relationship = 0 
+                UPDATE relations
+                SET relationship = 0
                 WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
             """, (requesting_faction, target_faction, target_faction, requesting_faction))
 
@@ -4394,18 +4404,37 @@ class EnhancedDiplomacyChat():
 
             # Добавляем запись в историю
             cursor.execute("""
-                INSERT INTO negotiation_history 
+                INSERT INTO negotiation_history
                 (faction1, faction2, message, is_player, timestamp)
                 VALUES (?, ?, ?, ?, datetime('now'))
             """, (requesting_faction, target_faction, f"Объявлена война по подстрекательству игрока", 0))
 
             self.db_connection.commit()
 
+            # Немедленная атака: ищем ближайший вражеский город, граничащий с нашим или городом игрока
+            try:
+                self._launch_immediate_attack(requesting_faction, target_faction)
+            except Exception as e:
+                print(f"[COALITION] Ошибка немедленной атаки: {e}")
+
             return True
 
         except Exception as e:
             print(f"Ошибка при объявлении войны: {e}")
             return False
+
+    def _launch_immediate_attack(self, attacking_faction, target_faction):
+        """Включаем флаг атаки для AI — на следующем ходу AI атакует"""
+        try:
+            cursor = self.db_connection.cursor()
+            cursor.execute("""
+                INSERT OR REPLACE INTO turn_check_attack_faction (faction, check_attack)
+                VALUES (?, 1)
+            """, (attacking_faction,))
+            self.db_connection.commit()
+            print(f"[COALITION] {attacking_faction} получил флаг атаки на {target_faction}")
+        except Exception as e:
+            print(f"[COALITION] Ошибка установки флага атаки: {e}")
 
     def _is_relationship_break(self, message):
         """Определяет, является ли сообщение разрывом отношений"""
