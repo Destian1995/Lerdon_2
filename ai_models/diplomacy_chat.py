@@ -5812,15 +5812,15 @@ class EnhancedDiplomacyChat():
             quick_row.clear_widgets()
 
             def _open_trade_popup(buy_resource):
-                """Открывает popup со слайдером для торговли."""
+                """Открывает стильный popup со слайдером для торговли."""
                 from kivy.uix.popup import Popup as _TPop
                 from kivy.uix.slider import Slider as _TSl
                 from kivy.uix.label import Label as _TLbl
+                from kivy.graphics import Color as _TCol, RoundedRectangle as _TRR
 
                 if not hasattr(self, 'selected_faction') or not self.selected_faction:
                     return
 
-                # Получаем ресурсы AI
                 ai_res = self._get_faction_resources(self.selected_faction)
                 player_res = self._get_faction_resources(self.faction)
 
@@ -5828,12 +5828,12 @@ class EnhancedDiplomacyChat():
                     ai_has = int(ai_res.get('Кроны', 0))
                     player_pays_type = 'Кристаллы'
                     player_has = int(player_res.get('Кристаллы', 0))
-                    rate = 2.0  # 1 крона = 2 кристалла
+                    rate = 2.0
                 else:
                     ai_has = int(ai_res.get('Кристаллы', 0))
                     player_pays_type = 'Кроны'
                     player_has = int(player_res.get('Кроны', 0))
-                    rate = 0.5  # 1 кристалл = 0.5 крон
+                    rate = 0.5
 
                 max_can_buy = min(ai_has, int(player_has / rate)) if rate > 0 else 0
                 if max_can_buy <= 0:
@@ -5841,56 +5841,101 @@ class EnhancedDiplomacyChat():
                     _show_main_buttons()
                     return
 
-                content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(10))
+                content = BoxLayout(orientation='vertical', spacing=dp(10), padding=[dp(14), dp(10)])
+                with content.canvas.before:
+                    _TCol(0.06, 0.07, 0.12, 1)
+                    content._bg = _TRR(pos=content.pos, size=content.size, radius=[dp(12)])
+                content.bind(
+                    pos=lambda i, v: setattr(i._bg, 'pos', v),
+                    size=lambda i, v: setattr(i._bg, 'size', v))
+
+                # Информация о ресурсах
                 info_lbl = _TLbl(
-                    text=f"У {self.selected_faction}: {ai_has:,} {buy_resource}\nВаши {player_pays_type}: {player_has:,}",
-                    font_size='13sp', size_hint_y=None, height=dp(40),
-                    halign='center', valign='middle', color=(0.8, 0.8, 0.8, 1)
+                    text=(f"[color=#AAAAAA]У {self.selected_faction}:[/color] "
+                          f"[b]{ai_has:,}[/b] {buy_resource}\n"
+                          f"[color=#AAAAAA]Ваши:[/color] [b]{player_has:,}[/b] {player_pays_type}"),
+                    markup=True, font_size=sp(13), size_hint_y=None, height=dp(44),
+                    halign='center', valign='middle', color=(0.85, 0.85, 0.9, 1)
                 )
                 info_lbl.bind(size=info_lbl.setter('text_size'))
+                content.add_widget(info_lbl)
 
+                # Слайдер
+                slider = _TSl(min=0, max=max_can_buy, value=0, step=max(1, max_can_buy // 100),
+                              size_hint_y=None, height=dp(36))
+                content.add_widget(slider)
+
+                # Метка сделки
                 deal_lbl = _TLbl(
-                    text="Выберите количество", markup=True,
-                    font_size='14sp', size_hint_y=None, height=dp(30),
-                    halign='center', color=(0.5, 1, 0.5, 1)
+                    text="[color=#888888]Переместите ползунок[/color]", markup=True,
+                    font_size=sp(14), size_hint_y=None, height=dp(36),
+                    halign='center', valign='middle', color=(0.5, 1, 0.5, 1)
                 )
                 deal_lbl.bind(size=deal_lbl.setter('text_size'))
-
-                slider = _TSl(min=0, max=max_can_buy, value=0, step=max(1, max_can_buy // 100),
-                              size_hint_y=None, height=dp(40))
+                content.add_widget(deal_lbl)
 
                 def _on_slider(inst, val):
                     amount = int(val)
-                    cost = int(amount * rate)
-                    deal_lbl.text = (
-                        f"[b]Купить {amount:,} {buy_resource}[/b] за "
-                        f"[color=#FF7777]{cost:,} {player_pays_type}[/color]"
-                    )
+                    cost = int(round(amount * rate))
+                    if amount > 0:
+                        deal_lbl.text = (
+                            f"[b]{amount:,} {buy_resource}[/b] ← → "
+                            f"[color=#FF9999]{cost:,} {player_pays_type}[/color]"
+                        )
+                    else:
+                        deal_lbl.text = "[color=#888888]Переместите ползунок[/color]"
                 slider.bind(value=_on_slider)
 
-                btn_row = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(8))
-                confirm_btn = Button(text="Отправить предложение", background_normal='',
-                                     background_color=(0.2, 0.6, 0.3, 1), font_size='13sp', bold=True)
-                cancel_btn = Button(text="Отмена", background_normal='',
-                                    background_color=(0.5, 0.2, 0.2, 1), font_size='13sp')
-
-                content.add_widget(info_lbl)
-                content.add_widget(slider)
-                content.add_widget(deal_lbl)
+                # Кнопки
+                btn_row = BoxLayout(size_hint_y=None, height=dp(42), spacing=dp(8))
+                confirm_btn = Button(
+                    text="Предложить", bold=True, font_size=sp(13),
+                    background_normal='', background_color=(0.15, 0.55, 0.25, 1),
+                    color=(1, 1, 1, 1))
+                cancel_btn = Button(
+                    text="Отмена", font_size=sp(13),
+                    background_normal='', background_color=(0.45, 0.15, 0.15, 1),
+                    color=(1, 1, 1, 1))
                 btn_row.add_widget(confirm_btn)
                 btn_row.add_widget(cancel_btn)
                 content.add_widget(btn_row)
 
-                popup = _TPop(title=f"Торговля: купить {buy_resource}",
-                              content=content, size_hint=(0.7, 0.45), auto_dismiss=False)
+                _is_mobile = platform in ('android', 'ios')
+                popup = _TPop(
+                    title=f"Купить {buy_resource}",
+                    content=content,
+                    size_hint=(0.88 if _is_mobile else 0.5, 0.42 if _is_mobile else 0.45),
+                    auto_dismiss=False,
+                    background_color=(0.04, 0.05, 0.09, 0.98),
+                    separator_color=(0.3, 0.55, 0.9, 0.4),
+                    title_color=(0.95, 0.90, 0.70, 1),
+                    title_size=sp(15) if _is_mobile else sp(16),
+                    title_align='center')
 
                 def _confirm(inst2):
+                    from datetime import datetime
                     amount = int(slider.value)
-                    cost = int(amount * rate)
+                    cost = int(round(amount * rate))
                     if amount > 0:
-                        msg = f"Хочу купить {amount} {buy_resource} за {cost} {player_pays_type}"
-                        self.message_input.text = msg
-                        self.send_diplomatic_message(inst2)
+                        target = self.selected_faction
+                        # Формируем торговый контекст напрямую
+                        self.negotiation_context[target] = {
+                            "stage": "evaluate",
+                            "resource": buy_resource,
+                            "amount": amount,
+                            "player_offer": {"type": player_pays_type, "amount": cost},
+                            "counter_offers": 0
+                        }
+                        # Показываем сообщение игрока
+                        chat_msg = f"Хочу купить {amount:,} {buy_resource} за {cost:,} {player_pays_type}"
+                        current_time = datetime.now().strftime("%d.%m %H:%M")
+                        self.add_chat_message(chat_msg, self.faction, current_time, is_player=True)
+                        self.save_negotiation_message(target, chat_msg, is_player=True)
+                        # Оцениваем сделку
+                        response = self._evaluate_trade(target, self.negotiation_context[target])
+                        ai_time = datetime.now().strftime("%d.%m %H:%M")
+                        self.add_chat_message(response, target, ai_time, is_player=False)
+                        self.save_negotiation_message(target, response, is_player=False)
                     popup.dismiss()
                     _show_main_buttons()
 
