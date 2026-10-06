@@ -1594,15 +1594,16 @@ class FortressInfoPopup(Popup):
             self.attacking_units_box.add_widget(error_label)
 
     def _show_unit_stats_popup(self, name, attack, defense, durability, count, unit_class, unit_image=''):
-        """Полноэкранный попап с изображением юнита и характеристиками."""
+        """Попап с изображением юнита справа и характеристиками слева."""
         _is_mobile = platform in ('android', 'ios')
         class_labels = {'1': '', '2': 'Герой', '3': 'Чемпион', '4': 'Легенда'}
         cls_text = class_labels.get(unit_class, '')
         title = f"{name}  {cls_text}" if cls_text else name
 
+        # Главный контейнер (вертикальный: верх — контент, низ — кнопка)
         content = BoxLayout(
-            orientation='vertical', spacing=dp(8),
-            padding=[dp(12), dp(8), dp(12), dp(8)]
+            orientation='vertical', spacing=dp(6),
+            padding=[dp(4), dp(4), dp(4), dp(4)]
         )
         with content.canvas.before:
             Color(0.06, 0.07, 0.11, 1)
@@ -1612,16 +1613,14 @@ class FortressInfoPopup(Popup):
             size=lambda i, v: setattr(i._bg, 'size', v)
         )
 
-        # Изображение юнита — крупное
-        if unit_image and os.path.exists(unit_image):
-            img = Image(
-                source=unit_image,
-                allow_stretch=True, keep_ratio=True,
-                size_hint=(1, 1),
-            )
-            content.add_widget(img)
+        # Горизонтальный контейнер: статы слева, изображение справа
+        body = BoxLayout(orientation='horizontal', spacing=dp(8), size_hint=(1, 1))
 
-        # Характеристики (иконки как в окне найма)
+        # === Левая часть: характеристики (заполняет всю высоту) ===
+        stats_box = BoxLayout(
+            orientation='vertical', size_hint_x=0.35,
+            spacing=dp(6), padding=[dp(8), dp(8)],
+        )
         stats_icons = [
             ('Урон',       'files/pict/hire/sword.png',  format_number(attack)),
             ('Защита',     'files/pict/hire/shield.png', format_number(defense)),
@@ -1631,23 +1630,35 @@ class FortressInfoPopup(Popup):
         if unit_class == '1' and count > 0:
             stats_icons.insert(3, ('Кол-во', 'files/pict/hire/consumption.png', format_number(count)))
 
-        stats_box = BoxLayout(orientation='vertical', size_hint_y=None,
-                              height=dp(26) * len(stats_icons) + dp(4) * (len(stats_icons) - 1),
-                              spacing=dp(4), padding=[dp(6), dp(4)])
+        # Распорка сверху чтобы статы были по центру
+        stats_box.add_widget(Widget(size_hint_y=1))
         for label, icon, val in stats_icons:
-            row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(26), spacing=dp(6))
+            row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(28), spacing=dp(6))
             row.add_widget(Image(source=icon, size_hint=(None, None), size=(dp(22), dp(22)),
                                  allow_stretch=True, keep_ratio=True))
             stat_lbl = Label(
                 text=f'[color=#CCCCCC]{label}:[/color] [b]{val}[/b]',
-                markup=True, font_size=sp(12) if _is_mobile else sp(13),
+                markup=True, font_size=sp(13) if _is_mobile else sp(14),
                 color=(0.9, 0.9, 0.9, 1),
                 halign='left', valign='middle',
             )
             stat_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
             row.add_widget(stat_lbl)
             stats_box.add_widget(row)
-        content.add_widget(stats_box)
+        # Распорка снизу
+        stats_box.add_widget(Widget(size_hint_y=1))
+        body.add_widget(stats_box)
+
+        # === Правая часть: изображение (заполняет всю область) ===
+        if unit_image and os.path.exists(unit_image):
+            img = Image(
+                source=unit_image,
+                allow_stretch=True, keep_ratio=True,
+                size_hint_x=0.65,
+            )
+            body.add_widget(img)
+
+        content.add_widget(body)
 
         # Кнопка закрыть
         close_btn = Button(
@@ -1666,7 +1677,7 @@ class FortressInfoPopup(Popup):
         popup = Popup(
             title=title,
             content=content,
-            size_hint=(0.85 if _is_mobile else 0.45, 0.80 if _is_mobile else 0.75),
+            size_hint=(0.85 if _is_mobile else 0.45, 0.55 if _is_mobile else 0.55),
             background_color=(0.04, 0.05, 0.09, 0.98),
             separator_color=(0.3, 0.55, 0.9, 0.4),
             title_color=(0.95, 0.90, 0.70, 1),
