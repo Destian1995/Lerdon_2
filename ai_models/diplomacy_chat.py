@@ -1185,32 +1185,42 @@ class EnhancedDiplomacyChat():
             if target_faction in self.negotiation_context:
                 del self.negotiation_context[target_faction]
 
-        # 0.6. "Давай дружить" — улучшение отношений на +7
+        # 0.6. "Давай дружить" — улучшение отношений на +10 за 150к крон
         _friendship_keywords = ['дружить', 'давай дружить', 'дружбу', 'подружимся', 'будем друзьями']
         if any(kw in message_lower for kw in _friendship_keywords):
-            if relation_level >= 30:
-                try:
-                    cursor = self.db_connection.cursor()
-                    new_level = min(100, relation_level + 7)
-                    cursor.execute("""
-                        UPDATE relations SET relationship = ?
-                        WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
-                    """, (new_level, self.faction, target_faction, target_faction, self.faction))
-                    self.db_connection.commit()
-                    _responses = [
-                        f"Дружба — великая сила! Наши отношения улучшились до {new_level}/100.",
-                        f"Я ценю твою открытость! Отношения: {new_level}/100.",
-                        f"Рад слышать! Будем дружить. Отношения теперь {new_level}/100.",
-                    ]
-                    return random.choice(_responses)
-                except Exception as e:
-                    print(f"[FRIENDSHIP] Ошибка: {e}")
-            else:
+            if relation_level < 30:
                 return random.choice([
                     "Дружить? С тобой? Ха! Сначала заслужи моё доверие.",
                     "Слова дешевы. Докажи делами что достоин дружбы.",
                     "Рано говорить о дружбе. Наши отношения слишком плохие.",
                 ])
+            _friendship_cost = 150_000
+            try:
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT amount FROM resources WHERE faction=? AND resource_type='Кроны'",
+                               (self.faction,))
+                _cr = cursor.fetchone()
+                _player_money = _cr[0] if _cr else 0
+                if _player_money < _friendship_cost:
+                    return (f"Дружба стоит {_friendship_cost:,} крон, а у тебя только "
+                            f"{int(_player_money):,}. Накопи и приходи!")
+                # Списываем деньги
+                cursor.execute("UPDATE resources SET amount = amount - ? WHERE faction=? AND resource_type='Кроны'",
+                               (_friendship_cost, self.faction))
+                new_level = min(100, relation_level + 10)
+                cursor.execute("""
+                    UPDATE relations SET relationship = ?
+                    WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
+                """, (new_level, self.faction, target_faction, target_faction, self.faction))
+                self.db_connection.commit()
+                return random.choice([
+                    f"Дружба скреплена! -{_friendship_cost:,} крон. Отношения: {new_level}/100.",
+                    f"Ценю щедрость! -{_friendship_cost:,} крон. Теперь мы ближе: {new_level}/100.",
+                    f"Прекрасно! Наша дружба стоит каждой кроны. Отношения: {new_level}/100.",
+                ])
+            except Exception as e:
+                print(f"[FRIENDSHIP] Ошибка: {e}")
+                return "Что-то пошло не так."
 
         # 1. Проверяем контекст переговоров
         context = self.negotiation_context.get(target_faction, {})
