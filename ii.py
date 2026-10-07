@@ -3213,6 +3213,20 @@ class AIController:
             self.resources['Кристаллы'] = int(self.resources.get('Кристаллы', 0)) + raw_material_bonus
             print(f"Бонус от борьбы: +{raw_material_bonus} Кристаллы")
 
+        # Элины: усиленный бонус к кристаллам (+35%, в Лето x2.75)
+        if self.faction == 'Элины' and self.food_info > 0:
+            try:
+                self.cursor.execute("SELECT season_index FROM season LIMIT 1")
+                _s = self.cursor.fetchone()
+                _peak = (_s[0] == 2) if _s else False
+            except Exception:
+                _peak = False
+            eliny_mult = 0.35 * 2.75 if _peak else 0.35
+            eliny_bonus = int(self.food_info * eliny_mult)
+            if eliny_bonus > 0:
+                self.resources['Кристаллы'] = int(self.resources.get('Кристаллы', 0)) + eliny_bonus
+                print(f"Бонус Элинов к кристаллам: +{eliny_bonus}")
+
     def update_relations_based_on_political_system(self):
         """
         Изменяет отношения на основе политической системы каждые 3 хода.
