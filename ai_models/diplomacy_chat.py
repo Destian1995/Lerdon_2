@@ -2857,7 +2857,10 @@ class EnhancedDiplomacyChat():
         if context.get("stage") == "counter_offer":
             # Проверяем, соглашается ли игрок на предложенное улучшение
             if any(word in message_lower for word in ['да', 'согласен', 'ок', 'хорошо', 'ладно', 'принимаю']):
-                # Игрок согласился на улучшение - обновляем контекст и оцениваем
+                # Игрок согласился — обновляем player_offer до запрошенной суммы
+                suggested = context.get("suggested_amount")
+                if suggested and context.get("player_offer"):
+                    context["player_offer"]["amount"] = suggested
                 context["stage"] = "evaluate"
                 return self._evaluate_trade(faction, context)
             elif any(word in message_lower for word in ['нет', 'не согласен', 'отказываюсь']):
@@ -3099,25 +3102,27 @@ class EnhancedDiplomacyChat():
 
             # Предлагаем конкретные изменения
             if needed_improvement > 0.5:
-                # Нужно значительно улучшить предложение
                 suggested_multiplier = 1.0 + needed_improvement
                 suggested_amount = int(player_offer['amount'] * suggested_multiplier)
+                context["suggested_amount"] = suggested_amount
 
                 return (f"При наших отношениях ({relation_level}/100) это предложение недостаточно выгодно. "
                         f"Предложи хотя бы {suggested_amount} {player_offer['type'].lower()}.")
 
             elif needed_improvement > 0.2:
-                # Небольшое улучшение
                 suggested_amount = int(player_offer['amount'] * 1.3)
+                context["suggested_amount"] = suggested_amount
 
                 return (f"Для текущего уровня отношений ({relation_level}/100) нужно немного улучшить предложение. "
                         f"Добавь еще {suggested_amount - player_offer['amount']} {player_offer['type'].lower()}.")
 
             else:
-                # Почти достигли порога
+                suggested_amount = int(player_offer['amount'] * 1.1)
+                context["suggested_amount"] = suggested_amount
+
                 return (f"Мы почти договорились! При наших отношениях ({relation_level}/100) "
                         f"нужно совсем немного улучшить предложение. Можешь добавить еще "
-                        f"{int(player_offer['amount'] * 0.1)} {player_offer['type'].lower()}?")
+                        f"{suggested_amount - player_offer['amount']} {player_offer['type'].lower()}?")
 
     def improve_relations_from_trade(self, faction, trade_amount):
         """Улучшает отношения после успешной сделки"""
