@@ -3672,24 +3672,36 @@ class AIController:
                 print(f"[AI PRISONERS] {self.faction} казнил {captured_count} пленных {enemy_faction}")
 
             else:  # release
-                # Отпустить — улучшаем отношения (кроме союзников и фракций в состоянии войны)
+                # Отпустить — улучшаем отношения (бонус зависит от текущего уровня)
                 cursor.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал' AND faction != ?",
                                (self.faction,))
                 for row in cursor.fetchall():
                     other_faction = row[0]
                     if self.is_faction_ally(other_faction):
                         continue
-                    # Не улучшаем отношения с фракциями в состоянии войны
                     cursor.execute(
                         "SELECT relationship FROM diplomacies WHERE faction1=? AND faction2=?",
                         (self.faction, other_faction))
                     _dip = cursor.fetchone()
                     if _dip and _dip[0] == 'война':
                         continue
+                    # Получаем текущий уровень отношений
+                    cursor.execute(
+                        "SELECT relationship FROM relations WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?) LIMIT 1",
+                        (self.faction, other_faction, other_faction, self.faction))
+                    _rel_row = cursor.fetchone()
+                    _cur_rel = int(_rel_row[0]) if _rel_row else 0
+                    # Бонус зависит от уровня отношений
+                    if _cur_rel > 30:
+                        _bonus = max(1, int(_cur_rel * 0.10))  # +10%
+                    elif _cur_rel >= 10:
+                        _bonus = max(1, int(_cur_rel * 0.02))  # +2%
+                    else:
+                        _bonus = 1  # +1 при отношениях 0-9
                     cursor.execute("""
-                        UPDATE relations SET relationship = MIN(100, relationship + 3)
+                        UPDATE relations SET relationship = MIN(100, relationship + ?)
                         WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
-                    """, (self.faction, other_faction, other_faction, self.faction))
+                    """, (_bonus, self.faction, other_faction, other_faction, self.faction))
                 print(f"[AI PRISONERS] {self.faction} отпустил {captured_count} пленных {enemy_faction}")
 
             self.db_connection.commit()
