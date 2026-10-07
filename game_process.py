@@ -576,6 +576,7 @@ class TurnOverlay(FloatLayout):
         'Вампиры': 'files/sov/vampire.jpg',
         'Адепты': 'files/sov/adept.jpg',
         'Элины': 'files/sov/poly.jpg',
+        'Нежить': 'files/army/death/banshi.png',
     }
 
     FACTION_COLORS = {
@@ -584,6 +585,7 @@ class TurnOverlay(FloatLayout):
         'Вампиры': (0.40, 0.10, 0.50),
         'Адепты': (0.85, 0.45, 0.10),
         'Элины': (0.95, 0.90, 0.15),
+        'Нежить': (0.20, 0.75, 0.60),
     }
 
     def __init__(self, **kwargs):
