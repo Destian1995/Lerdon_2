@@ -5879,7 +5879,7 @@ class EnhancedDiplomacyChat():
                     cost = int(round(amount * rate))
                     if amount > 0:
                         deal_lbl.text = (
-                            f"[b]{amount:,} {buy_resource}[/b] ← → "
+                            f"[b]{amount:,} {buy_resource}[/b] за "
                             f"[color=#FF9999]{cost:,} {player_pays_type}[/color]"
                         )
                     else:
