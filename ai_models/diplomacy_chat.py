@@ -5837,16 +5837,31 @@ class EnhancedDiplomacyChat():
                 ai_res = self._get_faction_resources(self.selected_faction)
                 player_res = self._get_faction_resources(self.faction)
 
+                # Коэффициент сделок на основе отношений
+                relations = self.advisor.relations_manager.load_combined_relations()
+                rel_data = relations.get(self.selected_faction, {"relation_level": 50})
+                try:
+                    _rel_level = int(rel_data["relation_level"])
+                except (ValueError, TypeError, KeyError):
+                    _rel_level = 50
+                _coeff = self.calculate_coefficient(_rel_level)
+                if _coeff <= 0:
+                    self.add_chat_message_system("Отношения слишком плохие для торговли.")
+                    _show_main_buttons()
+                    return
+
+                # rate = сколько игрок платит за 1 единицу покупаемого ресурса
+                # При коэффициенте 2.0: 1 мой ресурс = 2 их, значит за 1 их я плачу 1/2
+                rate = 1.0 / _coeff
+
                 if buy_resource == 'Кроны':
                     ai_has = int(ai_res.get('Кроны', 0))
                     player_pays_type = 'Кристаллы'
                     player_has = int(player_res.get('Кристаллы', 0))
-                    rate = 2.0
                 else:
                     ai_has = int(ai_res.get('Кристаллы', 0))
                     player_pays_type = 'Кроны'
                     player_has = int(player_res.get('Кроны', 0))
-                    rate = 0.5
 
                 max_can_buy = min(ai_has, int(player_has / rate)) if rate > 0 else 0
                 if max_can_buy <= 0:
