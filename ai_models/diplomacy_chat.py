@@ -1114,6 +1114,10 @@ class EnhancedDiplomacyChat():
 
         print(f"DEBUG: Получено сообщение: '{player_message}' от игрока")
 
+        # Перехват сообщений к Мятежникам — отдельная обработка
+        if target_faction == 'Мятежники':
+            return self._handle_rebel_message(player_message)
+
         # Загружаем данные об отношениях
         relations = self.advisor.relations_manager.load_combined_relations()
         relation_data = relations.get(target_faction, {"relation_level": 50, "status": "нейтралитет"})
@@ -3886,6 +3890,38 @@ class EnhancedDiplomacyChat():
         message_lower = message.lower()
         return any(keyword in message_lower for keyword in peace_keywords)
 
+    def _handle_rebel_message(self, message):
+        """Обрабатывает текстовые сообщения к Кейджу (Мятежники)."""
+        import random
+        msg = message.lower()
+        # Приветствие
+        if any(w in msg for w in ['привет', 'здравств', 'здорово', 'салют']):
+            return random.choice([
+                "Привет, союзник! Что нужно? Используй кнопки: Артефакты, Войска или Атаковать.",
+                "Здравствуй! Мои бойцы готовы. Чем могу помочь?",
+                "Рад видеть! Восстание набирает силу. Жду приказов!",
+            ])
+        # Статус
+        if any(w in msg for w in ['как дела', 'статус', 'сколько', 'сила', 'армия']):
+            try:
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT COUNT(*) FROM cities WHERE faction = 'Мятежники'")
+                cities = cursor.fetchone()[0]
+                cursor.execute("""
+                    SELECT COALESCE(SUM(g.unit_count), 0) FROM garrisons g
+                    JOIN cities c ON g.city_name = c.name WHERE c.faction = 'Мятежники'
+                """)
+                troops = cursor.fetchone()[0]
+                return f"У нас {cities} город(а), {troops} бойцов. Используй кнопки для управления!"
+            except Exception:
+                return "Мы держимся! Используй кнопки для управления."
+        # Всё остальное
+        return random.choice([
+            "Я понимаю только приказы. Используй кнопки: Артефакты, Войска или Атаковать.",
+            "Время не для болтовни! Нажми кнопку и отдай приказ.",
+            "Мои бойцы ждут действий, не слов. Используй кнопки внизу!",
+        ])
+
     def _handle_peace_proposal(self, message, faction):
         """Обрабатывает предложение мира с разнообразными репликами"""
         try:
@@ -5624,6 +5660,7 @@ class EnhancedDiplomacyChat():
             'Вампиры': (0.40, 0.10, 0.50, 1),
             'Адепты': (0.85, 0.45, 0.10, 1),
             'Элины': (0.95, 0.90, 0.15, 1),
+            'Мятежники': (0.75, 0.20, 0.20, 1),
         }
 
         self._faction_buttons = {}
@@ -5664,6 +5701,14 @@ class EnhancedDiplomacyChat():
 
         factions = self.load_factions_from_db() or []
         factions = [f for f in factions if f != self.faction]
+        # Добавляем Мятежников если они есть на карте
+        try:
+            _c = self.db_connection.cursor()
+            _c.execute("SELECT 1 FROM cities WHERE faction = 'Мятежники' LIMIT 1")
+            if _c.fetchone():
+                factions.append('Мятежники')
+        except Exception:
+            pass
 
         self.faction_spinner = Spinner(text='Выберите фракцию', values=factions, opacity=0, size_hint=(0, 0), height=0)
 
@@ -6033,8 +6078,300 @@ class EnhancedDiplomacyChat():
             back_btn.bind(on_press=lambda i: _show_main_buttons())
             quick_row.add_widget(back_btn)
 
+        # ═══════════ КЕЙДЖ: Быстрые кнопки ═══════════
+
+        def _show_rebel_artifacts(inst):
+            """Показывает артефакты на героях 3 класса игрока для передачи Кейджу."""
+            from kivy.uix.popup import Popup as _RPop
+            quick_row.clear_widgets()
+            try:
+                cursor = self.db_connection.cursor()
+                # Ищем артефакты на героях 3 класса игрока
+                cursor.execute("""
+                    SELECT h.hero_name, h.slot_type, h.artifact_id, a.attack, a.defense, a.season_name
+                    FROM hero_equipment h
+                    JOIN artifacts a ON a.id = h.artifact_id
+                    WHERE h.faction_name = ? AND h.artifact_id IS NOT NULL
+                """, (self.faction,))
+                artifacts = cursor.fetchall()
+                if not artifacts:
+                    self.add_chat_message_system("У ваших героев нет артефактов для передачи.")
+                    _show_main_buttons()
+                    return
+
+                for hero_name, slot, art_id, art_atk, art_def, art_season in artifacts:
+                    label = f"{hero_name}: +{art_atk}A +{art_def}D"
+                    ab = _styled_btn(label)
+
+                    def _transfer_art(i, _aid=art_id, _hero=hero_name, _slot=slot, _atk=art_atk, _def=art_def):
+                        try:
+                            cur = self.db_connection.cursor()
+                            # Снимаем артефакт с героя игрока
+                            cur.execute("UPDATE hero_equipment SET artifact_id = NULL WHERE faction_name=? AND hero_name=? AND slot_type=?",
+                                        (self.faction, _hero, _slot))
+                            # Применяем бонус к Кейджу (прямое усиление статов)
+                            cur.execute("""
+                                UPDATE units SET attack = attack + ?, defense = defense + ?
+                                WHERE hex(unit_name) = 'D09AD0B5D0B9D0B4D0B6'
+                            """, (_atk, _def))
+                            self.db_connection.commit()
+                            from datetime import datetime
+                            _t = datetime.now().strftime("%d.%m %H:%M")
+                            msg = f"Передаю артефакт от {_hero} (+{_atk} атака, +{_def} защита)"
+                            self.add_chat_message(msg, self.faction, _t, is_player=True)
+                            resp = random.choice([
+                                f"Отличное оружие! С этим артефактом мы станем сильнее. Благодарю, союзник!",
+                                f"Мои бойцы оценят! +{_atk} к атаке, +{_def} к защите. За свободу!",
+                                f"Щедрый дар! Теперь мятеж не остановить!",
+                            ])
+                            self.add_chat_message(resp, 'Мятежники', _t, is_player=False)
+                        except Exception as e:
+                            print(f"[REBEL ART] Ошибка: {e}")
+                        _show_main_buttons()
+
+                    ab.bind(on_press=_transfer_art)
+                    quick_row.add_widget(ab)
+            except Exception as e:
+                print(f"[REBEL ART] Ошибка загрузки: {e}")
+                self.add_chat_message_system("Ошибка загрузки артефактов.")
+                _show_main_buttons()
+                return
+
+            back_btn = _styled_btn("Назад")
+            back_btn.color = (1, 0.6, 0.5, 1)
+            back_btn.bind(on_press=lambda i: _show_main_buttons())
+            quick_row.add_widget(back_btn)
+
+        def _show_rebel_troops(inst):
+            """Показывает юнитов игрока для передачи Мятежникам."""
+            from kivy.uix.popup import Popup as _RPop
+            from kivy.uix.slider import Slider as _RSl
+            from kivy.uix.label import Label as _RLbl
+            quick_row.clear_widgets()
+            try:
+                cursor = self.db_connection.cursor()
+                cursor.execute("""
+                    SELECT unit_type, quantity FROM armies WHERE hex(faction) = (
+                        SELECT hex(faction) FROM armies WHERE faction = ? LIMIT 1
+                    ) AND quantity > 0
+                """, (self.faction,))
+                # Попробуем проще
+                cursor.execute("SELECT unit_type, quantity FROM armies WHERE faction = ? AND quantity > 0",
+                               (self.faction,))
+                army_units = cursor.fetchall()
+                if not army_units:
+                    self.add_chat_message_system("У вас нет войск для передачи.")
+                    _show_main_buttons()
+                    return
+
+                # Находим город Мятежников
+                cursor.execute("SELECT name FROM cities WHERE faction = 'Мятежники' LIMIT 1")
+                rebel_city_row = cursor.fetchone()
+                if not rebel_city_row:
+                    self.add_chat_message_system("У Мятежников нет городов.")
+                    _show_main_buttons()
+                    return
+                rebel_city = rebel_city_row[0]
+
+                for unit_name, qty in army_units:
+                    label = f"{unit_name} ({qty})"
+                    ub = _styled_btn(label)
+
+                    def _open_slider(i, _uname=unit_name, _qty=qty, _rcity=rebel_city):
+                        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(10))
+                        sl = _RSl(min=1, max=_qty, value=1, step=max(1, _qty // 50),
+                                  size_hint_y=None, height=dp(36))
+                        sl_lbl = _RLbl(text=f"Передать: 1 из {_qty}", font_size=sp(13),
+                                       size_hint_y=None, height=dp(30), halign='center')
+                        sl_lbl.bind(size=sl_lbl.setter('text_size'))
+                        sl.bind(value=lambda inst2, v: setattr(sl_lbl, 'text', f"Передать: {int(v)} из {_qty}"))
+                        content.add_widget(sl)
+                        content.add_widget(sl_lbl)
+                        btn_row = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(8))
+                        ok_btn = Button(text="Передать", background_normal='', background_color=(0.15, 0.55, 0.25, 1),
+                                        font_size=sp(13), bold=True)
+                        no_btn = Button(text="Отмена", background_normal='', background_color=(0.45, 0.15, 0.15, 1),
+                                        font_size=sp(13))
+                        btn_row.add_widget(ok_btn)
+                        btn_row.add_widget(no_btn)
+                        content.add_widget(btn_row)
+                        _is_m = kivy_platform in ('android', 'ios')
+                        popup = _RPop(title=f"Передать {_uname}", content=content,
+                                      size_hint=(0.85 if _is_m else 0.4, 0.35),
+                                      auto_dismiss=False)
+
+                        def _do_transfer(i2):
+                            count = int(sl.value)
+                            try:
+                                cur = self.db_connection.cursor()
+                                # Забираем из армии игрока
+                                cur.execute("UPDATE armies SET quantity = quantity - ? WHERE faction=? AND unit_type=?",
+                                            (count, self.faction, _uname))
+                                cur.execute("DELETE FROM armies WHERE faction=? AND unit_type=? AND quantity <= 0",
+                                            (self.faction, _uname))
+                                # Получаем изображение юнита
+                                cur.execute("SELECT image_path FROM units WHERE unit_name=?", (_uname,))
+                                _img_row = cur.fetchone()
+                                _img = _img_row[0] if _img_row else ''
+                                # Добавляем в гарнизон мятежников
+                                cur.execute("""
+                                    INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                                    VALUES (?, ?, ?, ?)
+                                    ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
+                                """, (_rcity, _uname, count, _img, count))
+                                self.db_connection.commit()
+                                from datetime import datetime
+                                _t = datetime.now().strftime("%d.%m %H:%M")
+                                self.add_chat_message(f"Передаю {count} {_uname}", self.faction, _t, is_player=True)
+                                resp = random.choice([
+                                    f"Подкрепление принято! {count} бойцов вступили в ряды восстания!",
+                                    f"Отлично! +{count} {_uname} в наших рядах. Враги задрожат!",
+                                    f"Щедро! Эти {count} воинов усилят нашу армию. За свободу!",
+                                ])
+                                self.add_chat_message(resp, 'Мятежники', _t, is_player=False)
+                                # Обновляем UI ресурсов
+                                try:
+                                    from game_process import _active_game_screen
+                                    gs = _active_game_screen
+                                    if gs and hasattr(gs, 'faction'):
+                                        gs.faction.refresh_from_db()
+                                except Exception:
+                                    pass
+                            except Exception as e:
+                                print(f"[REBEL TROOPS] Ошибка: {e}")
+                            popup.dismiss()
+                            _show_main_buttons()
+
+                        ok_btn.bind(on_press=_do_transfer)
+                        no_btn.bind(on_press=lambda i2: (popup.dismiss(), _show_main_buttons()))
+                        popup.open()
+
+                    ub.bind(on_press=_open_slider)
+                    quick_row.add_widget(ub)
+            except Exception as e:
+                print(f"[REBEL TROOPS] Ошибка: {e}")
+                _show_main_buttons()
+                return
+
+            back_btn = _styled_btn("Назад")
+            back_btn.color = (1, 0.6, 0.5, 1)
+            back_btn.bind(on_press=lambda i: _show_main_buttons())
+            quick_row.add_widget(back_btn)
+
+        def _show_rebel_attack(inst):
+            """Показывает вражеские города, граничащие с городами игрока, для атаки Мятежников."""
+            quick_row.clear_widgets()
+            try:
+                cursor = self.db_connection.cursor()
+                # Города игрока
+                cursor.execute("SELECT name FROM cities WHERE faction = ?", (self.faction,))
+                player_cities = [r[0] for r in cursor.fetchall()]
+                # Города мятежников
+                cursor.execute("SELECT name FROM cities WHERE faction = 'Мятежники'")
+                rebel_cities = [r[0] for r in cursor.fetchall()]
+                if not rebel_cities:
+                    self.add_chat_message_system("У Мятежников нет городов для атаки.")
+                    _show_main_buttons()
+                    return
+                # Проверяем есть ли гарнизон у мятежников
+                cursor.execute("SELECT COALESCE(SUM(unit_count), 0) FROM garrisons WHERE city_name IN ({})".format(
+                    ','.join('?' * len(rebel_cities))), rebel_cities)
+                total_troops = cursor.fetchone()[0]
+                if total_troops <= 0:
+                    from datetime import datetime
+                    _t = datetime.now().strftime("%d.%m %H:%M")
+                    self.add_chat_message("Мне нечем атаковать. Дай мне бойцов!", 'Мятежники', _t, is_player=False)
+                    _show_main_buttons()
+                    return
+
+                # Все дороги
+                cursor.execute("SELECT city1, city2 FROM roads")
+                roads = cursor.fetchall()
+                road_set = set()
+                for c1, c2 in roads:
+                    road_set.add((c1, c2))
+                    road_set.add((c2, c1))
+
+                # Враги — все фракции кроме игрока, мятежников, нежити, нейтрала
+                cursor.execute("""
+                    SELECT DISTINCT faction FROM cities
+                    WHERE faction NOT IN ('Нейтрал', 'Мятежники', 'Нежить', ?)
+                """, (self.faction,))
+                enemy_factions = set(r[0] for r in cursor.fetchall())
+
+                # Ищем вражеские города граничащие с игроком или мятежниками
+                friendly = set(player_cities + rebel_cities)
+                targets = []
+                for f_city in friendly:
+                    for c1, c2 in road_set:
+                        if c1 == f_city:
+                            neighbor = c2
+                        elif c2 == f_city:
+                            neighbor = c1
+                        else:
+                            continue
+                        cursor.execute("SELECT faction FROM cities WHERE name = ?", (neighbor,))
+                        n_row = cursor.fetchone()
+                        if n_row and n_row[0] in enemy_factions and neighbor not in [t[0] for t in targets]:
+                            targets.append((neighbor, n_row[0]))
+
+                if not targets:
+                    self.add_chat_message_system("Нет вражеских городов рядом с вашими владениями.")
+                    _show_main_buttons()
+                    return
+
+                for city_name, city_faction in targets:
+                    tb = _styled_btn(f"{city_name} ({city_faction})")
+
+                    def _order_attack(i, _city=city_name, _fac=city_faction):
+                        try:
+                            cur = self.db_connection.cursor()
+                            # Устанавливаем флаг атаки для AI мятежников
+                            cur.execute("""
+                                INSERT OR REPLACE INTO turn_check_attack_faction (faction, check_attack)
+                                VALUES ('Мятежники', 1)
+                            """)
+                            self.db_connection.commit()
+                            from datetime import datetime
+                            _t = datetime.now().strftime("%d.%m %H:%M")
+                            self.add_chat_message(f"Атакуй {_city}!", self.faction, _t, is_player=True)
+                            resp = random.choice([
+                                f"Принято! Мои бойцы выдвигаются на {_city}. За свободу!",
+                                f"Город {_city} ({_fac}) будет наш! Атакуем на следующем ходу!",
+                                f"Отличная цель! {_city} падёт перед нашим натиском!",
+                            ])
+                            self.add_chat_message(resp, 'Мятежники', _t, is_player=False)
+                        except Exception as e:
+                            print(f"[REBEL ATTACK] Ошибка: {e}")
+                        _show_main_buttons()
+
+                    tb.bind(on_press=_order_attack)
+                    quick_row.add_widget(tb)
+
+            except Exception as e:
+                print(f"[REBEL ATTACK] Ошибка: {e}")
+                _show_main_buttons()
+                return
+
+            back_btn = _styled_btn("Назад")
+            back_btn.color = (1, 0.6, 0.5, 1)
+            back_btn.bind(on_press=lambda i: _show_main_buttons())
+            quick_row.add_widget(back_btn)
+
         def _show_main_buttons():
             quick_row.clear_widgets()
+            # Для Мятежников — особые кнопки
+            if hasattr(self, 'selected_faction') and self.selected_faction == 'Мятежники':
+                _rebel_main = [
+                    ("Артефакты", _show_rebel_artifacts),
+                    ("Войска", _show_rebel_troops),
+                    ("Атаковать", _show_rebel_attack),
+                ]
+                for label, handler in _rebel_main:
+                    b = _styled_btn(label)
+                    b.bind(on_press=handler)
+                    quick_row.add_widget(b)
+                return
             _main = [
                 ("Союз", _send_quick("Давай заключим союз")),
                 ("Торговля", _show_trade_submenu),
