@@ -2386,68 +2386,120 @@ class GameScreen(Screen):
                 else:
                     effect_text = ", ".join(parts)
 
-            # ========== Определяем адаптивные размеры ==========
-            popup_width = Window.width * 0.9
-            popup_height = Window.height * 0.6
-            if platform == 'android':
-                label_font = sp(18)
-                button_font = sp(16)
-                button_height_dp = dp(46)
-                padding_dp = dp(18)
-                spacing_dp = dp(13)
-            else:
-                label_font = sp(18)
-                button_font = sp(16)
-                button_height_dp = dp(46)
-                padding_dp = dp(18)
-                spacing_dp = dp(13)
+            # ========== Цвет по величине бонуса/штрафа ==========
+            def _bonus_color(pct):
+                """Возвращает hex цвет по проценту: зелёный/жёлтый/оранжевый/красный"""
+                if pct >= 1:
+                    return '#4CAF50'   # зелёный (бонус)
+                elif pct >= -3:
+                    return '#FFC107'   # жёлтый (слабый штраф)
+                elif pct >= -15:
+                    return '#FF9800'   # оранжевый (средний штраф)
+                else:
+                    return '#F44336'   # красный (сильный штраф)
 
-            # ========== Собираем контент Popup ==========
+            # Формируем markup-текст для каждого эффекта
+            stat_pct_raw = (stat_f - 1.0) * 100 if stat_f != 1.0 else 0
+            cost_pct_raw = (cost_f - 1.0) * 100 if cost_f != 1.0 else 0
+
+            markup_parts = []
+            if stat_f != 1.0:
+                _sp = int(abs(round(stat_pct_raw)))
+                _sign = '+' if stat_pct_raw > 0 else '-'
+                _col = _bonus_color(stat_pct_raw)
+                markup_parts.append(f"[color={_col}][b]{_sign}{_sp}%[/b] к Урону, Защите и Здоровью[/color]")
+            if cost_f != 1.0:
+                _cp = int(abs(round(cost_pct_raw)))
+                _sign = '+' if cost_pct_raw > 0 else '-'
+                # Для стоимости: + = плохо (дороже), - = хорошо (дешевле)
+                _col = _bonus_color(-cost_pct_raw)
+                markup_parts.append(f"[color={_col}][b]{_sign}{_cp}%[/b] к стоимости юнитов[/color]")
+            if not markup_parts:
+                markup_parts.append("[color=#4CAF50]Нет изменений в этом сезоне[/color]")
+
+            _is_mobile = platform in ('android', 'ios')
+
             content = BoxLayout(
                 orientation='vertical',
-                padding=padding_dp,
-                spacing=spacing_dp
+                padding=[dp(16), dp(12)],
+                spacing=dp(10)
             )
+            with content.canvas.before:
+                Color(0.06, 0.07, 0.11, 1)
+                content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(12)])
+            content.bind(
+                pos=lambda i, v: setattr(i._bg, 'pos', v),
+                size=lambda i, v: setattr(i._bg, 'size', v))
 
-            # Маркированный текст: жирным показываем название сезона, дальше — effect_text
-            label = Label(
-                text=f"{effect_text}\n\n[b]{days_text}[/b]",
-                font_size=label_font,
-                halign='center',
-                valign='middle',
-                markup=True,
-                color=(1, 1, 1, 1),
-                size_hint_y=None
+            # Название сезона
+            season_icon = {'Зима': '❄', 'Весна': '🌿', 'Лето': '☀', 'Осень': '🍂'}
+            _icon = season_icon.get(current_season_name, '')
+            season_lbl = Label(
+                text=f"[b][color=#FFD700]{current_season_name}[/color][/b]",
+                markup=True, font_size=sp(22) if _is_mobile else sp(24),
+                size_hint_y=None, height=dp(36), halign='center'
             )
-            label.text_size = (popup_width - 2 * padding_dp, None)
-            label.texture_update()
-            label.height = label.texture_size[1] + dp(10)
+            season_lbl.bind(size=season_lbl.setter('text_size'))
+            content.add_widget(season_lbl)
 
+            # Разделитель
+            from kivy.uix.widget import Widget as _W
+            _sep = _W(size_hint_y=None, height=dp(1))
+            with _sep.canvas:
+                Color(0.3, 0.4, 0.6, 0.4)
+                _sep._r = RoundedRectangle(pos=_sep.pos, size=_sep.size)
+            _sep.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
+                      size=lambda i, v: setattr(i._r, 'size', v))
+            content.add_widget(_sep)
+
+            # Эффекты — каждый на своей строке
+            for part in markup_parts:
+                eff_lbl = Label(
+                    text=part, markup=True,
+                    font_size=sp(14) if _is_mobile else sp(16),
+                    size_hint_y=None, height=dp(28),
+                    halign='center', valign='middle'
+                )
+                eff_lbl.bind(size=eff_lbl.setter('text_size'))
+                content.add_widget(eff_lbl)
+
+            # Оставшиеся ходы
+            days_lbl = Label(
+                text=f"[color=#AAAAAA]{days_text}[/color]",
+                markup=True, font_size=sp(13),
+                size_hint_y=None, height=dp(24),
+                halign='center', valign='middle'
+            )
+            days_lbl.bind(size=days_lbl.setter('text_size'))
+            content.add_widget(days_lbl)
+
+            # Распорка
+            content.add_widget(Label(size_hint_y=1))
+
+            # Кнопка закрыть
             btn_close = Button(
-                text="Закрыть",
-                size_hint=(1, None),
-                height=button_height_dp,
-                background_normal='',
-                background_color=(0.2, 0.6, 0.8, 1),
-                font_size=button_font,
-                bold=True,
+                text="Закрыть", size_hint=(1, None), height=dp(40),
+                font_size=sp(14), bold=True,
+                background_normal='', background_color=(0, 0, 0, 0),
                 color=(1, 1, 1, 1)
             )
-
-            content.add_widget(label)
+            with btn_close.canvas.before:
+                Color(0.12, 0.16, 0.28, 0.95)
+                btn_close._rr = RoundedRectangle(pos=btn_close.pos, size=btn_close.size, radius=[dp(8)])
+            btn_close.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                           size=lambda i, v: setattr(i._rr, 'size', v))
             content.add_widget(btn_close)
 
             popup = Popup(
-                title=f"Эффект сезона. {self.selected_faction}",
+                title=f"Эффект сезона — {self.selected_faction}",
                 title_align='center',
-                title_size=sp(20) if platform != 'android' else sp(22),
-                title_color=(1, 1, 1, 1),
+                title_size=sp(16) if _is_mobile else sp(18),
+                title_color=(0.95, 0.90, 0.70, 1),
                 content=content,
-                size_hint=(None, None),
-                size=(popup_width, popup_height),
-                background_color=(0.1, 0.1, 0.1, 0.95),
-                separator_color=(0.3, 0.3, 0.3, 1),
-                auto_dismiss=False
+                size_hint=(0.75 if _is_mobile else 0.4, 0.55 if _is_mobile else 0.5),
+                background_color=(0.04, 0.05, 0.09, 0.98),
+                separator_color=(0.3, 0.55, 0.9, 0.4),
+                auto_dismiss=True
             )
 
             btn_close.bind(on_release=popup.dismiss)
