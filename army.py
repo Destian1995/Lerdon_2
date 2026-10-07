@@ -428,6 +428,13 @@ def start_army_mode(faction, game_area, class_faction, conn):
         "Элины": (0.95, 0.90, 0.15, 0.8),
     }
     bg_color = faction_colors.get(faction, (0.15, 0.15, 0.15, 1))
+    # Тёмный текст для светлых фракций (Элины, Адепты)
+    _dark_text_factions = {'Элины', 'Адепты'}
+    if faction in _dark_text_factions:
+        global TEXT_COLOR
+        TEXT_COLOR = (0.1, 0.1, 0.1, 1)
+    else:
+        TEXT_COLOR = get_color_from_hex('#FFFFFF')
     main_box = BoxLayout(
         orientation='horizontal',
         size_hint=(1, 1),
@@ -510,7 +517,8 @@ def start_army_mode(faction, game_area, class_faction, conn):
             val = unit_info['stats'].get(key, 0)
             if key in ('Урон', 'Защита', 'Живучесть', 'Потребление Кристаллов'):
                 val = format_number(val)
-            stat_lbl = Label(text=f'[color=#CCCCCC]{label}:[/color] [b]{val}[/b]',
+            _sub_hex = '#555555' if faction in _dark_text_factions else '#CCCCCC'
+            stat_lbl = Label(text=f'[color={_sub_hex}]{label}:[/color] [b]{val}[/b]',
                              markup=True, font_size=sp(12), color=TEXT_COLOR,
                              halign='left', valign='middle')
             stat_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
@@ -524,9 +532,11 @@ def start_army_mode(faction, game_area, class_faction, conn):
                               spacing=dp(4), padding=[0, dp(4), dp(4), dp(4)])
         right_col.add_widget(Image(source=unit_info['image'], size_hint=(1, 1),
                                    keep_ratio=True, allow_stretch=True, mipmap=True))
+        _cls_hex = '#444444' if faction in _dark_text_factions else '#AAAAAA'
+        _name_color = (0.1, 0.1, 0.1, 1) if faction in _dark_text_factions else (0.96, 0.96, 0.96, 1)
         name_lbl = Label(
-            text=f'[b]{unit_name}[/b]  [color=#AAAAAA]{cls_names.get(unit_class, "")} кл.{unit_class}[/color]',
-            markup=True, font_size=sp(13), color=(0.96, 0.96, 0.96, 1),
+            text=f'[b]{unit_name}[/b]  [color={_cls_hex}]{cls_names.get(unit_class, "")} кл.{unit_class}[/color]',
+            markup=True, font_size=sp(13), color=_name_color,
             size_hint=(1, None), height=dp(32),
             halign='center', valign='middle'
         )
