@@ -803,15 +803,19 @@ class TabImageButton(ImageButton):
 class GameScreen(Screen):
     SEASON_NAMES = ['Зима', 'Весна', 'Лето', 'Осень']
     SEASON_ICONS = ['snowflake', 'green_leaf', 'sun', 'yellow_leaf']
-    IDEOLOGY_ICONS = {
-        'player_submission': { # Идеология игрока - Смирение
-            'same': 'files/status/ideology/un_green.png',       # Та же (Смирение)
-            'different': 'files/status/ideology/fist_red.png'   # Другая (Борьба)
+    # Иконки идеологии: тип определяется по идеологии фракции города,
+    # цвет — по дипломатическому статусу (союзник/враг/нейтрал)
+    IDEOLOGY_ICON_MAP = {
+        'submission': {  # Смирение
+            'ally': 'files/status/ideology/un_green.png',
+            'war': 'files/status/ideology/un_red.png',
+            'neutral': 'files/status/ideology/un_def.png',
         },
-        'player_struggle': {  # Идеология игрока - Борьба
-            'same': 'files/status/ideology/fist_green.png',     # Та же (Борьба)
-            'different': 'files/status/ideology/un_red.png'     # Другая (Смирение)
-        }
+        'struggle': {  # Борьба
+            'ally': 'files/status/ideology/fist_green.png',
+            'war': 'files/status/ideology/fist_red.png',
+            'neutral': 'files/status/ideology/fist_def.png',
+        },
     }
 
     def __init__(self, selected_faction, cities, conn=None, player_ideology=None,
@@ -3342,20 +3346,33 @@ class GameScreen(Screen):
                         star_level = 3
 
                 # --- Определение иконки идеологии ---
+                # Тип иконки по идеологии фракции, цвет по дипломатическому статусу
                 ideology_icon_path = None
-                if self.player_ideology and faction in faction_ideologies:
-                    city_faction_ideology = faction_ideologies[faction]
-                    player_ideology_type = self.player_ideology.split('_')[1] # "submission" или "struggle"
+                if faction in faction_ideologies:
+                    city_ideology = faction_ideologies[faction]  # "submission" или "struggle"
+                    icon_set = self.IDEOLOGY_ICON_MAP.get(city_ideology)
+                    if icon_set:
+                        if faction == self.selected_faction:
+                            # Свои города — зелёные
+                            ideology_icon_path = icon_set['ally']
+                        else:
+                            # Определяем дип. статус с фракцией города
+                            _dip_status = 'neutral'
+                            try:
+                                self.cursor.execute(
+                                    "SELECT relationship FROM diplomacies WHERE faction1=? AND faction2=?",
+                                    (self.selected_faction, faction))
+                                _dip_row = self.cursor.fetchone()
+                                if _dip_row:
+                                    if _dip_row[0] == 'союз':
+                                        _dip_status = 'ally'
+                                    elif _dip_row[0] == 'война':
+                                        _dip_status = 'war'
+                            except Exception:
+                                pass
+                            ideology_icon_path = icon_set[_dip_status]
 
-                    if city_faction_ideology == player_ideology_type:
-                        # Та же идеология
-                        ideology_icon_path = self.IDEOLOGY_ICONS[self.player_ideology]['same']
-                    else:
-                        # Другая идеология
-                        ideology_icon_path = self.IDEOLOGY_ICONS[self.player_ideology]['different']
-
-                    # Проверяем существование файла иконки
-                    if not self._check_file(ideology_icon_path):
+                    if ideology_icon_path and not self._check_file(ideology_icon_path):
                         ideology_icon_path = None
 
                 # --- Логика для определения количества иконок бонуса кристаллов ---
