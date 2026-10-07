@@ -13,7 +13,7 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.spinner import Spinner
 from kivy.graphics import Color, Rectangle, RoundedRectangle, Line
 from kivy.core.window import Window, Animation
-from kivy.metrics import dp
+from kivy.metrics import dp, sp
 from kivy.clock import Clock
 from datetime import datetime
 
@@ -5900,7 +5900,7 @@ class EnhancedDiplomacyChat():
                 btn_row.add_widget(cancel_btn)
                 content.add_widget(btn_row)
 
-                _is_mobile = platform in ('android', 'ios')
+                _is_mobile = kivy_platform in ('android', 'ios')
                 popup = _TPop(
                     title=f"Купить {buy_resource}",
                     content=content,

@@ -1325,8 +1325,11 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
         selected = list(battle_rounds)
 
     # ── Root layout ──────────────────────────────────────────────────────
-    root = BoxLayout(orientation='vertical', spacing=dp(8),
-                     padding=[dp(12), dp(10), dp(12), dp(10)])
+    is_mobile = platform in ('android', 'ios')
+    _sp4 = dp(4) if is_mobile else dp(8)  # Compact spacing for mobile
+
+    root = BoxLayout(orientation='vertical', spacing=_sp4,
+                     padding=[dp(10), dp(6), dp(10), dp(6)])
 
     with root.canvas.before:
         Color(0.06, 0.06, 0.10, 1)
@@ -1334,33 +1337,31 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
     root.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
               size=lambda i, v: setattr(i._bg, 'size', v))
 
-    is_mobile = platform in ('android', 'ios')
     popup = Popup(
         title='', content=root,
-        size_hint=(0.98 if is_mobile else 0.92, 0.92 if is_mobile else 0.86),
+        size_hint=(0.98 if is_mobile else 0.92, 0.95 if is_mobile else 0.86),
         background_color=(0.04, 0.04, 0.08, 1),
         separator_height=0,
     )
 
-    # Строка с кнопкой «Пропустить»
-    top_row = BoxLayout(size_hint_y=None, height=dp(32))
-    top_row.add_widget(Label())
+    # Строка с кнопкой «Пропустить» + заголовок в одну строку
+    top_row = BoxLayout(size_hint_y=None, height=dp(28))
+    top_row.add_widget(Label(
+        text='[b][color=#FFD700]== СРАЖЕНИЕ ==[/color][/b]',
+        markup=True, font_size=sp(16) if is_mobile else sp(19)
+    ))
     skip_btn = Button(
-        text='Пропустить', size_hint=(None, None), size=(dp(120), dp(28)),
-        font_size=sp(11), bold=True,
+        text='Пропустить', size_hint=(None, None), size=(dp(100), dp(26)),
+        font_size=sp(10), bold=True,
         background_color=(0.45, 0.08, 0.08, 1), color=(1, 1, 1, 1)
     )
     top_row.add_widget(skip_btn)
     root.add_widget(top_row)
 
-    # Заголовок
-    root.add_widget(Label(
-        text='[b][color=#FFD700]== СРАЖЕНИЕ ==[/color][/b]',
-        markup=True, font_size=sp(19), size_hint_y=None, height=dp(28)
-    ))
+    # Подзаголовок
     root.add_widget(Label(
         text=f'[color=#777777]{attacking_city}  >>  {defending_city}[/color]',
-        markup=True, font_size=sp(12), size_hint_y=None, height=dp(18)
+        markup=True, font_size=sp(11), size_hint_y=None, height=dp(16)
     ))
 
     # Разделитель
@@ -1376,19 +1377,24 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
     root.add_widget(_make_sep())
 
     # ── Атакующий ────────────────────────────────────────────────────────
+    _bar_h = dp(22) if is_mobile else dp(30)
+    _lbl_h = dp(18) if is_mobile else dp(22)
+    _cnt_h = dp(14) if is_mobile else dp(16)
+    _fsize = sp(13) if is_mobile else sp(14)
+
     atk_lbl = Label(
         text=f'[b][color={atk_hex}]>> {attacking_fraction}[/color][/b]',
-        markup=True, font_size=sp(14), size_hint_y=None, height=dp(22), halign='left'
+        markup=True, font_size=_fsize, size_hint_y=None, height=_lbl_h, halign='left'
     )
     atk_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
     root.add_widget(atk_lbl)
 
-    atk_bar = BattleBar(size_hint_y=None, height=dp(30))
+    atk_bar = BattleBar(size_hint_y=None, height=_bar_h)
     root.add_widget(atk_bar)
 
     atk_cnt = Label(
-        text='', markup=True, font_size=sp(11), color=(0.72, 0.72, 0.72, 1),
-        size_hint_y=None, height=dp(16), halign='right'
+        text='', markup=True, font_size=sp(10), color=(0.72, 0.72, 0.72, 1),
+        size_hint_y=None, height=_cnt_h, halign='right'
     )
     atk_cnt.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
     root.add_widget(atk_cnt)
@@ -1396,13 +1402,11 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
     # ── VS ───────────────────────────────────────────────────────────────
     vs_lbl = Label(
         text='[b][color=#E67E22][ VS ][/color][/b]',
-        markup=True, font_size=sp(14), size_hint_y=None, height=dp(22), opacity=0.9
+        markup=True, font_size=_fsize, size_hint_y=None, height=dp(18), opacity=0.9
     )
     root.add_widget(vs_lbl)
 
     def _pulse_vs(dt):
-        (Animation(opacity=0.45, duration=0.65, t='out_sine') +
-         Animation(opacity=1.00, duration=0.65, t='out_sine')).repeat = True
         anim = (Animation(opacity=0.45, duration=0.65, t='out_sine') +
                 Animation(opacity=1.00, duration=0.65, t='out_sine'))
         anim.repeat = True
@@ -1413,17 +1417,17 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
     # ── Защитник ─────────────────────────────────────────────────────────
     def_lbl = Label(
         text=f'[b][color={def_hex}]>> {defending_fraction}[/color][/b]',
-        markup=True, font_size=sp(14), size_hint_y=None, height=dp(22), halign='left'
+        markup=True, font_size=_fsize, size_hint_y=None, height=_lbl_h, halign='left'
     )
     def_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
     root.add_widget(def_lbl)
 
-    def_bar = BattleBar(size_hint_y=None, height=dp(30))
+    def_bar = BattleBar(size_hint_y=None, height=_bar_h)
     root.add_widget(def_bar)
 
     def_cnt = Label(
-        text='', markup=True, font_size=sp(11), color=(0.72, 0.72, 0.72, 1),
-        size_hint_y=None, height=dp(16), halign='right'
+        text='', markup=True, font_size=sp(10), color=(0.72, 0.72, 0.72, 1),
+        size_hint_y=None, height=_cnt_h, halign='right'
     )
     def_cnt.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
     root.add_widget(def_cnt)
@@ -1432,14 +1436,15 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
 
     # ── Раунд + лента событий ────────────────────────────────────────────
     round_lbl = Label(
-        text='Подготовка к бою...', font_size=sp(12), bold=True,
-        color=(0.88, 0.88, 0.88, 1), size_hint_y=None, height=dp(20)
+        text='Подготовка к бою...', font_size=sp(11), bold=True,
+        color=(0.88, 0.88, 0.88, 1), size_hint_y=None, height=dp(18)
     )
     root.add_widget(round_lbl)
 
-    events_box = BoxLayout(orientation='vertical', spacing=dp(2),
-                           size_hint_y=None, height=dp(64),
-                           padding=[dp(8), dp(4)])
+    _ev_h = dp(48) if is_mobile else dp(64)
+    events_box = BoxLayout(orientation='vertical', spacing=dp(1),
+                           size_hint_y=None, height=_ev_h,
+                           padding=[dp(6), dp(2)])
     with events_box.canvas.before:
         Color(0.09, 0.09, 0.14, 1)
         events_box._bg = RoundedRectangle(pos=events_box.pos, size=events_box.size, radius=[dp(8)])
@@ -1449,8 +1454,9 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
 
     event_labels = []
     for _ in range(3):
-        el = Label(text='', font_size=sp(10), halign='left', valign='middle',
-                   markup=True, size_hint_y=None, height=dp(18))
+        el = Label(text='', font_size=sp(9) if is_mobile else sp(10),
+                   halign='left', valign='middle',
+                   markup=True, size_hint_y=None, height=dp(14) if is_mobile else dp(18))
         el.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
         events_box.add_widget(el)
         event_labels.append(el)
