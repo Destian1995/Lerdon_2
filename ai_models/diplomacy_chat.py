@@ -3092,8 +3092,9 @@ class EnhancedDiplomacyChat():
         print(f"DEBUG: Порог принятия: {threshold}")
         print(f"DEBUG: Коэффициент отношений: {attractiveness_data['relation_coefficient']}")
 
-        # Принимаем решение
-        if attractiveness >= threshold:
+        # Принимаем решение (после 2+ counter_offers — принять)
+        _counter_offers = context.get("counter_offers", 0)
+        if attractiveness >= threshold or _counter_offers >= 2:
             # Сделка выгодна
             context["stage"] = "agreement"
             context["active_request"] = {
@@ -3114,6 +3115,7 @@ class EnhancedDiplomacyChat():
         else:
             # Сделка невыгодна - предлагаем улучшение
             context["stage"] = "counter_offer"
+            context["counter_offers"] = context.get("counter_offers", 0) + 1
 
             # Рассчитываем, что нужно изменить
             needed_improvement = threshold - attractiveness
@@ -5974,6 +5976,16 @@ class EnhancedDiplomacyChat():
                         ai_time = datetime.now().strftime("%d.%m %H:%M")
                         self.add_chat_message(response, target, ai_time, is_player=False)
                         self.save_negotiation_message(target, response, is_player=False)
+                        # Принудительно обновляем UI ресурсов после сделки
+                        try:
+                            from game_process import _active_game_screen
+                            gs = _active_game_screen
+                            if gs and hasattr(gs, 'faction'):
+                                gs.faction.refresh_from_db()
+                                if hasattr(gs, 'resource_box'):
+                                    gs.resource_box.update_resources()
+                        except Exception:
+                            pass
                     popup.dismiss()
                     _show_main_buttons()
 
