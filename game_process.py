@@ -2442,6 +2442,15 @@ class GameScreen(Screen):
             season_lbl.bind(size=season_lbl.setter('text_size'))
             content.add_widget(season_lbl)
 
+            # Фракция
+            faction_lbl = Label(
+                text=f"[color=#AAAAAA]Эффект сезона — {self.selected_faction}[/color]",
+                markup=True, font_size=sp(13) if _is_mobile else sp(14),
+                size_hint_y=None, height=dp(22), halign='center'
+            )
+            faction_lbl.bind(size=faction_lbl.setter('text_size'))
+            content.add_widget(faction_lbl)
+
             # Разделитель
             from kivy.uix.widget import Widget as _W
             _sep = _W(size_hint_y=None, height=dp(1))
@@ -2491,14 +2500,11 @@ class GameScreen(Screen):
             content.add_widget(btn_close)
 
             popup = Popup(
-                title=f"Эффект сезона — {self.selected_faction}",
-                title_align='center',
-                title_size=sp(16) if _is_mobile else sp(18),
-                title_color=(0.95, 0.90, 0.70, 1),
+                title='',
                 content=content,
-                size_hint=(0.75 if _is_mobile else 0.4, 0.55 if _is_mobile else 0.5),
+                size_hint=(0.85 if _is_mobile else 0.4, 0.65 if _is_mobile else 0.55),
                 background_color=(0.04, 0.05, 0.09, 0.98),
-                separator_color=(0.3, 0.55, 0.9, 0.4),
+                separator_height=0,
                 auto_dismiss=True
             )
 

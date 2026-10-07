@@ -549,9 +549,11 @@ def start_army_mode(faction, game_area, class_faction, conn):
                              spacing=dp(10), padding=[dp(8), dp(2)])
         cost_row.add_widget(Label(text='[b]Цена:[/b]', markup=True, font_size=sp(13),
                                   color=TEXT_COLOR, size_hint=(None, 1), width=dp(48)))
+        _money_hex = '#8B6914' if faction in _dark_text_factions else '#FFD700'
+        _worker_hex = '#2266AA' if faction in _dark_text_factions else '#88CCFF'
         cost_row.add_widget(Label(
-            text=f'[color=#FFD700]{format_number(cost_money)}[/color] крон  '
-                 f'[color=#88CCFF]{format_number(cost_time)}[/color] раб.',
+            text=f'[color={_money_hex}]{format_number(cost_money)}[/color] крон  '
+                 f'[color={_worker_hex}]{format_number(cost_time)}[/color] раб.',
             markup=True, font_size=sp(13), color=TEXT_COLOR, halign='left', valign='middle'
         ))
 

@@ -745,7 +745,6 @@ class Faction:
 
                         if target_summ_resource and target_type_resource:
                             self.update_resource_deals(target_type_resource, target_summ_resource)
-                            show_message(initiator_type_resource, f"{target_faction} прислали ресурсы!")
 
                     elif target_faction == self.faction:
                         if target_summ_resource and target_type_resource:
@@ -758,7 +757,6 @@ class Faction:
 
                         if initiator_summ_resource and initiator_type_resource:
                             self.update_resource_deals(initiator_type_resource, initiator_summ_resource)
-                            show_message(target_type_resource, f"{initiator} прислали ресурсы!")
 
                     completed_trades.append(trade_id)
                     print(f"Сделка успешно выполнена: {trade_id}")

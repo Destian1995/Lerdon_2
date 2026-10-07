@@ -5988,15 +5988,12 @@ class EnhancedDiplomacyChat():
 
                 _is_mobile = kivy_platform in ('android', 'ios')
                 popup = _TPop(
-                    title=f"Купить {buy_resource}",
+                    title='',
                     content=content,
-                    size_hint=(0.88 if _is_mobile else 0.5, 0.42 if _is_mobile else 0.45),
+                    size_hint=(0.92 if _is_mobile else 0.5, 0.50 if _is_mobile else 0.48),
                     auto_dismiss=False,
                     background_color=(0.04, 0.05, 0.09, 0.98),
-                    separator_color=(0.3, 0.55, 0.9, 0.4),
-                    title_color=(0.95, 0.90, 0.70, 1),
-                    title_size=sp(15) if _is_mobile else sp(16),
-                    title_align='center')
+                    separator_height=0)
 
                 def _confirm(inst2):
                     from datetime import datetime
