@@ -3111,7 +3111,7 @@ class EnhancedDiplomacyChat():
             if self.execute_agreed_trade(faction, context["active_request"]):
                 # Улучшаем отношения при успешной сделке
                 self.improve_relations_from_trade(faction, amount)
-                return f"Согласен! Если не возникнет форс-мажора, жди поставки через день."
+                return f"Согласен! Ресурсы переданы. Сделка завершена."
             else:
                 context["stage"] = "idle"
                 return "Согласен, но возникла ошибка при обработке."
