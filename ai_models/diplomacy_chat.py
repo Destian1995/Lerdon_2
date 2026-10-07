@@ -2856,14 +2856,22 @@ class EnhancedDiplomacyChat():
         # Обработка стадии counter_offer (предложение улучшения)
         if context.get("stage") == "counter_offer":
             # Проверяем, соглашается ли игрок на предложенное улучшение
-            if any(word in message_lower for word in ['да', 'согласен', 'ок', 'хорошо', 'ладно', 'принимаю']):
+            if any(word in message_lower for word in [
+                'да', 'согласен', 'ок', 'хорошо', 'ладно', 'принимаю', 'давай',
+                'конечно', 'идёт', 'идет', 'договорились', 'могу', 'добавлю',
+                'окей', 'accepted', 'yes', 'sure', 'пойдёт', 'пойдет', 'без проблем',
+                'годится', 'по рукам', 'заметано', 'берём', 'берем',
+            ]):
                 # Игрок согласился — обновляем player_offer до запрошенной суммы
                 suggested = context.get("suggested_amount")
                 if suggested and context.get("player_offer"):
                     context["player_offer"]["amount"] = suggested
                 context["stage"] = "evaluate"
                 return self._evaluate_trade(faction, context)
-            elif any(word in message_lower for word in ['нет', 'не согласен', 'отказываюсь']):
+            elif any(word in message_lower for word in [
+                'нет', 'не согласен', 'отказываюсь', 'не буду', 'дорого', 'много',
+                'отмена', 'отменить', 'не хочу', 'слишком', 'забудь',
+            ]):
                 context["stage"] = "idle"
                 return "Хорошо, тогда сделку отменяем."
             else:
