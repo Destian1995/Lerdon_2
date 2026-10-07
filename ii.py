@@ -2745,7 +2745,13 @@ class AIController:
                 if self.turn < 13:
                     continue
 
-                if int(relationship) < 30:
+                # Порог войны зависит от идеологии
+                other_system = self.load_political_system_for_faction(faction)
+                current_system = self.load_political_system()
+                same_ideology = current_system.strip() == other_system.strip()
+                war_threshold = 10 if same_ideology else 30
+
+                if int(relationship) < war_threshold:
                     enemy_strength = army_strength.get(faction, 0)
 
                     # Учитываем фракционный множитель при оценке своей силы
@@ -3247,7 +3253,8 @@ class AIController:
             relation_level = int(relation_level)
 
             if current_system.strip() == other_system.strip():
-                new_relation = min(relation_level + 3, 100)
+                # Одинаковая идеология: отношения портятся в 5 раз слабее
+                new_relation = max(relation_level - 1, 0)
             else:
                 new_relation = max(relation_level - 7, 0)
 
