@@ -5745,6 +5745,7 @@ class EnhancedDiplomacyChat():
                 instance._bg_color_instr.rgba = instance._accent
                 self.selected_faction = fname
                 self.on_faction_selected_android(self.faction_spinner, fname)
+                _show_main_buttons()
 
             btn.bind(on_press=on_press)
             self._faction_buttons[fname] = btn
@@ -6088,7 +6089,8 @@ class EnhancedDiplomacyChat():
                 cursor = self.db_connection.cursor()
                 # Ищем артефакты на героях 3 класса игрока
                 cursor.execute("""
-                    SELECT h.hero_name, h.slot_type, h.artifact_id, a.attack, a.defense, a.season_name
+                    SELECT h.hero_name, h.slot_type, h.artifact_id,
+                           a.attack, a.defense, a.season_name, COALESCE(a.name, 'Артефакт')
                     FROM hero_equipment h
                     JOIN artifacts a ON a.id = h.artifact_id
                     WHERE h.faction_name = ? AND h.artifact_id IS NOT NULL
@@ -6099,8 +6101,8 @@ class EnhancedDiplomacyChat():
                     _show_main_buttons()
                     return
 
-                for hero_name, slot, art_id, art_atk, art_def, art_season in artifacts:
-                    label = f"{hero_name}: +{art_atk}A +{art_def}D"
+                for hero_name, slot, art_id, art_atk, art_def, art_season, art_name in artifacts:
+                    label = f"{art_name}: Ат.{art_atk} Защ.{art_def}"
                     ab = _styled_btn(label)
 
                     def _transfer_art(i, _aid=art_id, _hero=hero_name, _slot=slot, _atk=art_atk, _def=art_def):
@@ -6150,17 +6152,15 @@ class EnhancedDiplomacyChat():
             quick_row.clear_widgets()
             try:
                 cursor = self.db_connection.cursor()
+                # Только юниты 1 класса (герои 2-3-4 не передаются)
                 cursor.execute("""
-                    SELECT unit_type, quantity FROM armies WHERE hex(faction) = (
-                        SELECT hex(faction) FROM armies WHERE faction = ? LIMIT 1
-                    ) AND quantity > 0
+                    SELECT a.unit_type, a.quantity FROM armies a
+                    JOIN units u ON a.unit_type = u.unit_name
+                    WHERE a.faction = ? AND a.quantity > 0 AND u.unit_class = 1
                 """, (self.faction,))
-                # Попробуем проще
-                cursor.execute("SELECT unit_type, quantity FROM armies WHERE faction = ? AND quantity > 0",
-                               (self.faction,))
                 army_units = cursor.fetchall()
                 if not army_units:
-                    self.add_chat_message_system("У вас нет войск для передачи.")
+                    self.add_chat_message_system("У вас нет войск 1 класса для передачи.")
                     _show_main_buttons()
                     return
 
