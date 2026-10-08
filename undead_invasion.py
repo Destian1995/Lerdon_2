@@ -269,7 +269,7 @@ def check_and_trigger_invasion(conn, current_turn, player_faction):
     # 60% Призраки, 25% Зомби, 15% Банши + Низар
     ghost_count = int(UNDEAD_INITIAL_ARMY * 0.60)
     zombie_count = int(UNDEAD_INITIAL_ARMY * 0.25)
-    banshee_count = int(UNDEAD_INITIAL_ARMY * 0.15)
+    banshee_count = int(UNDEAD_INITIAL_ARMY * 0.15) + 5000
 
     _spawn_undead_unit = """
         INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
