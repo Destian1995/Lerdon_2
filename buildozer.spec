@@ -59,3 +59,4 @@ android.release_artifact = apk
 # ---------------------------------
 
 buildozer.build_logfile = buildozer.log
+android.add_gradle_properties = org.gradle.jvmargs=-Xmx4g
