@@ -1057,12 +1057,15 @@ def make_turn_v2(self):
                 _diag(self, "шаг 1: ensure_scout_unit")
                 ensure_scout_unit(self)
 
-                # Шаг 2: захват нейтрала
-                _diag(self, "шаг 2: early_expansion")
-                try:
-                    early_expansion(self)
-                except Exception as e:
-                    print(f"[AI] early_expansion: {e}")
+                # Шаг 2: захват нейтрала (Элины — 2 попытки)
+                _expansion_rounds = 2 if self.faction == 'Элины' else 1
+                for _er in range(_expansion_rounds):
+                    _diag(self, f"шаг 2: early_expansion (раунд {_er+1}/{_expansion_rounds})")
+                    try:
+                        self._action_taken_this_turn = False  # Сброс флага для второго захвата
+                        early_expansion(self)
+                    except Exception as e:
+                        print(f"[AI] early_expansion: {e}")
 
                 # Шаг 3: обычный найм
                 _diag(self, "шаг 3: hire_army")

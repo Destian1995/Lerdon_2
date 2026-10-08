@@ -596,7 +596,7 @@ def start_army_mode(faction, game_area, class_faction, conn):
             slider_row = BoxLayout(size_hint=(1, None), height=dp(32),
                                    orientation='horizontal', spacing=dp(8))
             slider_lbl = Label(text='[b]1[/b]', markup=True, font_size=sp(14),
-                               color=(1, 1, 1, 1), size_hint=(None, 1), width=dp(56),
+                               color=TEXT_COLOR, size_hint=(None, 1), width=dp(56),
                                halign='right', valign='middle')
             slider_lbl.bind(size=lambda i, s: setattr(i, 'text_size', s))
             qty_slider = Slider(min=1, max=max_affordable, value=1, step=1,
@@ -622,8 +622,8 @@ def start_army_mode(faction, game_area, class_faction, conn):
                 text='1', font_size=sp(14), multiline=False,
                 size_hint=(0.40, 1),
                 background_color=(0.12, 0.16, 0.22, 1),
-                foreground_color=(1, 1, 1, 1),
-                cursor_color=(1, 1, 1, 1),
+                foreground_color=TEXT_COLOR,
+                cursor_color=TEXT_COLOR,
                 input_filter='int',
                 halign='center',
             )
