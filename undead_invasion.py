@@ -230,14 +230,20 @@ def check_and_trigger_invasion(conn, current_turn, player_faction):
     if invasion_started:
         return False, None
 
-    # Предупреждение за 2 хода до инвазии
+    # Предупреждение за 2 хода до инвазии — выбираем и сохраняем город
     if current_turn == invasion_turn - 2:
-        # Определяем город где появится нежить (для предупреждения)
-        cursor.execute("SELECT name FROM cities WHERE is_undead = 1 ORDER BY RANDOM() LIMIT 1")
-        _warn_city = cursor.fetchone()
-        if _warn_city:
+        cursor.execute("SELECT id, name FROM cities WHERE is_undead = 1 ORDER BY RANDOM() LIMIT 1")
+        _warn_row = cursor.fetchone()
+        if _warn_row:
+            # Сохраняем выбранный город в БД
+            try:
+                cursor.execute("ALTER TABLE undead_invasion ADD COLUMN chosen_city_id INTEGER")
+            except Exception:
+                pass
+            cursor.execute("UPDATE undead_invasion SET chosen_city_id = ? WHERE id = 1", (_warn_row[0],))
+            conn.commit()
             warn_msg = (f"Разведчики доложили о подозрительной активности "
-                        f"в окрестностях города {_warn_city[0]}. "
+                        f"в окрестностях города {_warn_row[1]}. "
                         f"Земля дрожит, из-под неё доносятся странные звуки...")
             return False, warn_msg
 
@@ -249,15 +255,26 @@ def check_and_trigger_invasion(conn, current_turn, player_faction):
 
     cursor.execute("UPDATE undead_invasion SET invasion_started = 1 WHERE id = 1")
 
-    # Получаем все 3 города нежити
-    cursor.execute("SELECT id, name FROM cities WHERE is_undead = 1")
-    undead_cities = cursor.fetchall()
+    # Используем сохранённый город или выбираем случайный
+    chosen_city_id = None
+    chosen_city_name = None
+    try:
+        cursor.execute("SELECT chosen_city_id FROM undead_invasion WHERE id = 1")
+        _saved = cursor.fetchone()
+        if _saved and _saved[0]:
+            cursor.execute("SELECT id, name FROM cities WHERE id = ?", (_saved[0],))
+            _row = cursor.fetchone()
+            if _row:
+                chosen_city_id, chosen_city_name = _row
+    except Exception:
+        pass
 
-    if not undead_cities:
-        return False, None
-
-    # Выбираем ОДИН случайный город для армии
-    chosen_city_id, chosen_city_name = random.choice(undead_cities)
+    if not chosen_city_id:
+        cursor.execute("SELECT id, name FROM cities WHERE is_undead = 1")
+        undead_cities = cursor.fetchall()
+        if not undead_cities:
+            return False, None
+        chosen_city_id, chosen_city_name = random.choice(undead_cities)
 
     # Только выбранный город становится "Нежить"
     cursor.execute(
