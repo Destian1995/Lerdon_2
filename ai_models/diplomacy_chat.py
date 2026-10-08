@@ -6135,7 +6135,8 @@ class EnhancedDiplomacyChat():
                 cursor = self.db_connection.cursor()
                 cursor.execute("""
                     SELECT h.hero_name, h.slot_type, h.artifact_id,
-                           a.attack, a.defense, a.season_name, COALESCE(a.name, 'Артефакт')
+                           a.attack, a.defense, a.season_name, COALESCE(a.name, 'Артефакт'),
+                           COALESCE(a.artifact_type, 0)
                     FROM hero_equipment h
                     JOIN artifacts a ON a.id = h.artifact_id
                     WHERE h.faction_name = ? AND h.artifact_id IS NOT NULL
@@ -6157,22 +6158,53 @@ class EnhancedDiplomacyChat():
                                   separator_height=0,
                                   background_color=(0.04, 0.05, 0.09, 0.98))
 
-                for hero_name, slot, art_id, art_atk, art_def, art_season, art_name in artifacts:
+                # Маппинг artifact_type -> slot_type
+                _TYPE_TO_SLOT = {0: 'weapon', 1: 'armor', 2: 'helmet', 3: 'boots', 4: 'accessory'}
+
+                # Создаём слоты Кейджа если нет (6 слотов: 5 стандартных + shield)
+                try:
+                    _CAGE_NAME = 'Кейдж'
+                    for _st in ['weapon', 'armor', 'helmet', 'boots', 'accessory', 'shield']:
+                        cursor.execute("""
+                            INSERT OR IGNORE INTO hero_equipment (faction_name, hero_name, slot_type, artifact_id)
+                            VALUES ('Мятежники', ?, ?, NULL)
+                        """, (_CAGE_NAME, _st))
+                    self.db_connection.commit()
+                except Exception:
+                    pass
+
+                for hero_name, slot, art_id, art_atk, art_def, art_season, art_name, art_type in artifacts:
                     label = f"{art_name}: Ат.{art_atk} Защ.{art_def}"
                     ab = Button(text=label, size_hint_y=None, height=dp(44),
                                 font_size=sp(12), bold=True,
                                 background_normal='', background_color=(0.15, 0.22, 0.35, 1),
                                 color=(1, 1, 1, 1))
 
-                    def _transfer_art(i, _aid=art_id, _hero=hero_name, _slot=slot, _atk=art_atk, _def=art_def, _popup=art_popup):
+                    def _transfer_art(i, _aid=art_id, _hero=hero_name, _slot=slot,
+                                      _atk=art_atk, _def=art_def, _atype=art_type, _popup=art_popup):
                         try:
                             cur = self.db_connection.cursor()
+                            # Снимаем артефакт с героя игрока
                             cur.execute("UPDATE hero_equipment SET artifact_id = NULL WHERE faction_name=? AND hero_name=? AND slot_type=?",
                                         (self.faction, _hero, _slot))
+                            # Определяем слот Кейджа по типу артефакта
+                            _cage_slot = _TYPE_TO_SLOT.get(_atype, 'accessory')
+                            # Записываем артефакт в слот Кейджа (заменяет существующий)
                             cur.execute("""
-                                UPDATE units SET attack = attack + ?, defense = defense + ?
-                                WHERE hex(unit_name) = 'D09AD0B5D0B9D0B4D0B6'
-                            """, (_atk, _def))
+                                UPDATE hero_equipment SET artifact_id = ?
+                                WHERE faction_name = 'Мятежники' AND hero_name = 'Кейдж' AND slot_type = ?
+                            """, (_aid, _cage_slot))
+                            # Записываем в лог эффектов для пересчёта через сезонный менеджер
+                            cur.execute("""
+                                INSERT OR REPLACE INTO artifact_effects_log
+                                (hero_name, artifact_id, stat_name, value_change)
+                                VALUES ('Кейдж', ?, 'attack', ?)
+                            """, (_aid, _atk))
+                            cur.execute("""
+                                INSERT OR REPLACE INTO artifact_effects_log
+                                (hero_name, artifact_id, stat_name, value_change)
+                                VALUES ('Кейдж', ?, 'defense', ?)
+                            """, (_aid, _def))
                             self.db_connection.commit()
                             from datetime import datetime
                             _t = datetime.now().strftime("%d.%m %H:%M")
