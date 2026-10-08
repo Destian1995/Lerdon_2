@@ -32,7 +32,7 @@ UNDEAD_SURGE_PER_TURN = 40000
 KING_OF_DEAD_ATTACK = 800
 KING_OF_DEAD_DEFENSE = 950
 KING_OF_DEAD_DURABILITY = 80
-KING_OF_DEAD_NAME = "Царь Мёртвых"
+KING_OF_DEAD_NAME = "Низар"
 
 # Характеристики юнитов нежити
 UNDEAD_UNIT_NAME = "Призрак"
@@ -248,6 +248,18 @@ def check_and_trigger_invasion(conn, current_turn, player_faction):
     invasion_turn, invasion_started = row
     if invasion_started:
         return False, None
+
+    # Предупреждение за 2 хода до инвазии
+    if current_turn == invasion_turn - 2:
+        # Определяем город где появится нежить (для предупреждения)
+        cursor.execute("SELECT name FROM cities WHERE is_undead = 1 ORDER BY RANDOM() LIMIT 1")
+        _warn_city = cursor.fetchone()
+        if _warn_city:
+            warn_msg = (f"Разведчики доложили о подозрительной активности "
+                        f"в окрестностях города {_warn_city[0]}. "
+                        f"Земля дрожит, из-под неё доносятся странные звуки...")
+            return False, warn_msg
+
     if current_turn < invasion_turn:
         return False, None
 

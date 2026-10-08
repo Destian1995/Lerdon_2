@@ -6149,15 +6149,25 @@ class EnhancedDiplomacyChat():
             quick_row.clear_widgets()
             try:
                 cursor = self.db_connection.cursor()
-                # Только юниты 1 класса (герои 2-3-4 не передаются)
-                cursor.execute("""
-                    SELECT a.unit_type, a.quantity FROM armies a
-                    JOIN units u ON a.unit_type = u.unit_name
-                    WHERE a.faction = ? AND a.quantity > 0 AND u.unit_class = 1
-                """, (self.faction,))
-                army_units = cursor.fetchall()
-                if not army_units:
-                    self.add_chat_message_system("У вас нет войск 1 класса для передачи.")
+                # Берём юнитов из гарнизонов игрока (только класс 1)
+                cursor.execute("SELECT name FROM cities WHERE faction = ?", (self.faction,))
+                player_cities = [r[0] for r in cursor.fetchall()]
+                if not player_cities:
+                    self.add_chat_message_system("У вас нет городов.")
+                    _show_main_buttons()
+                    return
+
+                # Собираем юнитов 1 класса из всех гарнизонов игрока
+                placeholders = ','.join('?' * len(player_cities))
+                cursor.execute(f"""
+                    SELECT g.city_name, g.unit_name, g.unit_count, g.unit_image
+                    FROM garrisons g
+                    JOIN units u ON g.unit_name = u.unit_name
+                    WHERE g.city_name IN ({placeholders}) AND u.unit_class = 1 AND g.unit_count > 0
+                """, player_cities)
+                garrison_units = cursor.fetchall()
+                if not garrison_units:
+                    self.add_chat_message_system("В ваших гарнизонах нет войск 1 класса.")
                     _show_main_buttons()
                     return
 
@@ -6170,11 +6180,12 @@ class EnhancedDiplomacyChat():
                     return
                 rebel_city = rebel_city_row[0]
 
-                for unit_name, qty in army_units:
-                    label = f"{unit_name} ({qty})"
+                for city_name, unit_name, qty, unit_img in garrison_units:
+                    label = f"{unit_name} ({qty}) - {city_name}"
                     ub = _styled_btn(label)
 
-                    def _open_slider(i, _uname=unit_name, _qty=qty, _rcity=rebel_city):
+                    def _open_slider(i, _uname=unit_name, _qty=qty, _rcity=rebel_city,
+                                     _from_city=city_name, _uimg=unit_img):
                         content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(10))
                         sl = _RSl(min=1, max=_qty, value=1, step=max(1, _qty // 50),
                                   size_hint_y=None, height=dp(36))
@@ -6193,45 +6204,54 @@ class EnhancedDiplomacyChat():
                         btn_row.add_widget(no_btn)
                         content.add_widget(btn_row)
                         _is_m = kivy_platform in ('android', 'ios')
-                        popup = _RPop(title=f"Передать {_uname}", content=content,
-                                      size_hint=(0.85 if _is_m else 0.4, 0.35),
-                                      auto_dismiss=False)
+                        popup = _RPop(title='', content=content,
+                                      size_hint=(0.88 if _is_m else 0.4, 0.38),
+                                      auto_dismiss=False, separator_height=0,
+                                      background_color=(0.04, 0.05, 0.09, 0.98))
 
                         def _do_transfer(i2):
                             count = int(sl.value)
                             try:
                                 cur = self.db_connection.cursor()
-                                # Забираем из армии игрока
-                                cur.execute("UPDATE armies SET quantity = quantity - ? WHERE faction=? AND unit_type=?",
-                                            (count, self.faction, _uname))
-                                cur.execute("DELETE FROM armies WHERE faction=? AND unit_type=? AND quantity <= 0",
-                                            (self.faction, _uname))
-                                # Получаем изображение юнита
-                                cur.execute("SELECT image_path FROM units WHERE unit_name=?", (_uname,))
-                                _img_row = cur.fetchone()
-                                _img = _img_row[0] if _img_row else ''
+                                # Забираем из гарнизона игрока
+                                cur.execute("UPDATE garrisons SET unit_count = unit_count - ? WHERE city_name=? AND unit_name=?",
+                                            (count, _from_city, _uname))
+                                cur.execute("DELETE FROM garrisons WHERE city_name=? AND unit_name=? AND unit_count <= 0",
+                                            (_from_city, _uname))
                                 # Добавляем в гарнизон мятежников
+                                _img = _uimg or ''
                                 cur.execute("""
                                     INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
                                     VALUES (?, ?, ?, ?)
                                     ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
                                 """, (_rcity, _uname, count, _img, count))
+                                # Обновляем потребление армии
+                                cur.execute("SELECT consumption FROM units WHERE unit_name=?", (_uname,))
+                                _cons_row = cur.fetchone()
+                                _consumption = (_cons_row[0] or 0) * count if _cons_row else 0
+                                if _consumption > 0:
+                                    cur.execute("""
+                                        UPDATE results SET Units_Combat = MAX(0, Units_Combat - ?)
+                                        WHERE faction = ?
+                                    """, (count, self.faction))
                                 self.db_connection.commit()
                                 from datetime import datetime
                                 _t = datetime.now().strftime("%d.%m %H:%M")
-                                self.add_chat_message(f"Передаю {count} {_uname}", self.faction, _t, is_player=True)
+                                self.add_chat_message(f"Передаю {count} {_uname} из {_from_city}", self.faction, _t, is_player=True)
                                 resp = random.choice([
                                     f"Подкрепление принято! {count} бойцов вступили в ряды восстания!",
                                     f"Отлично! +{count} {_uname} в наших рядах. Враги задрожат!",
                                     f"Щедро! Эти {count} воинов усилят нашу армию. За свободу!",
                                 ])
                                 self.add_chat_message(resp, 'Мятежники', _t, is_player=False)
-                                # Обновляем UI ресурсов
+                                # Обновляем UI
                                 try:
                                     from game_process import _active_game_screen
                                     gs = _active_game_screen
                                     if gs and hasattr(gs, 'faction'):
                                         gs.faction.refresh_from_db()
+                                        if hasattr(gs, 'resource_box'):
+                                            gs.resource_box.update_resources()
                                 except Exception:
                                     pass
                             except Exception as e:

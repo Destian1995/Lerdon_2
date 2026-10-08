@@ -1629,8 +1629,9 @@ class GameScreen(Screen):
                 invasion_triggered, invasion_msg = check_and_trigger_invasion(
                     self.conn, self.turn_counter, self.selected_faction
                 )
+                if invasion_msg:
+                    Clock.schedule_once(lambda dt, _m=invasion_msg: self._show_invasion_notification(_m))
                 if invasion_triggered:
-                    Clock.schedule_once(lambda dt: self._show_invasion_notification(invasion_msg))
                     if UNDEAD_FACTION_NAME not in self.ai_controllers:
                         self.ai_controllers[UNDEAD_FACTION_NAME] = AIController(
                             UNDEAD_FACTION_NAME, self.conn, self.season_manager,
