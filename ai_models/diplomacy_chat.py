@@ -1179,9 +1179,14 @@ class EnhancedDiplomacyChat():
             return self._handle_context_reset(player_message, target_faction)
 
         # 0. Проверяем ответ на AI-инициированное предложение
-        ai_proposal_response = self._check_ai_proposal_response(player_message, target_faction, relation_level)
-        if ai_proposal_response:
-            return ai_proposal_response
+        # НО только если нет активного торгового контекста (иначе перехватит ответ на counter_offer)
+        _active_ctx = self.negotiation_context.get(target_faction, {})
+        if _active_ctx.get("stage") not in ("ask_resource_type", "ask_resource_amount",
+                                             "ask_player_offer", "counter_offer", "evaluate",
+                                             "alliance_offer", "provocation_deal"):
+            ai_proposal_response = self._check_ai_proposal_response(player_message, target_faction, relation_level)
+            if ai_proposal_response:
+                return ai_proposal_response
 
         # 0.5. Сброс контекста при новых ключевых командах (союз/мир/дружба)
         _new_topic_keywords = ['союз', 'альянс', 'мир', 'перемирие', 'дружить', 'дружбу', 'атакуй', 'напади']
@@ -5740,8 +5745,12 @@ class EnhancedDiplomacyChat():
                     prev = self._active_faction_btn
                     prev._active = False
                     prev._bg_color_instr.rgba = (0.12, 0.14, 0.18, 1)
+                    prev.color = (0.9, 0.9, 0.95, 1)  # Вернуть белый текст
                 self._active_faction_btn = instance
                 instance._active = True
+                # Тёмный текст для светлых фракций (Элины, Адепты)
+                _light_factions = {'Элины', 'Адепты'}
+                instance.color = (0.1, 0.1, 0.1, 1) if fname in _light_factions else (0.9, 0.9, 0.95, 1)
                 instance._bg_color_instr.rgba = instance._accent
                 self.selected_faction = fname
                 self.on_faction_selected_android(self.faction_spinner, fname)
