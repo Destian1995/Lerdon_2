@@ -3340,10 +3340,7 @@ class GameScreen(Screen):
             self.conn.commit()
         except Exception:
             pass
-          8) Проверяем принадлежность города фракции игрока
-          9) Сохраняем в self.city_star_levels:
-             { city_name: (star_level, icon_x, icon_y, city_name, has_hero, ideology_icon_path, crystal_icon_count, is_player_city) }
-        """
+
         cursor = self.conn.cursor()
         try:
             cursor.execute("""
