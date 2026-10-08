@@ -5783,7 +5783,7 @@ class EnhancedDiplomacyChat():
                 self._active_faction_btn = instance
                 instance._active = True
                 # Тёмный текст для светлых фракций (Элины, Адепты)
-                _light_factions = {'Элины', 'Адепты'}
+                _light_factions = {'Элины', 'Адепты', 'Эльфы'}
                 instance.color = (0.1, 0.1, 0.1, 1) if fname in _light_factions else (0.9, 0.9, 0.95, 1)
                 instance._bg_color_instr.rgba = instance._accent
                 self.selected_faction = fname
