@@ -346,6 +346,12 @@ def battle_chain(attacker, defender, city, user_faction, conn,
         if def_attack / def_base_attack >= 20.0:
             def_attack = int(def_attack * shkval_mult)
 
+    # Адепты: Стойкость — +25% защиты всем юнитам 1 класса
+    if atk_fraction == 'Адепты' and get_unit_class(attacker) == 1:
+        atk_defense *= 1.25
+    if def_fraction == 'Адепты' and get_unit_class(defender) == 1:
+        def_defense *= 1.25
+
     # Тип-преимущество
     atk_type = get_unit_type(attacker)
     def_type = get_unit_type(defender)
