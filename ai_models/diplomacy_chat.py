@@ -1109,6 +1109,40 @@ class EnhancedDiplomacyChat():
             # Добавляем в память разговора
             self.add_to_memory(message, response)
 
+            # Показываем быстрые кнопки ОК/Отказ при counter_offer
+            _ctx = self.negotiation_context.get(self.selected_faction, {})
+            if _ctx.get("stage") == "counter_offer" and hasattr(self, '_quick_row'):
+                self._show_counter_offer_buttons()
+
+    def _show_counter_offer_buttons(self):
+        """Показывает кнопки ОК / Не согласен при counter-offer торговли."""
+        if not hasattr(self, '_quick_row'):
+            return
+        qr = self._quick_row
+        qr.clear_widgets()
+
+        def _make_btn(text, bg_color):
+            b = Button(text=text, font_size=sp(13), bold=True,
+                       background_normal='', background_color=bg_color,
+                       color=(1, 1, 1, 1), size_hint=(1, 1))
+            return b
+
+        ok_btn = _make_btn("Согласен", (0.15, 0.55, 0.25, 1))
+        no_btn = _make_btn("Не согласен", (0.55, 0.15, 0.15, 1))
+
+        def _on_ok(inst):
+            self.message_input.text = "Согласен"
+            self.send_diplomatic_message(inst)
+
+        def _on_no(inst):
+            self.message_input.text = "Не согласен"
+            self.send_diplomatic_message(inst)
+
+        ok_btn.bind(on_press=_on_ok)
+        no_btn.bind(on_press=_on_no)
+        qr.add_widget(ok_btn)
+        qr.add_widget(no_btn)
+
     def generate_diplomatic_response(self, player_message, target_faction):
         """Генерирует ответ ИИ на сообщение игрока со всеми политическими функциями"""
 
@@ -6038,6 +6072,12 @@ class EnhancedDiplomacyChat():
                                     gs.resource_box.update_resources()
                         except Exception:
                             pass
+                        # Показываем кнопки ОК/Отказ если counter_offer
+                        _ctx = self.negotiation_context.get(target, {})
+                        if _ctx.get("stage") == "counter_offer":
+                            popup.dismiss()
+                            self._show_counter_offer_buttons()
+                            return
                     popup.dismiss()
                     _show_main_buttons()
 
