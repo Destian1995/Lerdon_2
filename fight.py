@@ -1252,6 +1252,7 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
     from kivy.metrics import dp, sp
     from kivy.animation import Animation
     from kivy.properties import NumericProperty
+    from kivy.utils import platform
     import random as _rnd
 
     # ── Фракционные цвета ────────────────────────────────────────────────
