@@ -2721,10 +2721,31 @@ class FortressInfoPopup(Popup):
                     if destination_owner != 'Нежить':
                         captured = max(1, int(result['defending_losses'] * 0.10))
                         from kivy.clock import Clock
-                        Clock.schedule_once(lambda dt: _show_prisoners_of_war(
-                            self.conn, captured, destination_owner,
-                            source_owner, source_fortress_name  # Город откуда атаковали
-                        ), 0.5)
+                        # Добавляем пленных как дипломатическое уведомление (иконка игрока)
+                        _cap = captured
+                        _enemy = destination_owner
+                        _city = source_fortress_name
+                        try:
+                            from game_process import _active_game_screen
+                            gs = _active_game_screen
+                            if gs and hasattr(gs, '_diplomacy_mailbox'):
+                                _msg = f"[ПЛЕН] {_cap} воинов {_enemy} сдались в плен после битвы за {_city}"
+                                def _on_prisoner_respond(faction, message, gs=gs, cap=_cap, enemy=_enemy, city=_city):
+                                    Clock.schedule_once(lambda dt: _show_prisoners_of_war(
+                                        self.conn, cap, enemy, source_owner, city
+                                    ), 0.1)
+                                gs._diplomacy_mailbox.add_message(
+                                    faction_name=source_owner,
+                                    message=_msg,
+                                    message_type='prisoner',
+                                    on_respond=_on_prisoner_respond,
+                                )
+                        except Exception as _pe:
+                            print(f"[PRISONERS] Fallback to popup: {_pe}")
+                            Clock.schedule_once(lambda dt: _show_prisoners_of_war(
+                                self.conn, captured, destination_owner,
+                                source_owner, source_fortress_name
+                            ), 0.5)
 
         except sqlite3.Error as e:
             print(f"[ERROR] Ошибка базы данных при запуске боя: {e}")

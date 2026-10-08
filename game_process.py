@@ -3325,20 +3325,12 @@ class GameScreen(Screen):
                     )
 
     def update_city_military_status(self):
-        """
-        Для всех фракций:
-          1) Находим все города, где есть гарнизоны
-          2) Для каждой фракции считаем общую мощь армии
-          3) Для каждого города этой фракции считаем его мощь
-          4) Вычисляем star_level = 0–3
-          5) Проверяем наличие юнитов 2-4 класса в гарнизоне
-          6) Получаем идеологию фракции города и определяем иконку
-          7) Загружаем коэффициент kf_crystal и определяем количество иконок бонуса кристаллов
-
+        """Обновляет военный статус городов, звёзды, иконки идеологии, дым."""
         # Загружаем города с недавними битвами (последние 2 хода) для дыма
         self._smoke_cities = set()
         try:
             cursor = self.conn.cursor()
+            cursor.execute("CREATE TABLE IF NOT EXISTS battle_smoke (city_name TEXT PRIMARY KEY, turn INTEGER)")
             cursor.execute("SELECT city_name, turn FROM battle_smoke")
             for _sc, _st in cursor.fetchall():
                 if self.turn_counter - _st <= 2:
