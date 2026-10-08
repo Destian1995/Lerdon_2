@@ -547,14 +547,18 @@ def start_army_mode(faction, game_area, class_faction, conn):
         # ── Стоимость ────────────────────────────────────────────────
         cost_row = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(34),
                              spacing=dp(10), padding=[dp(8), dp(2)])
+        _price_color = (0.1, 0.1, 0.1, 1) if _is_light else (1, 1, 1, 1)
         cost_row.add_widget(Label(text='[b]Цена:[/b]', markup=True, font_size=sp(13),
-                                  color=TEXT_COLOR, size_hint=(None, 1), width=dp(48)))
-        _money_hex = '#8B6914' if faction in _dark_text_factions else '#FFD700'
-        _worker_hex = '#2266AA' if faction in _dark_text_factions else '#88CCFF'
+                                  color=_price_color, size_hint=(None, 1), width=dp(48)))
+        _is_light = faction in _dark_text_factions
+        _money_hex = '#6B4400' if _is_light else '#FFD700'
+        _worker_hex = '#003380' if _is_light else '#88CCFF'
+        _txt_hex = '#1A1A1A' if _is_light else '#CCCCCC'
         cost_row.add_widget(Label(
-            text=f'[color={_money_hex}]{format_number(cost_money)}[/color] крон  '
-                 f'[color={_worker_hex}]{format_number(cost_time)}[/color] раб.',
-            markup=True, font_size=sp(13), color=TEXT_COLOR, halign='left', valign='middle'
+            text=f'[color={_money_hex}][b]{format_number(cost_money)}[/b][/color] [color={_txt_hex}]крон[/color]  '
+                 f'[color={_worker_hex}][b]{format_number(cost_time)}[/b][/color] [color={_txt_hex}]раб.[/color]',
+            markup=True, font_size=sp(13), color=(0.1, 0.1, 0.1, 1) if _is_light else (1, 1, 1, 1),
+            halign='left', valign='middle'
         ))
 
         # ── Контроллер найма ─────────────────────────────────────────
@@ -562,9 +566,11 @@ def start_army_mode(faction, game_area, class_faction, conn):
                          orientation='horizontal', spacing=dp(8),
                          padding=[dp(8), dp(4), dp(8), dp(4)])
 
+        _btn_text_color = (1, 1, 1, 1)  # Кнопки всегда белый текст на цветном фоне
+
         def _styled_btn(txt, bg, w=None):
             b = Button(text=txt, font_size=sp(14), bold=True,
-                       background_color=(0, 0, 0, 0), color=TEXT_COLOR,
+                       background_color=(0, 0, 0, 0), color=_btn_text_color,
                        size_hint_x=(None if w else 1), width=(w or 0))
             with b.canvas.before:
                 b._c = Color(*bg)
@@ -595,8 +601,9 @@ def start_army_mode(faction, game_area, class_faction, conn):
             # — Строка 1: слайдер с подписью ——————————————————————————
             slider_row = BoxLayout(size_hint=(1, None), height=dp(32),
                                    orientation='horizontal', spacing=dp(8))
+            _card_tc = (0.1, 0.1, 0.1, 1) if _is_light else (1, 1, 1, 1)
             slider_lbl = Label(text='[b]1[/b]', markup=True, font_size=sp(14),
-                               color=TEXT_COLOR, size_hint=(None, 1), width=dp(56),
+                               color=_card_tc, size_hint=(None, 1), width=dp(56),
                                halign='right', valign='middle')
             slider_lbl.bind(size=lambda i, s: setattr(i, 'text_size', s))
             qty_slider = Slider(min=1, max=max_affordable, value=1, step=1,
@@ -621,9 +628,9 @@ def start_army_mode(faction, game_area, class_faction, conn):
             qty_input = TextInput(
                 text='1', font_size=sp(14), multiline=False,
                 size_hint=(0.40, 1),
-                background_color=(0.12, 0.16, 0.22, 1),
-                foreground_color=TEXT_COLOR,
-                cursor_color=TEXT_COLOR,
+                background_color=(0.12, 0.16, 0.22, 1) if not _is_light else (0.95, 0.90, 0.80, 1),
+                foreground_color=_card_tc,
+                cursor_color=_card_tc,
                 input_filter='int',
                 halign='center',
             )
