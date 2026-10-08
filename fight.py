@@ -352,6 +352,21 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     if def_fraction == 'Адепты' and get_unit_class(defender) == 1:
         def_defense *= 1.25
 
+    # Боевой дух (казнь пленных): +25% урон на 3 хода
+    if conn:
+        try:
+            _mc = conn.cursor()
+            _mc.execute("SELECT bonus FROM morale_boost WHERE faction = ? AND turns_left > 0", (atk_fraction,))
+            _mr = _mc.fetchone()
+            if _mr:
+                atk_attack *= (1 + _mr[0])
+            _mc.execute("SELECT bonus FROM morale_boost WHERE faction = ? AND turns_left > 0", (def_fraction,))
+            _mr2 = _mc.fetchone()
+            if _mr2:
+                def_attack *= (1 + _mr2[0])
+        except Exception:
+            pass
+
     # Тип-преимущество
     atk_type = get_unit_type(attacker)
     def_type = get_unit_type(defender)

@@ -21,12 +21,12 @@ import sqlite3
 INVASION_TURN_MIN = 18
 INVASION_TURN_MAX = 26
 
-# Начальная армия нежити — 250к разово
-UNDEAD_INITIAL_ARMY = 250000
+# Начальная армия нежити — 25к (10x статы, 1/10 численность)
+UNDEAD_INITIAL_ARMY = 25000
 
 # Подкрепления: 40к/ход в течение 10 ходов после инвазии (сёрдж)
 UNDEAD_SURGE_TURNS = 10
-UNDEAD_SURGE_PER_TURN = 40000
+UNDEAD_SURGE_PER_TURN = 4000
 
 # Характеристики Царя Мёртвых
 KING_OF_DEAD_ATTACK = 800
@@ -62,7 +62,7 @@ BANSHEE_UNIT_CONSUMPTION = 1.5
 UNDEAD_CONVERSION_RATE = 0.20
 
 # Постоянные подкрепления (без спада)
-UNDEAD_REINFORCEMENTS_CONSTANT = 18000
+UNDEAD_REINFORCEMENTS_CONSTANT = 1800
 
 UNDEAD_FACTION_NAME = "Нежить"
 
@@ -286,7 +286,7 @@ def check_and_trigger_invasion(conn, current_turn, player_faction):
     # 60% Призраки, 25% Зомби, 15% Банши + Низар
     ghost_count = int(UNDEAD_INITIAL_ARMY * 0.60)
     zombie_count = int(UNDEAD_INITIAL_ARMY * 0.25)
-    banshee_count = int(UNDEAD_INITIAL_ARMY * 0.15) + 5000
+    banshee_count = int(UNDEAD_INITIAL_ARMY * 0.15) + 500
 
     _spawn_undead_unit = """
         INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
@@ -437,9 +437,9 @@ def _respawn_king_if_dead(cursor):
         INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
         VALUES (?, ?, 1, ?)
     """, (respawn_city, KING_OF_DEAD_NAME, 'files/army/death/king_.png'))
-    cursor.execute(_spawn_sql, (respawn_city, UNDEAD_UNIT_NAME, 6000, 'files/army/death/solder.png'))
-    cursor.execute(_spawn_sql, (respawn_city, ZOMBIE_UNIT_NAME, 3000, 'files/army/death/zombie.png'))
-    cursor.execute(_spawn_sql, (respawn_city, BANSHEE_UNIT_NAME, 1500, 'files/army/death/banshi.png'))
+    cursor.execute(_spawn_sql, (respawn_city, UNDEAD_UNIT_NAME, 600, 'files/army/death/solder.png'))
+    cursor.execute(_spawn_sql, (respawn_city, ZOMBIE_UNIT_NAME, 300, 'files/army/death/zombie.png'))
+    cursor.execute(_spawn_sql, (respawn_city, BANSHEE_UNIT_NAME, 150, 'files/army/death/banshi.png'))
 
     print(f"[UNDEAD] {KING_OF_DEAD_NAME} возродился в {respawn_city} с 10 500 юнитов!")
 

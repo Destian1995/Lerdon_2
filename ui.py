@@ -3086,7 +3086,7 @@ def _show_prisoners_of_war(conn, captured_count, enemy_faction, player_faction, 
         (0.20, 0.40, 0.65, 1), 0.32
     )
     btn_execute = _make_btn(
-        f"Казнить (-10% отношений со всеми)",
+        f"Казнить (-10% отн., +25% урон на 3 хода)",
         (0.60, 0.15, 0.15, 1), 0.16
     )
 
@@ -3145,13 +3145,19 @@ def _show_prisoners_of_war(conn, captured_count, enemy_faction, player_faction, 
                 """, (rel_change, player_faction, f, f, player_faction))
 
         elif choice == 'execute':
-            # Казнить: -10% отношений со всеми
+            # Казнить: -10% отношений + боевой дух (+25% урон на 3 хода)
             rel_change = -10
             for f in all_factions:
                 cursor.execute("""
                     UPDATE relations SET relationship = MAX(0, relationship + ?)
                     WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
                 """, (rel_change, player_faction, f, f, player_faction))
+            # Сохраняем бонус боевого духа
+            try:
+                cursor.execute("CREATE TABLE IF NOT EXISTS morale_boost (faction TEXT PRIMARY KEY, turns_left INTEGER, bonus REAL)")
+                cursor.execute("INSERT OR REPLACE INTO morale_boost (faction, turns_left, bonus) VALUES (?, 3, 0.25)", (player_faction,))
+            except Exception as _me:
+                print(f"[MORALE] Ошибка: {_me}")
 
         conn.commit()
         refresh_map()

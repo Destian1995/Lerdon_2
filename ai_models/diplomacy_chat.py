@@ -6128,12 +6128,11 @@ class EnhancedDiplomacyChat():
         # ═══════════ КЕЙДЖ: Быстрые кнопки ═══════════
 
         def _show_rebel_artifacts(inst):
-            """Показывает артефакты на героях 3 класса игрока для передачи Кейджу."""
+            """Показывает артефакты в popup для передачи Кейджу."""
             from kivy.uix.popup import Popup as _RPop
-            quick_row.clear_widgets()
+            from kivy.uix.scrollview import ScrollView as _RSV
             try:
                 cursor = self.db_connection.cursor()
-                # Ищем артефакты на героях 3 класса игрока
                 cursor.execute("""
                     SELECT h.hero_name, h.slot_type, h.artifact_id,
                            a.attack, a.defense, a.season_name, COALESCE(a.name, 'Артефакт')
@@ -6144,20 +6143,32 @@ class EnhancedDiplomacyChat():
                 artifacts = cursor.fetchall()
                 if not artifacts:
                     self.add_chat_message_system("У ваших героев нет артефактов для передачи.")
-                    _show_main_buttons()
                     return
+
+                # Popup со списком артефактов
+                _is_m = kivy_platform in ('android', 'ios')
+                content = BoxLayout(orientation='vertical', spacing=dp(6), padding=dp(8))
+                scroll = _RSV(size_hint=(1, 1))
+                art_box = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(4))
+                art_box.bind(minimum_height=art_box.setter('height'))
+
+                art_popup = _RPop(title='', content=content,
+                                  size_hint=(0.85 if _is_m else 0.45, 0.5),
+                                  separator_height=0,
+                                  background_color=(0.04, 0.05, 0.09, 0.98))
 
                 for hero_name, slot, art_id, art_atk, art_def, art_season, art_name in artifacts:
                     label = f"{art_name}: Ат.{art_atk} Защ.{art_def}"
-                    ab = _styled_btn(label)
+                    ab = Button(text=label, size_hint_y=None, height=dp(44),
+                                font_size=sp(12), bold=True,
+                                background_normal='', background_color=(0.15, 0.22, 0.35, 1),
+                                color=(1, 1, 1, 1))
 
-                    def _transfer_art(i, _aid=art_id, _hero=hero_name, _slot=slot, _atk=art_atk, _def=art_def):
+                    def _transfer_art(i, _aid=art_id, _hero=hero_name, _slot=slot, _atk=art_atk, _def=art_def, _popup=art_popup):
                         try:
                             cur = self.db_connection.cursor()
-                            # Снимаем артефакт с героя игрока
                             cur.execute("UPDATE hero_equipment SET artifact_id = NULL WHERE faction_name=? AND hero_name=? AND slot_type=?",
                                         (self.faction, _hero, _slot))
-                            # Применяем бонус к Кейджу (прямое усиление статов)
                             cur.execute("""
                                 UPDATE units SET attack = attack + ?, defense = defense + ?
                                 WHERE hex(unit_name) = 'D09AD0B5D0B9D0B4D0B6'
@@ -6165,30 +6176,30 @@ class EnhancedDiplomacyChat():
                             self.db_connection.commit()
                             from datetime import datetime
                             _t = datetime.now().strftime("%d.%m %H:%M")
-                            msg = f"Передаю артефакт от {_hero} (+{_atk} атака, +{_def} защита)"
-                            self.add_chat_message(msg, self.faction, _t, is_player=True)
-                            resp = random.choice([
-                                f"Отличное оружие! С этим артефактом мы станем сильнее. Благодарю, союзник!",
-                                f"Мои бойцы оценят! +{_atk} к атаке, +{_def} к защите. За свободу!",
-                                f"Щедрый дар! Теперь мятеж не остановить!",
-                            ])
-                            self.add_chat_message(resp, 'Мятежники', _t, is_player=False)
+                            self.add_chat_message(f"Передаю артефакт (+{_atk} ат, +{_def} защ)", self.faction, _t, is_player=True)
+                            self.add_chat_message(random.choice([
+                                f"Отличное оружие! +{_atk} атака, +{_def} защита. За свободу!",
+                                f"Щедрый дар! Мятеж не остановить!",
+                            ]), 'Мятежники', _t, is_player=False)
                         except Exception as e:
                             print(f"[REBEL ART] Ошибка: {e}")
-                        _show_main_buttons()
+                        _popup.dismiss()
 
                     ab.bind(on_press=_transfer_art)
-                    quick_row.add_widget(ab)
+                    art_box.add_widget(ab)
+
+                cancel = Button(text="Отмена", size_hint_y=None, height=dp(40),
+                                font_size=sp(12), background_normal='',
+                                background_color=(0.4, 0.12, 0.12, 1), color=(1, 1, 1, 1))
+                cancel.bind(on_press=lambda i: art_popup.dismiss())
+                art_box.add_widget(cancel)
+
+                scroll.add_widget(art_box)
+                content.add_widget(scroll)
+                art_popup.open()
             except Exception as e:
                 print(f"[REBEL ART] Ошибка загрузки: {e}")
                 self.add_chat_message_system("Ошибка загрузки артефактов.")
-                _show_main_buttons()
-                return
-
-            back_btn = _styled_btn("Назад")
-            back_btn.color = (1, 0.6, 0.5, 1)
-            back_btn.bind(on_press=lambda i: _show_main_buttons())
-            quick_row.add_widget(back_btn)
 
         def _show_rebel_troops(inst):
             """Показывает юнитов игрока для передачи Мятежникам."""
