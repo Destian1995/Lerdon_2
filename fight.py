@@ -853,6 +853,25 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     except Exception as e:
         print(f"[ERROR] update_results_table: {e}")
 
+    # Записываем битву для дыма на карте
+    try:
+        _cur = conn.cursor()
+        _cur.execute("""
+            CREATE TABLE IF NOT EXISTS battle_smoke (
+                city_name TEXT PRIMARY KEY,
+                turn INTEGER
+            )
+        """)
+        # Получаем текущий ход
+        _cur.execute("SELECT turn FROM turn LIMIT 1")
+        _t_row = _cur.fetchone()
+        _cur_turn = _t_row[0] if _t_row else 0
+        _cur.execute("INSERT OR REPLACE INTO battle_smoke (city_name, turn) VALUES (?, ?)",
+                     (defending_city, _cur_turn))
+        conn.commit()
+    except Exception as e:
+        print(f"[SMOKE] Ошибка записи: {e}")
+
     # efficiency_ratio для ии
     if winner == 'attacker':
         eff = (total_defending_losses / total_attacking_losses) if total_attacking_losses > 0 else float(total_defending_losses)
@@ -1325,15 +1344,107 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
     else:
         selected = list(battle_rounds)
 
+    # ── Встречные HP-шкалы (Враг ←→ Игрок) ────────────────────────────
+    class DualBattleBar(Widget):
+        """Две встречные шкалы: атакующий слева→, защитник ←справа, сходятся к центру."""
+        atk_ratio = NumericProperty(1.0)
+        def_ratio = NumericProperty(1.0)
+
+        def __init__(self, atk_color, def_color, **kwargs):
+            super().__init__(**kwargs)
+            self._atk_c = atk_color
+            self._def_c = def_color
+            self._particles = []
+            self.bind(atk_ratio=self._draw, def_ratio=self._draw,
+                      pos=self._draw, size=self._draw)
+
+        def _draw(self, *args):
+            self.canvas.clear()
+            if self.width <= 0 or self.height <= 0:
+                return
+            cx = self.x + self.width / 2
+            half = self.width / 2 - dp(2)
+            h = self.height
+            with self.canvas:
+                # Фон
+                Color(0.06, 0.06, 0.12, 1)
+                RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(10)])
+                # Центральная линия
+                Color(0.9, 0.75, 0.2, 0.6)
+                Rectangle(pos=(cx - dp(1), self.y + dp(2)), size=(dp(2), h - dp(4)))
+                # Атакующий ←── (растёт справа налево от центра)
+                aw = half * max(0, min(1, self.atk_ratio))
+                if aw > dp(3):
+                    Color(*self._atk_c[:3], 0.85)
+                    RoundedRectangle(pos=(cx - aw, self.y), size=(aw, h), radius=[dp(10), dp(0), dp(0), dp(10)])
+                    Color(1, 1, 1, 0.12)
+                    RoundedRectangle(pos=(cx - aw + dp(2), self.y + h * 0.6),
+                                     size=(max(dp(2), aw - dp(4)), h * 0.25), radius=[dp(6)])
+                # Защитник ──→ (растёт слева направо от центра)
+                dw = half * max(0, min(1, self.def_ratio))
+                if dw > dp(3):
+                    Color(*self._def_c[:3], 0.85)
+                    RoundedRectangle(pos=(cx, self.y), size=(dw, h), radius=[dp(0), dp(10), dp(10), dp(0)])
+                    Color(1, 1, 1, 0.12)
+                    RoundedRectangle(pos=(cx + dp(2), self.y + h * 0.6),
+                                     size=(max(dp(2), dw - dp(4)), h * 0.25), radius=[dp(6)])
+
+        def animate_to(self, new_atk, new_def, duration=0.44):
+            Animation.cancel_all(self, 'atk_ratio', 'def_ratio')
+            Animation(atk_ratio=max(0, new_atk), def_ratio=max(0, new_def),
+                      duration=duration, t='out_cubic').start(self)
+
+    # ── Виджет искр/частиц удара ─────────────────────────────────────────
+    class HitParticles(Widget):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self._parts = []
+            self._evt = None
+
+        def burst(self, x, y, color, count=8):
+            """Выброс частиц из точки удара."""
+            for _ in range(count):
+                self._parts.append({
+                    'x': x, 'y': y,
+                    'vx': _rnd.uniform(-dp(60), dp(60)),
+                    'vy': _rnd.uniform(dp(20), dp(80)),
+                    'life': _rnd.uniform(0.3, 0.7),
+                    'max_life': 0.7,
+                    'size': _rnd.uniform(dp(2), dp(5)),
+                    'color': color,
+                })
+            if not self._evt:
+                self._evt = Clock.schedule_interval(self._update, 1/30)
+
+        def _update(self, dt):
+            alive = []
+            for p in self._parts:
+                p['x'] += p['vx'] * dt
+                p['y'] += p['vy'] * dt
+                p['vy'] -= dp(120) * dt  # Гравитация
+                p['life'] -= dt
+                if p['life'] > 0:
+                    alive.append(p)
+            self._parts = alive
+            self.canvas.after.clear()
+            with self.canvas.after:
+                for p in self._parts:
+                    a = max(0, p['life'] / p['max_life'])
+                    Color(*p['color'][:3], a * 0.9)
+                    Rectangle(pos=(p['x'], p['y']), size=(p['size'], p['size']))
+            if not alive and self._evt:
+                self._evt.cancel()
+                self._evt = None
+
     # ── Root layout ──────────────────────────────────────────────────────
     is_mobile = platform in ('android', 'ios')
-    _sp4 = dp(4) if is_mobile else dp(8)  # Compact spacing for mobile
+    _sp4 = dp(3) if is_mobile else dp(6)
 
     root = BoxLayout(orientation='vertical', spacing=_sp4,
                      padding=[dp(10), dp(6), dp(10), dp(6)])
 
     with root.canvas.before:
-        Color(0.06, 0.06, 0.10, 1)
+        Color(0.05, 0.05, 0.09, 1)
         root._bg = RoundedRectangle(pos=root.pos, size=root.size, radius=[dp(14)])
     root.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
               size=lambda i, v: setattr(i._bg, 'size', v))
@@ -1341,113 +1452,94 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
     popup = Popup(
         title='', content=root,
         size_hint=(0.98 if is_mobile else 0.92, 0.95 if is_mobile else 0.86),
-        background_color=(0.04, 0.04, 0.08, 1),
+        background_color=(0.03, 0.03, 0.07, 1),
         separator_height=0,
     )
 
-    # Строка с кнопкой «Пропустить» + заголовок в одну строку
-    top_row = BoxLayout(size_hint_y=None, height=dp(28))
+    # Заголовок + пропустить
+    top_row = BoxLayout(size_hint_y=None, height=dp(26))
     top_row.add_widget(Label(
-        text='[b][color=#FFD700]== СРАЖЕНИЕ ==[/color][/b]',
-        markup=True, font_size=sp(16) if is_mobile else sp(19)
+        text='[b][color=#FFD700]СРАЖЕНИЕ[/color][/b]',
+        markup=True, font_size=sp(15) if is_mobile else sp(18)
     ))
     skip_btn = Button(
-        text='Пропустить', size_hint=(None, None), size=(dp(100), dp(26)),
-        font_size=sp(10), bold=True,
-        background_color=(0.45, 0.08, 0.08, 1), color=(1, 1, 1, 1)
+        text='Пропустить', size_hint=(None, None), size=(dp(90), dp(24)),
+        font_size=sp(9), bold=True,
+        background_color=(0.40, 0.06, 0.06, 1), color=(1, 1, 1, 1)
     )
     top_row.add_widget(skip_btn)
     root.add_widget(top_row)
 
-    # Подзаголовок
+    # Города
     root.add_widget(Label(
-        text=f'[color=#777777]{attacking_city}  >>  {defending_city}[/color]',
-        markup=True, font_size=sp(11), size_hint_y=None, height=dp(16)
+        text=f'[color=#666666]{attacking_city}  >>  {defending_city}[/color]',
+        markup=True, font_size=sp(10), size_hint_y=None, height=dp(14)
     ))
 
-    # Разделитель
-    def _make_sep():
-        s = Widget(size_hint_y=None, height=dp(1))
-        with s.canvas:
-            Color(0.30, 0.30, 0.40, 0.35)
-            s._r = RoundedRectangle(pos=s.pos, size=s.size)
-        s.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
-               size=lambda i, v: setattr(i._r, 'size', v))
-        return s
-
-    root.add_widget(_make_sep())
-
-    # ── Атакующий ────────────────────────────────────────────────────────
-    _bar_h = dp(22) if is_mobile else dp(30)
-    _lbl_h = dp(18) if is_mobile else dp(22)
-    _cnt_h = dp(14) if is_mobile else dp(16)
-    _fsize = sp(13) if is_mobile else sp(14)
-
+    # ── Названия фракций ─────────────────────────────────────────────────
+    _fsize = sp(12) if is_mobile else sp(14)
+    names_row = BoxLayout(size_hint_y=None, height=dp(20))
     atk_lbl = Label(
-        text=f'[b][color={atk_hex}]>> {attacking_fraction}[/color][/b]',
-        markup=True, font_size=_fsize, size_hint_y=None, height=_lbl_h, halign='left'
+        text=f'[b][color={atk_hex}]{attacking_fraction}[/color][/b]',
+        markup=True, font_size=_fsize, halign='left'
     )
     atk_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    root.add_widget(atk_lbl)
-
-    atk_bar = BattleBar(size_hint_y=None, height=_bar_h)
-    root.add_widget(atk_bar)
-
-    atk_cnt = Label(
-        text='', markup=True, font_size=sp(10), color=(0.72, 0.72, 0.72, 1),
-        size_hint_y=None, height=_cnt_h, halign='right'
-    )
-    atk_cnt.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    root.add_widget(atk_cnt)
-
-    # ── VS ───────────────────────────────────────────────────────────────
     vs_lbl = Label(
-        text='[b][color=#E67E22][ VS ][/color][/b]',
-        markup=True, font_size=_fsize, size_hint_y=None, height=dp(18), opacity=0.9
+        text='[b][color=#E67E22]VS[/color][/b]',
+        markup=True, font_size=_fsize, size_hint_x=None, width=dp(36),
+        halign='center'
     )
-    root.add_widget(vs_lbl)
-
-    def _pulse_vs(dt):
-        anim = (Animation(opacity=0.45, duration=0.65, t='out_sine') +
-                Animation(opacity=1.00, duration=0.65, t='out_sine'))
-        anim.repeat = True
-        anim.start(vs_lbl)
-
-    Clock.schedule_once(_pulse_vs, 0.6)
-
-    # ── Защитник ─────────────────────────────────────────────────────────
     def_lbl = Label(
-        text=f'[b][color={def_hex}]>> {defending_fraction}[/color][/b]',
-        markup=True, font_size=_fsize, size_hint_y=None, height=_lbl_h, halign='left'
+        text=f'[b][color={def_hex}]{defending_fraction}[/color][/b]',
+        markup=True, font_size=_fsize, halign='right'
     )
     def_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    root.add_widget(def_lbl)
+    names_row.add_widget(atk_lbl)
+    names_row.add_widget(vs_lbl)
+    names_row.add_widget(def_lbl)
+    root.add_widget(names_row)
 
-    def_bar = BattleBar(size_hint_y=None, height=_bar_h)
-    root.add_widget(def_bar)
+    # Пульсация VS
+    def _pulse_vs(dt):
+        anim = (Animation(opacity=0.4, duration=0.6, t='out_sine') +
+                Animation(opacity=1.0, duration=0.6, t='out_sine'))
+        anim.repeat = True
+        anim.start(vs_lbl)
+    Clock.schedule_once(_pulse_vs, 0.5)
 
-    def_cnt = Label(
-        text='', markup=True, font_size=sp(10), color=(0.72, 0.72, 0.72, 1),
-        size_hint_y=None, height=_cnt_h, halign='right'
-    )
+    # ── Встречная шкала ──────────────────────────────────────────────────
+    _bar_h = dp(28) if is_mobile else dp(36)
+    dual_bar = DualBattleBar(atk_c, def_c, size_hint_y=None, height=_bar_h)
+    root.add_widget(dual_bar)
+
+    # Частицы
+    hit_fx = HitParticles(size_hint=(1, None), height=dp(1), opacity=1)
+    root.add_widget(hit_fx)
+
+    # Счётчики бойцов
+    cnt_row = BoxLayout(size_hint_y=None, height=dp(14))
+    atk_cnt = Label(text='', markup=True, font_size=sp(9), color=(0.65, 0.65, 0.7, 1), halign='left')
+    atk_cnt.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    def_cnt = Label(text='', markup=True, font_size=sp(9), color=(0.65, 0.65, 0.7, 1), halign='right')
     def_cnt.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    root.add_widget(def_cnt)
+    cnt_row.add_widget(atk_cnt)
+    cnt_row.add_widget(def_cnt)
+    root.add_widget(cnt_row)
 
-    root.add_widget(_make_sep())
-
-    # ── Раунд + лента событий ────────────────────────────────────────────
+    # Раунд
     round_lbl = Label(
-        text='Подготовка к бою...', font_size=sp(11), bold=True,
-        color=(0.88, 0.88, 0.88, 1), size_hint_y=None, height=dp(18)
+        text='Подготовка к бою...', font_size=sp(10), bold=True,
+        color=(0.85, 0.85, 0.85, 1), size_hint_y=None, height=dp(16)
     )
     root.add_widget(round_lbl)
 
-    _ev_h = dp(48) if is_mobile else dp(64)
+    # Лента событий
+    _ev_h = dp(44) if is_mobile else dp(60)
     events_box = BoxLayout(orientation='vertical', spacing=dp(1),
                            size_hint_y=None, height=_ev_h,
                            padding=[dp(6), dp(2)])
     with events_box.canvas.before:
-        Color(0.09, 0.09, 0.14, 1)
+        Color(0.07, 0.07, 0.12, 1)
         events_box._bg = RoundedRectangle(pos=events_box.pos, size=events_box.size, radius=[dp(8)])
     events_box.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
                     size=lambda i, v: setattr(i._bg, 'size', v))
@@ -1455,9 +1547,9 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
 
     event_labels = []
     for _ in range(3):
-        el = Label(text='', font_size=sp(9) if is_mobile else sp(10),
+        el = Label(text='', font_size=sp(8) if is_mobile else sp(10),
                    halign='left', valign='middle',
-                   markup=True, size_hint_y=None, height=dp(14) if is_mobile else dp(18))
+                   markup=True, size_hint_y=None, height=dp(13) if is_mobile else dp(18))
         el.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
         events_box.add_widget(el)
         event_labels.append(el)
@@ -1571,11 +1663,10 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
         atk_ratio = rd['atk_total'] / rd['atk_max'] if rd['atk_max'] > 0 else 0.0
         def_ratio = rd['def_total'] / rd['def_max'] if rd['def_max'] > 0 else 0.0
 
-        atk_bar.animate_to(atk_ratio)
-        def_bar.animate_to(def_ratio)
+        dual_bar.animate_to(atk_ratio, def_ratio)
 
-        atk_cnt.text = f'{rd["atk_total"]:,} / {rd["atk_max"]:,} бойцов'.replace(',', ' ')
-        def_cnt.text = f'{rd["def_total"]:,} / {rd["def_max"]:,} бойцов'.replace(',', ' ')
+        atk_cnt.text = f'{rd["atk_total"]:,} / {rd["atk_max"]:,}'.replace(',', ' ')
+        def_cnt.text = f'{rd["def_total"]:,} / {rd["def_max"]:,}'.replace(',', ' ')
         round_lbl.text = f'Раунд {rd["round"]} / {total}'
 
         # Генерируем событие раунда
@@ -1589,23 +1680,32 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
             if is_crit and d_loss > 0:
                 _push_event(
                     f'[color=#FFD700]!! КРИТИЧЕСКИЙ УДАР! {attacking_fraction}'
-                    f'  −{d_loss} у врага[/color]'
+                    f'  -{d_loss} у врага[/color]'
                 )
+                # Тряска + частицы при крите
+                _shake = Animation(x=root.x + dp(4), duration=0.04) + Animation(x=root.x - dp(4), duration=0.04) + Animation(x=root.x, duration=0.04)
+                _shake.start(root)
+                hit_fx.burst(dual_bar.center_x + dual_bar.width * 0.2, dual_bar.center_y, def_c, 12)
             elif is_crit and a_loss > 0:
                 _push_event(
                     f'[color=#FF8844]!! КРИТИЧЕСКИЙ УДАР! {defending_fraction}'
-                    f'  −{a_loss} у атакующих[/color]'
+                    f'  -{a_loss} у атакующих[/color]'
                 )
+                _shake = Animation(x=root.x + dp(4), duration=0.04) + Animation(x=root.x - dp(4), duration=0.04) + Animation(x=root.x, duration=0.04)
+                _shake.start(root)
+                hit_fx.burst(dual_bar.center_x - dual_bar.width * 0.2, dual_bar.center_y, atk_c, 12)
             elif d_loss > a_loss and d_loss > 0:
                 _push_event(
                     f'[color=#88FF99]Раунд {rd["round"]}: {attacking_fraction}'
-                    f' наступает  −{d_loss} врагов[/color]'
+                    f' наступает  -{d_loss} врагов[/color]'
                 )
+                hit_fx.burst(dual_bar.center_x + dual_bar.width * 0.15, dual_bar.center_y, def_c, 5)
             elif a_loss > d_loss and a_loss > 0:
                 _push_event(
                     f'[color=#FF8888]Раунд {rd["round"]}: {defending_fraction}'
-                    f' держится  −{a_loss} атакующих[/color]'
+                    f' держится  -{a_loss} атакующих[/color]'
                 )
+                hit_fx.burst(dual_bar.center_x - dual_bar.width * 0.15, dual_bar.center_y, atk_c, 5)
             elif a_loss > 0 or d_loss > 0:
                 _push_event(
                     f'[color=#AAAAAA]Раунд {rd["round"]}: обе стороны несут потери[/color]'

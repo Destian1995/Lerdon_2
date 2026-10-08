@@ -901,6 +901,7 @@ class GameScreen(Screen):
 
         # --- Сохраняем объекты таймеров ---
         self._prev_star_levels = None  # Кэш для отслеживания изменений карты
+        self._smoke_cities = set()  # Города с дымом от недавних битв
         # Немедленный первый вызов (после layout) + периодическое обновление
         Clock.schedule_once(lambda dt: self.update_cash(dt), 0)
         Clock.schedule_once(lambda dt: self.update_army_rating(dt), 0)
@@ -3285,6 +3286,16 @@ class GameScreen(Screen):
                         )
 
 
+                # --- Дым над городами с недавними битвами ---
+                if city_name in self._smoke_cities:
+                    import random as _smoke_rnd
+                    for _si in range(3):
+                        _sx = icon_center_x + _smoke_rnd.uniform(-25, 25)
+                        _sy = icon_y + CITY_ICON_SIZE + _smoke_rnd.uniform(5, 30)
+                        _ss = _smoke_rnd.uniform(18, 35)
+                        Color(0.3, 0.3, 0.3, _smoke_rnd.uniform(0.15, 0.35))
+                        Ellipse(pos=(_sx - _ss/2, _sy), size=(_ss, _ss * 0.7))
+
                 # --- Отрисовка красной звезды (если есть герой) ---
                 if has_hero:
                     red_star_y = icon_center_y + 20 + STAR_SIZE + SPACING  # чуть выше обычных звезд
@@ -3323,6 +3334,20 @@ class GameScreen(Screen):
           5) Проверяем наличие юнитов 2-4 класса в гарнизоне
           6) Получаем идеологию фракции города и определяем иконку
           7) Загружаем коэффициент kf_crystal и определяем количество иконок бонуса кристаллов
+
+        # Загружаем города с недавними битвами (последние 2 хода) для дыма
+        self._smoke_cities = set()
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT city_name, turn FROM battle_smoke")
+            for _sc, _st in cursor.fetchall():
+                if self.turn_counter - _st <= 2:
+                    self._smoke_cities.add(_sc)
+                else:
+                    cursor.execute("DELETE FROM battle_smoke WHERE city_name = ?", (_sc,))
+            self.conn.commit()
+        except Exception:
+            pass
           8) Проверяем принадлежность города фракции игрока
           9) Сохраняем в self.city_star_levels:
              { city_name: (star_level, icon_x, icon_y, city_name, has_hero, ideology_icon_path, crystal_icon_count, is_player_city) }
