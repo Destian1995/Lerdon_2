@@ -547,10 +547,10 @@ def start_army_mode(faction, game_area, class_faction, conn):
         # ── Стоимость ────────────────────────────────────────────────
         cost_row = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(34),
                              spacing=dp(10), padding=[dp(8), dp(2)])
+        _is_light = faction in _dark_text_factions
         _price_color = (0.1, 0.1, 0.1, 1) if _is_light else (1, 1, 1, 1)
         cost_row.add_widget(Label(text='[b]Цена:[/b]', markup=True, font_size=sp(13),
                                   color=_price_color, size_hint=(None, 1), width=dp(48)))
-        _is_light = faction in _dark_text_factions
         _money_hex = '#6B4400' if _is_light else '#FFD700'
         _worker_hex = '#003380' if _is_light else '#88CCFF'
         _txt_hex = '#1A1A1A' if _is_light else '#CCCCCC'
