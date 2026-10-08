@@ -979,12 +979,52 @@ class Faction:
             if self.turn % 3 == 0:
                 self.update_relations_based_on_political_system()
 
+            # Бонусы советников к отношениям (тип race_love: 1% лояльности = +1 отношение)
+            self._apply_council_relation_bonuses()
+
             # Синхронизируем resources dict чтобы UI сразу отображал бонус
             self._sync_resources()
             return bonuses
         except Exception as e:
             print(f"Ошибка при применении бонусов игроку: {e}")
             return {}
+
+    def _apply_council_relation_bonuses(self):
+        """Советники с типом race_love улучшают отношения с любимой фракцией.
+        1% лояльности выше 50 = +1 пункт отношений (макс +10 за советника)."""
+        import json
+        try:
+            self.cursor.execute("SELECT loyalty, ideology FROM nobles WHERE status = 'active'")
+            for loyalty, ideology_str in self.cursor.fetchall():
+                if loyalty < 50:
+                    continue
+                try:
+                    if isinstance(ideology_str, str) and ideology_str.startswith('{'):
+                        traits = json.loads(ideology_str)
+                    elif isinstance(ideology_str, str) and ideology_str.startswith("Любит "):
+                        traits = {'type': 'race_love', 'value': ideology_str.replace("Любит ", "")}
+                    else:
+                        continue
+                except Exception:
+                    continue
+
+                if traits.get('type') != 'race_love':
+                    continue
+
+                loved_faction = traits.get('value', '')
+                if not loved_faction or loved_faction == self.faction:
+                    continue
+
+                # 1% лояльности выше 50 = 1 пункт, макс 10
+                bonus = min(int(loyalty - 50), 10)
+                if bonus > 0:
+                    self.cursor.execute("""
+                        UPDATE relations SET relationship = MIN(100, relationship + ?)
+                        WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
+                    """, (bonus, self.faction, loved_faction, loved_faction, self.faction))
+            self.conn.commit()
+        except Exception as e:
+            print(f"[COUNCIL RELATIONS] Ошибка: {e}")
 
     def load_political_system_for_faction(self, faction):
         """
