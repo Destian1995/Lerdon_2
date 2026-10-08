@@ -4107,7 +4107,7 @@ class AIController:
             return  # Мёртвая фракция не отправляет сообщений
         if self._is_at_war_with_player():
             return
-        if self._recently_messaged_player(cooldown_turns=4):
+        if self._recently_messaged_player(cooldown_turns=6):
             return
 
         relations = self._get_relations_with_player()
@@ -4427,10 +4427,22 @@ class AIController:
             return False
 
     def _try_send_alliance_proposal(self, personality, relations):
-        """Предложение военного союза — приоритет одинаковой идеологии."""
+        """Предложение военного союза — приоритет одинаковой идеологии. Только 1 раз."""
         try:
             if self._is_allied_with_player():
                 return False
+            # Не предлагать если уже предлагали (проверяем историю)
+            try:
+                _cur = self.db_connection.cursor()
+                _cur.execute("""
+                    SELECT 1 FROM negotiation_history
+                    WHERE faction1 = ? AND message LIKE '%[СОЮЗ]%'
+                    LIMIT 1
+                """, (self.faction,))
+                if _cur.fetchone():
+                    return False  # Уже предлагали союз ранее
+            except Exception:
+                pass
 
             ctx = self._get_game_context()
             if ctx.get('our_strength', 0) < 500:

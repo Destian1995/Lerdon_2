@@ -3599,7 +3599,7 @@ class MenuWidget(FloatLayout):
 
         # ======== Версия внизу ========
         version_label = Label(
-            text="v6.3.0",
+            text="v6.3.1",
             font_size=sp(11),
             color=(0.5, 0.5, 0.55, 0.5),
             size_hint=(None, None),
