@@ -6575,7 +6575,7 @@ class EnhancedDiplomacyChat():
                                   size=lambda w, v: setattr(w._bg, 'size', v))
 
                 _rel_lbl = _IRLbl(
-                    text=f"Отношения:  [b]{relation_level}%[/b]  →  [b]{_new_rel}%[/b]",
+                    text=f"Отношения:  [b]{relation_level}%[/b]  =>  [b]{_new_rel}%[/b]",
                     markup=True, font_size=_fs, halign='center', valign='middle',
                     color=(0.6, 0.9, 0.6, 1), size_hint_y=None, height=dp(24))
                 _rel_lbl.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
