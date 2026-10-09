@@ -4901,9 +4901,12 @@ class AIController:
             elif self.faction == "Нежить":
                 print("Фракция 'Нежить' — нашествие мёртвых. Атакуем всех!")
                 # Нежить всегда воюет со всеми — переобъявляем войну каждый ход
-                from undead_invasion import _declare_war_to_all, UNDEAD_FACTION_NAME
-                _declare_war_to_all(self.cursor)
-                self.db_connection.commit()
+                try:
+                    from undead_invasion import _declare_war_to_all
+                    _declare_war_to_all(self.cursor)
+                    self.db_connection.commit()
+                except Exception as e:
+                    print(f"[UNDEAD] Ошибка переобъявления войны: {e}")
                 # Нежить атакует ближайшие города всех фракций
                 self._undead_attack_nearest_cities()
             else:

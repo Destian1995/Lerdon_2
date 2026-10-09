@@ -159,6 +159,8 @@ class GameStateManager:
 def show_floating_bonus(label, bonus, overlay):
     if not label or not overlay:
         return
+    if not label.parent:
+        return
 
     color = (0, 1, 0, 1) if bonus > 0 else (1, 0, 0, 1)
     bonus_text = f"{'+' if bonus > 0 else ''}{format_number(bonus)}"
@@ -175,9 +177,11 @@ def show_floating_bonus(label, bonus, overlay):
     )
     bonus_label.text_size = bonus_label.size
 
-    # Получаем координаты label в окне → в overlay
-    win_x, win_y = label.to_window(*label.pos)
-    layout_x, layout_y = overlay.to_widget(win_x, win_y)
+    try:
+        win_x, win_y = label.to_window(*label.pos)
+        layout_x, layout_y = overlay.to_widget(win_x, win_y)
+    except Exception:
+        return
 
     bonus_label.pos = (layout_x + label.width + dp(4), layout_y)
     overlay.add_widget(bonus_label)
