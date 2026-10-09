@@ -1098,6 +1098,10 @@ class Faction:
             self.cursor.execute("SELECT name FROM cities WHERE faction = ?", (self.faction,))
             own_cities = {row[0] for row in self.cursor.fetchall()}
 
+            # Города мятежников — переданные туда юниты НЕ потребляют у игрока
+            self.cursor.execute("SELECT name FROM cities WHERE faction = 'Мятежники'")
+            _rebel_cities = {row[0] for row in self.cursor.fetchall()}
+
             # Шаг 2: Выгрузка гарнизонов только из своих городов
             self.cursor.execute("SELECT city_name, unit_name, unit_count FROM garrisons")
             garrisons = self.cursor.fetchall()
@@ -1119,8 +1123,9 @@ class Faction:
                 if city_name in own_cities:
                     # Юниты в своих городах — всегда потребляют
                     self.current_consumption += unit_info['consumption'] * unit_count
-                elif unit_info.get('faction') == self.faction:
+                elif unit_info.get('faction') == self.faction and city_name not in _rebel_cities:
                     # Свои юниты в чужих городах (оставлены под контролем у союзника)
+                    # Юниты в городах мятежников — уже переданы, не потребляют
                     self.current_consumption += unit_info['consumption'] * unit_count
 
             starving_units = []

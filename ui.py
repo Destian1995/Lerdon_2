@@ -2440,12 +2440,14 @@ class FortressInfoPopup(Popup):
                                 from game_process import _active_game_screen
                                 gs = _active_game_screen
                                 if gs and hasattr(gs, 'faction'):
+                                    gs.faction.load_resources_from_db()
                                     gs.faction.calculate_and_deduct_consumption()
                                     gs.faction._sync_resources()
+                                    gs.faction.save_resources_to_db()
                                     if hasattr(gs, 'resource_box'):
                                         gs.resource_box.update_resources()
-                            except Exception:
-                                pass
+                            except Exception as _e:
+                                print(f"[ALLY TRANSFER] Ошибка пересчёта: {_e}")
                             show_popup_message("Передача", f"{taken_count} юнитов передано фракции {destination_owner}")
                         except Exception as e:
                             print(f"[ALLY TRANSFER] Ошибка: {e}")
