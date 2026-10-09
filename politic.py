@@ -1006,27 +1006,6 @@ def calculate_total_faction_power(conn, faction):
             city_strength += others_stats
             total_power += city_strength
 
-        # Фракционные пассивные способности
-        FACTION_PASSIVE = {
-            'Север':   1.25,
-            'Эльфы':   1.10,
-            'Вампиры': 1.08,
-            'Адепты':  1.25,
-            'Элины':   1.05,
-        }
-        faction_mult = FACTION_PASSIVE.get(faction, 1.0)
-
-        try:
-            cursor.execute("SELECT season_index FROM season LIMIT 1")
-            sr = cursor.fetchone()
-            current_season = sr[0] if sr else -1
-            PEAK_SEASON = {'Север': 0, 'Вампиры': 1, 'Эльфы': 2, 'Адепты': 3, 'Элины': 2}
-            if PEAK_SEASON.get(faction) == current_season:
-                faction_mult *= 1.30
-        except Exception:
-            pass
-
-        total_power = total_power * faction_mult
         return total_power
 
     except Exception as e:
