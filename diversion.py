@@ -5,6 +5,7 @@ from kivy.uix.popup import Popup
 from kivy.metrics import dp, sp
 from kivy.core.window import Window
 from kivy.uix.scrollview import ScrollView
+from kivy.uix.widget import Widget
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.slider import Slider
 from kivy.graphics import Color, RoundedRectangle
@@ -657,7 +658,7 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
             """, (target_city, unit_name, unit["count"], unit_image_path))
 
         success = True
-        message = f"Мятеж в городе {target_city} фракции {target_faction} успешен! Город перешел под контроль Мятежников. Количество мятежников: {rebels_count}."
+        message = f"Мятеж в городе {target_city} успешен!"
 
         # --- Объявляем войну между Мятежниками и фракцией, которой принадлежал город ---
         cursor.execute("""
@@ -678,7 +679,7 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
             """, (original_faction,))
 
         conn.commit()
-        message += f"\nФракция '{original_faction}' начала борьбу с Мятежниками."
+        message += "\nОперация осталась незамеченной."
 
     elif op_name == 'Заказ':
         # Найти всех героев 3 класса фракции цели, которые находятся в гарнизонах
@@ -737,44 +738,53 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
     show_result_popup("Результат операции", message, success)
 
 def show_result_popup(title, message, is_success=True):
-    is_android = hasattr(Window, 'keyboard')
-    font_title = sp(16) # Уменьшен
-    font_message = sp(12) # Уменьшен
-    padding_main = dp(20)
-    spacing_main = dp(5) # Уменьшен
+    from kivy.graphics import Color as _RCol, RoundedRectangle as _RRR
+    _is_m = platform in ('android', 'ios')
+    _fs_t = sp(17) if _is_m else sp(15)
+    _fs_m = sp(14) if _is_m else sp(13)
 
-    content = BoxLayout(orientation='vertical', padding=padding_main, spacing=spacing_main)
+    content = BoxLayout(orientation='vertical', spacing=dp(12),
+                        padding=[dp(20), dp(16), dp(20), dp(16)])
 
-    title_label = Label(
-        text=f"[b]{title}[/b]",
-        font_size=font_title,
-        markup=True,
-        halign='center',
-        valign='middle',
-        color=SECONDARY_COLOR if is_success else WARNING_COLOR,
-        size_hint_y=None,
-        height=dp(30) # Уменьшена
-    )
-    title_label.bind(size=title_label.setter('text_size'))
+    # Заголовок
+    _title = Label(
+        text=f"[b]{title}[/b]", markup=True,
+        font_size=_fs_t, halign='center', valign='middle',
+        color=(0.2, 0.9, 0.8, 1) if is_success else (1, 0.4, 0.3, 1),
+        size_hint_y=None, height=dp(36))
+    _title.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
+    content.add_widget(_title)
 
-    message_label = Label(
-        text=message,
-        font_size=font_message,
-        halign='center',
-        valign='middle',
-        markup=True,
-        color=TEXT_COLOR,
-        text_size=(dp(280), None)
-    )
-    message_label.bind(size=message_label.setter('text_size'))
+    # Сообщение в карточке
+    _msg_box = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(70),
+                         padding=[dp(12), dp(10)])
+    with _msg_box.canvas.before:
+        _RCol(0.12, 0.14, 0.22, 0.9)
+        _msg_box._bg = _RRR(pos=_msg_box.pos, size=_msg_box.size, radius=[dp(8)])
+    _msg_box.bind(pos=lambda w, v: setattr(w._bg, 'pos', v),
+                  size=lambda w, v: setattr(w._bg, 'size', v))
 
-    content.add_widget(title_label)
-    content.add_widget(message_label)
+    _msg = Label(
+        text=message, font_size=_fs_m,
+        halign='center', valign='middle',
+        color=(0.9, 0.9, 0.95, 1),
+        size_hint_y=1)
+    _msg.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
+    _msg_box.add_widget(_msg)
+    content.add_widget(_msg_box)
 
-    popup = ThemedPopup(
-        title="",
-        content=content,
-        size_hint=(0.95, 0.65) if _is_mobile else (0.85, 0.5),
-        auto_dismiss=True
-    )
+    # Пространство
+    content.add_widget(Widget(size_hint_y=1))
+
+    # Кнопка
+    _btn = Button(text="Назад", font_size=_fs_m, bold=True,
+                  size_hint_y=None, height=dp(44),
+                  background_normal='', background_color=(0.5, 0.15, 0.15, 1))
+    content.add_widget(_btn)
+
+    popup = Popup(title='', content=content,
+                  size_hint=(0.85 if _is_m else 0.4, 0.45 if _is_m else 0.4),
+                  auto_dismiss=False, separator_height=0,
+                  background='', background_color=(0.04, 0.05, 0.09, 0.98))
+    _btn.bind(on_press=lambda i: popup.dismiss())
     popup.open()
