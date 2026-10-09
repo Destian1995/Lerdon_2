@@ -1213,11 +1213,15 @@ class EnhancedDiplomacyChat():
             return self._handle_context_reset(player_message, target_faction)
 
         # 0. Проверяем ответ на AI-инициированное предложение
-        # НО только если нет активного торгового контекста (иначе перехватит ответ на counter_offer)
+        # НО только если нет активного торгового контекста и это НЕ новая команда игрока
+        _command_keywords = ['союз', 'альянс', 'мир', 'перемирие', 'торговл', 'атакуй', 'напади',
+                             'заключим', 'объединиться', 'сотрудничать']
+        _is_player_command = any(kw in message_lower for kw in _command_keywords)
         _active_ctx = self.negotiation_context.get(target_faction, {})
-        if _active_ctx.get("stage") not in ("ask_resource_type", "ask_resource_amount",
-                                             "ask_player_offer", "counter_offer", "evaluate",
-                                             "alliance_offer", "provocation_deal"):
+        if not _is_player_command and _active_ctx.get("stage") not in (
+                "ask_resource_type", "ask_resource_amount",
+                "ask_player_offer", "counter_offer", "evaluate",
+                "alliance_offer", "provocation_deal"):
             ai_proposal_response = self._check_ai_proposal_response(player_message, target_faction, relation_level)
             if ai_proposal_response:
                 return ai_proposal_response
@@ -6616,8 +6620,9 @@ class EnhancedDiplomacyChat():
                 content.add_widget(btn_row)
 
                 popup = _IRPop(title='', content=content,
-                               size_hint=(0.9 if _is_m else 0.45, 0.55 if _is_m else 0.5),
+                               size_hint=(0.95 if _is_m else 0.5, 0.75 if _is_m else 0.6),
                                auto_dismiss=False, separator_height=0,
+                               background='',
                                background_color=(0.04, 0.05, 0.09, 0.98))
 
                 def _do_improve(i2):
