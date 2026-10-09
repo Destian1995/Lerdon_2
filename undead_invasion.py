@@ -118,9 +118,9 @@ def initialize_undead_invasion(conn):
                     total = cursor.fetchone()[0]
 
                     if captured >= total:
-                        # Все 3 города захвачены — нашествие окончательно побеждено
+                        # Все 3 города захвачены — нашествие окончательно побеждено (2 = defeated)
                         cursor.execute(
-                            "UPDATE undead_invasion SET invasion_started = 0, king_alive = 0 WHERE id = 1"
+                            "UPDATE undead_invasion SET invasion_started = 2, king_alive = 0 WHERE id = 1"
                         )
                         print("[UNDEAD] Все города нежити захвачены! Нашествие окончено.")
                     else:
@@ -208,6 +208,7 @@ def check_and_trigger_invasion(conn, current_turn, player_faction):
         return False, None
 
     invasion_turn, invasion_started = row
+    # 1 = активна, 2 = побеждена навсегда
     if invasion_started:
         return False, None
 
@@ -469,9 +470,9 @@ def process_undead_turn(conn, current_turn):
         captured_permanently = cursor.fetchone()[0]
 
         if captured_permanently >= total_undead_cities:
-            # ВСЕ 3 города нежити захвачены — нашествие побеждено окончательно!
+            # ВСЕ 3 города нежити захвачены — нашествие побеждено окончательно! (2 = defeated)
             cursor.execute(
-                "UPDATE undead_invasion SET invasion_started = 0, king_alive = 0 WHERE id = 1"
+                "UPDATE undead_invasion SET invasion_started = 2, king_alive = 0 WHERE id = 1"
             )
             conn.commit()
             print("[UNDEAD] Все 3 города нежити захвачены! Нашествие побеждено окончательно!")
@@ -710,12 +711,12 @@ def get_undead_army_limit(conn):
 
 
 def is_invasion_active(conn):
-    """Проверяет, активна ли инвазия нежити."""
+    """Проверяет, активна ли инвазия нежити. 0=не началась, 1=активна, 2=побеждена."""
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT invasion_started FROM undead_invasion WHERE id = 1")
         row = cursor.fetchone()
-        return bool(row and row[0])
+        return row is not None and row[0] == 1
     except sqlite3.Error:
         return False
 
