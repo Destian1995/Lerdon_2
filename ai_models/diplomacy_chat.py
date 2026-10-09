@@ -6314,13 +6314,17 @@ class EnhancedDiplomacyChat():
                                             (count, _from_city, _uname))
                                 cur.execute("DELETE FROM garrisons WHERE city_name=? AND unit_name=? AND unit_count <= 0",
                                             (_from_city, _uname))
-                                # Добавляем в гарнизон мятежников
-                                _img = _uimg or ''
+                                # Конвертируем в юнит мятежников (class 1) и добавляем в гарнизон
+                                cur.execute(
+                                    "SELECT unit_name, image_path FROM units WHERE faction = 'Мятежники' AND unit_class = '1' LIMIT 1")
+                                _rebel_unit = cur.fetchone()
+                                _r_name = _rebel_unit[0] if _rebel_unit else _uname
+                                _r_img = (_rebel_unit[1] or '') if _rebel_unit else (_uimg or '')
                                 cur.execute("""
                                     INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
                                     VALUES (?, ?, ?, ?)
                                     ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
-                                """, (_rcity, _uname, count, _img, count))
+                                """, (_rcity, _r_name, count, _r_img, count))
                                 # Обновляем потребление армии
                                 cur.execute("SELECT consumption FROM units WHERE unit_name=?", (_uname,))
                                 _cons_row = cur.fetchone()
