@@ -2380,20 +2380,39 @@ class FortressInfoPopup(Popup):
 
                 # Город союзника — спрашиваем передать или оставить под контролем
                 if self.is_ally(current_player_kingdom, destination_owner):
+                    # Героев (класс 2+) нельзя передавать — только перемещаем
+                    try:
+                        cursor.execute("SELECT unit_class FROM units WHERE unit_name = ?", (unit_name,))
+                        _uc_row = cursor.fetchone()
+                        _uc = int(_uc_row[0]) if _uc_row else 1
+                        if _uc >= 2:
+                            self.move_troops(source_fortress_name, destination_fortress_name, unit_name, taken_count)
+                            return True
+                    except Exception:
+                        pass
+
                     from kivy.uix.popup import Popup as _AllyPopup
                     from kivy.uix.boxlayout import BoxLayout as _AllyBox
                     from kivy.uix.button import Button as _AllyBtn
                     from kivy.uix.label import Label as _AllyLbl
                     from kivy.metrics import dp as _dp, sp as _sp
 
-                    ally_content = _AllyBox(orientation='vertical', spacing=_dp(8), padding=_dp(10))
-                    _ally_lbl = _AllyLbl(
-                        text=f"Передать армию фракции {destination_owner}\nили оставить под вашим контролем?",
-                        font_size=_sp(14), halign='center', valign='middle',
-                        size_hint_y=None, height=_dp(70), text_size=(None, None)
+                    ally_content = _AllyBox(orientation='vertical', spacing=_dp(8), padding=_dp(12))
+                    _title_lbl = _AllyLbl(
+                        text=f"Передать армию фракции {destination_owner}",
+                        font_size=_sp(15), halign='center', valign='middle',
+                        bold=True, size_hint_y=None, height=_dp(40)
                     )
-                    _ally_lbl.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, None)))
-                    ally_content.add_widget(_ally_lbl)
+                    _title_lbl.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, None)))
+                    ally_content.add_widget(_title_lbl)
+
+                    _desc_lbl = _AllyLbl(
+                        text="Армия на территории союзника.\nПередать или оставить под вашим контролем?",
+                        font_size=_sp(13), halign='center', valign='middle',
+                        size_hint_y=None, height=_dp(50)
+                    )
+                    _desc_lbl.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, None)))
+                    ally_content.add_widget(_desc_lbl)
 
                     btn_row = _AllyBox(orientation='horizontal', size_hint_y=None, height=_dp(44), spacing=_dp(8))
 
@@ -2457,10 +2476,11 @@ class FortressInfoPopup(Popup):
                     ally_content.add_widget(btn_row)
 
                     ally_popup = _AllyPopup(
-                        title="Армия на территории союзника",
+                        title="",
                         content=ally_content,
-                        size_hint=(0.6, 0.35),
-                        auto_dismiss=False
+                        size_hint=(0.7, 0.45),
+                        auto_dismiss=False,
+                        separator_height=0
                     )
                     give_btn.bind(on_press=lambda inst: _transfer_to_ally(inst, _popup=ally_popup))
                     keep_btn.bind(on_press=lambda inst: _keep_control(inst, _popup=ally_popup))

@@ -324,10 +324,11 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     def_base_attack = def_attack
 
     # Бонус от героев 2+ класса: сырые характеристики прибавляются к каждому юниту 1 класса
-    if get_unit_class(attacker) == 1:
+    # Зомби нежити не получают бафф от Низара (непослушные)
+    if get_unit_class(attacker) == 1 and attacker.get('unit_name') != 'Зомби':
         atk_attack += atk_hero_bonus[0]
         atk_defense += atk_hero_bonus[1] + atk_hero_bonus[2] / 2.0
-    if get_unit_class(defender) == 1:
+    if get_unit_class(defender) == 1 and defender.get('unit_name') != 'Зомби':
         def_attack += def_hero_bonus[0]
         def_defense += def_hero_bonus[1] + def_hero_bonus[2] / 2.0
 
