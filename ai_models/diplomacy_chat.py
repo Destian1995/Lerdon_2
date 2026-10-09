@@ -6510,31 +6510,32 @@ class EnhancedDiplomacyChat():
                     need_resource = 'Кроны'
                     need_label = 'крон'
 
-                # Базовая сумма — дефицит (разница между ресурсами AI)
-                _max_res = max(ai_resources['Кроны'], ai_resources['Кристаллы'])
-                _min_res = ai_resources[need_resource]
-                base_amount = max(1000, int(_max_res - _min_res))
+                # Стоимость зависит от ресурсов AI и уровня отношений
+                _ai_res = ai_resources[need_resource]
+                _scarce = _ai_res < 500_000  # нехватка — меньше 500 тыс.
 
-                # Множитель и бонус в зависимости от уровня отношений
                 if relation_level < 25:
-                    cost = max(500_000, min(5_000_000, int(base_amount * 2.5)))
+                    # Всегда полная надбавка
+                    cost = max(500_000, int(_ai_res * 0.15))
                     bonus = 5
                     bonus_text = "+5%"
                 elif relation_level < 50:
-                    cost = max(250_000, min(5_000_000, int(base_amount * 1.5)))
+                    _raw = int(_ai_res * 0.07)
+                    cost = max(250_000, _raw if _scarce else _raw // 2)
                     bonus = 7
                     bonus_text = "+7%"
                 elif relation_level < 75:
-                    cost = max(50_000, min(5_000_000, int(base_amount * 1.0)))
+                    _raw = int(_ai_res * 0.01)
+                    cost = max(100_000, _raw if _scarce else _raw // 2)
                     bonus = 8
                     bonus_text = "+8%"
                 elif relation_level < 85:
-                    cost = max(10_000, min(5_000_000, int(base_amount * 0.4)))
+                    cost = 50_000 if _scarce else 25_000
                     bonus = 11
                     bonus_text = "+11%"
                 else:  # 85-94
                     new_rel = 100
-                    cost = max(1_000, min(5_000_000, int(base_amount * 0.1)))
+                    cost = 10_000 if _scarce else 5_000
                     bonus = new_rel - relation_level
                     bonus_text = f"до 100%"
 
