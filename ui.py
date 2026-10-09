@@ -1913,212 +1913,142 @@ class FortressInfoPopup(Popup):
 
     def add_to_garrison_with_slider(self, unit_data, name_label):
         """
-        Открывает адаптивное всплывающее окно с ползунком для выбора количества войск
-        или немедленно размещает, если доступен только 1 юнит.
+        Открывает всплывающее окно с ползунком для выбора количества войск.
         """
         from kivy.metrics import dp, sp
         unit_type = unit_data["unit_type"]
         available_count = unit_data["quantity"]
 
         if available_count == 1:
-            # Немедленно размещаем 1 юнит без открытия popup
             self.transfer_army_to_garrison(unit_data, 1)
             return
 
-        # Определение платформы
-        is_mobile = platform == 'android' or platform == 'ios'
+        _is_m = platform in ('android', 'ios')
+        _fs = sp(14) if _is_m else sp(13)
 
-        # Расчёт ширины окна (95% ширины экрана без ограничения)
-        window_width = Window.width * 0.95 if is_mobile else Window.width * 0.7
-
-        # Высота окна с коррекцией для Android
-        window_height = Window.height * 0.75 if is_mobile else Window.height * 0.4
-        if is_mobile:
-            window_height *= 0.9  # Компенсация высоты для Android
-
-        # Создание Popup
-        popup = Popup(
-            title=f"Размещение {unit_type}",
-            size_hint=(None, None),
-            width=window_width,
-            height=window_height,
-            title_size=sp(20) if is_mobile else sp(18),
-            background_color=(0.07, 0.08, 0.13, 1),
-            separator_color=(0.25, 0.52, 0.92, 0.5),
-            title_color=(1, 1, 1, 1),
-            title_align='center'
-        )
-
-        # Основной контейнер с адаптированными отступами
-        layout = BoxLayout(
-            orientation='vertical',
-            padding=[dp(20), dp(15)],
-            spacing=dp(20)
-        )
-        with layout.canvas.before:
-            layout._bgc = Color(0.07, 0.08, 0.13, 1)
-            layout._bgr = Rectangle(pos=layout.pos, size=layout.size)
-        layout.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
-                    size=lambda i, v: setattr(i._bgr, 'size', v))
-
-        # === Получаем данные о потреблении ===
+        # Потребление
         current_consumption, army_limit = self.get_army_consumption_and_limit()
-
-        # Получаем потребление одного юнита
         try:
             cursor = self.conn.cursor()
-            cursor.execute("""
-                SELECT consumption FROM units
-                WHERE unit_name = ?
-            """, (unit_type,))
-            consumption_result = cursor.fetchone()
-            unit_consumption = consumption_result[0] if consumption_result else 0
-        except sqlite3.Error as e:
-            print(f"Ошибка при получении потребления юнита: {e}")
+            cursor.execute("SELECT consumption FROM units WHERE unit_name = ?", (unit_type,))
+            _cr = cursor.fetchone()
+            unit_consumption = _cr[0] if _cr else 0
+        except Exception:
             unit_consumption = 0
 
-        # === Информация о потреблении — секция с тёмным фоном ===
-        consumption_info = BoxLayout(
-            orientation='vertical',
-            size_hint_y=None,
-            height=dp(100),
-            spacing=dp(5),
-            padding=[dp(8), dp(6)]
-        )
-        with consumption_info.canvas.before:
-            consumption_info._bgc = Color(0.10, 0.13, 0.20, 1)
-            consumption_info._bgr = RoundedRectangle(pos=consumption_info.pos, size=consumption_info.size, radius=[dp(10)])
-        consumption_info.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
-                              size=lambda i, v: setattr(i._bgr, 'size', v))
+        # Контент
+        layout = BoxLayout(orientation='vertical', spacing=dp(12),
+                           padding=[dp(16), dp(12), dp(16), dp(12)])
 
-        # Потребление (динамически обновляется, форматируем до 1 знака)
-        new_consumption_label = Label(
-            text=f"Потребление: {current_consumption:.1f}",
-            font_size=sp(18),
-            color=(0.3, 0.7, 0.3, 1),  # Зелёный по умолчанию
-            bold=True,
-            size_hint_y=None,
-            height=dp(40),
-            halign='left',
-            valign='middle'
-        )
-        new_consumption_label.bind(size=new_consumption_label.setter('text_size'))
-        consumption_info.add_widget(new_consumption_label)
+        # Название юнита
+        _name_lbl = Label(text=f"[b]{unit_type}[/b]", markup=True,
+                          font_size=sp(17) if _is_m else sp(15),
+                          halign='center', valign='middle',
+                          color=(0.95, 0.85, 0.4, 1),
+                          size_hint_y=None, height=dp(32))
+        _name_lbl.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
+        layout.add_widget(_name_lbl)
 
-        layout.add_widget(consumption_info)
+        # Доступно
+        _avail_lbl = Label(text=f"Доступно: [b]{format_number(available_count)}[/b]", markup=True,
+                           font_size=_fs, halign='center', valign='middle',
+                           color=(0.7, 0.8, 0.9, 1),
+                           size_hint_y=None, height=dp(24))
+        _avail_lbl.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
+        layout.add_widget(_avail_lbl)
 
-        # === Ползунок с меткой ===
-        slider_container = BoxLayout(
-            orientation='horizontal',
-            size_hint_y=None,
-            height=dp(80) if is_mobile else dp(60),
-            spacing=dp(15)
-        )
+        # Блок потребления
+        _cons_box = BoxLayout(orientation='vertical', spacing=dp(4),
+                              size_hint_y=None, height=dp(60),
+                              padding=[dp(12), dp(8)])
+        with _cons_box.canvas.before:
+            Color(0.10, 0.13, 0.20, 0.9)
+            _cons_box._bg = RoundedRectangle(pos=_cons_box.pos, size=_cons_box.size, radius=[dp(8)])
+        _cons_box.bind(pos=lambda w, v: setattr(w._bg, 'pos', v),
+                       size=lambda w, v: setattr(w._bg, 'size', v))
 
-        slider_label = Label(
-            text="Количество: 0",
-            font_size=sp(18) if is_mobile else sp(16),
-            size_hint_x=0.4,
-            color=(0.96, 0.96, 0.96, 1),
-            halign='right',
-            valign='middle'
-        )
-        slider_label.bind(size=slider_label.setter('text_size'))
+        _cons_lbl = Label(text=f"Потребление: [b]{current_consumption:.1f}[/b] / {army_limit:.1f}",
+                          markup=True, font_size=_fs, halign='center', valign='middle',
+                          color=(0.4, 0.8, 0.4, 1),
+                          size_hint_y=None, height=dp(24))
+        _cons_lbl.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
+        _cons_box.add_widget(_cons_lbl)
 
-        slider = Slider(
-            min=0,
-            max=available_count,
-            value=0,
-            step=1,
-            size_hint_x=0.6,
-            background_width=dp(40) if is_mobile else dp(30)
-        )
+        _delta_lbl = Label(text="", font_size=sp(12), halign='center', valign='middle',
+                           color=(0.6, 0.7, 0.8, 1),
+                           size_hint_y=None, height=dp(20))
+        _delta_lbl.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
+        _cons_box.add_widget(_delta_lbl)
+        layout.add_widget(_cons_box)
 
-        def update_slider_label_and_consumption(instance, value):
-            """Обновляет метки при изменении значения слайдера"""
-            selected_count = int(value)
-            slider_label.text = f"Количество: {selected_count}"
+        # Слайдер
+        _sl_row = BoxLayout(orientation='vertical', spacing=dp(4),
+                            size_hint_y=None, height=dp(60))
 
-            # Рассчитываем Потребление (без округления для точной проверки)
-            new_consumption = current_consumption + (unit_consumption * selected_count)
+        _qty_lbl = Label(text="Количество: [b]0[/b]", markup=True,
+                         font_size=sp(15) if _is_m else sp(14),
+                         halign='center', valign='middle',
+                         color=(1, 1, 1, 1),
+                         size_hint_y=None, height=dp(26))
+        _qty_lbl.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
 
-            # Форматируем для отображения с 1 знаком после запятой
-            formatted_consumption = f"{new_consumption:.1f}"
+        slider = Slider(min=0, max=available_count, value=0, step=1,
+                        size_hint_y=None, height=dp(30))
 
-            # Обновляем цвет в зависимости от превышения лимита
-            if new_consumption > army_limit:
-                new_consumption_label.color = (1, 0, 0, 1)  # Красный
-                new_consumption_label.text = f"Потребление: {formatted_consumption} (ПРЕВЫШЕНИЕ!)"
+        def _on_slider(inst, val):
+            cnt = int(val)
+            _qty_lbl.text = f"Количество: [b]{cnt}[/b]"
+            new_cons = current_consumption + (unit_consumption * cnt)
+            if new_cons > army_limit:
+                _cons_lbl.color = (1, 0.3, 0.3, 1)
+                _cons_lbl.text = f"Потребление: [b]{new_cons:.1f}[/b] / {army_limit:.1f}  [color=#ff4444]ПРЕВЫШЕНИЕ![/color]"
             else:
-                new_consumption_label.color = (0.3, 0.7, 0.3, 1)  # Зелёный
-                new_consumption_label.text = f"Потребление: {formatted_consumption}"
+                _cons_lbl.color = (0.4, 0.8, 0.4, 1)
+                _cons_lbl.text = f"Потребление: [b]{new_cons:.1f}[/b] / {army_limit:.1f}"
+            if cnt > 0:
+                _delta_lbl.text = f"+{unit_consumption * cnt:.1f} к потреблению"
+            else:
+                _delta_lbl.text = ""
 
-        slider.bind(value=update_slider_label_and_consumption)
-        slider_container.add_widget(slider_label)
-        slider_container.add_widget(slider)
-        layout.add_widget(slider_container)
+        slider.bind(value=_on_slider)
+        _sl_row.add_widget(_qty_lbl)
+        _sl_row.add_widget(slider)
+        layout.add_widget(_sl_row)
 
-        # === Кнопки подтверждения ===
-        button_layout = BoxLayout(
-            orientation='horizontal',
-            size_hint_y=None,
-            height=dp(100) if is_mobile else dp(70),
-            spacing=dp(25)
-        )
+        # Пустое пространство
+        layout.add_widget(Widget(size_hint_y=1))
 
-        confirm_button = Button(
-            text="Подтвердить",
-            font_size=sp(20) if is_mobile else sp(16),
-            bold=True,
-            background_color=(0, 0, 0, 0),
-            color=(1, 1, 1, 1),
-            size_hint_x=0.5
-        )
-        with confirm_button.canvas.before:
-            confirm_button._bc = Color(0.18, 0.62, 0.22, 1)
-            confirm_button._br = RoundedRectangle(pos=confirm_button.pos, size=confirm_button.size, radius=[dp(12)])
-        confirm_button.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
-                            size=lambda i, v: setattr(i._br, 'size', v))
+        # Кнопки
+        btn_row = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(10))
 
-        cancel_button = Button(
-            text="Отмена",
-            font_size=sp(20) if is_mobile else sp(16),
-            bold=True,
-            background_color=(0, 0, 0, 0),
-            color=(1, 1, 1, 1),
-            size_hint_x=0.5
-        )
-        with cancel_button.canvas.before:
-            cancel_button._bc = Color(0.55, 0.14, 0.14, 1)
-            cancel_button._br = RoundedRectangle(pos=cancel_button.pos, size=cancel_button.size, radius=[dp(12)])
-        cancel_button.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
-                           size=lambda i, v: setattr(i._br, 'size', v))
+        ok_btn = Button(text="Подтвердить", font_size=_fs, bold=True,
+                        background_normal='', background_color=(0.18, 0.62, 0.22, 1))
+        no_btn = Button(text="Отмена", font_size=_fs, bold=True,
+                        background_normal='', background_color=(0.55, 0.14, 0.14, 1))
+
+        popup = Popup(title='', content=layout,
+                      size_hint=(0.95 if _is_m else 0.45, 0.7 if _is_m else 0.55),
+                      auto_dismiss=False, separator_height=0,
+                      background='', background_color=(0.04, 0.05, 0.09, 0.98))
 
         def confirm_action(btn):
-            try:
-                selected_count = int(slider.value)
-                if 0 < selected_count <= available_count:
-                    # Проверяем превышение лимита (используем точные значения!)
-                    new_consumption = current_consumption + (unit_consumption * selected_count)
-                    if new_consumption > army_limit:
-                        show_popup_message(
-                            "Превышение лимита",
-                            f"Потребление ({new_consumption:.1f}) превысит лимит армии ({army_limit:.1f})."
-                        )
-                        return
+            selected_count = int(slider.value)
+            if 0 < selected_count <= available_count:
+                new_consumption = current_consumption + (unit_consumption * selected_count)
+                if new_consumption > army_limit:
+                    show_popup_message("Превышение лимита",
+                                       f"Потребление ({new_consumption:.1f}) превысит лимит ({army_limit:.1f}).")
+                    return
+                self.transfer_army_to_garrison(unit_data, selected_count)
+                popup.dismiss()
+            else:
+                show_popup_message("Ошибка", f"Выберите количество от 1 до {available_count}")
 
-                    self.transfer_army_to_garrison(unit_data, selected_count)
-                    popup.dismiss()
-                else:
-                    show_popup_message("Ошибка", f"Выберите количество от 1 до {available_count}")
-            except ValueError:
-                show_popup_message("Ошибка", "Введите корректное число")
-
-        confirm_button.bind(on_release=confirm_action)
-        cancel_button.bind(on_release=lambda btn: popup.dismiss())
-        button_layout.add_widget(confirm_button)
-        button_layout.add_widget(cancel_button)
-        layout.add_widget(button_layout)
+        ok_btn.bind(on_release=confirm_action)
+        no_btn.bind(on_release=lambda b: popup.dismiss())
+        btn_row.add_widget(ok_btn)
+        btn_row.add_widget(no_btn)
+        layout.add_widget(btn_row)
 
         # === Адаптация размера окна при изменении размера экрана ===
         def adapt_popup_size(*args):
