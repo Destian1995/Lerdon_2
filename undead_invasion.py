@@ -140,77 +140,58 @@ def initialize_undead_invasion(conn):
 
 
 def _create_undead_units(cursor):
-    """Создаёт юнитов нежити в таблицах units и units_default."""
-    # Удаляем старые записи чтобы избежать дублей
-    cursor.execute("DELETE FROM units WHERE faction = ?", (UNDEAD_FACTION_NAME,))
-    cursor.execute("DELETE FROM units_default WHERE faction = ?", (UNDEAD_FACTION_NAME,))
+    """Восстанавливает юнитов нежити в таблице units из units_default.
+    Если в units_default нет данных — создаёт из констант как фоллбэк."""
 
-    insert_sql = """
-        INSERT INTO units (faction, unit_name, cost_money, cost_time, image_path,
-                          attack, defense, durability, unit_class, consumption,
-                          initiative, unit_type, morale, aura_attack, aura_defense, crit_chance)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """
-    insert_default_sql = """
-        INSERT INTO units_default (faction, unit_name, cost_money, cost_time, image_path,
-                                  attack, defense, durability, unit_class, consumption,
-                                  initiative, unit_type, morale, aura_attack, aura_defense, crit_chance)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """
+    # Проверяем, есть ли юниты нежити в units_default
+    cursor.execute("SELECT COUNT(*) FROM units_default WHERE faction = ?", (UNDEAD_FACTION_NAME,))
+    has_defaults = cursor.fetchone()[0] > 0
 
-    # Призрак — пехота
-    unit_ghost = (
-        UNDEAD_FACTION_NAME, UNDEAD_UNIT_NAME,
-        UNDEAD_UNIT_COST, 1,
-        'files/army/death/solder.png',
-        UNDEAD_UNIT_ATTACK, UNDEAD_UNIT_DEFENSE, UNDEAD_UNIT_DURABILITY,
-        '1', UNDEAD_UNIT_CONSUMPTION,
-        55, 'infantry', 100,
-        0, 0, 7
-    )
-
-    # Зомби — пехота, крепче Призрака
-    unit_zombie = (
-        UNDEAD_FACTION_NAME, ZOMBIE_UNIT_NAME,
-        ZOMBIE_UNIT_COST, 1,
-        'files/army/death/zombie.png',
-        ZOMBIE_UNIT_ATTACK, ZOMBIE_UNIT_DEFENSE, ZOMBIE_UNIT_DURABILITY,
-        '1', ZOMBIE_UNIT_CONSUMPTION,
-        40, 'infantry', 100,
-        0, 0, 5
-    )
-
-    # Банши — маг, высокий урон
-    unit_banshee = (
-        UNDEAD_FACTION_NAME, BANSHEE_UNIT_NAME,
-        BANSHEE_UNIT_COST, 1,
-        'files/army/death/banshi.png',
-        BANSHEE_UNIT_ATTACK, BANSHEE_UNIT_DEFENSE, BANSHEE_UNIT_DURABILITY,
-        '1', BANSHEE_UNIT_CONSUMPTION,
-        70, 'mage', 100,
-        0, 0, 15
-    )
-
-    # Низар — герой (класс 2)
-    unit_king = (
-        UNDEAD_FACTION_NAME, KING_OF_DEAD_NAME,
-        50000, 1,
-        'files/army/death/king_.png',
-        KING_OF_DEAD_ATTACK, KING_OF_DEAD_DEFENSE, KING_OF_DEAD_DURABILITY,
-        '2', 100,
-        85, 'infantry', 100,
-        25, 25, 18
-    )
-
-    all_units = [unit_ghost, unit_zombie, unit_banshee, unit_king]
-    for unit_data in all_units:
-        cursor.execute(insert_sql, unit_data)
-        try:
+    if has_defaults:
+        # Восстанавливаем из units_default — это источник истины
+        cursor.execute("DELETE FROM units WHERE faction = ?", (UNDEAD_FACTION_NAME,))
+        cursor.execute("""
+            INSERT INTO units (faction, unit_name, cost_money, cost_time, image_path,
+                              attack, defense, durability, unit_class, consumption,
+                              initiative, unit_type, morale, aura_attack, aura_defense, crit_chance)
+            SELECT faction, unit_name, cost_money, cost_time, image_path,
+                   attack, defense, durability, unit_class, consumption,
+                   initiative, unit_type, morale, aura_attack, aura_defense, crit_chance
+            FROM units_default WHERE faction = ?
+        """, (UNDEAD_FACTION_NAME,))
+        print(f"[UNDEAD] Юниты нежити восстановлены из units_default")
+    else:
+        # Фоллбэк — units_default пуста, создаём из констант
+        insert_sql = """
+            INSERT OR IGNORE INTO units (faction, unit_name, cost_money, cost_time, image_path,
+                              attack, defense, durability, unit_class, consumption,
+                              initiative, unit_type, morale, aura_attack, aura_defense, crit_chance)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        insert_default_sql = """
+            INSERT OR IGNORE INTO units_default (faction, unit_name, cost_money, cost_time, image_path,
+                                      attack, defense, durability, unit_class, consumption,
+                                      initiative, unit_type, morale, aura_attack, aura_defense, crit_chance)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        all_units = [
+            (UNDEAD_FACTION_NAME, UNDEAD_UNIT_NAME, UNDEAD_UNIT_COST, 1,
+             'files/army/death/solder.png', UNDEAD_UNIT_ATTACK, UNDEAD_UNIT_DEFENSE, UNDEAD_UNIT_DURABILITY,
+             '1', UNDEAD_UNIT_CONSUMPTION, 55, 'infantry', 100, 0, 0, 7),
+            (UNDEAD_FACTION_NAME, ZOMBIE_UNIT_NAME, ZOMBIE_UNIT_COST, 1,
+             'files/army/death/zombie.png', ZOMBIE_UNIT_ATTACK, ZOMBIE_UNIT_DEFENSE, ZOMBIE_UNIT_DURABILITY,
+             '1', ZOMBIE_UNIT_CONSUMPTION, 40, 'infantry', 100, 0, 0, 5),
+            (UNDEAD_FACTION_NAME, BANSHEE_UNIT_NAME, BANSHEE_UNIT_COST, 1,
+             'files/army/death/banshi.png', BANSHEE_UNIT_ATTACK, BANSHEE_UNIT_DEFENSE, BANSHEE_UNIT_DURABILITY,
+             '1', BANSHEE_UNIT_CONSUMPTION, 70, 'mage', 100, 0, 0, 15),
+            (UNDEAD_FACTION_NAME, KING_OF_DEAD_NAME, 50000, 1,
+             'files/army/death/king_.png', KING_OF_DEAD_ATTACK, KING_OF_DEAD_DEFENSE, KING_OF_DEAD_DURABILITY,
+             '2', 100, 85, 'infantry', 100, 25, 25, 18),
+        ]
+        for unit_data in all_units:
+            cursor.execute(insert_sql, unit_data)
             cursor.execute(insert_default_sql, unit_data)
-        except sqlite3.Error:
-            pass
-
-    print(f"[UNDEAD] Юниты нежити обновлены: Призрак, Зомби, Банши, Низар")
+        print(f"[UNDEAD] Юниты нежити созданы из констант (units_default была пуста)")
 
 
 def check_and_trigger_invasion(conn, current_turn, player_faction):

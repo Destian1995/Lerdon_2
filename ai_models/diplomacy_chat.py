@@ -6336,16 +6336,17 @@ class EnhancedDiplomacyChat():
                                     f"Щедро! Эти {count} воинов усилят нашу армию. За свободу!",
                                 ])
                                 self.add_chat_message(resp, 'Мятежники', _t, is_player=False)
-                                # Обновляем UI
+                                # Пересчитываем потребление и обновляем UI
                                 try:
                                     from game_process import _active_game_screen
                                     gs = _active_game_screen
                                     if gs and hasattr(gs, 'faction'):
-                                        gs.faction.refresh_from_db()
+                                        gs.faction.calculate_and_deduct_consumption()
+                                        gs.faction._sync_resources()
                                         if hasattr(gs, 'resource_box'):
                                             gs.resource_box.update_resources()
-                                except Exception:
-                                    pass
+                                except Exception as _e:
+                                    print(f"[REBEL TROOPS] Ошибка пересчёта: {_e}")
                             except Exception as e:
                                 print(f"[REBEL TROOPS] Ошибка: {e}")
                             popup.dismiss()
@@ -6467,6 +6468,158 @@ class EnhancedDiplomacyChat():
             back_btn.bind(on_press=lambda i: _show_main_buttons())
             quick_row.add_widget(back_btn)
 
+        def _show_improve_relations(inst):
+            """Улучшение отношений за ресурсы."""
+            from kivy.uix.popup import Popup as _IRPop
+            from kivy.uix.label import Label as _IRLbl
+            from kivy.graphics import Color as _IRCol, RoundedRectangle as _IRRR
+            quick_row.clear_widgets()
+            try:
+                faction = self.selected_faction
+                if not faction:
+                    _show_main_buttons()
+                    return
+                player_faction = self._get_player_faction()
+                cursor = self.db_connection.cursor()
+
+                # Получаем уровень отношений
+                cursor.execute("""
+                    SELECT relationship FROM relations
+                    WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+                """, (player_faction, faction, faction, player_faction))
+                rel_row = cursor.fetchone()
+                relation_level = int(rel_row[0]) if rel_row else 50
+
+                if relation_level >= 95:
+                    self.add_chat_message_system("Отношения уже на максимуме!")
+                    _show_main_buttons()
+                    return
+
+                # Определяем дефицитный ресурс AI-фракции
+                ai_resources = self._get_faction_resources(faction)
+                if ai_resources['Кристаллы'] <= ai_resources['Кроны']:
+                    need_resource = 'Кристаллы'
+                    need_label = 'кристаллов'
+                else:
+                    need_resource = 'Кроны'
+                    need_label = 'крон'
+
+                # Базовая сумма — то, чего не хватает AI
+                base_amount = ai_resources[need_resource]
+
+                # Множитель и бонус в зависимости от уровня отношений
+                if relation_level < 25:
+                    cost = max(500_000, min(5_000_000, int(base_amount * 2.5)))
+                    bonus = 5
+                    bonus_text = "+5%"
+                elif relation_level < 50:
+                    cost = max(250_000, min(5_000_000, int(base_amount * 1.5)))
+                    bonus = 7
+                    bonus_text = "+7%"
+                elif relation_level < 75:
+                    cost = max(50_000, min(5_000_000, int(base_amount * 1.0)))
+                    bonus = 8
+                    bonus_text = "+8%"
+                elif relation_level < 85:
+                    cost = max(10_000, min(5_000_000, int(base_amount * 0.4)))
+                    bonus = 11
+                    bonus_text = "+11%"
+                else:  # 85-94
+                    new_rel = 100
+                    cost = max(1_000, min(5_000_000, int(base_amount * 0.1)))
+                    bonus = new_rel - relation_level
+                    bonus_text = f"до 100%"
+
+                # Проверяем ресурсы игрока
+                player_resources = self._get_faction_resources(player_faction)
+                player_has = player_resources.get(need_resource, 0)
+
+                # Контент popup
+                content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(12))
+                info_lbl = _IRLbl(
+                    text=(f"Фракция {faction} нуждается в {need_label}.\n"
+                          f"Текущие отношения: {relation_level}%\n\n"
+                          f"Стоимость: {cost:,} {need_label}\n"
+                          f"Бонус: {bonus_text}\n"
+                          f"У вас: {player_has:,} {need_label}"),
+                    font_size=sp(13), halign='center', valign='middle',
+                    size_hint_y=1, markup=True
+                )
+                info_lbl.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
+                content.add_widget(info_lbl)
+
+                btn_row = BoxLayout(size_hint_y=None, height=dp(42), spacing=dp(8))
+                can_afford = player_has >= cost
+                ok_btn = Button(
+                    text="Передать" if can_afford else "Не хватает",
+                    background_normal='', font_size=sp(13), bold=True,
+                    background_color=(0.15, 0.55, 0.25, 1) if can_afford else (0.4, 0.4, 0.4, 1),
+                    disabled=not can_afford
+                )
+                no_btn = Button(text="Отмена", background_normal='',
+                                background_color=(0.45, 0.15, 0.15, 1), font_size=sp(13))
+                btn_row.add_widget(ok_btn)
+                btn_row.add_widget(no_btn)
+                content.add_widget(btn_row)
+
+                _is_m = kivy_platform in ('android', 'ios')
+                popup = _IRPop(title='Улучшение отношений', content=content,
+                               size_hint=(0.88 if _is_m else 0.45, 0.45),
+                               auto_dismiss=False, separator_height=0,
+                               background_color=(0.04, 0.05, 0.09, 0.98),
+                               title_color=(0.9, 0.8, 0.3, 1), title_size=sp(15))
+
+                def _do_improve(i2):
+                    try:
+                        cur = self.db_connection.cursor()
+                        # Списываем ресурсы у игрока
+                        cur.execute("UPDATE resources SET amount = amount - ? WHERE faction=? AND resource_type=?",
+                                    (cost, player_faction, need_resource))
+                        # Добавляем AI-фракции
+                        cur.execute("UPDATE resources SET amount = amount + ? WHERE faction=? AND resource_type=?",
+                                    (cost, faction, need_resource))
+                        # Улучшаем отношения
+                        new_rel = min(100, relation_level + bonus)
+                        cur.execute("""
+                            UPDATE relations SET relationship = ?
+                            WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
+                        """, (new_rel, player_faction, faction, faction, player_faction))
+                        self.db_connection.commit()
+
+                        from datetime import datetime
+                        _t = datetime.now().strftime("%d.%m %H:%M")
+                        self.add_chat_message(
+                            f"Передаю {cost:,} {need_label} в знак дружбы.",
+                            player_faction, _t, is_player=True)
+                        resp = random.choice([
+                            f"Щедрый дар! Отношения улучшились до {new_rel}%. Мы ценим вашу поддержку!",
+                            f"Великолепно! +{bonus}% к отношениям. Теперь {new_rel}%. Вы — надёжный партнёр!",
+                            f"Это укрепляет наши связи! Отношения: {new_rel}%. Благодарим за {need_label}!",
+                        ])
+                        self.add_chat_message(resp, faction, _t, is_player=False)
+                        self.update_relation_info_android(faction)
+                        # Обновляем UI ресурсов
+                        try:
+                            from game_process import _active_game_screen
+                            gs = _active_game_screen
+                            if gs and hasattr(gs, 'faction'):
+                                gs.faction._sync_resources()
+                                if hasattr(gs, 'resource_box'):
+                                    gs.resource_box.update_resources()
+                        except Exception:
+                            pass
+                    except Exception as e:
+                        print(f"[IMPROVE REL] Ошибка: {e}")
+                    popup.dismiss()
+                    _show_main_buttons()
+
+                ok_btn.bind(on_press=_do_improve)
+                no_btn.bind(on_press=lambda i2: (popup.dismiss(), _show_main_buttons()))
+                popup.open()
+            except Exception as e:
+                print(f"[IMPROVE REL] Ошибка: {e}")
+                _show_main_buttons()
+
         def _show_main_buttons():
             quick_row.clear_widgets()
             # Для Мятежников — особые кнопки
@@ -6486,6 +6639,7 @@ class EnhancedDiplomacyChat():
                 ("Торговля", _show_trade_submenu),
                 ("Мир", _send_quick("Давай заключим мир")),
                 ("Коалиция", _show_coalition_submenu),
+                ("Дары", _show_improve_relations),
             ]
             for label, handler in _main:
                 b = _styled_btn(label)

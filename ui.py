@@ -2387,11 +2387,13 @@ class FortressInfoPopup(Popup):
                     from kivy.metrics import dp as _dp, sp as _sp
 
                     ally_content = _AllyBox(orientation='vertical', spacing=_dp(8), padding=_dp(10))
-                    ally_content.add_widget(_AllyLbl(
+                    _ally_lbl = _AllyLbl(
                         text=f"Передать армию фракции {destination_owner}\nили оставить под вашим контролем?",
                         font_size=_sp(14), halign='center', valign='middle',
-                        size_hint_y=None, height=_dp(50)
-                    ))
+                        size_hint_y=None, height=_dp(70), text_size=(None, None)
+                    )
+                    _ally_lbl.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, None)))
+                    ally_content.add_widget(_ally_lbl)
 
                     btn_row = _AllyBox(orientation='horizontal', size_hint_y=None, height=_dp(44), spacing=_dp(8))
 
@@ -2457,7 +2459,7 @@ class FortressInfoPopup(Popup):
                     ally_popup = _AllyPopup(
                         title="Армия на территории союзника",
                         content=ally_content,
-                        size_hint=(0.6, 0.3),
+                        size_hint=(0.6, 0.35),
                         auto_dismiss=False
                     )
                     give_btn.bind(on_press=lambda inst: _transfer_to_ally(inst, _popup=ally_popup))
