@@ -874,12 +874,12 @@ def create_army_rating_table(conn):
     if is_invasion_active(conn):
         cursor.execute("""
             SELECT DISTINCT faction FROM cities
-            WHERE faction != 'Нейтрал' AND faction != 'Мятежники'
+            WHERE faction != 'Нейтрал'
         """)
     else:
         cursor.execute("""
             SELECT DISTINCT faction FROM cities
-            WHERE faction != 'Нейтрал' AND faction != 'Мятежники' AND faction != 'Нежить'
+            WHERE faction != 'Нейтрал' AND faction != 'Нежить'
         """)
     all_factions = [row[0] for row in cursor.fetchall()]
 
