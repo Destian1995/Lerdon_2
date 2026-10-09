@@ -1787,7 +1787,7 @@ class Faction:
             return  # Цена уже сгенерирована для этого хода
 
         # Генерация новой цены
-        if current_turn == 1:  # Если это первый ход
+        if current_turn == 1 or not self.raw_material_price_history:
             self.current_raw_material_price = round(random.uniform(76.3, 148.7), 2)
             self.raw_material_price_history.append(self.current_raw_material_price)
         else:
