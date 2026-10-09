@@ -6453,7 +6453,15 @@ class EnhancedDiplomacyChat():
                     def _order_attack(i, _city=city_name, _fac=city_faction):
                         try:
                             cur = self.db_connection.cursor()
-                            # Устанавливаем флаг атаки для AI мятежников
+                            # Устанавливаем флаг атаки и целевой город
+                            cur.execute("""
+                                CREATE TABLE IF NOT EXISTS rebel_attack_order
+                                (id INTEGER PRIMARY KEY DEFAULT 1, target_city TEXT, target_faction TEXT)
+                            """)
+                            cur.execute("""
+                                INSERT OR REPLACE INTO rebel_attack_order (id, target_city, target_faction)
+                                VALUES (1, ?, ?)
+                            """, (_city, _fac))
                             cur.execute("""
                                 INSERT OR REPLACE INTO turn_check_attack_faction (faction, check_attack)
                                 VALUES ('Мятежники', 1)

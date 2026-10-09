@@ -3367,9 +3367,38 @@ class AIController:
     def attack_enemy_cities(self):
         """
         Организует атаки на вражеские города.
+        Мятежники сначала проверяют заказ от игрока.
         Если активна инвазия нежити — приоритет на атаку нежити всеми силами.
         """
         try:
+            # Мятежники: проверяем заказ атаки от игрока
+            if self.faction == 'Мятежники':
+                try:
+                    self.cursor.execute("SELECT target_city, target_faction FROM rebel_attack_order WHERE id = 1")
+                    order = self.cursor.fetchone()
+                    if order and order[0]:
+                        _target_city, _target_faction = order
+                        print(f"[МЯТЕЖНИКИ] Выполняем заказ: атакуем {_target_city} ({_target_faction})")
+                        # Объявляем войну если ещё не воюем
+                        self.cursor.execute("""
+                            SELECT relationship FROM diplomacies
+                            WHERE (faction1='Мятежники' AND faction2=?) OR (faction1=? AND faction2='Мятежники')
+                        """, (_target_faction, _target_faction))
+                        _dip = self.cursor.fetchone()
+                        if not _dip or _dip[0] != 'война':
+                            self.cursor.execute("""
+                                INSERT OR REPLACE INTO diplomacies (faction1, faction2, relationship)
+                                VALUES ('Мятежники', ?, 'война')
+                            """, (_target_faction,))
+                            self.db_connection.commit()
+                        self.attack_city(_target_city, _target_faction)
+                        # Очищаем заказ
+                        self.cursor.execute("DELETE FROM rebel_attack_order WHERE id = 1")
+                        self.db_connection.commit()
+                        return
+                except Exception as _re:
+                    print(f"[МЯТЕЖНИКИ] Ошибка заказа: {_re}")
+
             at_war_with = self.get_factions_at_war()
             if not at_war_with:
                 print("Нет фракций, с которыми ведется война.")
@@ -3382,7 +3411,7 @@ class AIController:
                 if target_city:
                     print(f"[ПРИОРИТЕТ НЕЖИТЬ] {self.faction} атакует {target_city} (Нежить)")
                     self.attack_city(target_city, UNDEAD_FACTION_NAME)
-                    return  # Все силы на нежить
+                    return
 
             for enemy_faction in at_war_with:
                 target_city = self.find_nearest_city(enemy_faction)
