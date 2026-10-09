@@ -2168,12 +2168,6 @@ class AIController:
         if result["winner"] == "attacker":
             self.army_efficiency_ratio = result["efficiency_ratio"]
 
-            # === AI берёт пленных ===
-            defending_losses = result.get('defending_losses', 0)
-            if defending_losses > 0:
-                captured = max(1, int(defending_losses * 0.10))
-                self._ai_handle_prisoners(captured, target_faction, allied_city)
-
             defensive_units = []
             remaining_units = []
 
@@ -3603,111 +3597,6 @@ class AIController:
         except Exception as e:
             print(f"Ошибка при отправке сообщения о пощаде: {e}")
 
-    def _ai_handle_prisoners(self, captured_count, enemy_faction, city_name):
-        """AI решает что делать с пленными на основе характера фракции."""
-        import random
-        traits = self.FACTION_TRAITS.get(self.faction, {})
-
-        # Вампиры — казнят (70%) или принимают (30%)
-        # Север — принимают (80%) или отпускают (20%)
-        # Элины — отпускают (60%) или принимают (40%)
-        # Эльфы — отпускают (70%) или принимают (30%)
-        # Адепты — казнят (50%) или принимают (50%)
-        faction_choices = {
-            'Вампиры': [('execute', 0.7), ('recruit', 0.3)],
-            'Север':   [('recruit', 0.8), ('release', 0.2)],
-            'Элины':   [('release', 0.6), ('recruit', 0.4)],
-            'Эльфы':   [('release', 0.7), ('recruit', 0.3)],
-            'Адепты':  [('execute', 0.5), ('recruit', 0.5)],
-        }
-
-        # Нежить превращает всех пленных в призраков
-        if self.faction == 'Нежить':
-            try:
-                from undead_invasion import convert_prisoners_to_ghosts
-                cursor = self.db_connection.cursor()
-                convert_prisoners_to_ghosts(cursor, captured_count, city_name)
-                self.db_connection.commit()
-            except Exception as e:
-                print(f"[UNDEAD PRISONERS] Ошибка: {e}")
-            return
-
-        choices = faction_choices.get(self.faction, [('recruit', 1.0)])
-        roll = random.random()
-        cumulative = 0
-        decision = 'recruit'
-        for choice, prob in choices:
-            cumulative += prob
-            if roll < cumulative:
-                decision = choice
-                break
-
-        try:
-            cursor = self.db_connection.cursor()
-
-            if decision == 'recruit':
-                # Принять в армию — юнит вражеской фракции
-                cursor.execute("SELECT unit_name FROM units WHERE faction=? AND unit_class=1 LIMIT 1",
-                               (enemy_faction,))
-                unit_row = cursor.fetchone()
-                if unit_row:
-                    cursor.execute("""
-                        INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
-                        VALUES (?, ?, ?, '')
-                        ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
-                    """, (city_name, unit_row[0], captured_count, captured_count))
-                print(f"[AI PRISONERS] {self.faction} принял {captured_count} пленных {enemy_faction} в армию")
-
-            elif decision == 'execute':
-                # Казнить — ухудшаем отношения со всеми, кроме союзников
-                cursor.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал' AND faction != ?",
-                               (self.faction,))
-                for row in cursor.fetchall():
-                    if self.is_faction_ally(row[0]):
-                        continue
-                    cursor.execute("""
-                        UPDATE relations SET relationship = MAX(0, relationship - 5)
-                        WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
-                    """, (self.faction, row[0], row[0], self.faction))
-                print(f"[AI PRISONERS] {self.faction} казнил {captured_count} пленных {enemy_faction}")
-
-            else:  # release
-                # Отпустить — улучшаем отношения (бонус зависит от текущего уровня)
-                cursor.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал' AND faction != ?",
-                               (self.faction,))
-                for row in cursor.fetchall():
-                    other_faction = row[0]
-                    if self.is_faction_ally(other_faction):
-                        continue
-                    cursor.execute(
-                        "SELECT relationship FROM diplomacies WHERE faction1=? AND faction2=?",
-                        (self.faction, other_faction))
-                    _dip = cursor.fetchone()
-                    if _dip and _dip[0] == 'война':
-                        continue
-                    # Получаем текущий уровень отношений
-                    cursor.execute(
-                        "SELECT relationship FROM relations WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?) LIMIT 1",
-                        (self.faction, other_faction, other_faction, self.faction))
-                    _rel_row = cursor.fetchone()
-                    _cur_rel = int(_rel_row[0]) if _rel_row else 0
-                    # Бонус зависит от уровня отношений
-                    if _cur_rel > 30:
-                        _bonus = max(1, int(_cur_rel * 0.10))  # +10%
-                    elif _cur_rel >= 10:
-                        _bonus = max(1, int(_cur_rel * 0.02))  # +2%
-                    else:
-                        _bonus = 1  # +1 при отношениях 0-9
-                    cursor.execute("""
-                        UPDATE relations SET relationship = MIN(100, relationship + ?)
-                        WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
-                    """, (_bonus, self.faction, other_faction, other_faction, self.faction))
-                print(f"[AI PRISONERS] {self.faction} отпустил {captured_count} пленных {enemy_faction}")
-
-            self.db_connection.commit()
-        except Exception as e:
-            print(f"[AI PRISONERS ERROR] {e}")
-
     def _count_army_units(self, faction):
         """Возвращает общее количество юнитов фракции (для отображения в сообщениях)."""
         try:
@@ -4763,11 +4652,16 @@ class AIController:
 
             if result["winner"] == "attacker":
                 # Пленные -> призраки (20% убитых врагов конвертируются)
+                # Нежить конвертирует убитых врагов в призраков
                 defending_losses = result.get('defending_losses', 0)
-                if defending_losses > 0:
-                    from undead_invasion import UNDEAD_CONVERSION_RATE
-                    captured = max(1, int(defending_losses * UNDEAD_CONVERSION_RATE))
-                    self._ai_handle_prisoners(captured, target_faction, from_city)
+                if defending_losses > 0 and self.faction == 'Нежить':
+                    try:
+                        from undead_invasion import UNDEAD_CONVERSION_RATE, convert_prisoners_to_ghosts
+                        captured = max(1, int(defending_losses * UNDEAD_CONVERSION_RATE))
+                        convert_prisoners_to_ghosts(self.cursor, captured, from_city)
+                        self.db_connection.commit()
+                    except Exception as e:
+                        print(f"[UNDEAD CONVERT] Ошибка: {e}")
 
                 # Захватываем город
                 self.cursor.execute(
