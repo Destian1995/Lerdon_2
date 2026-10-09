@@ -6345,8 +6345,10 @@ class EnhancedDiplomacyChat():
                                     from game_process import _active_game_screen
                                     gs = _active_game_screen
                                     if gs and hasattr(gs, 'faction'):
+                                        gs.faction.load_resources_from_db()
                                         gs.faction.calculate_and_deduct_consumption()
                                         gs.faction._sync_resources()
+                                        gs.faction.save_resources_to_db()
                                         if hasattr(gs, 'resource_box'):
                                             gs.resource_box.update_resources()
                                 except Exception as _e:
