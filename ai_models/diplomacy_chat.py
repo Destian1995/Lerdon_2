@@ -6404,36 +6404,43 @@ class EnhancedDiplomacyChat():
                     _show_main_buttons()
                     return
 
-                # Все дороги
+                # Строим маппинг id <-> name
+                cursor.execute("SELECT id, name, faction FROM cities")
+                _all_cities = cursor.fetchall()
+                _id_to_name = {r[0]: r[1] for r in _all_cities}
+                _name_to_id = {r[1]: r[0] for r in _all_cities}
+                _name_to_faction = {r[1]: r[2] for r in _all_cities}
+
+                # Все дороги (по id) -> конвертируем в имена
                 cursor.execute("SELECT city1, city2 FROM roads")
-                roads = cursor.fetchall()
                 road_set = set()
-                for c1, c2 in roads:
-                    road_set.add((c1, c2))
-                    road_set.add((c2, c1))
+                for c1, c2 in cursor.fetchall():
+                    n1 = _id_to_name.get(c1)
+                    n2 = _id_to_name.get(c2)
+                    if n1 and n2:
+                        road_set.add((n1, n2))
+                        road_set.add((n2, n1))
 
                 # Враги — все фракции кроме игрока, мятежников, нежити, нейтрала
-                cursor.execute("""
-                    SELECT DISTINCT faction FROM cities
-                    WHERE faction NOT IN ('Нейтрал', 'Мятежники', 'Нежить', ?)
-                """, (self.faction,))
-                enemy_factions = set(r[0] for r in cursor.fetchall())
+                enemy_factions = set()
+                for _cn, _cf in _name_to_faction.items():
+                    if _cf not in ('Нейтрал', 'Мятежники', 'Нежить', self.faction):
+                        enemy_factions.add(_cf)
 
                 # Ищем вражеские города граничащие с игроком или мятежниками
                 friendly = set(player_cities + rebel_cities)
                 targets = []
+                _seen = set()
                 for f_city in friendly:
                     for c1, c2 in road_set:
                         if c1 == f_city:
                             neighbor = c2
-                        elif c2 == f_city:
-                            neighbor = c1
                         else:
                             continue
-                        cursor.execute("SELECT faction FROM cities WHERE name = ?", (neighbor,))
-                        n_row = cursor.fetchone()
-                        if n_row and n_row[0] in enemy_factions and neighbor not in [t[0] for t in targets]:
-                            targets.append((neighbor, n_row[0]))
+                        nf = _name_to_faction.get(neighbor)
+                        if nf and nf in enemy_factions and neighbor not in _seen:
+                            targets.append((neighbor, nf))
+                            _seen.add(neighbor)
 
                 if not targets:
                     self.add_chat_message_system("Нет вражеских городов рядом с нашими владениями.")
