@@ -679,7 +679,6 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
             """, (original_faction,))
 
         conn.commit()
-        message += "\nОперация осталась незамеченной."
 
     elif op_name == 'Заказ':
         # Найти всех героев 3 класса фракции цели, которые находятся в гарнизонах
