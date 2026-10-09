@@ -726,16 +726,15 @@ class StyledButton(ButtonBehavior, BoxLayout):
 
 def calculate_peace_army_points(conn, faction):
     """
-    Вычисляет общую силу армии фракции с локальными бонусами:
-    - Герои 2 и 3 класса усиливают ТОЛЬКО юнитов 1 класса из своего гарнизона
-    - Бонусы не распространяются между городами
+    Вычисляет мощь героя — сила гарнизонов, где стоит герой (класс 2/3),
+    включая самого героя и армию 1-го класса рядом с ним.
     """
     cursor = conn.cursor()
 
     try:
         # Получаем данные с привязкой к городу
         cursor.execute("""
-            SELECT g.city_name, g.unit_name, g.unit_count, u.attack, u.defense, u.durability, u.unit_class 
+            SELECT g.city_name, g.unit_name, g.unit_count, u.attack, u.defense, u.durability, u.unit_class
             FROM garrisons g
             JOIN units u ON g.unit_name = u.unit_name
             WHERE u.faction = ?
@@ -751,8 +750,8 @@ def calculate_peace_army_points(conn, faction):
             if city_name not in cities_data:
                 cities_data[city_name] = {
                     "class_1": {"count": 0, "total_stats": 0},
-                    "heroes": {"total_stats": 0},   # классы 2 и 3
-                    "others": {"total_stats": 0}    # классы 4 и выше
+                    "heroes": {"total_stats": 0, "present": False},
+                    "others": {"total_stats": 0}
                 }
 
             stats_sum = attack + defense + durability
@@ -762,33 +761,33 @@ def calculate_peace_army_points(conn, faction):
                 cities_data[city_name]["class_1"]["total_stats"] += stats_sum * unit_count
             elif unit_class in ("2", "3"):
                 cities_data[city_name]["heroes"]["total_stats"] += stats_sum * unit_count
+                cities_data[city_name]["heroes"]["present"] = True
             else:
                 cities_data[city_name]["others"]["total_stats"] += stats_sum * unit_count
 
-        # Рассчитываем силу для каждого города отдельно
-        total_strength = 0
+        # Считаем мощь только гарнизонов, где есть герой
+        hero_strength = 0
 
         for city, data in cities_data.items():
+            if not data["heroes"]["present"]:
+                continue
+
             class_1_count = data["class_1"]["count"]
             base_stats = data["class_1"]["total_stats"]
             hero_bonus = data["heroes"]["total_stats"]
             others_stats = data["others"]["total_stats"]
 
             city_strength = 0
-
-            # Бонусы героев применяются ТОЛЬКО к юнитам 1 класса в этом городе
             if class_1_count > 0:
                 city_strength += base_stats + hero_bonus * class_1_count
-
-            # Юниты 4+ класса добавляются без бонусов
             city_strength += others_stats
 
-            total_strength += city_strength
+            hero_strength += city_strength
 
-        return total_strength
+        return hero_strength
 
     except Exception as e:
-        print(f"Ошибка при вычислении очков армии: {e}")
+        print(f"Ошибка при вычислении мощи героя: {e}")
         return 0
 
 
@@ -953,89 +952,81 @@ def create_army_rating_table(conn):
 
 def calculate_total_faction_power(conn, faction):
     """
-    Вычисляет ОБЩУЮ мощь фракции с ГЛОБАЛЬНЫМИ бонусами:
-    - ВСЕ герои фракции классов 2 и 3 усиливают ВСЕХ юнитов 1-го класса
-      во ВСЕХ гарнизонах фракции (бонусы суммируются)
+    Вычисляет ОБЩУЮ мощь фракции:
+    - Мощь героя (гарнизоны с героями) + армия в остальных гарнизонах (без бонуса героя)
+    - Если в других гарнизонах армии нет, общая мощь = мощь героя
     """
     cursor = conn.cursor()
 
     try:
-        # === ШАГ 1: Находим ВСЕХ героев фракции классов 2 и 3 ===
-        # Убрали LIMIT 1 — теперь получаем всех героев для суммирования бонусов
+        # Получаем данные с привязкой к городу
         cursor.execute("""
-            SELECT u.attack, u.defense, u.durability, u.unit_class
-            FROM garrisons g
-            JOIN units u ON g.unit_name = u.unit_name
-            WHERE u.faction = ? AND u.unit_class IN ('2', '3')
-        """, (faction,))
-
-        hero_rows = cursor.fetchall()
-
-        # Суммируем характеристики ВСЕХ героев классов 2 и 3
-        total_hero_stats = 0
-        for hero_row in hero_rows:
-            hero_attack, hero_defense, hero_durability, hero_class = hero_row
-            total_hero_stats += hero_attack + hero_defense + hero_durability
-
-        # === ШАГ 2: Считаем ВСЕ юниты фракции ===
-        cursor.execute("""
-            SELECT g.unit_name, g.unit_count, u.attack, u.defense, u.durability, u.unit_class 
+            SELECT g.city_name, g.unit_name, g.unit_count, u.attack, u.defense, u.durability, u.unit_class
             FROM garrisons g
             JOIN units u ON g.unit_name = u.unit_name
             WHERE u.faction = ?
         """, (faction,))
-
         units_data = cursor.fetchall()
 
-        total_class_1_count = 0      # Общее количество юнитов 1-го класса по всей фракции
-        total_class_1_stats = 0      # Сумма характеристик всех юнитов 1-го класса
-        total_others_stats = 0       # Сумма характеристик юнитов 4+ класса
-
+        # Группируем юниты по городам
+        cities_data = {}
         for row in units_data:
-            unit_name, unit_count, attack, defense, durability, unit_class = row
+            city_name, unit_name, unit_count, attack, defense, durability, unit_class = row
+            if city_name not in cities_data:
+                cities_data[city_name] = {
+                    "class_1": {"count": 0, "total_stats": 0},
+                    "heroes": {"total_stats": 0, "present": False},
+                    "others": {"total_stats": 0}
+                }
             stats_sum = attack + defense + durability
-
             if unit_class == "1":
-                total_class_1_count += unit_count
-                total_class_1_stats += stats_sum * unit_count
+                cities_data[city_name]["class_1"]["count"] += unit_count
+                cities_data[city_name]["class_1"]["total_stats"] += stats_sum * unit_count
             elif unit_class in ("2", "3"):
-                # Герои не учитываются в базе мощности, только как источник бонуса
-                pass
-            else:  # класс 4 и выше
-                total_others_stats += stats_sum * unit_count
+                cities_data[city_name]["heroes"]["total_stats"] += stats_sum * unit_count
+                cities_data[city_name]["heroes"]["present"] = True
+            else:
+                cities_data[city_name]["others"]["total_stats"] += stats_sum * unit_count
 
-        # === ШАГ 3: Применяем ГЛОБАЛЬНЫЙ бонус ВСЕХ героев ===
-        # Суммарный бонус всех героев умножается на ОБЩЕЕ количество юнитов 1-го класса фракции
-        global_bonus = total_hero_stats * total_class_1_count
+        total_power = 0
+        for city, data in cities_data.items():
+            class_1_count = data["class_1"]["count"]
+            base_stats = data["class_1"]["total_stats"]
+            hero_bonus = data["heroes"]["total_stats"]
+            others_stats = data["others"]["total_stats"]
 
-        # Итоговая формула:
-        # Общая мощь = (база юнитов 1-го класса) + (глобальный бонус всех героев) + (юниты 4+ класса)
-        total_power = total_class_1_stats + global_bonus + total_others_stats
+            city_strength = 0
+            if data["heroes"]["present"] and class_1_count > 0:
+                # Гарнизон с героем: базовые статы + бонус героя на каждого юнита
+                city_strength += base_stats + hero_bonus * class_1_count
+            else:
+                # Гарнизон без героя: только базовые статы
+                city_strength += base_stats
 
-        # === ШАГ 4: Фракционные пассивные способности ===
-        # Учитываем бонус фракции и усиление в пиковый сезон
+            city_strength += others_stats
+            total_power += city_strength
+
+        # Фракционные пассивные способности
         FACTION_PASSIVE = {
-            'Север':   1.25,  # Шквал: x1.7 урон при 20x множителе → ~+25% средний бонус
-            'Эльфы':   1.10,  # Природное исцеление: 10% погибших возвращаются
-            'Вампиры': 1.08,  # Вампиризм: 5% врагов воскресают союзниками
-            'Адепты':  1.25,  # Стойкость: +25% защита всем юнитам 1 класса
-            'Элины':   1.05,  # Нет явной боевой пассивки
+            'Север':   1.25,
+            'Эльфы':   1.10,
+            'Вампиры': 1.08,
+            'Адепты':  1.25,
+            'Элины':   1.05,
         }
         faction_mult = FACTION_PASSIVE.get(faction, 1.0)
 
-        # В пиковый сезон бонус усиливается
         try:
             cursor.execute("SELECT season_index FROM season LIMIT 1")
             sr = cursor.fetchone()
             current_season = sr[0] if sr else -1
             PEAK_SEASON = {'Север': 0, 'Вампиры': 1, 'Эльфы': 2, 'Адепты': 3, 'Элины': 2}
             if PEAK_SEASON.get(faction) == current_season:
-                faction_mult *= 1.30  # В свой сезон ещё +30%
+                faction_mult *= 1.30
         except Exception:
             pass
 
         total_power = total_power * faction_mult
-
         return total_power
 
     except Exception as e:
