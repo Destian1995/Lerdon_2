@@ -616,10 +616,14 @@ class FortressInfoPopup(Popup):
                 _show_dark_error_popup("Нет войск", "У вас нет войск ни в одном городе.")
                 return
 
-            if target_faction == self.player_fraction:
-                # ── Свой город: допускаем все гарнизоны, до которых есть
-                #    непрерывный путь через свою территорию (BFS по roads,
-                #    проходим только через города своей фракции).
+            # Определяем: город свой или союзника (дружественный)
+            _is_ally_city = (target_faction != self.player_fraction and
+                             self.is_ally(self.player_fraction, target_faction))
+            _is_friendly = target_faction == self.player_fraction or _is_ally_city
+
+            if _is_friendly:
+                # ── Свой/союзный город: допускаем гарнизоны, до которых есть
+                #    непрерывный путь через дружественную территорию (BFS).
                 source_city_ids = set()
                 visited = {target_id}
                 queue = [target_id]
@@ -634,7 +638,8 @@ class FortressInfoPopup(Popup):
                             continue
                         cursor.execute("SELECT faction FROM cities WHERE id=?", (nbr_id,))
                         row = cursor.fetchone()
-                        if row and row[0] == self.player_fraction:
+                        if row and (row[0] == self.player_fraction or
+                                    self.is_ally(self.player_fraction, row[0])):
                             visited.add(nbr_id)
                             queue.append(nbr_id)
                             source_city_ids.add(nbr_id)
@@ -654,6 +659,8 @@ class FortressInfoPopup(Popup):
                 return
 
             placeholders = ','.join('?' * len(reachable_garr_ids))
+            # В город союзника — только юниты 1 класса (героев нельзя передавать)
+            _class_filter = "AND u.unit_class = '1'" if _is_ally_city else ""
             cursor.execute(f"""
                 SELECT g.city_name, g.unit_name, g.unit_count,
                        COALESCE(NULLIF(g.unit_image, ''), u.image_path, '') as unit_image,
@@ -663,6 +670,7 @@ class FortressInfoPopup(Popup):
                 JOIN units u ON u.unit_name = g.unit_name
                 WHERE c.id IN ({placeholders})
                   AND c.faction = ?
+                  {_class_filter}
             """, reachable_garr_ids + [self.player_fraction])
 
             rows = cursor.fetchall()

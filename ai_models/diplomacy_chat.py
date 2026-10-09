@@ -6686,8 +6686,19 @@ class EnhancedDiplomacyChat():
                     b.bind(on_press=handler)
                     quick_row.add_widget(b)
                 return
+            def _alliance_quick(inst):
+                """Союз в один клик: отправляем предложение, если AI просит подтверждение — подтверждаем."""
+                self.message_input.text = "Давай заключим союз"
+                self.send_diplomatic_message(inst)
+                # Проверяем, поставил ли AI stage alliance_offer
+                faction = self.selected_faction
+                _ctx = self.negotiation_context.get(faction, {})
+                if _ctx.get("stage") == "alliance_offer":
+                    self.message_input.text = "Согласен"
+                    self.send_diplomatic_message(inst)
+
             _main = [
-                ("Союз", _send_quick("Давай заключим союз")),
+                ("Союз", _alliance_quick),
                 ("Торговля", _show_trade_submenu),
                 ("Мир", _send_quick("Давай заключим мир")),
                 ("Коалиция", _show_coalition_submenu),
