@@ -2797,11 +2797,11 @@ class GameScreen(Screen):
         """
         cursor = self.conn.cursor()
         try:
-            # Проверяем, есть ли записи в таблице
-            cursor.execute("SELECT COUNT(*) FROM political_systems")
-            count = cursor.fetchone()[0]
+            # Всегда пересоздаём political_systems при старте новой игры
+            cursor.execute("DELETE FROM political_systems")
+            self.conn.commit()
 
-            if count == 0:
+            if True:
                 # Список всех фракций
                 factions = ["Север", "Эльфы", "Вампиры", "Адепты", "Элины"]
 
