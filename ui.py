@@ -628,10 +628,12 @@ class FortressInfoPopup(Popup):
 
         def _on_transfer(inst):
             popup.dismiss()
+            self._ally_transfer_mode = 'transfer'
             self.load_troops_by_type(troop_type, None, _transfer_mode='transfer')
 
         def _on_control(inst):
             popup.dismiss()
+            self._ally_transfer_mode = 'control'
             self.load_troops_by_type(troop_type, None, _transfer_mode='control')
 
         transfer_btn.bind(on_press=_on_transfer)
@@ -2467,7 +2469,42 @@ class FortressInfoPopup(Popup):
 
                 # Город союзника — выбор уже сделан в _show_ally_transfer_choice
                 if self.is_ally(current_player_kingdom, destination_owner):
-                    self.move_troops(source_fortress_name, destination_fortress_name, unit_name, taken_count)
+                    _mode = getattr(self, '_ally_transfer_mode', 'control')
+                    if _mode == 'transfer':
+                        # Передаём союзнику — конвертируем в его юнит 1 класса
+                        try:
+                            cursor.execute(
+                                "UPDATE garrisons SET unit_count = unit_count - ? WHERE city_name = ? AND unit_name = ?",
+                                (taken_count, source_fortress_name, unit_name))
+                            cursor.execute("DELETE FROM garrisons WHERE unit_count <= 0")
+                            cursor.execute(
+                                "SELECT unit_name, image_path FROM units WHERE faction = ? AND unit_class = '1' LIMIT 1",
+                                (destination_owner,))
+                            _ally_unit = cursor.fetchone()
+                            if _ally_unit:
+                                _ally_name, _ally_img = _ally_unit
+                                cursor.execute("""
+                                    INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                                    VALUES (?, ?, ?, ?)
+                                    ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
+                                """, (destination_fortress_name, _ally_name, taken_count, _ally_img or '', taken_count))
+                            self.conn.commit()
+                            try:
+                                from game_process import _active_game_screen
+                                gs = _active_game_screen
+                                if gs and hasattr(gs, 'faction'):
+                                    gs.faction.calculate_and_deduct_consumption()
+                                    gs.faction._sync_resources()
+                                    if hasattr(gs, 'resource_box'):
+                                        gs.resource_box.update_resources()
+                            except Exception:
+                                pass
+                            show_popup_message("Передача", f"{taken_count} юнитов передано фракции {destination_owner}")
+                        except Exception as e:
+                            print(f"[ALLY TRANSFER] Ошибка: {e}")
+                    else:
+                        # Под контролем игрока — просто перемещаем
+                        self.move_troops(source_fortress_name, destination_fortress_name, unit_name, taken_count)
                     return True
 
                 # Нейтральный город — захват без боя (кроме скрытых городов нежити до инвазии)
