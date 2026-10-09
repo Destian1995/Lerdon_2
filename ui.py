@@ -2737,15 +2737,14 @@ class FortressInfoPopup(Popup):
                     if destination_owner != 'Нежить':
                         captured = max(1, int(result['defending_losses'] * 0.10))
                         from kivy.clock import Clock
-                        # Добавляем пленных как дипломатическое уведомление (иконка игрока)
                         _cap = captured
                         _enemy = destination_owner
-                        _city = source_fortress_name
+                        _city = destination_fortress_name
                         try:
                             from game_process import _active_game_screen
                             gs = _active_game_screen
                             if gs and hasattr(gs, '_diplomacy_mailbox'):
-                                _msg = f"[ПЛЕН] {_cap} воинов {_enemy} сдались в плен после битвы за {_city}"
+                                _msg = f"[ПЛЕН] {_cap} воинов {_enemy} после битвы за {_city}"
                                 def _on_prisoner_respond(faction, message, gs=gs, cap=_cap, enemy=_enemy, city=_city):
                                     Clock.schedule_once(lambda dt: _show_prisoners_of_war(
                                         self.conn, cap, enemy, source_owner, city
@@ -2760,7 +2759,7 @@ class FortressInfoPopup(Popup):
                             print(f"[PRISONERS] Fallback to popup: {_pe}")
                             Clock.schedule_once(lambda dt: _show_prisoners_of_war(
                                 self.conn, captured, destination_owner,
-                                source_owner, source_fortress_name
+                                source_owner, destination_fortress_name
                             ), 0.5)
 
         except sqlite3.Error as e:
@@ -3034,91 +3033,68 @@ from game_process import refresh_map
 def _show_prisoners_of_war(conn, captured_count, enemy_faction, player_faction, city_name):
     """Popup выбора: что делать с пленными после победы."""
     from kivy.uix.popup import Popup
-    from kivy.uix.floatlayout import FloatLayout
+    from kivy.uix.boxlayout import BoxLayout
     from kivy.uix.label import Label
     from kivy.uix.button import Button
-    from kivy.graphics import Color, RoundedRectangle, Rectangle
+    from kivy.uix.widget import Widget
+    from kivy.graphics import Color as _PCol, RoundedRectangle as _PRR
     from kivy.metrics import dp, sp
-    from kivy.animation import Animation
 
-    _is_mobile = platform in ('android', 'ios')
+    _is_m = platform in ('android', 'ios')
+    _fs = sp(14) if _is_m else sp(13)
 
-    content = FloatLayout()
-
-    # Тёмный фон
-    with content.canvas.before:
-        Color(0.06, 0.07, 0.12, 1)
-        content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(16)])
-    content.bind(
-        pos=lambda i, v: setattr(i._bg, 'pos', v),
-        size=lambda i, v: setattr(i._bg, 'size', v)
-    )
+    content = BoxLayout(orientation='vertical', spacing=dp(10),
+                        padding=[dp(16), dp(14), dp(16), dp(14)])
 
     # Заголовок
-    title = Label(
-        text=f"[b]Пленные после битвы за {city_name}[/b]",
-        markup=True, font_size=sp(18),
-        color=(0.92, 0.82, 0.52, 1),
-        size_hint=(0.9, None), height=dp(30),
-        pos_hint={'center_x': 0.5, 'top': 0.94},
-        halign='center',
-    )
-    title.bind(size=title.setter('text_size'))
+    _title = Label(text=f"[b]Пленные — {city_name}[/b]", markup=True,
+                   font_size=sp(17) if _is_m else sp(15),
+                   halign='center', valign='middle',
+                   color=(0.95, 0.85, 0.4, 1),
+                   size_hint_y=None, height=dp(32))
+    _title.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
+    content.add_widget(_title)
 
     # Описание
-    desc = Label(
-        text=f"{format_number(captured_count)} воинов {enemy_faction} сдались в плен.\nЧто прикажете с ними сделать?",
-        font_size=sp(14),
-        color=(0.8, 0.82, 0.88, 1),
-        size_hint=(0.85, None), height=dp(50),
-        pos_hint={'center_x': 0.5, 'top': 0.78},
-        halign='center', valign='middle',
-    )
-    desc.bind(size=desc.setter('text_size'))
+    _desc = Label(
+        text=f"[b]{format_number(captured_count)}[/b] воинов {enemy_faction} сдались в плен",
+        markup=True, font_size=_fs, halign='center', valign='middle',
+        color=(0.8, 0.85, 0.95, 1),
+        size_hint_y=None, height=dp(28))
+    _desc.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
+    content.add_widget(_desc)
 
-    def _make_btn(text, color, y_pos):
-        btn = Button(
-            text=text, font_size=sp(13), bold=True,
-            size_hint=(0.85, None), height=dp(44),
-            pos_hint={'center_x': 0.5, 'y': y_pos},
-            background_normal='', background_color=(0, 0, 0, 0),
-            color=(1, 1, 1, 1),
-        )
-        with btn.canvas.before:
-            Color(*color)
-            btn._bg = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(10)])
-        btn.bind(
-            pos=lambda i, v: setattr(i._bg, 'pos', v),
-            size=lambda i, v: setattr(i._bg, 'size', v)
-        )
-        return btn
+    content.add_widget(Widget(size_hint_y=1))
 
-    btn_release = _make_btn(
-        f"Отпустить (+15% отношений со всеми)",
-        (0.15, 0.55, 0.30, 1), 0.48
-    )
-    btn_recruit = _make_btn(
-        f"Принять в армию ({format_number(captured_count)} бойцов, +5% отношений)",
-        (0.20, 0.40, 0.65, 1), 0.32
-    )
-    btn_execute = _make_btn(
-        f"Казнить (-10% отн., +25% урон на 3 хода)",
-        (0.60, 0.15, 0.15, 1), 0.16
-    )
+    # Кнопки
+    btn_recruit = Button(
+        text=f"Принять в армию ({format_number(captured_count)} бойцов)",
+        font_size=_fs, bold=True,
+        size_hint_y=None, height=dp(44),
+        background_normal='', background_color=(0.15, 0.5, 0.7, 1))
 
-    content.add_widget(title)
-    content.add_widget(desc)
-    content.add_widget(btn_release)
+    btn_release = Button(
+        text="Отпустить (+15% отношений)",
+        font_size=_fs, bold=True,
+        size_hint_y=None, height=dp(44),
+        background_normal='', background_color=(0.15, 0.55, 0.25, 1))
+
+    btn_execute = Button(
+        text="Казнить (+25% урон на 3 хода)",
+        font_size=_fs, bold=True,
+        size_hint_y=None, height=dp(44),
+        background_normal='', background_color=(0.55, 0.15, 0.15, 1))
+
     content.add_widget(btn_recruit)
+    content.add_widget(btn_release)
     content.add_widget(btn_execute)
 
     popup = Popup(
         title='', separator_height=0,
         content=content,
-        size_hint=(0.88 if _is_mobile else 0.55, None),
-        height=dp(380) if _is_mobile else dp(340),
+        size_hint=(0.92 if _is_m else 0.45, 0.55 if _is_m else 0.5),
         auto_dismiss=False,
-        background='', background_color=(0, 0, 0, 0.6),
+        background='', background_color=(0.04, 0.05, 0.09, 0.98),
     )
 
     def _apply_choice(choice):
@@ -3220,6 +3196,4 @@ def _show_prisoners_of_war(conn, captured_count, enemy_faction, player_faction, 
     btn_recruit.bind(on_release=lambda *a: _apply_choice('recruit'))
     btn_execute.bind(on_release=lambda *a: _apply_choice('execute'))
 
-    popup.opacity = 0
     popup.open()
-    Animation(opacity=1, duration=0.25).start(popup)
