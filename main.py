@@ -264,17 +264,12 @@ def clear_tables(conn):
 
     cursor = conn.cursor()
 
-    try:
-        for table in tables_to_clear:
-            # Используем TRUNCATE или DELETE для очистки таблицы
+    for table in tables_to_clear:
+        try:
             cursor.execute(f"DELETE FROM {table};")
-            print(f"Таблица '{table}' успешно очищена.")
-
-        # Фиксируем изменения
-        conn.commit()
-    except sqlite3.Error as e:
-        print(f"Ошибка при очистке таблиц: {e}")
-        conn.rollback()  # Откат изменений в случае ошибки
+        except sqlite3.Error:
+            pass  # Таблица может не существовать
+    conn.commit()
 
 
 class AuthorScreen(Screen):
