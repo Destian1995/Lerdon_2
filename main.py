@@ -2725,6 +2725,15 @@ class KingdomSelectionWidget(MDFloatLayout):
     def cleanup_and_start_game(self):
         """Очистка и запуск игры"""
         restore_from_backup(self.conn)
+        # Фиксируем идеологию из спиннера прямо перед стартом
+        _spinner_text = self.ideology_spinner.text if hasattr(self, 'ideology_spinner') else 'Случайная'
+        if _spinner_text == 'Смирение':
+            self.selected_ideology = 'Смирение'
+        elif _spinner_text == 'Борьба':
+            self.selected_ideology = 'Борьба'
+        else:
+            self.selected_ideology = 'random'
+        print(f"[START] Идеология при старте: {self.selected_ideology} (спиннер: {_spinner_text})")
         # Очищаем оверлей
         if hasattr(self, 'overlay') and self.overlay in self.children:
             self.remove_widget(self.overlay)
