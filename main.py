@@ -2724,6 +2724,9 @@ class KingdomSelectionWidget(MDFloatLayout):
 
     def cleanup_and_start_game(self):
         """Очистка и запуск игры"""
+        # Сначала очищаем все игровые таблицы, потом восстанавливаем дефолты
+        clear_tables(self.conn)
+        self.conn.commit()
         restore_from_backup(self.conn)
         # Фиксируем идеологию из спиннера прямо перед стартом
         _spinner_text = self.ideology_spinner.text if hasattr(self, 'ideology_spinner') else 'Случайная'
