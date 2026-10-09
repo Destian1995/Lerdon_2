@@ -680,14 +680,31 @@ class FortressInfoPopup(Popup):
                 self._show_ally_transfer_choice(troop_type, target_faction)
                 return
 
-            # Получаем все гарнизонные города игрока (включая перешедших юнитов других фракций)
-            cursor.execute("""
+            # Получаем все города где есть войска игрока (свои + союзные)
+            # Сначала находим фракции-союзники
+            _ally_factions = []
+            try:
+                cursor.execute("""
+                    SELECT DISTINCT faction1, faction2 FROM diplomacies
+                    WHERE relationship = 'союз'
+                """)
+                for f1, f2 in cursor.fetchall():
+                    if f1 == self.player_fraction:
+                        _ally_factions.append(f2)
+                    elif f2 == self.player_fraction:
+                        _ally_factions.append(f1)
+            except Exception:
+                pass
+            _friendly_factions = [self.player_fraction] + _ally_factions
+            _ff_ph = ','.join('?' * len(_friendly_factions))
+            cursor.execute(f"""
                 SELECT DISTINCT c.id, c.name
                 FROM garrisons g
                 JOIN cities c ON c.name = g.city_name
-                WHERE c.faction = ?
-            """, (self.player_fraction,))
-            all_garr = cursor.fetchall()  # [(city_id, city_name), ...]
+                JOIN units u ON u.unit_name = g.unit_name
+                WHERE c.faction IN ({_ff_ph}) AND u.faction = ?
+            """, _friendly_factions + [self.player_fraction])
+            all_garr = cursor.fetchall()
 
             if not all_garr:
                 _show_dark_error_popup("Нет войск", "У вас нет войск ни в одном городе.")
@@ -746,7 +763,7 @@ class FortressInfoPopup(Popup):
                 JOIN cities c ON c.name = g.city_name
                 JOIN units u ON u.unit_name = g.unit_name
                 WHERE c.id IN ({placeholders})
-                  AND c.faction = ?
+                  AND u.faction = ?
                   {_class_filter}
             """, reachable_garr_ids + [self.player_fraction])
 
