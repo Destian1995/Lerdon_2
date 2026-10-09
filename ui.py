@@ -615,7 +615,7 @@ class FortressInfoPopup(Popup):
         _is_m = platform in ('android', 'ios')
 
         popup = _ATPop(title='', content=content,
-                        size_hint=(0.92 if _is_m else 0.5, 0.5 if _is_m else 0.45),
+                        size_hint=(0.95 if _is_m else 0.5, 0.9 if _is_m else 0.7),
                         auto_dismiss=False, separator_height=0,
                         background='', background_color=(0.04, 0.05, 0.09, 0.98))
 
