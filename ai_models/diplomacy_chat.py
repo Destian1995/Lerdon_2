@@ -6510,8 +6510,10 @@ class EnhancedDiplomacyChat():
                     need_resource = 'Кроны'
                     need_label = 'крон'
 
-                # Базовая сумма — то, чего не хватает AI
-                base_amount = ai_resources[need_resource]
+                # Базовая сумма — дефицит (разница между ресурсами AI)
+                _max_res = max(ai_resources['Кроны'], ai_resources['Кристаллы'])
+                _min_res = ai_resources[need_resource]
+                base_amount = max(1000, int(_max_res - _min_res))
 
                 # Множитель и бонус в зависимости от уровня отношений
                 if relation_level < 25:
