@@ -582,11 +582,79 @@ class FortressInfoPopup(Popup):
             print(f"Ошибка при получении данных о зданиях: {e}")
             return []
 
-    def load_troops_by_type(self, troop_type, previous_popup):
+    def _show_ally_transfer_choice(self, troop_type, ally_faction):
+        """Popup: передать войска союзнику или оставить под контролем."""
+        from kivy.uix.popup import Popup as _ATPop
+        from kivy.uix.boxlayout import BoxLayout as _ATBox
+        from kivy.uix.button import Button as _ATBtn
+        from kivy.uix.label import Label as _ATLbl
+        from kivy.metrics import dp as _dp, sp as _sp
+
+        content = _ATBox(orientation='vertical', spacing=_dp(10), padding=_dp(14))
+
+        _title = _ATLbl(text=f"[b]Город фракции {ally_faction}[/b]", markup=True,
+                         font_size=_sp(16), halign='center', valign='middle',
+                         color=(0.95, 0.85, 0.4, 1), size_hint_y=None, height=_dp(36))
+        _title.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
+        content.add_widget(_title)
+
+        _desc = _ATLbl(text="Передать войска союзнику\nили оставить под своим командованием?",
+                        font_size=_sp(13), halign='center', valign='middle',
+                        color=(0.8, 0.85, 0.95, 1), size_hint_y=None, height=_dp(44))
+        _desc.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
+        content.add_widget(_desc)
+
+        _hint = _ATLbl(text="При передаче доступны только обычные юниты (класс 1).\n"
+                             "Под вашим командованием — все юниты включая героев.",
+                        font_size=_sp(11), halign='center', valign='middle',
+                        color=(0.55, 0.6, 0.7, 1), size_hint_y=None, height=_dp(40))
+        _hint.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
+        content.add_widget(_hint)
+
+        btn_row = _ATBox(size_hint_y=None, height=_dp(46), spacing=_dp(10))
+        _is_m = platform in ('android', 'ios')
+
+        popup = _ATPop(title='', content=content,
+                        size_hint=(0.92 if _is_m else 0.5, 0.5 if _is_m else 0.45),
+                        auto_dismiss=False, separator_height=0,
+                        background='', background_color=(0.04, 0.05, 0.09, 0.98))
+
+        transfer_btn = _ATBtn(text="Передать союзнику", background_normal='',
+                               background_color=(0.15, 0.55, 0.25, 1),
+                               font_size=_sp(13), bold=True)
+        control_btn = _ATBtn(text="Под моим командованием", background_normal='',
+                              background_color=(0.2, 0.4, 0.8, 1),
+                              font_size=_sp(13), bold=True)
+
+        def _on_transfer(inst):
+            popup.dismiss()
+            self.load_troops_by_type(troop_type, None, _transfer_mode='transfer')
+
+        def _on_control(inst):
+            popup.dismiss()
+            self.load_troops_by_type(troop_type, None, _transfer_mode='control')
+
+        transfer_btn.bind(on_press=_on_transfer)
+        control_btn.bind(on_press=_on_control)
+        btn_row.add_widget(transfer_btn)
+        btn_row.add_widget(control_btn)
+        content.add_widget(btn_row)
+
+        cancel_btn = _ATBtn(text="Отмена", background_normal='',
+                             background_color=(0.5, 0.15, 0.15, 1),
+                             font_size=_sp(12), size_hint_y=None, height=_dp(38))
+        cancel_btn.bind(on_press=lambda i: popup.dismiss())
+        content.add_widget(cancel_btn)
+
+        popup.open()
+
+    def load_troops_by_type(self, troop_type, previous_popup, _transfer_mode=None):
         """
         Загружает войска из гарнизонов в зависимости от выбранного типа.
         :param troop_type: Тип войск ("Defensive", "Offensive", "Any").
         :param previous_popup: Предыдущее всплывающее окно для закрытия.
+        :param _transfer_mode: None (авто), 'transfer' (передать союзнику, class 1),
+                               'control' (под контролем игрока, все классы).
         """
         try:
             if previous_popup is not None:
@@ -602,6 +670,13 @@ class FortressInfoPopup(Popup):
                 _show_dark_error_popup("Ошибка", f"Город '{target_city}' не найден.")
                 return
             target_id, target_faction = target_row
+
+            # Если город союзника и режим не задан — спрашиваем
+            _is_ally_target = (target_faction != self.player_fraction and
+                               self.is_ally(self.player_fraction, target_faction))
+            if _is_ally_target and _transfer_mode is None:
+                self._show_ally_transfer_choice(troop_type, target_faction)
+                return
 
             # Получаем все гарнизонные города игрока (включая перешедших юнитов других фракций)
             cursor.execute("""
@@ -659,8 +734,8 @@ class FortressInfoPopup(Popup):
                 return
 
             placeholders = ','.join('?' * len(reachable_garr_ids))
-            # В город союзника — только юниты 1 класса (героев нельзя передавать)
-            _class_filter = "AND u.unit_class = '1'" if _is_ally_city else ""
+            # Передача союзнику — только юниты 1 класса; под контролем игрока — все
+            _class_filter = "AND u.unit_class = '1'" if _transfer_mode == 'transfer' else ""
             cursor.execute(f"""
                 SELECT g.city_name, g.unit_name, g.unit_count,
                        COALESCE(NULLIF(g.unit_image, ''), u.image_path, '') as unit_image,
