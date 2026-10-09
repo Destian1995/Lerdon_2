@@ -1024,6 +1024,9 @@ def make_turn_v2(self):
             self.attack_enemy_cities()
         elif self.faction == "Нежить":
             print("Фракция 'Нежить' — нашествие мёртвых. Атакуем всех!")
+            from undead_invasion import _declare_war_to_all
+            _declare_war_to_all(self.cursor)
+            self.db_connection.commit()
             self._undead_attack_nearest_cities()
         else:
             self.update_resources()

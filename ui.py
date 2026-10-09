@@ -2356,7 +2356,11 @@ class FortressInfoPopup(Popup):
                 return False
 
             # Проверяем маршрут для движения
-            if source_owner == self.player_fraction and destination_owner == self.player_fraction:
+            _src_is_friendly = (source_owner == self.player_fraction or
+                                self.is_ally(self.player_fraction, source_owner))
+            _dst_is_friendly = (destination_owner == self.player_fraction or
+                                self.is_ally(self.player_fraction, destination_owner))
+            if _src_is_friendly and _dst_is_friendly:
                 if not (self.has_road_between_cities(source_fortress_name, destination_fortress_name) or
                         self.has_own_territory_path(source_fortress_name, destination_fortress_name,
                                                    self.player_fraction)):
@@ -2524,19 +2528,44 @@ class FortressInfoPopup(Popup):
                     return False
 
 
-            # 2) Сценарий: войска в городе союзника
+            # 2) Сценарий: войска в городе союзника — те же правила что из своего города
             elif self.is_ally(current_player_kingdom, source_owner):
 
+                # К себе или к союзнику — просто перемещаем
                 if (destination_owner == current_player_kingdom or
                         self.is_ally(current_player_kingdom, destination_owner)):
-
                     self.move_troops(source_fortress_name, destination_fortress_name, unit_name, taken_count)
                     return True
 
+                # Нейтральный город — захват
+                elif dest_kingdom == "Нейтрал":
+                    cursor.execute("SELECT COALESCE(is_undead, 0) FROM cities WHERE name = ?",
+                                   (destination_fortress_name,))
+                    undead_row = cursor.fetchone()
+                    if undead_row and undead_row[0]:
+                        from undead_invasion import is_invasion_active
+                        if not is_invasion_active(self.conn):
+                            show_popup_message("Невозможно", "Тёмная сила защищает это место. Город невозможно захватить.")
+                            return False
+                    self.capture_city(destination_fortress_name, current_player_kingdom, self.selected_group)
+                    return True
+
+                # Вражеский город — атака
                 else:
-                    show_popup_message("Нет дороги",
-                                       "Нет дороги к этому городу")
-                    return False
+                    relationship = self.get_relationship(current_player_kingdom, destination_owner)
+                    if relationship == "война":
+                        battle_units = attacking_units if attacking_units is not None else self.selected_group
+                        self.start_battle_group(source_fortress_name,
+                                                destination_fortress_name,
+                                                battle_units)
+                        return True
+                    elif relationship == "нейтралитет":
+                        show_popup_message("Дипломатия",
+                                           f"Сначала надо объявить им войну.\nГород контролируется фракцией '{destination_owner}'.")
+                        return False
+                    else:
+                        show_popup_message("Нет дороги", "Нет дороги к этому городу.")
+                        return False
 
             # 3) Во всех остальных случаях (нейтральный или враждебный источник)
             else:

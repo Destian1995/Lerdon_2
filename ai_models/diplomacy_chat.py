@@ -6369,7 +6369,7 @@ class EnhancedDiplomacyChat():
             quick_row.add_widget(back_btn)
 
         def _show_rebel_attack(inst):
-            """Показывает вражеские города, граничащие с городами игрока, для атаки Мятежников."""
+            """Показывает вражеские города, граничащие с городами игрока или мятежников, для атаки."""
             quick_row.clear_widgets()
             try:
                 cursor = self.db_connection.cursor()
@@ -6426,7 +6426,7 @@ class EnhancedDiplomacyChat():
                             targets.append((neighbor, n_row[0]))
 
                 if not targets:
-                    self.add_chat_message_system("Нет вражеских городов рядом с вашими владениями.")
+                    self.add_chat_message_system("Нет вражеских городов рядом с нашими владениями.")
                     _show_main_buttons()
                     return
 
