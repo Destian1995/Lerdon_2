@@ -643,8 +643,8 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         if total_initial == 0:
             return
         loss_pct = (total_initial - total_current) / total_initial * 100
-        if loss_pct < 50:
-            return  # Потери < 50% — мораль держится
+        if loss_pct < 70:
+            return  # Потери < 70% — мораль держится
         for u in army:
             if u['unit_count'] <= 0 or get_unit_class(u) >= 2:
                 continue  # Герои не бегут
