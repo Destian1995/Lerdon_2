@@ -912,7 +912,7 @@ class GameScreen(Screen):
         Clock.schedule_once(lambda dt: self.update_cash(dt), 0)
         Clock.schedule_once(lambda dt: self.update_army_rating(dt), 0)
         self.scheduled_events['update_cash'] = Clock.schedule_interval(self.update_cash, 5)
-        self.scheduled_events['update_army_rating'] = Clock.schedule_interval(self.update_army_rating, 10)
+        # update_army_rating вызывается по событию (refresh_map, конец хода), а не по таймеру
         self.diplomacy_ai_factory = None
 
         # === Отслеживание дипломатии ===
