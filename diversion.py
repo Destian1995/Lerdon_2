@@ -660,6 +660,13 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
         success = True
         message = f"Мятеж в городе {target_city} успешен!"
 
+        # Перерисовка карты — город сменил владельца
+        try:
+            from game_process import refresh_map
+            refresh_map()
+        except Exception:
+            pass
+
         # --- Объявляем войну между Мятежниками и фракцией, которой принадлежал город ---
         cursor.execute("""
             SELECT relationship FROM diplomacies
