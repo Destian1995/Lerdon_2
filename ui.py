@@ -1606,9 +1606,22 @@ class FortressInfoPopup(Popup):
             _eff_atk = attack + hero_bonus_atk
             _eff_def = defense + hero_bonus_def
             _eff_dur = durability + hero_bonus_dur
+            # Север: Шквал — финальная атака с x1.7
+            if self.ai_fraction == 'Север' and hero_bonus_atk > 0:
+                _shkval_atk = int(_eff_atk * 1.7)
+                _eff_atk = _shkval_atk
+            # Адепты: Стойкость — финальная защита с +25%
+            if self.ai_fraction == 'Адепты' and hero_bonus_def > 0:
+                _eff_def = int(_eff_def * 1.25)
             if _has_hero:
-                _atk_text = f'({format_number(attack)}+{format_number(hero_bonus_atk)}) × {format_number(_cnt)} = {format_number(_eff_atk * _cnt)}'
-                _def_text = f'({format_number(defense)}+{format_number(hero_bonus_def)}) × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'
+                if self.ai_fraction == 'Север' and hero_bonus_atk > 0:
+                    _atk_text = f'Шквал: {format_number(_eff_atk)} × {format_number(_cnt)} = {format_number(_eff_atk * _cnt)}'
+                else:
+                    _atk_text = f'({format_number(attack)}+{format_number(hero_bonus_atk)}) × {format_number(_cnt)} = {format_number(_eff_atk * _cnt)}'
+                if self.ai_fraction == 'Адепты' and hero_bonus_def > 0:
+                    _def_text = f'Стойк: {format_number(_eff_def)} × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'
+                else:
+                    _def_text = f'({format_number(defense)}+{format_number(hero_bonus_def)}) × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'
                 _dur_text = f'({format_number(durability)}+{format_number(hero_bonus_dur)}) × {format_number(_cnt)} = {format_number(_eff_dur * _cnt)}'
             else:
                 _atk_text = f'{format_number(attack)} × {format_number(_cnt)} = {format_number(attack * _cnt)}'
