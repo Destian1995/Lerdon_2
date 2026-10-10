@@ -912,7 +912,7 @@ class GameScreen(Screen):
         Clock.schedule_once(lambda dt: self.update_cash(dt), 0)
         Clock.schedule_once(lambda dt: self.update_army_rating(dt), 0)
         self.scheduled_events['update_cash'] = Clock.schedule_interval(self.update_cash, 5)
-        self.scheduled_events['update_army_rating'] = Clock.schedule_interval(self.update_army_rating, 3)
+        self.scheduled_events['update_army_rating'] = Clock.schedule_interval(self.update_army_rating, 10)
         self.diplomacy_ai_factory = None
 
         # === Отслеживание дипломатии ===
@@ -3407,9 +3407,34 @@ class GameScreen(Screen):
         except sqlite3.Error:
             pass
 
+        # Батч-загрузка силы армий по городам (одним запросом)
+        _city_strengths = {}
+        _faction_totals = {}
+        try:
+            cursor.execute("""
+                SELECT g.city_name, u.faction, COALESCE(SUM(g.unit_count * (u.attack + u.defense + u.durability)), 0)
+                FROM garrisons g JOIN units u ON g.unit_name = u.unit_name
+                GROUP BY g.city_name, u.faction
+            """)
+            for _cn, _uf, _str in cursor.fetchall():
+                _city_strengths[(_cn, _uf)] = _str
+                _faction_totals[_uf] = _faction_totals.get(_uf, 0) + _str
+        except Exception:
+            pass
+
+        # Батч-загрузка дипломатии (одним запросом)
+        _diplomacy_cache = {}
+        try:
+            cursor.execute("SELECT faction1, faction2, relationship FROM diplomacies WHERE faction1 = ?",
+                           (self.selected_faction,))
+            for _f1, _f2, _rel in cursor.fetchall():
+                _diplomacy_cache[_f2] = _rel
+        except Exception:
+            pass
+
         new_dict = {}
         for faction, cities_list in factions_cities.items():
-            total_strength = self.get_total_army_strength_by_faction(faction)
+            total_strength = _faction_totals.get(faction, 0)
             for city_name, coords_str, kf_crystal_val, city_faction in cities_list:
                 try:
                     coords = eval(coords_str)
@@ -3420,10 +3445,10 @@ class GameScreen(Screen):
 
                 has_hero = city_name in cities_with_heroes
 
-                # --- Расчет силы армии в городе ---
-                city_strength = self.get_city_army_strength_by_faction(city_name, faction)
-                star_level = 0  # По умолчанию 0 звезд
-                if total_strength > 0 and city_strength > 0:  # Избегаем деления на 0
+                # --- Расчет силы армии в городе (из кеша) ---
+                city_strength = _city_strengths.get((city_name, faction), 0)
+                star_level = 0
+                if total_strength > 0 and city_strength > 0:
                     percent = (city_strength / total_strength) * 100
                     if percent < 35:
                         star_level = 1
@@ -3432,31 +3457,22 @@ class GameScreen(Screen):
                     else:
                         star_level = 3
 
-                # --- Определение иконки идеологии ---
-                # Тип иконки по идеологии фракции, цвет по дипломатическому статусу
+                # --- Определение иконки идеологии (из кеша дипломатии) ---
                 ideology_icon_path = None
                 if faction in faction_ideologies:
-                    city_ideology = faction_ideologies[faction]  # "submission" или "struggle"
+                    city_ideology = faction_ideologies[faction]
                     icon_set = self.IDEOLOGY_ICON_MAP.get(city_ideology)
                     if icon_set:
                         if faction == self.selected_faction:
-                            # Свои города — зелёные
                             ideology_icon_path = icon_set['ally']
                         else:
-                            # Определяем дип. статус с фракцией города
-                            _dip_status = 'neutral'
-                            try:
-                                self.cursor.execute(
-                                    "SELECT relationship FROM diplomacies WHERE faction1=? AND faction2=?",
-                                    (self.selected_faction, faction))
-                                _dip_row = self.cursor.fetchone()
-                                if _dip_row:
-                                    if _dip_row[0] == 'союз':
-                                        _dip_status = 'ally'
-                                    elif _dip_row[0] == 'война':
-                                        _dip_status = 'war'
-                            except Exception:
-                                pass
+                            _rel = _diplomacy_cache.get(faction, '')
+                            if _rel == 'союз':
+                                _dip_status = 'ally'
+                            elif _rel == 'война':
+                                _dip_status = 'war'
+                            else:
+                                _dip_status = 'neutral'
                             ideology_icon_path = icon_set[_dip_status]
 
                     if ideology_icon_path and not self._check_file(ideology_icon_path):

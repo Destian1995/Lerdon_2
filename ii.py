@@ -4845,30 +4845,25 @@ class AIController:
                     break
                 hero_city_id = _hid_row[0]
 
+                # Батч: соседи + их фракции + защита — одним запросом
                 self.cursor.execute("""
-                    SELECT CASE WHEN city1=? THEN city2 ELSE city1 END
-                    FROM roads WHERE city1=? OR city2=?
+                    SELECT c.name, c.faction,
+                           COALESCE((SELECT SUM(g.unit_count * (u.defense + u.durability))
+                                     FROM garrisons g JOIN units u ON g.unit_name = u.unit_name
+                                     WHERE g.city_name = c.name), 0) as def_str
+                    FROM roads r
+                    JOIN cities c ON c.id = CASE WHEN r.city1=? THEN r.city2 ELSE r.city1 END
+                    WHERE r.city1=? OR r.city2=?
                 """, (hero_city_id, hero_city_id, hero_city_id))
-                neighbor_ids = [r[0] for r in self.cursor.fetchall()]
+                _neighbors = self.cursor.fetchall()
 
                 best_target = None
                 best_target_faction = None
                 weakest_def = float('inf')
 
-                for nid in neighbor_ids:
-                    self.cursor.execute("SELECT name, faction FROM cities WHERE id = ?", (nid,))
-                    nr = self.cursor.fetchone()
-                    if not nr or nr[1] not in at_war:
+                for target_name, target_faction, enemy_def in _neighbors:
+                    if target_faction not in at_war:
                         continue
-                    target_name, target_faction = nr
-
-                    # Считаем защиту вражеского города
-                    self.cursor.execute("""
-                        SELECT COALESCE(SUM(g.unit_count * (u.defense + u.durability)), 0)
-                        FROM garrisons g JOIN units u ON g.unit_name = u.unit_name
-                        WHERE g.city_name = ?
-                    """, (target_name,))
-                    enemy_def = self.cursor.fetchone()[0]
 
                     # Атакуем только если мы сильнее в 1.3 раза
                     if our_strength > enemy_def * 1.3 and enemy_def < weakest_def:

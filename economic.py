@@ -1106,10 +1106,10 @@ class Faction:
             self.cursor.execute("SELECT city_name, unit_name, unit_count FROM garrisons")
             garrisons = self.cursor.fetchall()
 
-            # Шаг 3: Batch-загрузка всех юнитов за один запрос
-            self.cursor.execute("SELECT unit_name, consumption, faction FROM units")
+            # Шаг 3: Batch-загрузка всех юнитов за один запрос (включая unit_class)
+            self.cursor.execute("SELECT unit_name, consumption, faction, unit_class FROM units")
             faction_units = {
-                row[0]: {'consumption': row[1], 'faction': row[2]}
+                row[0]: {'consumption': row[1], 'faction': row[2], 'unit_class': row[3]}
                 for row in self.cursor.fetchall()
             }
 
@@ -1137,12 +1137,8 @@ class Faction:
                 def _get_unit_class_int(uname):
                     info = faction_units.get(uname, {})
                     try:
-                        self.cursor.execute(
-                            "SELECT CAST(unit_class AS INTEGER) FROM units WHERE unit_name = ? LIMIT 1",
-                            (uname,))
-                        r = self.cursor.fetchone()
-                        return r[0] if r else 1
-                    except Exception:
+                        return int(info.get('unit_class', 1))
+                    except (ValueError, TypeError):
                         return 1
 
                 # Фильтруем гарнизоны своих городов

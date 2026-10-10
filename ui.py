@@ -1,4 +1,5 @@
 from db_lerdon_connect import *
+from kivy.uix.image import AsyncImage
 
 from fight import fight
 from utils.helpers import format_number
@@ -716,24 +717,27 @@ class FortressInfoPopup(Popup):
             _is_friendly = target_faction == self.player_fraction or _is_ally_city
 
             if _is_friendly:
-                # ── Свой/союзный город: допускаем гарнизоны, до которых есть
-                #    непрерывный путь через дружественную территорию (BFS).
+                # ── Свой/союзный город: BFS с предзагрузкой
+                # Батч-загрузка: все фракции городов и дороги
+                cursor.execute("SELECT id, faction FROM cities")
+                _city_factions = {r[0]: r[1] for r in cursor.fetchall()}
+                cursor.execute("SELECT city1, city2 FROM roads")
+                _road_adj = {}
+                for c1, c2 in cursor.fetchall():
+                    _road_adj.setdefault(c1, []).append(c2)
+                    _road_adj.setdefault(c2, []).append(c1)
+
                 source_city_ids = set()
                 visited = {target_id}
                 queue = [target_id]
                 while queue:
                     cur = queue.pop(0)
-                    cursor.execute("""
-                        SELECT CASE WHEN city1=? THEN city2 ELSE city1 END
-                        FROM roads WHERE city1=? OR city2=?
-                    """, (cur, cur, cur))
-                    for (nbr_id,) in cursor.fetchall():
+                    for nbr_id in _road_adj.get(cur, []):
                         if nbr_id in visited:
                             continue
-                        cursor.execute("SELECT faction FROM cities WHERE id=?", (nbr_id,))
-                        row = cursor.fetchone()
-                        if row and (row[0] == self.player_fraction or
-                                    self.is_ally(self.player_fraction, row[0])):
+                        _nbr_faction = _city_factions.get(nbr_id)
+                        if _nbr_faction and (_nbr_faction == self.player_fraction or
+                                    self.is_ally(self.player_fraction, _nbr_faction)):
                             visited.add(nbr_id)
                             queue.append(nbr_id)
                             source_city_ids.add(nbr_id)
@@ -873,7 +877,7 @@ class FortressInfoPopup(Popup):
                 img_box._bgr = RoundedRectangle(pos=img_box.pos, size=img_box.size, radius=[dp(6)])
             img_box.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
                          size=lambda i, v: setattr(i._bgr, 'size', v))
-            img_box.add_widget(Image(source=unit_image, size=(_img_h, _img_h), size_hint=(None, None)))
+            img_box.add_widget(AsyncImage(source=unit_image, size=(_img_h, _img_h), size_hint=(None, None)))
 
             btn_add = Button(
                 text="Добавить",
@@ -1834,8 +1838,8 @@ class FortressInfoPopup(Popup):
                 card.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
                           size=lambda i, v: setattr(i._bgr, 'size', v))
 
-                # Изображение
-                image = Image(
+                # Изображение (асинхронная загрузка)
+                image = AsyncImage(
                     source=unit_image,
                     size_hint=(None, None),
                     size=(image_size, image_size)
