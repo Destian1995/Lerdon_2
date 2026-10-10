@@ -1499,6 +1499,23 @@ class FortressInfoPopup(Popup):
                     exp_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
                     info.add_widget(exp_lbl)
 
+                    # Бонус фракции (наглядно для юнитов 1 класса)
+                    _faction_bonus_text = None
+                    if self.ai_fraction == 'Север' and _hero_bonus_atk > 0:
+                        _total_atk = unit_attack + _hero_bonus_atk
+                        _faction_bonus_text = f"[color=#FF6644]Шквал: {format_number(int(_total_atk))} ATK (x1.7)[/color]"
+                    elif self.ai_fraction == 'Адепты' and _hero_bonus_def > 0:
+                        _total_def = int((unit_defense + _hero_bonus_def + _hero_bonus_dur / 2) * 1.25)
+                        _faction_bonus_text = f"[color=#44AAFF]Стойкость: {format_number(_total_def)} DEF (+25%)[/color]"
+                    if _faction_bonus_text:
+                        _fb_lbl = Label(
+                            text=_faction_bonus_text, markup=True,
+                            font_size=sp(9), halign='left', valign='middle',
+                            size_hint_y=None, height=dp(14)
+                        )
+                        _fb_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+                        info.add_widget(_fb_lbl)
+
                 card.add_widget(info)
 
                 # Иконка специализации для героев
