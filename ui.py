@@ -2951,9 +2951,10 @@ class FortressInfoPopup(Popup):
                 # === КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: НЕМЕДЛЕННОЕ ОБНОВЛЕНИЕ ПОТРЕБЛЕНИЯ И ЛИМИТА В БД ===
                 self.recalculate_and_update_army_consumption()
 
-                # Обновляем отображение гарнизона
+                # Обновляем отображение гарнизона и карту
                 self.update_garrison()
                 self.close_current_popup()
+                refresh_map()
 
         except sqlite3.Error as e:
             error_msg = f"Не удалось перенести юниты или создать слоты экипировки: {e}"
