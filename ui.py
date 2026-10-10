@@ -1505,8 +1505,8 @@ class FortressInfoPopup(Popup):
                 if unit_class == '1':
                     _faction_bonus_text = None
                     if self.ai_fraction == 'Север' and _hero_bonus_atk > 0:
-                        _total_atk = unit_attack + _hero_bonus_atk
-                        _faction_bonus_text = f"[color=#FF6644]Шквал\n{format_number(int(_total_atk))}\nATK x1.7[/color]"
+                        _total_atk = int((unit_attack + _hero_bonus_atk) * 1.7)
+                        _faction_bonus_text = f"[color=#FF6644]Шквал\n{format_number(_total_atk)}\nATK[/color]"
                     elif self.ai_fraction == 'Адепты' and _hero_bonus_def > 0:
                         _total_def = int((unit_defense + _hero_bonus_def + _hero_bonus_dur / 2) * 1.25)
                         _faction_bonus_text = f"[color=#44AAFF]Стойкость\n{format_number(_total_def)}\nDEF +25%[/color]"
