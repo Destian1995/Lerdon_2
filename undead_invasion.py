@@ -24,9 +24,9 @@ INVASION_TURN_MAX = 26
 # Начальная армия нежити — 12.5к (половина от оригинала, подкрепления компенсируют)
 UNDEAD_INITIAL_ARMY = 12500
 
-# Подкрепления: 40к/ход в течение 10 ходов после инвазии (сёрдж)
-UNDEAD_SURGE_TURNS = 10
-UNDEAD_SURGE_PER_TURN = 4000
+# Подкрепления: усиленный сёрдж — 6к/ход в течение 12 ходов
+UNDEAD_SURGE_TURNS = 12
+UNDEAD_SURGE_PER_TURN = 6000
 
 # Характеристики Царя Мёртвых
 KING_OF_DEAD_ATTACK = 800
@@ -58,11 +58,11 @@ BANSHEE_UNIT_DURABILITY = 2
 BANSHEE_UNIT_COST = 6.0
 BANSHEE_UNIT_CONSUMPTION = 1.5
 
-# Конверсия пленных — 20% убитых врагов
-UNDEAD_CONVERSION_RATE = 0.20
+# Конверсия — 25% убитых врагов превращаются в призраков
+UNDEAD_CONVERSION_RATE = 0.25
 
-# Постоянные подкрепления (без спада)
-UNDEAD_REINFORCEMENTS_CONSTANT = 1800
+# Постоянные подкрепления (без спада) — усилены
+UNDEAD_REINFORCEMENTS_CONSTANT = 3000
 
 UNDEAD_FACTION_NAME = "Нежить"
 

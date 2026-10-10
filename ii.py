@@ -2736,7 +2736,7 @@ class AIController:
                     continue
 
                 # Условия для объявления войны
-                if self.turn < 13:
+                if self.turn < 10:
                     continue
 
                 # Порог войны зависит от идеологии
@@ -2755,14 +2755,14 @@ class AIController:
                     }
                     effective_our = our_strength * FACTION_WAR_MULT.get(self.faction, 1.0)
 
-                    # НЕ объявляем войну если мы слабее на 50%+
-                    if enemy_strength > 0 and effective_our < enemy_strength * 0.5:
+                    # НЕ объявляем войну если мы слабее на 60%+
+                    if enemy_strength > 0 and effective_our < enemy_strength * 0.4:
                         print(f"{self.faction}: слишком слабы для войны с {faction} "
                               f"(наша: {effective_our:.0f}, их: {enemy_strength}). Война не объявлена.")
                         continue
 
-                    # Объявляем войну если сильнее хотя бы на 10%
-                    if effective_our > 1.1 * enemy_strength:
+                    # Объявляем войну если сильнее хотя бы на 5%
+                    if effective_our > 1.05 * enemy_strength:
                         print(f"Отношения с {faction} < 30%. "
                               f"Сила: {effective_our:.0f} vs {enemy_strength}. Объявление войны.")
                         self.update_diplomacy_status(faction, "война")
@@ -4733,7 +4733,7 @@ class AIController:
         import ast
         from undead_invasion import KING_OF_DEAD_NAME
         try:
-            max_attacks = random.randint(2, 3)
+            max_attacks = random.randint(3, 4)
             attacked_factions = set()  # Фракции, которые уже атакованы в этот ход
 
             for attack_num in range(max_attacks):
@@ -4806,6 +4806,103 @@ class AIController:
             import traceback
             traceback.print_exc()
 
+    def _hero_chain_attack(self):
+        """Герой атакует цепочку слабых пограничных городов пока не встретит сильный."""
+        try:
+            import ast
+            # Находим героя (class 2/3) и его город
+            self.cursor.execute("""
+                SELECT g.city_name, g.unit_name, u.attack + u.defense + u.durability as hero_power
+                FROM garrisons g JOIN units u ON g.unit_name = u.unit_name
+                WHERE u.faction = ? AND u.unit_class IN ('2', '3') AND g.unit_count > 0
+                LIMIT 1
+            """, (self.faction,))
+            hero_row = self.cursor.fetchone()
+            if not hero_row:
+                return
+            hero_city, hero_name, hero_power = hero_row
+
+            # Считаем нашу силу в городе героя
+            self.cursor.execute("""
+                SELECT COALESCE(SUM(g.unit_count * (u.attack + u.defense)), 0)
+                FROM garrisons g JOIN units u ON g.unit_name = u.unit_name
+                WHERE g.city_name = ? AND u.faction = ?
+            """, (hero_city, self.faction))
+            our_strength = self.cursor.fetchone()[0]
+            if our_strength <= 0:
+                return
+
+            at_war = self.get_factions_at_war()
+            if not at_war:
+                return
+
+            max_chain = 2  # Максимум 2 атаки за ход
+            for _ in range(max_chain):
+                # Ищем пограничные вражеские города рядом с hero_city
+                self.cursor.execute("SELECT id FROM cities WHERE name = ?", (hero_city,))
+                _hid_row = self.cursor.fetchone()
+                if not _hid_row:
+                    break
+                hero_city_id = _hid_row[0]
+
+                self.cursor.execute("""
+                    SELECT CASE WHEN city1=? THEN city2 ELSE city1 END
+                    FROM roads WHERE city1=? OR city2=?
+                """, (hero_city_id, hero_city_id, hero_city_id))
+                neighbor_ids = [r[0] for r in self.cursor.fetchall()]
+
+                best_target = None
+                best_target_faction = None
+                weakest_def = float('inf')
+
+                for nid in neighbor_ids:
+                    self.cursor.execute("SELECT name, faction FROM cities WHERE id = ?", (nid,))
+                    nr = self.cursor.fetchone()
+                    if not nr or nr[1] not in at_war:
+                        continue
+                    target_name, target_faction = nr
+
+                    # Считаем защиту вражеского города
+                    self.cursor.execute("""
+                        SELECT COALESCE(SUM(g.unit_count * (u.defense + u.durability)), 0)
+                        FROM garrisons g JOIN units u ON g.unit_name = u.unit_name
+                        WHERE g.city_name = ?
+                    """, (target_name,))
+                    enemy_def = self.cursor.fetchone()[0]
+
+                    # Атакуем только если мы сильнее в 1.3 раза
+                    if our_strength > enemy_def * 1.3 and enemy_def < weakest_def:
+                        weakest_def = enemy_def
+                        best_target = target_name
+                        best_target_faction = target_faction
+
+                if not best_target:
+                    break  # Нет слабых соседей — останавливаемся
+
+                print(f"[HERO CHAIN] {self.faction}: {hero_city} -> {best_target} ({best_target_faction}), сила {our_strength} vs {weakest_def}")
+                self.attack_city(best_target, best_target_faction)
+
+                # После победы герой мог переместиться — проверяем
+                self.cursor.execute("SELECT city_name FROM garrisons WHERE unit_name = ?", (hero_name,))
+                new_pos = self.cursor.fetchone()
+                if new_pos:
+                    hero_city = new_pos[0]
+                else:
+                    break  # Герой погиб
+
+                # Пересчитываем силу
+                self.cursor.execute("""
+                    SELECT COALESCE(SUM(g.unit_count * (u.attack + u.defense)), 0)
+                    FROM garrisons g JOIN units u ON g.unit_name = u.unit_name
+                    WHERE g.city_name = ? AND u.faction = ?
+                """, (hero_city, self.faction))
+                our_strength = self.cursor.fetchone()[0]
+                if our_strength <= 0:
+                    break
+
+        except Exception as e:
+            print(f"[HERO CHAIN] Ошибка: {e}")
+
     # Основная логика хода ИИ
     def make_turn(self):
         """
@@ -4856,7 +4953,9 @@ class AIController:
                 self.generate_and_buy_artifacts_for_ai_hero()
                 # 10. Проактивная дипломатия: AI сам инициирует контакт с игроком
                 self.send_proactive_diplomacy()
-                # 11. Экстренные сообщения (помощь / пощада) при критической ситуации
+                # 11. Герой атакует цепочку слабых пограничных городов
+                self._hero_chain_attack()
+                # 12. Экстренные сообщения (помощь / пощада) при критической ситуации
                 self.send_help_request_if_needed()
                 self.send_mercy_request_if_needed()
             # 10. Сохраняем все изменения в базу данных

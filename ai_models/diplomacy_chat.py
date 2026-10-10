@@ -6421,10 +6421,10 @@ class EnhancedDiplomacyChat():
                         road_set.add((n1, n2))
                         road_set.add((n2, n1))
 
-                # Враги — все фракции кроме игрока, мятежников, нежити, нейтрала
+                # Враги — все фракции кроме игрока, мятежников, нейтрала (включая Нежить!)
                 enemy_factions = set()
                 for _cn, _cf in _name_to_faction.items():
-                    if _cf not in ('Нейтрал', 'Мятежники', 'Нежить', self.faction):
+                    if _cf not in ('Нейтрал', 'Мятежники', self.faction):
                         enemy_factions.add(_cf)
 
                 # Ищем вражеские города граничащие с игроком или мятежниками
@@ -6447,13 +6447,34 @@ class EnhancedDiplomacyChat():
                     _show_main_buttons()
                     return
 
+                # Popup с вертикальным списком целей
+                from kivy.uix.popup import Popup as _RAPop
+                from kivy.uix.scrollview import ScrollView as _RASv
+
+                _pop_content = BoxLayout(orientation='vertical', spacing=dp(6),
+                                         padding=[dp(10), dp(8), dp(10), dp(8)])
+                _scroll = _RASv(size_hint=(1, 1))
+                _list_box = BoxLayout(orientation='vertical', spacing=dp(6),
+                                      size_hint_y=None)
+                _list_box.bind(minimum_height=_list_box.setter('height'))
+
+                _is_m = kivy_platform in ('android', 'ios')
+                _atk_popup = _RAPop(title='', content=_pop_content,
+                                     size_hint=(0.92 if _is_m else 0.45, 0.8 if _is_m else 0.7),
+                                     auto_dismiss=False, separator_height=0,
+                                     background='', background_color=(0.04, 0.05, 0.09, 0.98))
+
                 for city_name, city_faction in targets:
-                    tb = _styled_btn(f"{city_name} ({city_faction})")
+                    _color = (0.7, 0.2, 0.2, 1) if city_faction == 'Нежить' else (0.2, 0.4, 0.7, 1)
+                    tb = Button(text=f"{city_name} ({city_faction})",
+                                font_size=sp(13), bold=True,
+                                size_hint_y=None, height=dp(42),
+                                background_normal='', background_color=_color)
 
                     def _order_attack(i, _city=city_name, _fac=city_faction):
+                        _atk_popup.dismiss()
                         try:
                             cur = self.db_connection.cursor()
-                            # Устанавливаем флаг атаки и целевой город
                             cur.execute("""
                                 CREATE TABLE IF NOT EXISTS rebel_attack_order
                                 (id INTEGER PRIMARY KEY DEFAULT 1, target_city TEXT, target_faction TEXT)
@@ -6481,16 +6502,22 @@ class EnhancedDiplomacyChat():
                         _show_main_buttons()
 
                     tb.bind(on_press=_order_attack)
-                    quick_row.add_widget(tb)
+                    _list_box.add_widget(tb)
+
+                _scroll.add_widget(_list_box)
+                _pop_content.add_widget(_scroll)
+
+                _cancel = Button(text="Отмена", font_size=sp(13), bold=True,
+                                 size_hint_y=None, height=dp(42),
+                                 background_normal='', background_color=(0.5, 0.15, 0.15, 1))
+                _cancel.bind(on_press=lambda i: (_atk_popup.dismiss(), _show_main_buttons()))
+                _pop_content.add_widget(_cancel)
+                _atk_popup.open()
 
             except Exception as e:
                 print(f"[REBEL ATTACK] Ошибка: {e}")
                 _show_main_buttons()
                 return
-
-            back_btn = _styled_btn("Назад")
-            back_btn.color = (1, 0.6, 0.5, 1)
-            back_btn.bind(on_press=lambda i: _show_main_buttons())
             quick_row.add_widget(back_btn)
 
         def _show_improve_relations(inst):
