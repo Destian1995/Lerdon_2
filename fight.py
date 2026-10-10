@@ -489,15 +489,13 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                 row = _cur.fetchone()
                 u['experience'] = row[0] if row else 0
 
-                # Бонус от опыта: Новобранец(0), Воин(3+: +5%), Ветеран(7+: +15%), Элита(12+: +25% +35%/стак)
+                # Бонус от опыта (побед): Новобранец(0), Воин(1+: +5%), Ветеран(3+: +15%), Элита(7+: +25%)
                 exp = u['experience']
-                if exp >= 12:
-                    # Элита: базовые +25% + 35% за каждые 3 опыта сверх 12
-                    elite_stacks = (exp - 12) // 3
-                    exp_mult = 1.25 + (elite_stacks * 0.35)
-                elif exp >= 7:
-                    exp_mult = 1.15
+                if exp >= 7:
+                    exp_mult = 1.25
                 elif exp >= 3:
+                    exp_mult = 1.15
+                elif exp >= 1:
                     exp_mult = 1.05
                 else:
                     exp_mult = 1.0
@@ -1829,29 +1827,24 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
         reset_third_class_units_if_empty(conn, attacking_fraction)
         reset_third_class_units_if_empty(conn, defending_fraction)
 
-        # === Обновление опыта: только если потери >= 1/3 от начального состава ===
-        # Логика: если выжило меньше 2/3 юнитов 1 класса — выжившие получают +1 опыт
+        # === Обновление опыта: +1 за каждую победу ===
+        # 1 победа = Воин (+5%), 3 победы = Ветеран (+15%), 7 побед = Элита (+25%)
         try:
-            for army, city in [(attacking_army, attacking_city if winner != 'attacking' else defending_city),
-                               (defending_army, defending_city)]:
-                # Считаем начальные и выжившие юниты 1 класса
-                initial_class1 = sum(u.get('initial_count', 0) for u in army if get_unit_class(u) == 1)
-                survived_class1 = sum(u['unit_count'] for u in army if get_unit_class(u) == 1 and u['unit_count'] > 0)
+            if winner == 'attacking':
+                _win_city = defending_city  # Победитель атакующий — юниты в захваченном городе
+                _win_army = attacking_army
+            else:
+                _win_city = defending_city  # Победитель защитник — юниты остались в городе
+                _win_army = defending_army
 
-                if initial_class1 <= 0:
-                    continue
-
-                # Если выжило меньше 2/3 (потери >= 1/3) — опыт засчитывается
-                threshold = int(initial_class1 * 2 / 3)
-                if survived_class1 < threshold:
-                    # +3 опыта за тяжёлый бой: 1 бой = Воин, 2 = Ветеран, 4 = Элита
+            # Начисляем опыт только юнитам 1 класса победившей стороны
+            for u in _win_army:
+                if get_unit_class(u) == 1 and u['unit_count'] > 0:
                     cursor.execute("""
-                        UPDATE garrisons SET experience = COALESCE(experience, 0) + 3
-                        WHERE city_name = ? AND unit_count > 0
-                    """, (city,))
-                    print(f"[EXP] Опыт +3 в {city}: выжило {survived_class1}/{initial_class1} (< {threshold})")
-                else:
-                    print(f"[EXP] Опыт не засчитан в {city}: выжило {survived_class1}/{initial_class1} (>= {threshold})")
+                        UPDATE garrisons SET experience = COALESCE(experience, 0) + 1
+                        WHERE city_name = ? AND unit_name = ? AND unit_count > 0
+                    """, (_win_city, u['unit_name']))
+            print(f"[EXP] +1 опыт юнитам победителя в {_win_city}")
         except Exception as e:
             print(f"[EXP] Ошибка обновления опыта: {e}")
 

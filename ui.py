@@ -1483,12 +1483,12 @@ class FortressInfoPopup(Popup):
                     info.add_widget(cnt_lbl)
 
                     # Уровень опыта
-                    if unit_exp >= 12:
-                        rank_text = "[color=#FF4444]Элита[/color] (+25%)"
-                    elif unit_exp >= 7:
-                        rank_text = "[color=#FFD700]Ветеран[/color] (+15%)"
+                    if unit_exp >= 7:
+                        rank_text = f"[color=#FF4444]Элита[/color] (+25%) [{unit_exp} побед]"
                     elif unit_exp >= 3:
-                        rank_text = "[color=#88CCFF]Воин[/color] (+5%)"
+                        rank_text = f"[color=#FFD700]Ветеран[/color] (+15%) [{unit_exp} побед]"
+                    elif unit_exp >= 1:
+                        rank_text = f"[color=#88CCFF]Воин[/color] (+5%) [{unit_exp} побед]"
                     else:
                         rank_text = "[color=#888888]Новобранец[/color]"
                     exp_lbl = Label(
