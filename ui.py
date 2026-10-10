@@ -1501,15 +1501,25 @@ class FortressInfoPopup(Popup):
 
                 card.add_widget(info)
 
-                # Бонус фракции — справа в карточке
+                # Бонус фракции — справа в карточке (с учётом опыта)
                 if unit_class == '1':
+                    # Множитель опыта
+                    if unit_exp >= 7:
+                        _exp_mult = 1.25
+                    elif unit_exp >= 3:
+                        _exp_mult = 1.15
+                    elif unit_exp >= 1:
+                        _exp_mult = 1.05
+                    else:
+                        _exp_mult = 1.0
+
                     _faction_bonus_text = None
                     if self.ai_fraction == 'Север' and _hero_bonus_atk > 0:
-                        _total_atk = int((unit_attack + _hero_bonus_atk) * 1.7)
+                        _total_atk = int((unit_attack + _hero_bonus_atk) * 1.7 * _exp_mult)
                         _faction_bonus_text = f"[color=#FF6644]Шквал\n{format_number(_total_atk)}\nATK[/color]"
                     elif self.ai_fraction == 'Адепты' and _hero_bonus_def > 0:
-                        _total_def = int((unit_defense + _hero_bonus_def + _hero_bonus_dur / 2) * 1.25)
-                        _faction_bonus_text = f"[color=#44AAFF]Стойкость\n{format_number(_total_def)}\nDEF +25%[/color]"
+                        _total_def = int((unit_defense + _hero_bonus_def + _hero_bonus_dur / 2) * 1.25 * _exp_mult)
+                        _faction_bonus_text = f"[color=#44AAFF]Стойкость\n{format_number(_total_def)}\nDEF[/color]"
                     if _faction_bonus_text:
                         _fb_lbl = Label(
                             text=_faction_bonus_text, markup=True,
@@ -1541,12 +1551,13 @@ class FortressInfoPopup(Popup):
                 _hba = _hero_bonus_atk
                 _hbd = _hero_bonus_def
                 _hbdu = _hero_bonus_dur
+                _uexp = unit_exp
 
                 def _on_card_touch(instance, touch, n=_u_name, a=_u_atk,
                                    d=_u_def, dur=_u_dur, cnt=_u_cnt, cls=_u_cls, img=_u_img,
-                                   hba=_hba, hbd=_hbd, hbdu=_hbdu):
+                                   hba=_hba, hbd=_hbd, hbdu=_hbdu, uexp=_uexp):
                     if instance.collide_point(*touch.pos):
-                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls, img, hba, hbd, hbdu)
+                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls, img, hba, hbd, hbdu, uexp)
                         return True
                     return False
 
@@ -1571,7 +1582,7 @@ class FortressInfoPopup(Popup):
             self.attacking_units_box.add_widget(error_label)
 
     def _show_unit_stats_popup(self, name, attack, defense, durability, count, unit_class, unit_image='',
-                               hero_bonus_atk=0, hero_bonus_def=0, hero_bonus_dur=0):
+                               hero_bonus_atk=0, hero_bonus_def=0, hero_bonus_dur=0, unit_exp=0):
         """Попап с изображением юнита справа и характеристиками слева."""
         _is_mobile = platform in ('android', 'ios')
         class_labels = {'1': '', '2': 'Герой', '3': 'Чемпион', '4': 'Легенда'}
@@ -1606,13 +1617,25 @@ class FortressInfoPopup(Popup):
             _eff_atk = attack + hero_bonus_atk
             _eff_def = defense + hero_bonus_def
             _eff_dur = durability + hero_bonus_dur
-            # Север: Шквал — финальная атака с x1.7
+            # Множитель опыта
+            if unit_exp >= 7:
+                _exp_m = 1.25
+            elif unit_exp >= 3:
+                _exp_m = 1.15
+            elif unit_exp >= 1:
+                _exp_m = 1.05
+            else:
+                _exp_m = 1.0
+            # Север: Шквал — финальная атака с x1.7 + опыт
             if self.ai_fraction == 'Север' and hero_bonus_atk > 0:
-                _shkval_atk = int(_eff_atk * 1.7)
-                _eff_atk = _shkval_atk
-            # Адепты: Стойкость — финальная защита с +25%
+                _eff_atk = int(_eff_atk * 1.7 * _exp_m)
+            elif _exp_m > 1.0:
+                _eff_atk = int(_eff_atk * _exp_m)
+            # Адепты: Стойкость — финальная защита с +25% + опыт
             if self.ai_fraction == 'Адепты' and hero_bonus_def > 0:
-                _eff_def = int(_eff_def * 1.25)
+                _eff_def = int(_eff_def * 1.25 * _exp_m)
+            elif _exp_m > 1.0:
+                _eff_def = int(_eff_def * _exp_m)
             if _has_hero:
                 if self.ai_fraction == 'Север' and hero_bonus_atk > 0:
                     _atk_text = f'Шквал: {format_number(_eff_atk)} × {format_number(_cnt)} = {format_number(_eff_atk * _cnt)}'
