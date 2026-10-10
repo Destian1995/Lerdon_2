@@ -842,57 +842,35 @@ class FortressInfoPopup(Popup):
             )
             self.table_layout.add_widget(label)
 
+        # Предзагрузка уникальных изображений в кеш
+        _unique_imgs = {img for _, _, _, img in troops_data if img}
+        for _src in _unique_imgs:
+            try:
+                from kivy.core.image import Image as CoreImage
+                CoreImage(_src)
+            except Exception:
+                pass
+
         _row_idx = 0
         for city_name, unit_name, unit_count, unit_image in troops_data:
-            # Чередование фона строк
-            _bg_alpha = 0.25 if _row_idx % 2 == 0 else 0.15
             _row_idx += 1
 
-            city_lbl = Label(text=city_name, font_size=_fsize, size_hint_y=None, height=_row_h, color=(0.85, 0.88, 0.95, 1))
-            with city_lbl.canvas.before:
-                Color(0.12, 0.15, 0.22, _bg_alpha)
-                city_lbl._rbg = Rectangle(pos=city_lbl.pos, size=city_lbl.size)
-            city_lbl.bind(pos=lambda i, v: setattr(i._rbg, 'pos', v),
-                          size=lambda i, v: setattr(i._rbg, 'size', v))
-
-            unit_lbl = Label(text=unit_name, font_size=_fsize, size_hint_y=None, height=_row_h,
-                             color=(1, 0.92, 0.70, 1), bold=True)
-            with unit_lbl.canvas.before:
-                Color(0.12, 0.15, 0.22, _bg_alpha)
-                unit_lbl._rbg = Rectangle(pos=unit_lbl.pos, size=unit_lbl.size)
-            unit_lbl.bind(pos=lambda i, v: setattr(i._rbg, 'pos', v),
-                          size=lambda i, v: setattr(i._rbg, 'size', v))
-
-            count_lbl = Label(text=str(unit_count), font_size=_fsize, size_hint_y=None, height=_row_h,
-                              color=(0.5, 0.85, 0.5, 1), bold=True)
-            with count_lbl.canvas.before:
-                Color(0.12, 0.15, 0.22, _bg_alpha)
-                count_lbl._rbg = Rectangle(pos=count_lbl.pos, size=count_lbl.size)
-            count_lbl.bind(pos=lambda i, v: setattr(i._rbg, 'pos', v),
-                           size=lambda i, v: setattr(i._rbg, 'size', v))
+            city_lbl = Label(text=city_name, font_size=_fsize, size_hint_y=None,
+                             height=_row_h, color=(0.85, 0.88, 0.95, 1))
+            unit_lbl = Label(text=unit_name, font_size=_fsize, size_hint_y=None,
+                             height=_row_h, color=(1, 0.92, 0.70, 1), bold=True)
+            count_lbl = Label(text=str(unit_count), font_size=_fsize, size_hint_y=None,
+                              height=_row_h, color=(0.5, 0.85, 0.5, 1), bold=True)
 
             img_box = BoxLayout(size_hint_y=None, height=_img_h)
-            with img_box.canvas.before:
-                Color(0.08, 0.10, 0.16, 0.8)
-                img_box._bgr = RoundedRectangle(pos=img_box.pos, size=img_box.size, radius=[dp(6)])
-            img_box.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
-                         size=lambda i, v: setattr(i._bgr, 'size', v))
             img_box.add_widget(AsyncImage(source=unit_image, size=(_img_h, _img_h), size_hint=(None, None)))
 
             btn_add = Button(
-                text="Добавить",
-                font_size=_fsize,
-                bold=True,
-                size_hint_y=None,
-                height=_btn_h,
-                background_color=(0, 0, 0, 0),
+                text="Добавить", font_size=_fsize, bold=True,
+                size_hint_y=None, height=_btn_h,
+                background_normal='', background_color=(0.12, 0.16, 0.28, 0.95),
                 color=(1, 1, 1, 1)
             )
-            with btn_add.canvas.before:
-                Color(0.12, 0.16, 0.28, 0.95)
-                btn_add._br = RoundedRectangle(pos=btn_add.pos, size=btn_add.size, radius=[dp(8)])
-            btn_add.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
-                         size=lambda i, v: setattr(i._br, 'size', v))
             btn_add.bind(
                 on_release=lambda btn, data=(city_name, unit_name, unit_count, unit_image):
                 self.create_troop_group(data, btn, city_lbl, unit_lbl, count_lbl, img_box, btn_add)
@@ -1831,12 +1809,7 @@ class FortressInfoPopup(Popup):
                     padding=dp(10)
                 )
 
-                # Фон карточки — тёмная карточка с RoundedRectangle
-                with card.canvas.before:
-                    card._bgc = Color(0.10, 0.13, 0.20, 1)
-                    card._bgr = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(10)])
-                card.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
-                          size=lambda i, v: setattr(i._bgr, 'size', v))
+                # Фон карточки — лёгкий без canvas-инструкций
 
                 # Изображение (асинхронная загрузка)
                 image = AsyncImage(
@@ -1876,21 +1849,16 @@ class FortressInfoPopup(Popup):
                 info_layout.add_widget(stats_label)
                 info_layout.add_widget(quantity_label)
 
-                # Кнопка «Добавить» — зелёная
+                # Кнопка «Добавить» — зелёная (без canvas-инструкций)
                 btn = Button(
                     text="Добавить",
                     font_size=sp(font_size),
                     bold=True,
                     size_hint=(None, None),
                     size=(int(50 * scale_factor), int(50 * scale_factor)),
-                    background_color=(0, 0, 0, 0),
+                    background_normal='', background_color=(0.18, 0.62, 0.22, 1),
                     color=(1, 1, 1, 1)
                 )
-                with btn.canvas.before:
-                    btn._bc = Color(0.18, 0.62, 0.22, 1)
-                    btn._br = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(12)])
-                btn.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
-                         size=lambda i, v: setattr(i._br, 'size', v))
                 btn.bind(on_release=lambda btn, data=unit_data: self.add_to_garrison_with_slider(data, btn))
 
                 card.add_widget(image)
@@ -1913,14 +1881,9 @@ class FortressInfoPopup(Popup):
                 bold=True,
                 size_hint=(1, None),
                 height=dp(44),
-                background_color=(0, 0, 0, 0),
+                background_normal='', background_color=(0.55, 0.14, 0.14, 1),
                 color=(1, 1, 1, 1)
             )
-            with close_btn.canvas.before:
-                close_btn._bc = Color(0.55, 0.14, 0.14, 1)
-                close_btn._br = RoundedRectangle(pos=close_btn.pos, size=close_btn.size, radius=[dp(12)])
-            close_btn.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
-                           size=lambda i, v: setattr(i._br, 'size', v))
             close_btn.bind(on_release=popup.dismiss)
             main_layout.add_widget(close_btn)
 
