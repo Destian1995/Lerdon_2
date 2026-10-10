@@ -6518,7 +6518,6 @@ class EnhancedDiplomacyChat():
                 print(f"[REBEL ATTACK] Ошибка: {e}")
                 _show_main_buttons()
                 return
-            quick_row.add_widget(back_btn)
 
         def _show_improve_relations(inst):
             """Улучшение отношений за ресурсы."""
