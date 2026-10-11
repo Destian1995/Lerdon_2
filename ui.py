@@ -1366,23 +1366,27 @@ class FortressInfoPopup(Popup):
                 '4': (0.38, 0.10, 0.10, 1),   # Тёмно-красный (легенда)
             }
 
+            # Батч-загрузка статов всех юнитов в гарнизоне (один запрос вместо N)
+            _unit_names = [rd[0] for rd in garrison_data]
+            _units_info_cache = {}
+            if _unit_names:
+                _ph = ','.join('?' * len(_unit_names))
+                self.cursor.execute(
+                    f"SELECT unit_name, unit_class, attack, defense, durability FROM units WHERE unit_name IN ({_ph})",
+                    _unit_names)
+                for _r in self.cursor.fetchall():
+                    _units_info_cache[_r[0]] = {'class': str(_r[1]), 'atk': _r[2], 'def': _r[3], 'dur': _r[4]}
+
             # Вычисляем бонус героев (класс 2-3) для юнитов класса 1
             _hero_bonus_atk = 0
             _hero_bonus_def = 0
             _hero_bonus_dur = 0
             for rd in garrison_data:
-                try:
-                    self.cursor.execute(
-                        "SELECT unit_class, attack, defense, durability FROM units WHERE unit_name = ?",
-                        (rd[0],)
-                    )
-                    hi = self.cursor.fetchone()
-                    if hi and int(hi[0]) in (2, 3) and rd[1] > 0:
-                        _hero_bonus_atk += hi[1] or 0
-                        _hero_bonus_def += hi[2] or 0
-                        _hero_bonus_dur += hi[3] or 0
-                except Exception:
-                    pass
+                hi = _units_info_cache.get(rd[0])
+                if hi and int(hi['class']) in (2, 3) and rd[1] > 0:
+                    _hero_bonus_atk += hi['atk'] or 0
+                    _hero_bonus_def += hi['def'] or 0
+                    _hero_bonus_dur += hi['dur'] or 0
 
             for row_data in garrison_data:
                 unit_name, unit_count, unit_image = row_data[0], row_data[1], row_data[2]
@@ -1393,17 +1397,13 @@ class FortressInfoPopup(Popup):
                 unit_defense = 0
                 unit_durability = 0
                 try:
-                    self.cursor.execute(
-                        "SELECT unit_class, attack, defense, durability FROM units WHERE unit_name = ?",
-                        (unit_name,)
-                    )
-                    unit_info = self.cursor.fetchone()
+                    unit_info = _units_info_cache.get(unit_name)
                     if unit_info:
-                        unit_class = str(unit_info[0])
-                        attack, defense = unit_info[1], unit_info[2]
+                        unit_class = unit_info['class']
+                        attack, defense = unit_info['atk'], unit_info['def']
                         unit_attack = attack
                         unit_defense = defense
-                        unit_durability = unit_info[3] if unit_info[3] else 0
+                        unit_durability = unit_info['dur'] if unit_info['dur'] else 0
                         if unit_class in ('2', '3'):
                             try:
                                 if defense == 0 and attack > 0:

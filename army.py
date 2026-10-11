@@ -392,8 +392,14 @@ class ArmyCash:
         popup.open()
 
 
+_unit_data_cache = {}
+
+
 def load_unit_data(faction, conn):
-    """Загружает данные о юнитах для выбранной фракции из базы данных."""
+    """Загружает данные о юнитах с кешированием — один запрос на фракцию за сессию."""
+    if faction in _unit_data_cache:
+        return _unit_data_cache[faction]
+
     cursor = conn.cursor()
     cursor.execute("""
         SELECT unit_name, consumption, cost_money, cost_time, image_path, attack, defense, durability, unit_class
@@ -415,6 +421,7 @@ def load_unit_data(faction, conn):
                 "Потребление Кристаллов": consumption
             }
         }
+    _unit_data_cache[faction] = unit_data
     return unit_data
 
 

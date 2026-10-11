@@ -10,17 +10,27 @@ from utils.helpers import format_number
 
 from ui_components import show_message as show_popup_message
 
+_artifacts_cache = None
+_artifacts_cache_count = None
+
+
 def load_artifacts_from_db(faction):
-    """Загружает список артефактов из таблицы artifacts."""
-    artifacts = []
+    """Загружает список артефактов с кешированием. Обновляет кеш если появились новые."""
+    global _artifacts_cache, _artifacts_cache_count
     try:
         cursor = faction.conn.cursor()
-        # Выбираем только нужные столбцы
+        # Быстрая проверка — изменилось ли количество артефактов
+        cursor.execute("SELECT COUNT(*) FROM artifacts")
+        current_count = cursor.fetchone()[0]
+        if _artifacts_cache is not None and _artifacts_cache_count == current_count:
+            return _artifacts_cache
+
         cursor.execute('''
         SELECT id, attack, defense, season_name, image_url, name, cost, artifact_type, is_created
         FROM artifacts
         ''')
         rows = cursor.fetchall()
+        artifacts = []
         for row in rows:
             artifact = {
                 "id": row[0],
@@ -33,11 +43,13 @@ def load_artifacts_from_db(faction):
                 "artifact_type": row[7] if row[7] is not None else -1,
                 "is_created": row[8] if len(row) > 8 and row[8] is not None else 0
             }
-            # Проверяем, есть ли какие-то значимые статы (attack или defense > 0)
             if artifact['attack'] != 0 or artifact['defense'] != 0:
                 artifacts.append(artifact)
+        _artifacts_cache = artifacts
+        _artifacts_cache_count = current_count
     except sqlite3.Error as e:
         print(f"Ошибка при загрузке артефактов: {e}")
+        return _artifacts_cache or []
     return artifacts
 
 def load_hero_equipment_from_db(faction):
