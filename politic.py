@@ -579,6 +579,12 @@ class DiplomacyManager:
 
             from nobles import show_toast
             show_toast(f"Война с {target_faction} объявлена!")
+
+            try:
+                from game_process import refresh_map
+                refresh_map()
+            except Exception:
+                pass
         except Exception as e:
             print(f"Ошибка объявления войны: {e}")
 
@@ -648,6 +654,12 @@ class DiplomacyManager:
                 f"Потрачено: {peace_cost:,} крон.\n"
                 f"Отношения улучшены на +10%."
             )
+
+            try:
+                from game_process import refresh_map
+                refresh_map()
+            except Exception:
+                pass
         except Exception as e:
             print(f"Ошибка предложения мира: {e}")
 

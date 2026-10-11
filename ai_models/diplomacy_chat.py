@@ -4523,6 +4523,13 @@ class EnhancedDiplomacyChat():
 
             self.db_connection.commit()
 
+            # Перерисовка карты
+            try:
+                from game_process import refresh_map
+                refresh_map()
+            except Exception:
+                pass
+
             # Немедленная атака: ищем ближайший вражеский город, граничащий с нашим или городом игрока
             try:
                 self._launch_immediate_attack(requesting_faction, target_faction)
