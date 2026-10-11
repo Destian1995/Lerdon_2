@@ -418,7 +418,7 @@ def load_unit_data(faction, conn):
     return unit_data
 
 
-def start_army_mode(faction, game_area, class_faction, conn):
+def start_army_mode(faction, game_area, class_faction, conn, root_overlay=None):
     army_hire = ArmyCash(faction, class_faction, conn)
     faction_colors = {
         "Север": (0.2, 0.4, 0.9, 0.8),
@@ -741,20 +741,24 @@ def start_army_mode(faction, game_area, class_faction, conn):
         color=(1, 1, 1, 0.9)
     )
 
-    # Затемнение карты — блокирующий виджет поверх всего
+    # Затемнение ВСЕГО экрана — блокирующий виджет поверх root_overlay
     from kivy.uix.widget import Widget as _DimWidget
+    _overlay_target = root_overlay if root_overlay else game_area
     _dimmer = _DimWidget(size_hint=(1, 1))
     with _dimmer.canvas.before:
-        Color(0, 0, 0, 0.5)
+        Color(0, 0, 0, 0.55)
         _dimmer._bg = Rectangle(pos=_dimmer.pos, size=_dimmer.size)
     _dimmer.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
                  size=lambda i, v: setattr(i._bg, 'size', v))
-    # Перехватываем все нажатия чтобы карта не реагировала
+    # Перехватываем все нажатия чтобы ничего под ним не реагировало
     _dimmer.bind(on_touch_down=lambda i, t: True)
-    game_area.add_widget(_dimmer)
+    _overlay_target.add_widget(_dimmer)
 
     def on_close_press(instance, touch):
         if instance.collide_point(*touch.pos):
+            # Убираем затемнение и карусель
+            if _dimmer.parent:
+                _dimmer.parent.remove_widget(_dimmer)
             game_area.clear_widgets()
             animate_arrow_click(instance)
 
