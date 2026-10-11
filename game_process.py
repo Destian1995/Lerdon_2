@@ -969,6 +969,10 @@ class GameScreen(Screen):
                 self.show_war_declaration_popup(new_wars)
                 self.war_notification_shown = True
 
+            # Если дипломатия изменилась — перерисовываем карту
+            if current_state != self.prev_diplomacy_state:
+                refresh_map()
+
             # Сохраняем текущее состояние для следующего сравнения
             self.prev_diplomacy_state = current_state
 

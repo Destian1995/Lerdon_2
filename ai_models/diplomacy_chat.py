@@ -1109,6 +1109,14 @@ class EnhancedDiplomacyChat():
             # Добавляем в память разговора
             self.add_to_memory(message, response)
 
+            # Перерисовка карты если дипломатия могла измениться
+            if any(w in response.lower() for w in ['союз', 'война', 'мир заключ']):
+                try:
+                    from game_process import refresh_map
+                    refresh_map()
+                except Exception:
+                    pass
+
             # Показываем быстрые кнопки ОК/Отказ при counter_offer
             _ctx = self.negotiation_context.get(self.selected_faction, {})
             if _ctx.get("stage") == "counter_offer" and hasattr(self, '_quick_row'):
