@@ -1757,18 +1757,21 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
 
             for unit in attacking_army:
                 if unit['unit_count'] > 0:
-                    print(f"[GARRISON] Перенос '{unit['unit_name']}' (x{unit['unit_count']}) в {defending_city}")
+                    _u_exp = unit.get('experience', 0)
+                    print(f"[GARRISON] Перенос '{unit['unit_name']}' (x{unit['unit_count']}, exp={_u_exp}) в {defending_city}")
                     cursor.execute("""
-                        INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
-                        VALUES (?, ?, ?, ?)
+                        INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image, experience)
+                        VALUES (?, ?, ?, ?, ?)
                         ON CONFLICT(city_name, unit_name) DO UPDATE SET
                             unit_count = excluded.unit_count,
-                            unit_image = excluded.unit_image
+                            unit_image = excluded.unit_image,
+                            experience = excluded.experience
                     """, (
                         defending_city,
                         unit['unit_name'],
                         unit['unit_count'],
-                        unit.get('unit_image', '')
+                        unit.get('unit_image', ''),
+                        _u_exp
                     ))
             cursor.execute("UPDATE cities SET faction = ? WHERE name = ?", (attacking_fraction, defending_city))
             # Все здания разрушаются при захвате города — отстраивать заново
@@ -1787,17 +1790,20 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
             cursor.execute("DELETE FROM garrisons WHERE city_name = ?", (defending_city,))
             for unit in defending_army:
                 if unit['unit_count'] > 0:
+                    _u_exp = unit.get('experience', 0)
                     cursor.execute("""
-                        INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
-                        VALUES (?, ?, ?, ?)
+                        INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image, experience)
+                        VALUES (?, ?, ?, ?, ?)
                         ON CONFLICT(city_name, unit_name) DO UPDATE SET
                             unit_count = excluded.unit_count,
-                            unit_image = excluded.unit_image
+                            unit_image = excluded.unit_image,
+                            experience = excluded.experience
                     """, (
                         defending_city,
                         unit['unit_name'],
                         unit['unit_count'],
-                        unit.get('unit_image', '')
+                        unit.get('unit_image', ''),
+                        _u_exp
                     ))
 
         # Обновляем гарнизон атакующего города

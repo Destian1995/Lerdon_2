@@ -779,7 +779,13 @@ def calculate_peace_army_points(conn, faction):
 
             city_strength = 0
             if class_1_count > 0:
-                city_strength += base_stats + hero_bonus * class_1_count
+                _unit_power = base_stats + hero_bonus * class_1_count
+                # Фракционные бонусы
+                if faction == 'Север':
+                    _unit_power = int(_unit_power * 1.7)  # Шквал
+                elif faction == 'Адепты':
+                    _unit_power = int(_unit_power * 1.25)  # Стойкость
+                city_strength += _unit_power
             city_strength += others_stats
 
             hero_strength += city_strength
@@ -997,10 +1003,13 @@ def calculate_total_faction_power(conn, faction):
 
             city_strength = 0
             if data["heroes"]["present"] and class_1_count > 0:
-                # Гарнизон с героем: базовые статы + бонус героя на каждого юнита
-                city_strength += base_stats + hero_bonus * class_1_count
+                _unit_power = base_stats + hero_bonus * class_1_count
+                if faction == 'Север':
+                    _unit_power = int(_unit_power * 1.7)
+                elif faction == 'Адепты':
+                    _unit_power = int(_unit_power * 1.25)
+                city_strength += _unit_power
             else:
-                # Гарнизон без героя: только базовые статы
                 city_strength += base_stats
 
             city_strength += others_stats
