@@ -109,32 +109,13 @@ class FortressInfoPopup(Popup):
         acc = _FC.get(self.player_fraction, (0.25, 0.52, 0.92, 1))
 
         def _make_btn(text, color, on_rel=None):
-            """Стилизованная кнопка с фоном и hover-анимацией."""
+            """Стилизованная кнопка — лёгкая, без canvas-инструкций."""
             btn = Button(
                 text=text, size_hint_y=None, height=btn_h,
-                background_color=(0, 0, 0, 0), color=(1, 1, 1, 1),
+                background_normal='', background_color=color,
+                color=(1, 1, 1, 1),
                 font_size=sp(sp_base), bold=True
             )
-            darker = (color[0] * 0.7, color[1] * 0.7, color[2] * 0.7, 1)
-            with btn.canvas.before:
-                btn._bg_clr = Color(*color)
-                btn._bg_rr = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(12)])
-            btn.bind(
-                pos=lambda i, v: setattr(i._bg_rr, 'pos', v),
-                size=lambda i, v: setattr(i._bg_rr, 'size', v),
-            )
-
-            def _down(touch):
-                if btn.collide_point(*touch.pos):
-                    btn._bg_clr.rgba = darker
-                return Button.on_touch_down(btn, touch)
-
-            def _up(touch):
-                btn._bg_clr.rgba = color
-                return Button.on_touch_up(btn, touch)
-
-            btn.on_touch_down = _down
-            btn.on_touch_up = _up
             if on_rel:
                 btn.bind(on_release=on_rel)
             return btn
@@ -233,23 +214,23 @@ class FortressInfoPopup(Popup):
         # ── Кнопки действий ───────────────────────────────────────────
         btn_row = BoxLayout(size_hint_y=None, height=btn_h, spacing=spc)
         btn_row.add_widget(_make_btn(
-            'Ввести войска', (0.18, 0.62, 0.22, 1),
+            'Ввести войска', (0.12, 0.50, 0.20, 1),
             on_rel=lambda btn: self.load_troops_by_type("Любые", None)
         ))
         # "Разместить армию" и "Построить" — только для своих городов
         if self.ai_fraction == self.player_fraction and not self._is_undead_city:
             btn_row.add_widget(_make_btn(
-                'Разместить армию', (0.16, 0.46, 0.82, 1),
+                'Разместить армию', (0.15, 0.40, 0.75, 1),
                 on_rel=self.place_army
             ))
             btn_row.add_widget(_make_btn(
-                'Построить', (0.55, 0.35, 0.12, 1),
+                'Построить', (0.65, 0.45, 0.10, 1),
                 on_rel=lambda btn: self._open_build_menu()
             ))
         root.add_widget(btn_row)
 
         root.add_widget(_make_btn(
-            'Закрыть', (0.62, 0.14, 0.14, 1),
+            'Закрыть', (0.45, 0.12, 0.12, 1),
             on_rel=self.dismiss
         ))
 
