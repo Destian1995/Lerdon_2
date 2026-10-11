@@ -88,8 +88,7 @@ class FortressInfoPopup(Popup):
         self.title_align = 'left'
         self.separator_color = (0.2, 0.45, 0.8, 0.6)
         self.separator_height = dp(2)
-        self.background = ''
-        self.background_color = (0.05, 0.06, 0.10, 0.98)
+        self.background_color = (0.07, 0.08, 0.13, 1)
         self.create_ui()
 
     def create_ui(self):
