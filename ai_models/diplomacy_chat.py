@@ -1110,7 +1110,8 @@ class EnhancedDiplomacyChat():
             self.add_to_memory(message, response)
 
             # Перерисовка карты если дипломатия могла измениться
-            if any(w in response.lower() for w in ['союз', 'война', 'мир заключ']):
+            _combined = (message + ' ' + response).lower()
+            if any(w in _combined for w in ['союз', 'война', 'мир', 'альянс', 'согласен']):
                 try:
                     from game_process import refresh_map
                     refresh_map()
@@ -1312,6 +1313,11 @@ class EnhancedDiplomacyChat():
                                    (self.faction, target_faction, target_faction, self.faction))
                     self.db_connection.commit()
                     del self.negotiation_context[target_faction]
+                    try:
+                        from game_process import refresh_map
+                        refresh_map()
+                    except Exception:
+                        pass
                     return random.choice([
                         f"Союз заключён! {alliance_cost:,} крон списано. Теперь мы вместе!",
                         f"Отлично! Наш союз скреплён! -{alliance_cost:,} крон. Враги трепещут!",
@@ -3842,6 +3848,12 @@ class EnhancedDiplomacyChat():
                 """, (self.faction, faction, f"Заключён союз! Стоимость: {alliance_cost:,} крон.", 0))
 
                 self.db_connection.commit()
+
+                try:
+                    from game_process import refresh_map
+                    refresh_map()
+                except Exception:
+                    pass
 
                 # Получаем фразу для фракции
                 phrase = self.faction_phrases.get(faction, {}).get("alliance", "Союз заключён!")
