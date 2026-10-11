@@ -83,6 +83,24 @@ class FortressInfoPopup(Popup):
 
         faction_label = f" ({self.city_faction})" if self.city_faction and self.city_faction != 'Нейтрал' else ""
         self.title = f"Информация о поселении {self.city_name}{faction_label}"
+
+        # ── Убираем серые рамки Kivy-Popup, стилизуем под тёмную тему ──
+        _FC = {
+            'Север':   (0.25, 0.52, 0.92, 1),
+            'Эльфы':   (0.22, 0.76, 0.32, 1),
+            'Вампиры': (0.40, 0.10, 0.50, 1),
+            'Адепты':  (0.85, 0.45, 0.10, 1),
+            'Элины':   (0.95, 0.90, 0.15, 1),
+        }
+        _acc = _FC.get(self.player_fraction, (0.25, 0.52, 0.92, 1))
+        self.background_color = (0.07, 0.07, 0.11, 1)
+        self.separator_color = (*_acc[:3], 0.6)
+        self.separator_height = dp(2)
+        self.title_color = (0.95, 0.95, 0.95, 1)
+        self.title_size = sp(15 if platform == 'android' else 14)
+        self.title_align = 'left'
+        self.border = [0, 0, 0, 0]
+
         self.create_ui()
 
     def create_ui(self):
@@ -173,7 +191,21 @@ class FortressInfoPopup(Popup):
         cols = GridLayout(cols=2, spacing=spc, size_hint_y=0.78)
 
         # Левая: Гарнизон
-        left = BoxLayout(orientation='vertical', spacing=spc)
+        left = BoxLayout(orientation='vertical', spacing=spc, padding=[dp(6), dp(6)])
+        with left.canvas.before:
+            Color(0.10, 0.10, 0.16, 1)
+            left._bg = RoundedRectangle(pos=left.pos, size=left.size, radius=[dp(8)])
+            Color(*acc[:3], 0.25)
+            left._border = Line(
+                rounded_rectangle=(*left.pos, *left.size, dp(8)),
+                width=1.1
+            )
+        left.bind(
+            pos=lambda i, v: (setattr(i._bg, 'pos', v),
+                              setattr(i._border, 'rounded_rectangle', (*v, *i.size, dp(8)))),
+            size=lambda i, v: (setattr(i._bg, 'size', v),
+                               setattr(i._border, 'rounded_rectangle', (*i.pos, *v, dp(8))))
+        )
         left.add_widget(_section_header('Гарнизон'))
         self.attacking_units_list = ScrollView(size_hint=(1, 1))
         self.attacking_units_box = BoxLayout(
@@ -185,7 +217,21 @@ class FortressInfoPopup(Popup):
         cols.add_widget(left)
 
         # Правая: Здания или картинка нежити
-        right = BoxLayout(orientation='vertical', spacing=spc)
+        right = BoxLayout(orientation='vertical', spacing=spc, padding=[dp(6), dp(6)])
+        with right.canvas.before:
+            Color(0.10, 0.10, 0.16, 1)
+            right._bg = RoundedRectangle(pos=right.pos, size=right.size, radius=[dp(8)])
+            Color(*acc[:3], 0.25)
+            right._border = Line(
+                rounded_rectangle=(*right.pos, *right.size, dp(8)),
+                width=1.1
+            )
+        right.bind(
+            pos=lambda i, v: (setattr(i._bg, 'pos', v),
+                              setattr(i._border, 'rounded_rectangle', (*v, *i.size, dp(8)))),
+            size=lambda i, v: (setattr(i._bg, 'size', v),
+                               setattr(i._border, 'rounded_rectangle', (*i.pos, *v, dp(8))))
+        )
 
         # Проверяем, город нежити ли это
         self.cursor.execute("SELECT COALESCE(is_undead, 0) FROM cities WHERE name = ?", (self.city_name,))
@@ -312,8 +358,17 @@ class FortressInfoPopup(Popup):
             with card.canvas.before:
                 Color(*darker)
                 card._bg = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(8)])
-            card.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-                      size=lambda i, v: setattr(i._bg, 'size', v))
+                Color(card_color[0] * 0.9, card_color[1] * 0.9, card_color[2] * 0.9, 0.35)
+                card._border = Line(
+                    rounded_rectangle=(*card.pos, *card.size, dp(8)),
+                    width=1.0
+                )
+            card.bind(
+                pos=lambda i, v: (setattr(i._bg, 'pos', v),
+                                  setattr(i._border, 'rounded_rectangle', (*v, *i.size, dp(8)))),
+                size=lambda i, v: (setattr(i._bg, 'size', v),
+                                   setattr(i._border, 'rounded_rectangle', (*i.pos, *v, dp(8))))
+            )
 
             # Цветная метка-тип слева
             badge = Label(
@@ -1442,11 +1497,25 @@ class FortressInfoPopup(Popup):
                     spacing=dp(8), padding=[dp(6), dp(4), dp(6), dp(4)]
                 )
                 card_bg = CLASS_COLORS.get(unit_class, (0.20, 0.22, 0.30, 1))
+                # Тонкая акцентная обводка для карточки
+                _card_border_alpha = 0.45 if unit_class in ('3', '4') else 0.20
+                _card_border_clr = (
+                    card_bg[0] * 1.8, card_bg[1] * 1.8, card_bg[2] * 1.8, _card_border_alpha
+                )
                 with card.canvas.before:
                     Color(*card_bg)
                     card._bg = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(10)])
-                card.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-                          size=lambda i, v: setattr(i._bg, 'size', v))
+                    Color(*_card_border_clr)
+                    card._border = Line(
+                        rounded_rectangle=(*card.pos, *card.size, dp(10)),
+                        width=1.0
+                    )
+                card.bind(
+                    pos=lambda i, v: (setattr(i._bg, 'pos', v),
+                                      setattr(i._border, 'rounded_rectangle', (*v, *i.size, dp(10)))),
+                    size=lambda i, v: (setattr(i._bg, 'size', v),
+                                       setattr(i._border, 'rounded_rectangle', (*i.pos, *v, dp(10))))
+                )
 
                 # Изображение юнита
                 img_src = unit_image if unit_image and os.path.exists(unit_image) else ''
