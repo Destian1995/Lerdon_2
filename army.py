@@ -741,25 +741,27 @@ def start_army_mode(faction, game_area, class_faction, conn):
         color=(1, 1, 1, 0.9)
     )
 
-    # ModalView — затемнение + блокировка нажатий на карту
-    from kivy.uix.modalview import ModalView
-    _modal = ModalView(
-        size_hint=(1, 1),
-        auto_dismiss=False,
-        background='',
-        background_color=(0, 0, 0, 0.5),
-    )
+    # Затемнение карты — блокирующий виджет поверх всего
+    from kivy.uix.widget import Widget as _DimWidget
+    _dimmer = _DimWidget(size_hint=(1, 1))
+    with _dimmer.canvas.before:
+        Color(0, 0, 0, 0.5)
+        _dimmer._bg = Rectangle(pos=_dimmer.pos, size=_dimmer.size)
+    _dimmer.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                 size=lambda i, v: setattr(i._bg, 'size', v))
+    # Перехватываем все нажатия чтобы карта не реагировала
+    _dimmer.bind(on_touch_down=lambda i, t: True)
+    game_area.add_widget(_dimmer)
 
     def on_close_press(instance, touch):
         if instance.collide_point(*touch.pos):
-            _modal.dismiss()
+            game_area.clear_widgets()
             animate_arrow_click(instance)
 
     close_icon.bind(on_touch_down=on_close_press)
     float_layout.add_widget(close_icon)
 
-    _modal.add_widget(float_layout)
-    _modal.open()
+    game_area.add_widget(float_layout)
 
 
 def broadcast_units(unit_name, unit_cost, quantity_input, army_hire, image, unit_stats):
