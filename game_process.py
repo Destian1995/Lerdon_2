@@ -1140,6 +1140,10 @@ class GameScreen(Screen):
             self.faction.load_resources()
             self.resource_box.update_resources()
 
+            # Перерисовка карты если дипломатия изменилась (союз, мир)
+            if is_alliance or is_mercy:
+                refresh_map()
+
         except Exception as e:
             import traceback
             print(f"[ERROR] Ошибка при обработке ответа дипломатии: {e}")

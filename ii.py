@@ -3433,6 +3433,29 @@ class AIController:
         """
         if self.faction == "Нежить":
             return
+        # Не спамим если уже отправляли [СОЮЗ], [ПОМОЩЬ] или [УМОЛЯЮ] и игрок ответил
+        try:
+            _cur = self.db_connection.cursor()
+            _player = self._get_player_faction_name()
+            _cur.execute("""
+                SELECT 1 FROM negotiation_history
+                WHERE faction1 = ? AND faction2 = ?
+                  AND (message LIKE '%[СОЮЗ]%' OR message LIKE '%[ПОМОЩЬ]%' OR message LIKE '%[УМОЛЯЮ]%')
+                  AND is_player = 0
+                LIMIT 1
+            """, (self.faction, _player))
+            _already_sent = _cur.fetchone()
+            if _already_sent:
+                # Проверяем, есть ли ответ игрока на это предложение
+                _cur.execute("""
+                    SELECT 1 FROM negotiation_history
+                    WHERE faction1 = ? AND faction2 = ? AND is_player = 1
+                    LIMIT 1
+                """, (_player, self.faction))
+                if _cur.fetchone():
+                    return  # Игрок уже ответил — не спамим
+        except Exception:
+            pass
         try:
             # 1. Проверяем количество городов
             current_city_count = self.get_city_count_for_faction()
