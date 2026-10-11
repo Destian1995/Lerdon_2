@@ -729,19 +729,19 @@ def start_army_mode(faction, game_area, class_faction, conn):
     float_layout = FloatLayout(size_hint=(1, 1))
     float_layout.add_widget(main_box)
 
-    # Кнопка закрытия — правый верхний угол
+    # Кнопка закрытия — оригинальная позиция
     close_icon = Image(
         source='files/pict/close.png',
         size_hint=(None, None),
-        size=(dp(50), dp(50)),
-        pos_hint={'top': 0.98, 'right': 0.99},
+        size=(dp(60), dp(60)),
+        pos_hint={'top': 0.85, 'right': 1.18},
         allow_stretch=True,
         keep_ratio=True,
         mipmap=True,
-        color=(1, 0.3, 0.3, 1)
+        color=(1, 1, 1, 0.9)
     )
 
-    # ModalView блокирует нажатия на карту
+    # ModalView блокирует нажатия на карту + затемнение
     from kivy.uix.modalview import ModalView
     _modal = ModalView(
         size_hint=(1, 1),
@@ -760,9 +760,6 @@ def start_army_mode(faction, game_area, class_faction, conn):
 
     _modal.add_widget(float_layout)
     _modal.open()
-
-    # Сохраняем ссылку чтобы можно было закрыть извне
-    game_area._army_modal = _modal
 
 
 def broadcast_units(unit_name, unit_cost, quantity_input, army_hire, image, unit_stats):
