@@ -1,5 +1,4 @@
 from db_lerdon_connect import *
-from kivy.uix.image import AsyncImage
 
 from fight import fight
 from utils.helpers import format_number
@@ -829,15 +828,6 @@ class FortressInfoPopup(Popup):
             )
             self.table_layout.add_widget(label)
 
-        # Предзагрузка уникальных изображений в кеш
-        _unique_imgs = {img for _, _, _, img in troops_data if img}
-        for _src in _unique_imgs:
-            try:
-                from kivy.core.image import Image as CoreImage
-                CoreImage(_src)
-            except Exception:
-                pass
-
         _row_idx = 0
         for city_name, unit_name, unit_count, unit_image in troops_data:
             _row_idx += 1
@@ -850,7 +840,7 @@ class FortressInfoPopup(Popup):
                               height=_row_h, color=(0.5, 0.85, 0.5, 1), bold=True)
 
             img_box = BoxLayout(size_hint_y=None, height=_img_h)
-            img_box.add_widget(AsyncImage(source=unit_image, size=(_img_h, _img_h), size_hint=(None, None)))
+            img_box.add_widget(Image(source=unit_image, size=(_img_h, _img_h), size_hint=(None, None)))
 
             btn_add = Button(
                 text="Добавить", font_size=_fsize, bold=True,
@@ -1853,7 +1843,7 @@ class FortressInfoPopup(Popup):
                 # Фон карточки — лёгкий без canvas-инструкций
 
                 # Изображение (асинхронная загрузка)
-                image = AsyncImage(
+                image = Image(
                     source=unit_image,
                     size_hint=(None, None),
                     size=(image_size, image_size)
