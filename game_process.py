@@ -3032,8 +3032,7 @@ class GameScreen(Screen):
             self.selected_faction,
             self.game_area,
             self.game_state_manager.faction,
-            self.conn,
-            root_overlay=self.root_overlay
+            self.conn
         )
 
     def switch_to_politics(self, instance):

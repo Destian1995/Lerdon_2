@@ -418,7 +418,7 @@ def load_unit_data(faction, conn):
     return unit_data
 
 
-def start_army_mode(faction, game_area, class_faction, conn, root_overlay=None):
+def start_army_mode(faction, game_area, class_faction, conn):
     army_hire = ArmyCash(faction, class_faction, conn)
     faction_colors = {
         "Север": (0.2, 0.4, 0.9, 0.8),
@@ -741,38 +741,15 @@ def start_army_mode(faction, game_area, class_faction, conn, root_overlay=None):
         color=(1, 1, 1, 0.9)
     )
 
-    # Затемнение ВСЕГО экрана + карусель поверх
-    from kivy.uix.widget import Widget as _DimWidget
-    _overlay_target = root_overlay if root_overlay else game_area
-
-    _dimmer = _DimWidget(size_hint=(1, 1))
-    with _dimmer.canvas.before:
-        Color(0, 0, 0, 0.55)
-        _dimmer._bg = Rectangle(pos=_dimmer.pos, size=_dimmer.size)
-    _dimmer.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-                 size=lambda i, v: setattr(i._bg, 'size', v))
-    # Блокируем нажатия только вне карусели
-    def _dimmer_touch(inst, touch):
-        if float_layout.collide_point(*touch.pos):
-            return False
-        return True
-    _dimmer.bind(on_touch_down=_dimmer_touch)
-
-    def _close_all(instance, touch):
+    def on_close_press(instance, touch):
         if instance.collide_point(*touch.pos):
-            if _dimmer.parent:
-                _dimmer.parent.remove_widget(_dimmer)
-            if float_layout.parent:
-                float_layout.parent.remove_widget(float_layout)
             game_area.clear_widgets()
             animate_arrow_click(instance)
 
-    close_icon.bind(on_touch_down=_close_all)
+    close_icon.bind(on_touch_down=on_close_press)
     float_layout.add_widget(close_icon)
 
-    # Порядок: сначала dimmer (затемнение), потом карусель поверх
-    _overlay_target.add_widget(_dimmer)
-    _overlay_target.add_widget(float_layout)
+    game_area.add_widget(float_layout)
 
 
 def broadcast_units(unit_name, unit_cost, quantity_input, army_hire, image, unit_stats):
