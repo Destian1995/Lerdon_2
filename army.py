@@ -427,14 +427,12 @@ def start_army_mode(faction, game_area, class_faction, conn):
         "Адепты": (0.85, 0.45, 0.10, 0.8),
         "Элины": (0.95, 0.90, 0.15, 0.8),
     }
-    bg_color = faction_colors.get(faction, (0.15, 0.15, 0.15, 1))
-    # Тёмный текст для светлых фракций (Элины, Адепты)
-    _dark_text_factions = {'Элины', 'Адепты'}
-    if faction in _dark_text_factions:
-        global TEXT_COLOR
-        TEXT_COLOR = (0.1, 0.1, 0.1, 1)
-    else:
-        TEXT_COLOR = get_color_from_hex('#FFFFFF')
+    # Тёмный фон с лёгким фракционным оттенком
+    _fc = faction_colors.get(faction, (0.15, 0.15, 0.15, 1))
+    bg_color = (_fc[0] * 0.25, _fc[1] * 0.25, _fc[2] * 0.25 + 0.05, 0.95)
+    _dark_text_factions = set()  # Все фракции — светлый текст на тёмном фоне
+    global TEXT_COLOR
+    TEXT_COLOR = get_color_from_hex('#FFFFFF')
     main_box = BoxLayout(
         orientation='horizontal',
         size_hint=(1, 1),
@@ -741,15 +739,28 @@ def start_army_mode(faction, game_area, class_faction, conn):
         color=(1, 1, 1, 0.9)
     )
 
+    # ModalView блокирует нажатия на карту
+    from kivy.uix.modalview import ModalView
+    _modal = ModalView(
+        size_hint=(1, 1),
+        auto_dismiss=False,
+        background='',
+        background_color=(0, 0, 0, 0.5),
+    )
+
     def on_close_press(instance, touch):
         if instance.collide_point(*touch.pos):
-            game_area.clear_widgets()
+            _modal.dismiss()
             animate_arrow_click(instance)
 
     close_icon.bind(on_touch_down=on_close_press)
     float_layout.add_widget(close_icon)
 
-    game_area.add_widget(float_layout)
+    _modal.add_widget(float_layout)
+    _modal.open()
+
+    # Сохраняем ссылку чтобы можно было закрыть извне
+    game_area._army_modal = _modal
 
 
 def broadcast_units(unit_name, unit_cost, quantity_input, army_hire, image, unit_stats):
