@@ -427,12 +427,14 @@ def start_army_mode(faction, game_area, class_faction, conn):
         "Адепты": (0.85, 0.45, 0.10, 0.8),
         "Элины": (0.95, 0.90, 0.15, 0.8),
     }
-    # Тёмный фон с лёгким фракционным оттенком
-    _fc = faction_colors.get(faction, (0.15, 0.15, 0.15, 1))
-    bg_color = (_fc[0] * 0.25, _fc[1] * 0.25, _fc[2] * 0.25 + 0.05, 0.95)
-    _dark_text_factions = set()  # Все фракции — светлый текст на тёмном фоне
-    global TEXT_COLOR
-    TEXT_COLOR = get_color_from_hex('#FFFFFF')
+    bg_color = faction_colors.get(faction, (0.15, 0.15, 0.15, 1))
+    # Тёмный текст для светлых фракций (Элины, Адепты)
+    _dark_text_factions = {'Элины', 'Адепты'}
+    if faction in _dark_text_factions:
+        global TEXT_COLOR
+        TEXT_COLOR = (0.1, 0.1, 0.1, 1)
+    else:
+        TEXT_COLOR = get_color_from_hex('#FFFFFF')
     main_box = BoxLayout(
         orientation='horizontal',
         size_hint=(1, 1),
@@ -727,16 +729,16 @@ def start_army_mode(faction, game_area, class_faction, conn):
     float_layout = FloatLayout(size_hint=(1, 1))
     float_layout.add_widget(main_box)
 
-    # Кнопка закрытия
+    # Кнопка закрытия — правый верхний угол
     close_icon = Image(
         source='files/pict/close.png',
         size_hint=(None, None),
-        size=(dp(60), dp(60)),
-        pos_hint={'top': 0.85, 'right': 1.18},
+        size=(dp(50), dp(50)),
+        pos_hint={'top': 0.98, 'right': 0.99},
         allow_stretch=True,
         keep_ratio=True,
         mipmap=True,
-        color=(1, 1, 1, 0.9)
+        color=(1, 0.3, 0.3, 1)
     )
 
     # ModalView блокирует нажатия на карту
