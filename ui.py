@@ -1,4 +1,5 @@
 from db_lerdon_connect import *
+from kivy.uix.image import AsyncImage
 
 from fight import fight
 from utils.helpers import format_number
@@ -82,12 +83,6 @@ class FortressInfoPopup(Popup):
 
         faction_label = f" ({self.city_faction})" if self.city_faction and self.city_faction != 'Нейтрал' else ""
         self.title = f"Информация о поселении {self.city_name}{faction_label}"
-        self.title_size = sp(15) if platform == 'android' else sp(14)
-        self.title_color = (0.85, 0.88, 0.95, 1)
-        self.title_align = 'left'
-        self.separator_color = (0.2, 0.45, 0.8, 0.6)
-        self.separator_height = dp(2)
-        self.background_color = (0.07, 0.08, 0.13, 1)
         self.create_ui()
 
     def create_ui(self):
@@ -114,13 +109,32 @@ class FortressInfoPopup(Popup):
         acc = _FC.get(self.player_fraction, (0.25, 0.52, 0.92, 1))
 
         def _make_btn(text, color, on_rel=None):
-            """Стилизованная кнопка — лёгкая, без canvas-инструкций."""
+            """Стилизованная кнопка с фоном и hover-анимацией."""
             btn = Button(
                 text=text, size_hint_y=None, height=btn_h,
-                background_normal='', background_color=color,
-                color=(1, 1, 1, 1),
+                background_color=(0, 0, 0, 0), color=(1, 1, 1, 1),
                 font_size=sp(sp_base), bold=True
             )
+            darker = (color[0] * 0.7, color[1] * 0.7, color[2] * 0.7, 1)
+            with btn.canvas.before:
+                btn._bg_clr = Color(*color)
+                btn._bg_rr = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(12)])
+            btn.bind(
+                pos=lambda i, v: setattr(i._bg_rr, 'pos', v),
+                size=lambda i, v: setattr(i._bg_rr, 'size', v),
+            )
+
+            def _down(touch):
+                if btn.collide_point(*touch.pos):
+                    btn._bg_clr.rgba = darker
+                return Button.on_touch_down(btn, touch)
+
+            def _up(touch):
+                btn._bg_clr.rgba = color
+                return Button.on_touch_up(btn, touch)
+
+            btn.on_touch_down = _down
+            btn.on_touch_up = _up
             if on_rel:
                 btn.bind(on_release=on_rel)
             return btn
@@ -219,23 +233,23 @@ class FortressInfoPopup(Popup):
         # ── Кнопки действий ───────────────────────────────────────────
         btn_row = BoxLayout(size_hint_y=None, height=btn_h, spacing=spc)
         btn_row.add_widget(_make_btn(
-            'Ввести войска', (0.12, 0.50, 0.20, 1),
+            'Ввести войска', (0.18, 0.62, 0.22, 1),
             on_rel=lambda btn: self.load_troops_by_type("Любые", None)
         ))
         # "Разместить армию" и "Построить" — только для своих городов
         if self.ai_fraction == self.player_fraction and not self._is_undead_city:
             btn_row.add_widget(_make_btn(
-                'Разместить армию', (0.15, 0.40, 0.75, 1),
+                'Разместить армию', (0.16, 0.46, 0.82, 1),
                 on_rel=self.place_army
             ))
             btn_row.add_widget(_make_btn(
-                'Построить', (0.65, 0.45, 0.10, 1),
+                'Построить', (0.55, 0.35, 0.12, 1),
                 on_rel=lambda btn: self._open_build_menu()
             ))
         root.add_widget(btn_row)
 
         root.add_widget(_make_btn(
-            'Закрыть', (0.45, 0.12, 0.12, 1),
+            'Закрыть', (0.62, 0.14, 0.14, 1),
             on_rel=self.dismiss
         ))
 
@@ -828,6 +842,15 @@ class FortressInfoPopup(Popup):
             )
             self.table_layout.add_widget(label)
 
+        # Предзагрузка уникальных изображений в кеш
+        _unique_imgs = {img for _, _, _, img in troops_data if img}
+        for _src in _unique_imgs:
+            try:
+                from kivy.core.image import Image as CoreImage
+                CoreImage(_src)
+            except Exception:
+                pass
+
         _row_idx = 0
         for city_name, unit_name, unit_count, unit_image in troops_data:
             _row_idx += 1
@@ -840,7 +863,7 @@ class FortressInfoPopup(Popup):
                               height=_row_h, color=(0.5, 0.85, 0.5, 1), bold=True)
 
             img_box = BoxLayout(size_hint_y=None, height=_img_h)
-            img_box.add_widget(Image(source=unit_image, size=(_img_h, _img_h), size_hint=(None, None)))
+            img_box.add_widget(AsyncImage(source=unit_image, size=(_img_h, _img_h), size_hint=(None, None)))
 
             btn_add = Button(
                 text="Добавить", font_size=_fsize, bold=True,
@@ -1355,27 +1378,23 @@ class FortressInfoPopup(Popup):
                 '4': (0.38, 0.10, 0.10, 1),   # Тёмно-красный (легенда)
             }
 
-            # Батч-загрузка статов всех юнитов в гарнизоне (один запрос вместо N)
-            _unit_names = [rd[0] for rd in garrison_data]
-            _units_info_cache = {}
-            if _unit_names:
-                _ph = ','.join('?' * len(_unit_names))
-                self.cursor.execute(
-                    f"SELECT unit_name, unit_class, attack, defense, durability FROM units WHERE unit_name IN ({_ph})",
-                    _unit_names)
-                for _r in self.cursor.fetchall():
-                    _units_info_cache[_r[0]] = {'class': str(_r[1]), 'atk': _r[2], 'def': _r[3], 'dur': _r[4]}
-
             # Вычисляем бонус героев (класс 2-3) для юнитов класса 1
             _hero_bonus_atk = 0
             _hero_bonus_def = 0
             _hero_bonus_dur = 0
             for rd in garrison_data:
-                hi = _units_info_cache.get(rd[0])
-                if hi and int(hi['class']) in (2, 3) and rd[1] > 0:
-                    _hero_bonus_atk += hi['atk'] or 0
-                    _hero_bonus_def += hi['def'] or 0
-                    _hero_bonus_dur += hi['dur'] or 0
+                try:
+                    self.cursor.execute(
+                        "SELECT unit_class, attack, defense, durability FROM units WHERE unit_name = ?",
+                        (rd[0],)
+                    )
+                    hi = self.cursor.fetchone()
+                    if hi and int(hi[0]) in (2, 3) and rd[1] > 0:
+                        _hero_bonus_atk += hi[1] or 0
+                        _hero_bonus_def += hi[2] or 0
+                        _hero_bonus_dur += hi[3] or 0
+                except Exception:
+                    pass
 
             for row_data in garrison_data:
                 unit_name, unit_count, unit_image = row_data[0], row_data[1], row_data[2]
@@ -1386,13 +1405,17 @@ class FortressInfoPopup(Popup):
                 unit_defense = 0
                 unit_durability = 0
                 try:
-                    unit_info = _units_info_cache.get(unit_name)
+                    self.cursor.execute(
+                        "SELECT unit_class, attack, defense, durability FROM units WHERE unit_name = ?",
+                        (unit_name,)
+                    )
+                    unit_info = self.cursor.fetchone()
                     if unit_info:
-                        unit_class = unit_info['class']
-                        attack, defense = unit_info['atk'], unit_info['def']
+                        unit_class = str(unit_info[0])
+                        attack, defense = unit_info[1], unit_info[2]
                         unit_attack = attack
                         unit_defense = defense
-                        unit_durability = unit_info['dur'] if unit_info['dur'] else 0
+                        unit_durability = unit_info[3] if unit_info[3] else 0
                         if unit_class in ('2', '3'):
                             try:
                                 if defense == 0 and attack > 0:
@@ -1843,7 +1866,7 @@ class FortressInfoPopup(Popup):
                 # Фон карточки — лёгкий без canvas-инструкций
 
                 # Изображение (асинхронная загрузка)
-                image = Image(
+                image = AsyncImage(
                     source=unit_image,
                     size_hint=(None, None),
                     size=(image_size, image_size)
