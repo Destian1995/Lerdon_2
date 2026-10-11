@@ -83,6 +83,13 @@ class FortressInfoPopup(Popup):
 
         faction_label = f" ({self.city_faction})" if self.city_faction and self.city_faction != 'Нейтрал' else ""
         self.title = f"Информация о поселении {self.city_name}{faction_label}"
+        self.title_size = sp(15) if platform == 'android' else sp(14)
+        self.title_color = (0.85, 0.88, 0.95, 1)
+        self.title_align = 'left'
+        self.separator_color = (0.2, 0.45, 0.8, 0.6)
+        self.separator_height = dp(2)
+        self.background = ''
+        self.background_color = (0.05, 0.06, 0.10, 0.98)
         self.create_ui()
 
     def create_ui(self):
