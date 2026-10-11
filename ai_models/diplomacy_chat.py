@@ -1085,6 +1085,14 @@ class EnhancedDiplomacyChat():
         # Очищаем поле ввода
         self.message_input.text = ""
 
+        # Снимок дипломатии ДО генерации ответа
+        try:
+            _cur = self.db_connection.cursor()
+            _cur.execute("SELECT faction1, faction2, relationship FROM diplomacies ORDER BY faction1, faction2")
+            _diplo_before = _cur.fetchall()
+        except Exception:
+            _diplo_before = None
+
         # Генерируем ответ ИИ
         response = self.generate_diplomatic_response(message, self.selected_faction)
 
@@ -1109,14 +1117,16 @@ class EnhancedDiplomacyChat():
             # Добавляем в память разговора
             self.add_to_memory(message, response)
 
-            # Перерисовка карты если дипломатия могла измениться
-            _combined = (message + ' ' + response).lower()
-            if any(w in _combined for w in ['союз', 'война', 'мир', 'альянс', 'согласен']):
-                try:
+            # Перерисовка карты если дипломатия изменилась в таблице
+            try:
+                _cur = self.db_connection.cursor()
+                _cur.execute("SELECT faction1, faction2, relationship FROM diplomacies ORDER BY faction1, faction2")
+                _diplo_after = _cur.fetchall()
+                if _diplo_before is not None and _diplo_after != _diplo_before:
                     from game_process import refresh_map
                     refresh_map()
-                except Exception:
-                    pass
+            except Exception:
+                pass
 
             # Показываем быстрые кнопки ОК/Отказ при counter_offer
             _ctx = self.negotiation_context.get(self.selected_faction, {})
@@ -1313,11 +1323,6 @@ class EnhancedDiplomacyChat():
                                    (self.faction, target_faction, target_faction, self.faction))
                     self.db_connection.commit()
                     del self.negotiation_context[target_faction]
-                    try:
-                        from game_process import refresh_map
-                        refresh_map()
-                    except Exception:
-                        pass
                     return random.choice([
                         f"Союз заключён! {alliance_cost:,} крон списано. Теперь мы вместе!",
                         f"Отлично! Наш союз скреплён! -{alliance_cost:,} крон. Враги трепещут!",
@@ -3849,12 +3854,6 @@ class EnhancedDiplomacyChat():
 
                 self.db_connection.commit()
 
-                try:
-                    from game_process import refresh_map
-                    refresh_map()
-                except Exception:
-                    pass
-
                 # Получаем фразу для фракции
                 phrase = self.faction_phrases.get(faction, {}).get("alliance", "Союз заключён!")
 
@@ -4534,13 +4533,6 @@ class EnhancedDiplomacyChat():
             """, (requesting_faction, target_faction, f"Объявлена война по подстрекательству игрока", 0))
 
             self.db_connection.commit()
-
-            # Перерисовка карты
-            try:
-                from game_process import refresh_map
-                refresh_map()
-            except Exception:
-                pass
 
             # Немедленная атака: ищем ближайший вражеский город, граничащий с нашим или городом игрока
             try:
