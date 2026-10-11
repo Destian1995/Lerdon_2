@@ -107,32 +107,93 @@ class FortressInfoPopup(Popup):
         pad = dp(10)
         spc = dp(8)
 
+        # ── Фракционный акцент ────────────────────────────────────────
+        _FC = {
+            'Север':   (0.25, 0.52, 0.92, 1),
+            'Эльфы':   (0.22, 0.76, 0.32, 1),
+            'Вампиры': (0.40, 0.10, 0.50, 1),
+            'Адепты':  (0.85, 0.45, 0.10, 1),
+            'Элины':   (0.95, 0.90, 0.15, 1),
+        }
+        acc = _FC.get(self.player_fraction, (0.25, 0.52, 0.92, 1))
+
         def _make_btn(text, color, on_rel=None):
-            """Кнопка в стиле мастерской артефактов."""
+            """Кнопка с фоном и эффектом нажатия."""
             btn = Button(
                 text=text, size_hint_y=None, height=btn_h,
                 background_color=(0, 0, 0, 0), color=(1, 1, 1, 1),
                 font_size=sp(sp_base), bold=True
             )
+            darker = (color[0] * 0.65, color[1] * 0.65, color[2] * 0.65, 1)
             with btn.canvas.before:
                 btn._bc = Color(*color)
                 btn._br = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(10)])
             btn.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
                      size=lambda i, v: setattr(i._br, 'size', v))
+
+            def _down(touch):
+                if btn.collide_point(*touch.pos):
+                    btn._bc.rgba = darker
+                return Button.on_touch_down(btn, touch)
+
+            def _up(touch):
+                btn._bc.rgba = color
+                return Button.on_touch_up(btn, touch)
+
+            btn.on_touch_down = _down
+            btn.on_touch_up = _up
             if on_rel:
                 btn.bind(on_release=on_rel)
             return btn
 
         def _section_header(title):
-            """Заголовок секции — золотой текст по центру."""
+            """Заголовок секции с акцентной полосой и подчёркиванием."""
+            box = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(32), spacing=dp(3))
+            row = BoxLayout(size_hint_y=None, height=dp(26), spacing=dp(6))
+            # Вертикальная акцентная полоса
+            bar = Widget(size_hint=(None, 1), width=dp(4))
+            with bar.canvas:
+                Color(*acc)
+                bar._r = RoundedRectangle(pos=bar.pos, size=bar.size, radius=[dp(2)])
+            bar.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
+                     size=lambda i, v: setattr(i._r, 'size', v))
             lbl = Label(
                 text=f'[b]{title}[/b]', markup=True,
-                font_size=sp(sp_base + 2), color=(0.85, 0.90, 1.0, 1),
-                halign='center', valign='middle',
-                size_hint_y=None, height=dp(28)
+                font_size=sp(sp_base + 2), color=(0.90, 0.92, 0.98, 1),
+                halign='left', valign='middle'
             )
             lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-            return lbl
+            row.add_widget(bar)
+            row.add_widget(lbl)
+            box.add_widget(row)
+            # Тонкая линия-подчёркивание
+            line = Widget(size_hint_y=None, height=dp(1))
+            with line.canvas:
+                Color(*acc[:3], 0.3)
+                line._r = RoundedRectangle(pos=line.pos, size=line.size)
+            line.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
+                      size=lambda i, v: setattr(i._r, 'size', v))
+            box.add_widget(line)
+            return box
+
+        def _styled_panel(widget):
+            """Оборачивает виджет в стилизованную панель с фоном и тонкой рамкой."""
+            widget.padding = [dp(6), dp(6)]
+            with widget.canvas.before:
+                Color(0.09, 0.09, 0.14, 1)
+                widget._bg = RoundedRectangle(pos=widget.pos, size=widget.size, radius=[dp(8)])
+                Color(*acc[:3], 0.18)
+                widget._border = Line(
+                    rounded_rectangle=(*widget.pos, *widget.size, dp(8)),
+                    width=1.1
+                )
+            widget.bind(
+                pos=lambda i, v: (setattr(i._bg, 'pos', v),
+                                  setattr(i._border, 'rounded_rectangle', (*v, *i.size, dp(8)))),
+                size=lambda i, v: (setattr(i._bg, 'size', v),
+                                   setattr(i._border, 'rounded_rectangle', (*i.pos, *v, dp(8))))
+            )
+            return widget
 
         # ── Root layout ───────────────────────────────────────────────
         root = BoxLayout(orientation='vertical', padding=pad, spacing=spc)
@@ -146,7 +207,7 @@ class FortressInfoPopup(Popup):
         cols = GridLayout(cols=2, spacing=spc, size_hint_y=0.78)
 
         # Левая: Гарнизон
-        left = BoxLayout(orientation='vertical', spacing=spc, padding=[dp(6), dp(6)])
+        left = _styled_panel(BoxLayout(orientation='vertical', spacing=spc))
         left.add_widget(_section_header('Гарнизон'))
         self.attacking_units_list = ScrollView(size_hint=(1, 1))
         self.attacking_units_box = BoxLayout(
@@ -158,7 +219,7 @@ class FortressInfoPopup(Popup):
         cols.add_widget(left)
 
         # Правая: Здания или картинка нежити
-        right = BoxLayout(orientation='vertical', spacing=spc, padding=[dp(6), dp(6)])
+        right = _styled_panel(BoxLayout(orientation='vertical', spacing=spc))
 
         # Проверяем, город нежити ли это
         self.cursor.execute("SELECT COALESCE(is_undead, 0) FROM cities WHERE name = ?", (self.city_name,))
@@ -194,29 +255,37 @@ class FortressInfoPopup(Popup):
 
         root.add_widget(cols)
 
-        # ── Кнопка «Ввести войска» на всю ширину (как «Сгенерировать» в мастерской) ──
-        root.add_widget(_make_btn(
-            'Ввести войска', (0.18, 0.45, 0.55, 1),
-            on_rel=lambda btn: self.load_troops_by_type("Любые", None)
-        ))
+        # ── Разделитель перед кнопками ────────────────────────────────
+        sep = Widget(size_hint_y=None, height=dp(1))
+        with sep.canvas:
+            Color(*acc[:3], 0.3)
+            sep._r = RoundedRectangle(pos=sep.pos, size=sep.size)
+        sep.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
+                 size=lambda i, v: setattr(i._r, 'size', v))
+        root.add_widget(sep)
 
-        # ── Кнопки действий — ряд (как «Закрыть / Далее» в мастерской) ──
-        btn_row = BoxLayout(size_hint_y=None, height=btn_h, spacing=dp(4))
+        # ── Кнопки действий ───────────────────────────────────────────
+        btn_row = BoxLayout(size_hint_y=None, height=btn_h, spacing=spc)
         btn_row.add_widget(_make_btn(
-            'Закрыть', (0.65, 0.18, 0.18, 1),
-            on_rel=self.dismiss
+            'Ввести войска', (0.18, 0.62, 0.22, 1),
+            on_rel=lambda btn: self.load_troops_by_type("Любые", None)
         ))
         # "Разместить армию" и "Построить" — только для своих городов
         if self.ai_fraction == self.player_fraction and not self._is_undead_city:
             btn_row.add_widget(_make_btn(
-                'Разместить армию', (0.18, 0.28, 0.45, 1),
+                'Разместить армию', (0.16, 0.46, 0.82, 1),
                 on_rel=self.place_army
             ))
             btn_row.add_widget(_make_btn(
-                'Построить', (0.18, 0.55, 0.22, 1),
+                'Построить', (0.55, 0.35, 0.12, 1),
                 on_rel=lambda btn: self._open_build_menu()
             ))
         root.add_widget(btn_row)
+
+        root.add_widget(_make_btn(
+            'Закрыть', (0.62, 0.14, 0.14, 1),
+            on_rel=self.dismiss
+        ))
 
         self.content = root
         self.garrison_widgets = {}
