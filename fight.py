@@ -1833,24 +1833,32 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
         reset_third_class_units_if_empty(conn, attacking_fraction)
         reset_third_class_units_if_empty(conn, defending_fraction)
 
-        # === Обновление опыта: +1 за каждую победу ===
+        # === Обновление опыта: +1 за каждую победу (атака И защита) ===
         # 1 победа = Воин (+5%), 3 победы = Ветеран (+15%), 7 побед = Элита (+25%)
         try:
             if winner == 'attacking':
-                _win_city = defending_city  # Победитель атакующий — юниты в захваченном городе
+                _win_city = defending_city
                 _win_army = attacking_army
+                _side = 'атакующий'
             else:
-                _win_city = defending_city  # Победитель защитник — юниты остались в городе
+                _win_city = defending_city
                 _win_army = defending_army
+                _side = 'защитник'
 
-            # Начисляем опыт только юнитам 1 класса победившей стороны
+            # Начисляем опыт юнитам 1 класса победившей стороны
+            _exp_count = 0
             for u in _win_army:
                 if get_unit_class(u) == 1 and u['unit_count'] > 0:
                     cursor.execute("""
                         UPDATE garrisons SET experience = COALESCE(experience, 0) + 1
                         WHERE city_name = ? AND unit_name = ? AND unit_count > 0
                     """, (_win_city, u['unit_name']))
-            print(f"[EXP] +1 опыт юнитам победителя в {_win_city}")
+                    _exp_count += 1
+                    print(f"[EXP] +1 побед '{u['unit_name']}' в {_win_city} (сторона: {_side})")
+            if _exp_count == 0:
+                print(f"[EXP] Нет юнитов 1 класса для начисления опыта ({_side}, {_win_city})")
+            else:
+                print(f"[EXP] +1 опыт {_exp_count} юнитам ({_side}) в {_win_city}")
         except Exception as e:
             print(f"[EXP] Ошибка обновления опыта: {e}")
 
