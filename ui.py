@@ -2542,7 +2542,7 @@ class FortressInfoPopup(Popup):
                     if undead_row and undead_row[0]:
                         from undead_invasion import is_invasion_active
                         if not is_invasion_active(self.conn):
-                            show_popup_message("Невозможно", "Тёмная сила защищает это место. Город невозможно захватить.")
+                            show_popup_message("Невозможно", "У этого места дурная слава, наши воины не полезут сюда без острой необходимости.")
                             return False
                     self.capture_city(destination_fortress_name, current_player_kingdom, self.selected_group)
                     return True
@@ -2588,7 +2588,7 @@ class FortressInfoPopup(Popup):
                     if undead_row and undead_row[0]:
                         from undead_invasion import is_invasion_active
                         if not is_invasion_active(self.conn):
-                            show_popup_message("Невозможно", "Тёмная сила защищает это место. Город невозможно захватить.")
+                            show_popup_message("Невозможно", "У этого места дурная слава, наши воины не полезут сюда без острой необходимости.")
                             return False
                     self.capture_city(destination_fortress_name, current_player_kingdom, self.selected_group)
                     return True

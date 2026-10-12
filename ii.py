@@ -582,21 +582,31 @@ class AIController:
             print("Потребление полностью исчерпано. Наем невозможен.")
             return
 
-        # Выбираем город с максимальным развитием
-        target_city = max(
-            self.buildings.items(),
-            key=lambda x: sum(x[1]['Здания'].values()),
-            default=(None, None)
-        )[0]
+        # Если есть герой — нанимаем в его город, иначе в самый развитый
+        target_city = self._find_hero_city()
+        if not target_city:
+            target_city = max(
+                self.buildings.items(),
+                key=lambda x: sum(x[1]['Здания'].values()),
+                default=(None, None)
+            )[0]
 
         if not target_city:
             print("Нет доступных городов для найма.")
             return
 
+        print(f"[AI] {self.faction}: найм армии в город '{target_city}'")
+
         new_garrison = {target_city: []}
 
         # --- Шаг 1: Распределяем ресурсы ---
-        resource_percentage_for_units = 0.4  # 40% на юниты
+        # Первые 8 ходов без войны — только 10% на найм (остальное на стройку)
+        _at_war = bool(self.get_factions_at_war())
+        if self.turn < 8 and not _at_war:
+            resource_percentage_for_units = 0.1  # 10% на юниты (экономическая фаза)
+            print(f"[AI] {self.faction}: экономическая фаза — 10% бюджета на найм")
+        else:
+            resource_percentage_for_units = 0.4  # 40% на юниты
         crowns_for_units = int(crowns * resource_percentage_for_units)
         works_for_units = int(works * resource_percentage_for_units)
         consumption_for_units = int(available_consumption * resource_percentage_for_units)
@@ -609,13 +619,41 @@ class AIController:
         self.hire_units(new_garrison, crowns_for_units, works_for_units, consumption_for_units)
 
         # --- Шаг 3: Найм героев ---
+        # Герои нанимаются начиная с 6 хода ИЛИ если объявлена война раньше
         city_count = self.get_city_count_for_faction()
-        hired_hero_3_class_name = None  # Для хранения имени нанятого героя 3 класса
+        hired_hero_3_class_name = None
+        hired_hero_3_class = False
 
-        if city_count < 5:
+        at_war = bool(self.get_factions_at_war())
+        should_hire_heroes = self.turn >= 5 or at_war  # turn=5 = 6-й игровой ход
+
+        if not should_hire_heroes:
+            print(f"[AI] {self.faction}: ход {self.turn+1}, нет войны — герои пока не нанимаются")
+
+        elif city_count < 3:
+            # Мало территорий — сначала пытаемся взять героя 4 класса (спасение)
+            print(f"[AI] {self.faction}: < 3 городов, приоритет: герой 4 класса или защитный")
+            self.try_hire_class_4_hero(new_garrison, crowns_for_heroes, works_for_heroes, consumption_for_heroes)
+
+            # Если героя 4 класса не удалось нанять — берём защитного героя 3 класса
+            hired_class_4 = any(
+                self.army.get(u["unit_name"], {}).get("stats", {}).get("Класс") == "4"
+                for u in new_garrison[target_city]
+            )
+            if not hired_class_4:
+                hired_hero_3_class = self.hire_defensive_hero(new_garrison, crowns_for_heroes,
+                                                              works_for_heroes, consumption_for_heroes)
+                if hired_hero_3_class:
+                    for unit in new_garrison[target_city]:
+                        unit_name = unit["unit_name"]
+                        unit_data = self.army.get(unit_name)
+                        if unit_data and unit_data["stats"]["Класс"] == "3":
+                            hired_hero_3_class_name = unit_name
+                            break
+
+        elif city_count < 5:
             hired_hero_3_class = self.hire_for_less_than_5_cities(new_garrison, crowns_for_heroes, works_for_heroes,
                                                                   consumption_for_heroes)
-            # Если был нанят герой 3 класса, получаем его имя
             if hired_hero_3_class:
                 for unit in new_garrison[target_city]:
                     unit_name = unit["unit_name"]
@@ -626,7 +664,6 @@ class AIController:
         else:
             hired_hero_3_class = self.hire_for_more_than_5_cities(new_garrison, crowns_for_heroes, works_for_heroes,
                                                                   consumption_for_heroes)
-            # Если был нанят герой 3 класса, получаем его имя
             if hired_hero_3_class:
                 for unit in new_garrison[target_city]:
                     unit_name = unit["unit_name"]
@@ -635,8 +672,8 @@ class AIController:
                         hired_hero_3_class_name = unit_name
                         break
 
-        # --- Шаг 4: После 14 хода — герой 4 класса ---
-        if self.turn > 14:
+        # --- Шаг 4: После 14 хода и >= 3 городов — герой 4 класса ---
+        if self.turn > 14 and city_count >= 3:
             self.try_hire_class_4_hero(new_garrison, crowns_for_heroes, works_for_heroes, consumption_for_heroes)
 
         # --- Шаг 5: Сохранение изменений и экипировка героя ИИ ---
@@ -694,9 +731,11 @@ class AIController:
         """
         Логика найма героев для фракций с 5 или более городами.
         - Герои 2 класса нанимаются без проверки характеристик.
-        - Герои 3 класса могут быть любыми.
+        - Герои 3 класса: если экономика сильная — атакующий,
+          если слабая — защитный.
         """
         target_city = list(new_garrison.keys())[0]
+        want_attack_hero = self._is_economy_strong()
 
         # Герои 2 и 3 класса
         hero_candidates = {
@@ -719,6 +758,17 @@ class AIController:
             if hero_class == "3" and self.has_hero_of_class("3"):
                 continue  # Если уже есть герой 3 класса, пропускаем
 
+            # Для героев 3 класса выбираем тип по экономике
+            if hero_class == "3":
+                atk = unit_data["stats"]["Атака"]
+                dfn = unit_data["stats"]["Защита"]
+                if want_attack_hero:
+                    if atk <= dfn:
+                        continue
+                else:
+                    if dfn <= atk:
+                        continue
+
             cost_money = unit_data['cost']['money']
             cost_time = unit_data['cost']['time']
             consumption = unit_data['consumption']
@@ -733,27 +783,86 @@ class AIController:
                     "unit_name": unit_name,
                     "unit_count": 1
                 })
-                print(f"Нанят герой '{unit_name}' ({hero_class} класс)")
+                hero_type = "атакующий" if want_attack_hero else "защитный"
+                print(f"Нанят {hero_type} герой '{unit_name}' ({hero_class} класс)")
 
-                # --- НОВЫЙ КОД: Создание слотов и экипировка для героя 3 класса ---
                 if hero_class == "3":
                     hired_hero_3_class = True
                     self.create_empty_equipment_slots_for_ai_hero(unit_name)
-                    # Планируем экипировку после сохранения всех данных
-                    # Вызовем позже в hire_army после сохранения гарнизона
 
                 break  # Только один герой за раз
 
         # Возвращаем флаг, чтобы знать, был ли нанят герой 3 класса
         return hired_hero_3_class
 
+    def _is_economy_strong(self):
+        """
+        Определяет, сильная ли экономика у фракции.
+        Сильная = суммарно больниц + фабрик >= 70.
+        """
+        total_buildings = (getattr(self, 'hospitals', 0) or 0) + (getattr(self, 'factories', 0) or 0)
+        is_strong = total_buildings >= 70
+        print(f"[AI] {self.faction}: зданий (больницы+фабрики) = {total_buildings}, "
+              f"экономика {'сильная' if is_strong else 'слабая'}")
+        return is_strong
+
+    def hire_defensive_hero(self, new_garrison, crowns, works, available_consumption):
+        """
+        Найм защитного героя 3 класса (защита > атака).
+        Используется при < 3 городах, когда герой 4 класса недоступен.
+        """
+        target_city = list(new_garrison.keys())[0]
+
+        hero_candidates = {
+            name: data for name, data in self.army.items()
+            if data["stats"]["Класс"] == "3"
+        }
+
+        # Сортируем по защите — берём самого защитного
+        sorted_heroes = sorted(
+            hero_candidates.items(),
+            key=lambda x: x[1]["stats"]["Защита"],
+            reverse=True
+        )
+
+        for unit_name, unit_data in sorted_heroes:
+            if self.is_unit_already_hired(unit_name):
+                continue
+            if self.has_hero_of_class("3"):
+                break
+
+            # Только защитные герои (защита > атака)
+            if unit_data["stats"]["Защита"] <= unit_data["stats"]["Атака"]:
+                continue
+
+            cost_money = unit_data['cost']['money']
+            cost_time = unit_data['cost']['time']
+            consumption = unit_data['consumption']
+
+            if (crowns >= cost_money and works >= cost_time and
+                    available_consumption >= consumption):
+                self.resources['Кроны'] -= cost_money
+                self.resources['Рабочие'] -= cost_time
+
+                new_garrison[target_city].append({
+                    "unit_name": unit_name,
+                    "unit_count": 1
+                })
+                print(f"[AI] Нанят защитный герой '{unit_name}' (< 3 городов, режим выживания)")
+                self.create_empty_equipment_slots_for_ai_hero(unit_name)
+                return True
+
+        return False
+
     def hire_for_less_than_5_cities(self, new_garrison, crowns, works, available_consumption):
         """
         Логика найма героев для фракций с менее чем 5 городами.
         - Герои 2 класса нанимаются без проверки характеристик.
-        - Герои 3 класса должны быть атакующими (атака > защиты).
+        - Герои 3 класса: если экономика сильная — атакующий (атака > защиты),
+          если слабая — защитный (защита > атаки).
         """
         target_city = list(new_garrison.keys())[0]
+        want_attack_hero = self._is_economy_strong()
 
         # Все герои 2 и 3 класса
         hero_candidates = {
@@ -776,10 +885,18 @@ class AIController:
             if hero_class == "3" and self.has_hero_of_class("3"):
                 continue  # Если уже есть герой 3 класса, пропускаем
 
-            # Для героев 3 класса проверяем характеристики (атака > защиты)
+            # Для героев 3 класса выбираем тип по экономике
             if hero_class == "3":
-                if unit_data["stats"]["Атака"] <= unit_data["stats"]["Защита"]:
-                    continue
+                atk = unit_data["stats"]["Атака"]
+                dfn = unit_data["stats"]["Защита"]
+                if want_attack_hero:
+                    # Сильная экономика — берём атакующего героя (атака > защита)
+                    if atk <= dfn:
+                        continue
+                else:
+                    # Слабая экономика — берём защитного героя (защита > атака)
+                    if dfn <= atk:
+                        continue
 
             cost_money = unit_data['cost']['money']
             cost_time = unit_data['cost']['time']
@@ -795,14 +912,13 @@ class AIController:
                     "unit_name": unit_name,
                     "unit_count": 1
                 })
-                print(f"Нанят герой '{unit_name}' ({hero_class} класс)")
+                hero_type = "атакующий" if want_attack_hero else "защитный"
+                print(f"Нанят {hero_type} герой '{unit_name}' ({hero_class} класс)")
 
-                # --- НОВЫЙ КОД: Создание слотов и экипировка для героя 3 класса ---
+                # Создание слотов и экипировка для героя 3 класса
                 if hero_class == "3":
                     hired_hero_3_class = True
                     self.create_empty_equipment_slots_for_ai_hero(unit_name)
-                    # Планируем экипировку после сохранения всех данных
-                    # Вызовем позже в hire_army после сохранения гарнизона
 
                 break  # Только один герой за раз
 
@@ -1162,6 +1278,43 @@ class AIController:
         except sqlite3.Error as e:
             print(f"[ERROR] ИИ '{self.faction}': Ошибка при получении экипировки для {hero_name}: {e}")
             return {}
+
+    def _find_hero_city(self):
+        """
+        Находит город, где стоит основной герой (наивысший класс 4→3→2).
+        Возвращает имя города или None, если героев нет.
+        """
+        try:
+            self.cursor.execute("""
+                SELECT g.city_name, u.unit_class,
+                       (u.attack + u.defense + u.durability) as hero_power
+                FROM garrisons g
+                JOIN units u ON g.unit_name = u.unit_name
+                WHERE u.faction = ? AND u.unit_class IN ('2', '3', '4') AND g.unit_count > 0
+                ORDER BY CAST(u.unit_class AS INTEGER) DESC, hero_power DESC
+                LIMIT 1
+            """, (self.faction,))
+            row = self.cursor.fetchone()
+            if row:
+                print(f"[AI] {self.faction}: основной герой в городе '{row[0]}' (класс {row[1]})")
+                return row[0]
+        except Exception as e:
+            print(f"[AI] _find_hero_city: {e}")
+        return None
+
+    def _ai_has_heroes(self):
+        """Проверяет, есть ли у AI хотя бы один живой герой (класс 2/3/4)."""
+        try:
+            self.cursor.execute("""
+                SELECT 1
+                FROM garrisons g
+                JOIN units u ON g.unit_name = u.unit_name
+                WHERE u.faction = ? AND u.unit_class IN ('2', '3', '4') AND g.unit_count > 0
+                LIMIT 1
+            """, (self.faction,))
+            return bool(self.cursor.fetchone())
+        except Exception:
+            return False
 
     def get_city_count_for_faction(self):
         """
@@ -1770,6 +1923,71 @@ class AIController:
         except Exception as e:
             print(f"Ошибка при уведомлении игрока: {e}")
 
+    def _trigger_ideology_coalition(self, aggressor, victim):
+        """
+        Если война объявлена до 9 хода — фракции с той же идеологией что у жертвы
+        вступают в союз с жертвой и объявляют войну агрессору.
+        """
+        if self.turn >= 9:
+            return  # Коалиция только в ранней игре
+
+        try:
+            # Идеология жертвы
+            victim_system = self.load_political_system_for_faction(victim)
+
+            # Все живые фракции
+            self.cursor.execute("""
+                SELECT DISTINCT faction FROM cities
+                WHERE faction != 'Нейтрал' AND faction != 'Нежить'
+                  AND faction != ? AND faction != ?
+            """, (aggressor, victim))
+            other_factions = [r[0] for r in self.cursor.fetchall()]
+
+            for ally_faction in other_factions:
+                ally_system = self.load_political_system_for_faction(ally_faction)
+                if ally_system.strip() != victim_system.strip():
+                    continue  # Другая идеология — не вступает
+
+                # Проверяем, не воюет ли уже с агрессором
+                self.cursor.execute("""
+                    SELECT relationship FROM diplomacies
+                    WHERE faction1 = ? AND faction2 = ?
+                """, (ally_faction, aggressor))
+                dip_row = self.cursor.fetchone()
+                if dip_row and dip_row[0] == 'война':
+                    continue  # Уже воюют
+
+                # Союз с жертвой
+                self.cursor.execute("""
+                    INSERT INTO diplomacies (faction1, faction2, relationship)
+                    VALUES (?, ?, 'союз')
+                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship = 'союз'
+                """, (ally_faction, victim))
+                self.cursor.execute("""
+                    INSERT INTO diplomacies (faction1, faction2, relationship)
+                    VALUES (?, ?, 'союз')
+                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship = 'союз'
+                """, (victim, ally_faction))
+
+                # Война с агрессором
+                self.cursor.execute("""
+                    INSERT INTO diplomacies (faction1, faction2, relationship)
+                    VALUES (?, ?, 'война')
+                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship = 'война'
+                """, (ally_faction, aggressor))
+                self.cursor.execute("""
+                    INSERT INTO diplomacies (faction1, faction2, relationship)
+                    VALUES (?, ?, 'война')
+                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship = 'война'
+                """, (aggressor, ally_faction))
+
+                self.db_connection.commit()
+                print(f"[КОАЛИЦИЯ] {ally_faction} (идеология: {ally_system}) вступает в союз "
+                      f"с {victim} и объявляет войну {aggressor}!")
+
+        except Exception as e:
+            print(f"[КОАЛИЦИЯ] Ошибка: {e}")
+
     def update_diplomacy_status(self, faction, status):
         """
         Обновляет статус дипломатии с указанной фракцией.
@@ -2184,7 +2402,7 @@ class AIController:
 
     def collect_all_units(self, reachable_from=None):
         """
-        Собирает юниты из городов текущей фракции.
+        Собирает только СВОИ юниты из городов текущей фракции.
         Если указан reachable_from — собирает только из городов,
         связанных по своей территории с указанным городом.
         """
@@ -2195,9 +2413,9 @@ class AIController:
             FROM garrisons g
             JOIN cities c ON c.name = g.city_name
             LEFT JOIN units u ON g.unit_name = u.unit_name
-            WHERE c.faction = ?
+            WHERE c.faction = ? AND u.faction = ?
             """
-            self.cursor.execute(query, (self.faction,))
+            self.cursor.execute(query, (self.faction, self.faction))
             rows = self.cursor.fetchall()
 
             # Если указан базовый город — фильтруем по связности
@@ -2767,6 +2985,8 @@ class AIController:
                               f"Сила: {effective_our:.0f} vs {enemy_strength}. Объявление войны.")
                         self.update_diplomacy_status(faction, "война")
                         self.notify_player_about_war(faction)
+                        # Ранняя агрессия — идеологическая коалиция встаёт на защиту жертвы
+                        self._trigger_ideology_coalition(self.faction, faction)
                         target_city = self.find_nearest_city(faction)
                         if target_city:
                             self.attack_city(target_city, faction)

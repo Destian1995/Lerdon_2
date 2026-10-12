@@ -445,12 +445,19 @@ def ensure_scout_unit(self):
         _diag(self, f"ensure_scout: не хватает потребления ({available_consumption} < {consumption})")
         return False
 
+    # Размещаем разведчика в город героя, если герой есть
     target_city = None
     try:
-        if self.buildings:
-            target_city = next(iter(self.buildings.keys()))
+        target_city = self._find_hero_city()
     except Exception:
         pass
+
+    if not target_city:
+        try:
+            if self.buildings:
+                target_city = next(iter(self.buildings.keys()))
+        except Exception:
+            pass
 
     if not target_city:
         try:
@@ -618,6 +625,7 @@ def attack_city_v2(self, city_name, faction):
             return
 
         our_total = 0
+        our_total_attack = 0
         class_1_units = []
         hero_units = []
         for unit in all_units:
@@ -629,6 +637,7 @@ def attack_city_v2(self, city_name, faction):
                 if stats:
                     a, d, du = stats
                     our_total += unit["unit_count"] * (a + d + du)
+                    our_total_attack += unit["unit_count"] * a
             except Exception:
                 pass
 
@@ -640,6 +649,27 @@ def attack_city_v2(self, city_name, faction):
                 class_1_units.append(unit)
             elif uc in (2, 3, 4):
                 hero_units.append(unit)
+
+        # Если нет героев — атакуем обычными юнитами ТОЛЬКО если цель слабая
+        if not hero_units:
+            # Считаем защиту вражеского гарнизона
+            try:
+                self.cursor.execute("""
+                    SELECT COALESCE(SUM(g.unit_count * u.defense), 0)
+                    FROM garrisons g JOIN units u ON g.unit_name = u.unit_name
+                    WHERE g.city_name = ?
+                """, (city_name,))
+                enemy_defense = self.cursor.fetchone()[0] or 0
+            except Exception:
+                enemy_defense = 0
+
+            if enemy_defense > 0 and our_total_attack <= enemy_defense:
+                print(f"[AI] {self.faction}: нет героев, а вражеская защита ({enemy_defense}) "
+                      f">= наша атака ({our_total_attack}). Атака отменена.")
+                return
+            elif enemy_defense > 0:
+                print(f"[AI] {self.faction}: нет героев, но цель слабая "
+                      f"(защита {enemy_defense} < наша атака {our_total_attack}). Атакуем.")
 
         attack_sources = class_1_units
         if not attack_sources:
@@ -996,7 +1026,61 @@ def _find_closest_own_city_in_range(self, target_city_name, max_distance=MAX_MOV
 
 
 # ============================================================
-# 10. УЛУЧШЕННЫЙ make_turn — расписание v6
+# 10. СБОР АРМИИ К ГЕРОЮ
+# ============================================================
+
+def rally_units_to_hero(self):
+    """
+    Перемещает все юниты 1 класса из других городов в город основного героя.
+    Так вся армия сосредоточена в одном месте — вместе с героем.
+    """
+    try:
+        hero_city = self._find_hero_city()
+        if not hero_city:
+            return  # Нет героя — нечего собирать
+
+        # Собираем юниты из городов, связанных с городом героя
+        all_units = self.collect_all_units(reachable_from=hero_city)
+        if not all_units:
+            return
+
+        moved_count = 0
+        for unit in all_units:
+            if unit["city_name"] == hero_city:
+                continue  # Уже в городе героя
+
+            try:
+                uc = self.get_unit_class(unit["unit_name"])
+            except Exception:
+                uc = 1
+
+            # Перемещаем только юнитов 1 класса (обычная армия)
+            if uc != 1:
+                continue
+
+            if unit["unit_count"] <= 0:
+                continue
+
+            try:
+                self.relocate_units(
+                    from_city_name=unit["city_name"],
+                    to_city_name=hero_city,
+                    unit_name=unit["unit_name"],
+                    unit_count=unit["unit_count"],
+                    unit_image=unit["unit_image"]
+                )
+                moved_count += unit["unit_count"]
+            except Exception as e:
+                print(f"[AI] rally_units_to_hero: ошибка перемещения: {e}")
+
+        if moved_count > 0:
+            print(f"[AI] {self.faction}: стянуто {moved_count} юнитов к герою в '{hero_city}'")
+    except Exception as e:
+        print(f"[AI] rally_units_to_hero: {e}")
+
+
+# ============================================================
+# 11. УЛУЧШЕННЫЙ make_turn — расписание v6
 # ============================================================
 
 def make_turn_v2(self):
@@ -1059,38 +1143,83 @@ def make_turn_v2(self):
                 _diag(self, "шаг 0: emergency_sell_crystals")
                 emergency_sell_crystals(self)
 
-                # Шаг 1: гарантированный найм 1 разведчика
-                _diag(self, "шаг 1: ensure_scout_unit")
-                ensure_scout_unit(self)
+                # Определяем режим экономического развития:
+                # первые 8 ходов без войны — приоритет стройке
+                _at_war = bool(self.get_factions_at_war())
+                _economy_phase = self.turn < 8 and not _at_war
 
-                # Шаг 2: захват нейтрала (Элины — 2 попытки)
-                _expansion_rounds = 2 if self.faction == 'Элины' else 1
-                for _er in range(_expansion_rounds):
-                    _diag(self, f"шаг 2: early_expansion (раунд {_er+1}/{_expansion_rounds})")
-                    try:
-                        self._action_taken_this_turn = False  # Сброс флага для второго захвата
-                        early_expansion(self)
-                    except Exception as e:
-                        print(f"[AI] early_expansion: {e}")
+                if _economy_phase:
+                    # ЭКОНОМИЧЕСКАЯ ФАЗА: сначала стройка, потом найм на остатки
+                    _diag(self, "ЭКОНОМИЧЕСКАЯ ФАЗА: приоритет стройке")
+                    print(f"[AI] {self.faction}: ход {self.turn+1}, нет войны — режим экономики (90% на здания)")
 
-                # Шаг 3: обычный найм
-                _diag(self, "шаг 3: hire_army")
-                if self.resources.get('Кроны', 0) > 0:
-                    self.hire_army()
+                    # Шаг 1: стройка (основной приоритет)
+                    _diag(self, "шаг 1: manage_buildings (приоритет)")
+                    self.manage_buildings()
 
-                # Шаг 4: войны и атаки
-                # Элины: двойное перемещение/атака за ход
-                _war_rounds = 2 if self.faction == 'Элины' else 1
-                for _wr in range(_war_rounds):
-                    _diag(self, f"шаг 4: check_and_declare_war (раунд {_wr+1}/{_war_rounds})")
-                    self.check_and_declare_war()
+                    # Шаг 2: обычная продажа
+                    self.sell_resources()
 
-                # Шаг 5: стройка
-                _diag(self, "шаг 5: manage_buildings")
-                self.manage_buildings()
+                    # Шаг 3: гарантированный разведчик
+                    _diag(self, "шаг 3: ensure_scout_unit")
+                    ensure_scout_unit(self)
 
-                # Шаг 6: обычная продажа
-                self.sell_resources()
+                    # Шаг 4: захват нейтрала
+                    _expansion_rounds = 2 if self.faction == 'Элины' else 1
+                    for _er in range(_expansion_rounds):
+                        _diag(self, f"шаг 4: early_expansion (раунд {_er+1}/{_expansion_rounds})")
+                        try:
+                            self._action_taken_this_turn = False
+                            early_expansion(self)
+                        except Exception as e:
+                            print(f"[AI] early_expansion: {e}")
+
+                    # Шаг 5: найм на остатки (только 10% ресурсов — см. hire_army)
+                    _diag(self, "шаг 5: hire_army (10% бюджет)")
+                    if self.resources.get('Кроны', 0) > 0:
+                        self.hire_army()
+
+                    # Шаг 6: стягиваем юнитов к герою
+                    rally_units_to_hero(self)
+
+                else:
+                    # БОЕВАЯ ФАЗА: стандартное расписание
+
+                    # Шаг 1: гарантированный найм 1 разведчика
+                    _diag(self, "шаг 1: ensure_scout_unit")
+                    ensure_scout_unit(self)
+
+                    # Шаг 2: захват нейтрала (Элины — 2 попытки)
+                    _expansion_rounds = 2 if self.faction == 'Элины' else 1
+                    for _er in range(_expansion_rounds):
+                        _diag(self, f"шаг 2: early_expansion (раунд {_er+1}/{_expansion_rounds})")
+                        try:
+                            self._action_taken_this_turn = False
+                            early_expansion(self)
+                        except Exception as e:
+                            print(f"[AI] early_expansion: {e}")
+
+                    # Шаг 3: обычный найм
+                    _diag(self, "шаг 3: hire_army")
+                    if self.resources.get('Кроны', 0) > 0:
+                        self.hire_army()
+
+                    # Шаг 3.5: стягиваем разбросанных юнитов 1 класса к герою
+                    _diag(self, "шаг 3.5: rally_units_to_hero")
+                    rally_units_to_hero(self)
+
+                    # Шаг 4: войны и атаки
+                    _war_rounds = 2 if self.faction == 'Элины' else 1
+                    for _wr in range(_war_rounds):
+                        _diag(self, f"шаг 4: check_and_declare_war (раунд {_wr+1}/{_war_rounds})")
+                        self.check_and_declare_war()
+
+                    # Шаг 5: стройка
+                    _diag(self, "шаг 5: manage_buildings")
+                    self.manage_buildings()
+
+                    # Шаг 6: обычная продажа
+                    self.sell_resources()
 
                 # Шаг 7: артефакты + дипломатия
                 self.generate_and_buy_artifacts_for_ai_hero()
@@ -1135,6 +1264,7 @@ def apply_ai_improvements(AIControllerCls):
     AIControllerCls.early_expansion = early_expansion
     AIControllerCls.ensure_scout_unit = ensure_scout_unit
     AIControllerCls.emergency_sell_crystals = emergency_sell_crystals
+    AIControllerCls.rally_units_to_hero = rally_units_to_hero
     AIControllerCls._find_closest_own_city_in_range = _find_closest_own_city_in_range
 
     print("[AI] Стратегические улучшения ИИ применены (ai_strategy v6).")
