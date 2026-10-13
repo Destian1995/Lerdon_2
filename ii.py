@@ -630,9 +630,9 @@ class AIController:
         if not should_hire_heroes:
             print(f"[AI] {self.faction}: ход {self.turn+1}, нет войны — герои пока не нанимаются")
 
-        elif city_count < 3:
+        elif city_count < 4:
             # Мало территорий — сначала пытаемся взять героя 4 класса (спасение)
-            print(f"[AI] {self.faction}: < 3 городов, приоритет: герой 4 класса или защитный")
+            print(f"[AI] {self.faction}: < 4 городов, приоритет: герой 4 класса или защитный")
             self.try_hire_class_4_hero(new_garrison, crowns_for_heroes, works_for_heroes, consumption_for_heroes)
 
             # Если героя 4 класса не удалось нанять — берём защитного героя 3 класса
@@ -651,7 +651,9 @@ class AIController:
                             hired_hero_3_class_name = unit_name
                             break
 
-        elif city_count < 5:
+        else:
+            # 4+ городов — обычный герой (атакующий/защитный по экономике)
+            print(f"[AI] {self.faction}: >= 4 городов, обычный найм героев")
             hired_hero_3_class = self.hire_for_less_than_5_cities(new_garrison, crowns_for_heroes, works_for_heroes,
                                                                   consumption_for_heroes)
             if hired_hero_3_class:
@@ -661,19 +663,13 @@ class AIController:
                     if unit_data and unit_data["stats"]["Класс"] == "3":
                         hired_hero_3_class_name = unit_name
                         break
-        else:
-            hired_hero_3_class = self.hire_for_more_than_5_cities(new_garrison, crowns_for_heroes, works_for_heroes,
-                                                                  consumption_for_heroes)
-            if hired_hero_3_class:
-                for unit in new_garrison[target_city]:
-                    unit_name = unit["unit_name"]
-                    unit_data = self.army.get(unit_name)
-                    if unit_data and unit_data["stats"]["Класс"] == "3":
-                        hired_hero_3_class_name = unit_name
-                        break
 
-        # --- Шаг 4: После 14 хода и >= 3 городов — герой 4 класса ---
-        if self.turn > 14 and city_count >= 3:
+            # 4+ городов — также пытаемся нанять героя 4 класса по возможности
+            self.try_hire_class_4_hero(new_garrison, crowns_for_heroes, works_for_heroes, consumption_for_heroes)
+
+        # --- Шаг 4: После 25 хода — герой 4 класса строится активнее ---
+        # (повторная попытка каждый ход, даже если уже есть герой 3 класса)
+        if self.turn >= 25:
             self.try_hire_class_4_hero(new_garrison, crowns_for_heroes, works_for_heroes, consumption_for_heroes)
 
         # --- Шаг 5: Сохранение изменений и экипировка героя ИИ ---
@@ -798,10 +794,10 @@ class AIController:
     def _is_economy_strong(self):
         """
         Определяет, сильная ли экономика у фракции.
-        Сильная = суммарно больниц + фабрик >= 70.
+        Сильная = суммарно больниц + фабрик >= 40.
         """
         total_buildings = (getattr(self, 'hospitals', 0) or 0) + (getattr(self, 'factories', 0) or 0)
-        is_strong = total_buildings >= 70
+        is_strong = total_buildings >= 40
         print(f"[AI] {self.faction}: зданий (больницы+фабрики) = {total_buildings}, "
               f"экономика {'сильная' if is_strong else 'слабая'}")
         return is_strong

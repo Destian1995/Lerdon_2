@@ -1294,7 +1294,9 @@ class Faction:
         print('-----------------ХОДИТ ИГРОК-----------', self.faction.upper)
         # Обновляем данные о зданиях из таблицы buildings
         self.turn += 1
-        # Строим
+        # Всегда загружаем актуальные здания из БД (учитывает ручную постройку)
+        self.load_buildings()
+        # Строим (авто-режим, если включён)
         self.auto_build()
         # Сохраняем предыдущие значения ресурсов
         previous_money = self.money
@@ -2907,8 +2909,22 @@ def open_development_popup(faction):
         size=lambda inst, val: setattr(stats_box._bg, 'size', val)
     )
 
+    # Определяем текущий режим развития
+    if getattr(faction, 'auto_build_enabled', False):
+        current_h, current_f = getattr(faction, 'auto_build_ratio', (1, 1))
+        mode_name = "Не выбран"
+        for s in STRATEGIES:
+            if s['ratio'] == (current_h, current_f):
+                mode_name = s['name']
+                break
+        if mode_name == "Не выбран":
+            mode_name = f"Своё ({current_h}:{current_f})"
+    else:
+        mode_name = "Не выбран"
+
     sf = sp(11) if is_mobile else sp(13)
     stats_items = [
+        (f"Режим: {mode_name}", (0.75, 0.92, 1, 1)),
         (f"Больницы: {format_number(faction.hospitals)}", (0.85, 0.45, 0.45, 1)),
         (f"Фабрики: {format_number(faction.factories)}", (0.45, 0.85, 0.5, 1)),
         (f"Доход Крон: {format_number(faction.money_up)}", (0.5, 0.95, 0.6, 1)),
