@@ -618,6 +618,19 @@ class AIController:
         # --- Шаг 2: Найм юнитов ---
         self.hire_units(new_garrison, crowns_for_units, works_for_units, consumption_for_units)
 
+        # --- Шаг 2.5: Вампиры всегда нанимают героя 2 класса, затем 3 класса ---
+        if self.faction == 'Вампиры':
+            if not self.has_hero_of_class("2"):
+                self._hire_class_2_hero(new_garrison, target_city)
+            if not self.has_hero_of_class("3"):
+                # После найма 2 класса — пересчитываем остаток ресурсов
+                _vamp_crowns = self.resources.get('Кроны', 0)
+                _vamp_works = self.resources.get('Рабочие', 0)
+                self.calculate_current_consumption()
+                _vamp_avail = self.army_limit - self.total_consumption
+                if _vamp_crowns > 0 and _vamp_works > 0 and _vamp_avail > 0:
+                    self.hire_for_less_than_5_cities(new_garrison, _vamp_crowns, _vamp_works, _vamp_avail)
+
         # --- Шаг 3: Найм героев ---
         # Герои нанимаются начиная с 6 хода ИЛИ если объявлена война раньше
         city_count = self.get_city_count_for_faction()
@@ -630,9 +643,9 @@ class AIController:
         if not should_hire_heroes:
             print(f"[AI] {self.faction}: ход {self.turn+1}, нет войны — герои пока не нанимаются")
 
-        elif city_count < 4:
+        elif city_count < 2:
             # Мало территорий — сначала пытаемся взять героя 4 класса (спасение)
-            print(f"[AI] {self.faction}: < 4 городов, приоритет: герой 4 класса или защитный")
+            print(f"[AI] {self.faction}: < 2 городов, приоритет: герой 4 класса или защитный")
             self.try_hire_class_4_hero(new_garrison, crowns_for_heroes, works_for_heroes, consumption_for_heroes)
 
             # Если героя 4 класса не удалось нанять — берём защитного героя 3 класса
@@ -652,8 +665,8 @@ class AIController:
                             break
 
         else:
-            # 4+ городов — обычный герой (атакующий/защитный по экономике)
-            print(f"[AI] {self.faction}: >= 4 городов, обычный найм героев")
+            # 2+ городов — обычный герой (атакующий/защитный по количеству территорий)
+            print(f"[AI] {self.faction}: >= 2 городов, обычный найм героев")
             hired_hero_3_class = self.hire_for_less_than_5_cities(new_garrison, crowns_for_heroes, works_for_heroes,
                                                                   consumption_for_heroes)
             if hired_hero_3_class:
@@ -794,13 +807,47 @@ class AIController:
     def _is_economy_strong(self):
         """
         Определяет, сильная ли экономика у фракции.
-        Сильная = суммарно больниц + фабрик >= 40.
+        Сильная = 3+ территорий (обычный герой), слабая = <3 (защитный).
         """
-        total_buildings = (getattr(self, 'hospitals', 0) or 0) + (getattr(self, 'factories', 0) or 0)
-        is_strong = total_buildings >= 40
-        print(f"[AI] {self.faction}: зданий (больницы+фабрики) = {total_buildings}, "
+        city_count = self.get_city_count_for_faction()
+        is_strong = city_count >= 3
+        print(f"[AI] {self.faction}: городов = {city_count}, "
               f"экономика {'сильная' if is_strong else 'слабая'}")
         return is_strong
+
+    def _hire_class_2_hero(self, new_garrison, target_city):
+        """Принудительный найм героя 2 класса (например Анабэль у Вампиров)."""
+        try:
+            hero_2 = {
+                name: data for name, data in self.army.items()
+                if data["stats"]["Класс"] == "2"
+            }
+            for unit_name, unit_data in hero_2.items():
+                if self.is_unit_already_hired(unit_name):
+                    continue
+                cost_money = unit_data['cost']['money']
+                cost_time = unit_data['cost']['time']
+                consumption = unit_data['consumption']
+                crowns = self.resources.get('Кроны', 0)
+                works = self.resources.get('Рабочие', 0)
+                self.calculate_current_consumption()
+                avail = self.army_limit - self.total_consumption
+
+                if crowns >= cost_money and works >= cost_time and avail >= consumption:
+                    self.resources['Кроны'] -= cost_money
+                    self.resources['Рабочие'] -= cost_time
+                    new_garrison[target_city].append({
+                        "unit_name": unit_name,
+                        "unit_count": 1
+                    })
+                    print(f"[AI] {self.faction}: нанят герой 2 класса '{unit_name}'")
+                    return True
+                else:
+                    print(f"[AI] {self.faction}: не хватает ресурсов на героя 2 класса '{unit_name}' "
+                          f"({crowns}/{cost_money} крон)")
+        except Exception as e:
+            print(f"[AI] _hire_class_2_hero: {e}")
+        return False
 
     def hire_defensive_hero(self, new_garrison, crowns, works, available_consumption):
         """

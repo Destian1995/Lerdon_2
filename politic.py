@@ -796,7 +796,7 @@ def calculate_peace_army_points(conn, faction):
                 if faction == 'Север':
                     _unit_power = int(_unit_power * 1.7)  # Шквал
                 elif faction == 'Адепты':
-                    _unit_power = int(_unit_power * 1.25)  # Стойкость
+                    _unit_power = int(_unit_power * 1.35)  # Оплот
                 city_strength += _unit_power
             city_strength += others_stats
 
@@ -1142,6 +1142,22 @@ def show_faction_bonuses_popup(conn, faction):
     # Итоговый урон юнита с героем
     total_unit_atk = base_unit_atk + hero_atk_bonus
 
+    # Базовая защита юнитов 1 класса
+    cursor.execute("SELECT defense FROM units WHERE faction = ? AND unit_class = '1' LIMIT 1", (faction,))
+    _def_row = cursor.fetchone()
+    base_unit_def = _def_row[0] if _def_row else 0
+
+    # Суммарный бонус защиты от героев 2-3 класса
+    cursor.execute("""
+        SELECT SUM(u.defense) FROM garrisons g
+        JOIN units u ON g.unit_name = u.unit_name
+        WHERE u.faction = ? AND u.unit_class IN ('2', '3')
+    """, (faction,))
+    hero_def_bonus = cursor.fetchone()[0] or 0
+
+    # Итоговая защита юнита с героем и Стойкостью (+25%)
+    total_unit_def = int((base_unit_def + hero_def_bonus) * 1.25)
+
     # Сезон
     cursor.execute("SELECT season_index FROM season LIMIT 1")
     season_row = cursor.fetchone()
@@ -1176,10 +1192,10 @@ def show_faction_bonuses_popup(conn, faction):
             'calc': lambda: [("Воскрешение врагов", "5%", "После каждого боя")],
         },
         'Адепты': {
-            'name': 'Стойкость',
-            'desc': '+25% защита всем юнитам 1 класса в бою',
+            'name': 'Оплот',
+            'desc': 'Если бонусы увеличили защиту в 20+ раз, +35% к защите',
             'color': (0.62, 0.22, 0.88, 1),
-            'calc': lambda: [("Стойкость", "+25%", "Защита всех юнитов 1 класса")],
+            'calc': lambda: _calc_oplot(base_unit_def, total_unit_def),
         },
         'Элины': {
             'name': 'Торговая империя',
@@ -1188,6 +1204,19 @@ def show_faction_bonuses_popup(conn, faction):
             'calc': lambda: [("Бонус кристаллов", "+35%", "Фракционный бафф добычи"), ("Бонус торговли", f"+{25 + markets * 10}%", f"25% фракция + {markets * 10}% от {markets} рынков")],
         },
     }
+
+    def _calc_oplot(base, total):
+        ratio = total / base if base > 0 else 0
+        active = ratio >= 20.0
+        final_def = int(total * 1.35) if active else total
+        bonus_def = final_def - total if active else 0
+        status = f"[color=00ff00]АКТИВЕН (итого {final_def})[/color]" if active else f"[color=ff8800]Не активен (x{ratio:.1f}, нужно x20)[/color]"
+        return [
+            ("Базовая защита", str(base_unit_def), unit_name),
+            ("Бонус от героев", f"+{hero_def_bonus}", f"Итого: {total}"),
+            ("Множитель", f"x{ratio:.1f}", f"Нужно x20"),
+            ("Оплот (+35%)", f"+{bonus_def}" if active else "---", status),
+        ]
 
     def _calc_shkval(base, total):
         ratio = total / base if base > 0 else 0

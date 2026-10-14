@@ -1575,8 +1575,15 @@ class FortressInfoPopup(Popup):
                         _total_atk = int((unit_attack + _hero_bonus_atk) * 1.7 * _exp_mult)
                         _faction_bonus_text = f"[color=#FF6644]Шквал\n{format_number(_total_atk)}\nATK[/color]"
                     elif self.ai_fraction == 'Адепты' and _hero_bonus_def > 0:
-                        _total_def = int((unit_defense + _hero_bonus_def + _hero_bonus_dur / 2) * 1.25 * _exp_mult)
-                        _faction_bonus_text = f"[color=#44AAFF]Стойкость\n{format_number(_total_def)}\nЗАЩ[/color]"
+                        _base_def = unit_defense
+                        _boosted_def = (unit_defense + _hero_bonus_def + _hero_bonus_dur / 2) * _exp_mult
+                        # Оплот: если защита увеличена в 20+ раз, +35%
+                        if _base_def > 0 and _boosted_def / _base_def >= 20.0:
+                            _total_def = int(_boosted_def * 1.35)
+                            _faction_bonus_text = f"[color=#44AAFF]Оплот\n{format_number(_total_def)}\nЗАЩ[/color]"
+                        else:
+                            _total_def = int(_boosted_def)
+                            _faction_bonus_text = f"[color=#44AAFF]{format_number(_total_def)}\nЗАЩ[/color]"
                     if _faction_bonus_text:
                         _fb_lbl = Label(
                             text=_faction_bonus_text, markup=True,
@@ -1688,9 +1695,12 @@ class FortressInfoPopup(Popup):
                 _eff_atk = int(_eff_atk * 1.7 * _exp_m)
             elif _exp_m > 1.0:
                 _eff_atk = int(_eff_atk * _exp_m)
-            # Адепты: Стойкость — финальная защита с +25% + опыт
-            if self.ai_fraction == 'Адепты' and hero_bonus_def > 0:
-                _eff_def = int(_eff_def * 1.25 * _exp_m)
+            # Адепты: Оплот — если защита увеличена в 20+ раз, +35%
+            if self.ai_fraction == 'Адепты' and hero_bonus_def > 0 and defense > 0:
+                if _eff_def / defense >= 20.0:
+                    _eff_def = int(_eff_def * 1.35 * _exp_m)
+                elif _exp_m > 1.0:
+                    _eff_def = int(_eff_def * _exp_m)
             elif _exp_m > 1.0:
                 _eff_def = int(_eff_def * _exp_m)
             if _has_hero:
@@ -1698,8 +1708,8 @@ class FortressInfoPopup(Popup):
                     _atk_text = f'Шквал: {format_number(_eff_atk)} × {format_number(_cnt)} = {format_number(_eff_atk * _cnt)}'
                 else:
                     _atk_text = f'({format_number(attack)}+{format_number(hero_bonus_atk)}) × {format_number(_cnt)} = {format_number(_eff_atk * _cnt)}'
-                if self.ai_fraction == 'Адепты' and hero_bonus_def > 0:
-                    _def_text = f'Стойк: {format_number(_eff_def)} × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'
+                if self.ai_fraction == 'Адепты' and hero_bonus_def > 0 and defense > 0 and _eff_def / defense >= 20.0:
+                    _def_text = f'Оплот: {format_number(_eff_def)} × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'
                 else:
                     _def_text = f'({format_number(defense)}+{format_number(hero_bonus_def)}) × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'
                 _dur_text = f'({format_number(durability)}+{format_number(hero_bonus_dur)}) × {format_number(_cnt)} = {format_number(_eff_dur * _cnt)}'

@@ -347,11 +347,16 @@ def battle_chain(attacker, defender, city, user_faction, conn,
         if def_attack / def_base_attack >= 20.0:
             def_attack = int(def_attack * shkval_mult)
 
-    # Адепты: Стойкость — +25% защиты всем юнитам 1 класса
-    if atk_fraction == 'Адепты' and get_unit_class(attacker) == 1:
-        atk_defense *= 1.25
-    if def_fraction == 'Адепты' and get_unit_class(defender) == 1:
-        def_defense *= 1.25
+    # Адепты: Оплот — если защита увеличена в 20+ раз от базовой (артефакты героя), +35% защиты
+    atk_base_defense = calculate_unit_power(attacker, is_attacking=False)
+    def_base_defense = calculate_unit_power(defender, is_attacking=False)
+    oplot_mult = 1.35 * _get_season_mult('Адепты', conn) if atk_fraction == 'Адепты' or def_fraction == 'Адепты' else 1.35
+    if atk_fraction == 'Адепты' and get_unit_class(attacker) == 1 and atk_base_defense > 0:
+        if atk_defense / atk_base_defense >= 20.0:
+            atk_defense = int(atk_defense * oplot_mult)
+    if def_fraction == 'Адепты' and get_unit_class(defender) == 1 and def_base_defense > 0:
+        if def_defense / def_base_defense >= 20.0:
+            def_defense = int(def_defense * oplot_mult)
 
     # Боевой дух (казнь пленных): +25% урон на 3 хода
     if conn:

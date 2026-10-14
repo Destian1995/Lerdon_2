@@ -2175,6 +2175,33 @@ def open_trade_popup(game_instance):
     price_card.add_widget(current_price_label)
     trade_layout.add_widget(price_card)
 
+    # === СООТНОШЕНИЕ СДЕЛКИ ===
+    ratio_card = BoxLayout(
+        orientation='horizontal',
+        size_hint=(1, None),
+        height=dp(36),
+        spacing=dp(10),
+        padding=[dp(14), dp(4), dp(14), dp(4)]
+    )
+    with ratio_card.canvas.before:
+        Color(0.10, 0.14, 0.24, 1)
+        ratio_card._bg = RoundedRectangle(pos=ratio_card.pos, size=ratio_card.size, radius=[dp(8)])
+    ratio_card.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                    size=lambda i, v: setattr(i._bg, 'size', v))
+    deal_ratio = round(current_price / 100, 2)
+    ratio_label = Label(
+        text=f"[b]Соотношение:[/b]  [color=#44dd44]{deal_ratio}[/color] крон/ед. Кристалла",
+        markup=True,
+        font_size=sp(14),
+        color=(0.8, 0.85, 0.95, 1),
+        halign="center",
+        valign="middle",
+        size_hint=(1, 1)
+    )
+    ratio_label.bind(size=ratio_label.setter('text_size'))
+    ratio_card.add_widget(ratio_label)
+    trade_layout.add_widget(ratio_card)
+
     # === ЧЕКБОКС "ПРОДАТЬ ВСЁ" ===
     sell_all_layout = BoxLayout(
         orientation='horizontal',
@@ -2364,9 +2391,10 @@ def handle_trade(game_instance, action, quantity, trade_popup):
             game_instance.update_economic_efficiency(economic_efficiency)
 
             if action == 'buy':
-                total_cost = price_per_lot * quantity
+                total_crystals = quantity * 100
                 show_message("Успех",
-                             f"Куплено {format_number(quantity)} лотов Кристаллов за {format_number(total_cost)} крон.")
+                             f"Получено {format_number(total_crystals)} Кристаллов\n"
+                             f"(Соотношение: {economic_efficiency} крон/ед. Кристалла)")
             elif action == 'sell':
                 profit = price_per_lot * quantity
                 show_message("Успех",
