@@ -100,14 +100,28 @@ from kivymd.uix.selectioncontrol import MDCheckbox
 
 
 # ── Универсальная кнопка закрытия «✕» для всех Popup ──────────────────
+def _has_buttons(widget):
+    """Возвращает True если в дереве виджетов есть хотя бы одна кнопка Button."""
+    if isinstance(widget, Button):
+        return True
+    for child in getattr(widget, 'children', []):
+        if _has_buttons(child):
+            return True
+    return False
+
+
 def _inject_close_x(popup_instance):
     """Оборачивает content попапа в FloatLayout и добавляет кнопку ✕
-    в правый верхний угол. Вызывается автоматически при popup.open()."""
+    в правый верхний угол. Вызывается автоматически при popup.open().
+    X добавляется только если в контенте уже есть другие кнопки."""
     content = popup_instance.content
     if content is None:
         return
     # Не оборачивать повторно
     if getattr(popup_instance, '_close_x_injected', False):
+        return
+    # Добавлять X только если в контенте есть кнопки
+    if not _has_buttons(content):
         return
     popup_instance._close_x_injected = True
 
