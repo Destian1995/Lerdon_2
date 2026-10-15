@@ -112,6 +112,9 @@ def _inject_close_x(popup_instance):
     popup_instance._close_x_injected = True
 
     wrapper = FloatLayout()
+    # Отвязываем content от popup, чтобы можно было добавить в wrapper
+    if content.parent is not None:
+        content.parent.remove_widget(content)
     content.size_hint = (1, 1)
     content.pos_hint = {'x': 0, 'y': 0}
     wrapper.add_widget(content)
