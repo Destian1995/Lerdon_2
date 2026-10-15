@@ -2175,32 +2175,20 @@ def open_trade_popup(game_instance):
     price_card.add_widget(current_price_label)
     trade_layout.add_widget(price_card)
 
-    # === СООТНОШЕНИЕ СДЕЛКИ ===
-    ratio_card = BoxLayout(
-        orientation='horizontal',
-        size_hint=(1, None),
-        height=dp(36),
-        spacing=dp(10),
-        padding=[dp(14), dp(4), dp(14), dp(4)]
-    )
-    with ratio_card.canvas.before:
-        Color(0.10, 0.14, 0.24, 1)
-        ratio_card._bg = RoundedRectangle(pos=ratio_card.pos, size=ratio_card.size, radius=[dp(8)])
-    ratio_card.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-                    size=lambda i, v: setattr(i._bg, 'size', v))
+    # === СООТНОШЕНИЕ СДЕЛКИ (компактная строка) ===
     deal_ratio = round(current_price / 100, 2)
     ratio_label = Label(
-        text=f"[b]Соотношение:[/b]  [color=#44dd44]{deal_ratio}[/color] крон/ед. Кристалла",
+        text=f"[b]Соотношение:[/b] [color=#44dd44]{deal_ratio}[/color] крон/ед. Кристалла",
         markup=True,
-        font_size=sp(14),
-        color=(0.8, 0.85, 0.95, 1),
+        font_size=sp(13),
+        color=(0.7, 0.75, 0.85, 1),
         halign="center",
         valign="middle",
-        size_hint=(1, 1)
+        size_hint=(1, None),
+        height=dp(26)
     )
     ratio_label.bind(size=ratio_label.setter('text_size'))
-    ratio_card.add_widget(ratio_label)
-    trade_layout.add_widget(ratio_card)
+    trade_layout.add_widget(ratio_label)
 
     # === ЧЕКБОКС "ПРОДАТЬ ВСЁ" ===
     sell_all_layout = BoxLayout(
@@ -2995,7 +2983,7 @@ def open_development_popup(faction):
         faction.auto_build_enabled = True
         faction.save_auto_build_settings()
         dev_popup.dismiss()
-        show_message("Сохранение...", "Как прикажете!")
+        show_message("Сохранение...", f"Выбран: {STRATEGIES[idx]['name']}")
 
     apply_btn.bind(on_release=apply_settings)
     cancel_btn.bind(on_release=lambda _: dev_popup.dismiss())
