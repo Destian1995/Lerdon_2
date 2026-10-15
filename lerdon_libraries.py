@@ -97,3 +97,53 @@ from kivymd.uix.button import MDFlatButton
 from kivymd.uix.floatlayout import MDFloatLayout
 from kivymd.uix.label import MDLabel
 from kivymd.uix.selectioncontrol import MDCheckbox
+
+
+# ── Универсальная кнопка закрытия «✕» для всех Popup ──────────────────
+def _inject_close_x(popup_instance):
+    """Оборачивает content попапа в FloatLayout и добавляет кнопку ✕
+    в правый верхний угол. Вызывается автоматически при popup.open()."""
+    content = popup_instance.content
+    if content is None:
+        return
+    # Не оборачивать повторно
+    if getattr(popup_instance, '_close_x_injected', False):
+        return
+    popup_instance._close_x_injected = True
+
+    wrapper = FloatLayout()
+    content.size_hint = (1, 1)
+    content.pos_hint = {'x': 0, 'y': 0}
+    wrapper.add_widget(content)
+
+    _sz = dp(34)
+    btn = Button(
+        text='\u2715', size_hint=(None, None),
+        size=(_sz, _sz),
+        pos_hint={'right': 1, 'top': 1},
+        background_color=(0, 0, 0, 0),
+        color=(1, 1, 1, 1),
+        font_size=sp(16), bold=True,
+    )
+    with btn.canvas.before:
+        btn._xc = Color(0.55, 0.14, 0.14, 0.95)
+        btn._xe = Ellipse(pos=btn.pos, size=btn.size)
+    btn.bind(
+        pos=lambda i, v: setattr(i._xe, 'pos', v),
+        size=lambda i, v: setattr(i._xe, 'size', v),
+    )
+    btn.bind(on_release=lambda *_a: popup_instance.dismiss())
+    wrapper.add_widget(btn)
+
+    popup_instance.content = wrapper
+
+
+_original_popup_open = Popup.open
+
+
+def _patched_popup_open(self, *args, **kwargs):
+    _inject_close_x(self)
+    return _original_popup_open(self, *args, **kwargs)
+
+
+Popup.open = _patched_popup_open
