@@ -119,18 +119,18 @@ def _inject_close_x(popup_instance):
     content.pos_hint = {'x': 0, 'y': 0}
     wrapper.add_widget(content)
 
-    _sz = dp(34)
+    _sz = dp(38)
     btn = Button(
-        text='\u2715', size_hint=(None, None),
+        text='X', size_hint=(None, None),
         size=(_sz, _sz),
         pos_hint={'right': 1, 'top': 1},
         background_color=(0, 0, 0, 0),
         color=(1, 1, 1, 1),
-        font_size=sp(16), bold=True,
+        font_size=sp(22), bold=True,
     )
     with btn.canvas.before:
         btn._xc = Color(0.55, 0.14, 0.14, 0.95)
-        btn._xe = Ellipse(pos=btn.pos, size=btn.size)
+        btn._xe = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(6)])
     btn.bind(
         pos=lambda i, v: setattr(i._xe, 'pos', v),
         size=lambda i, v: setattr(i._xe, 'size', v),
