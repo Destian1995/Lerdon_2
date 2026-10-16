@@ -931,17 +931,39 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             _conn = conn
             _bonus_msgs = list(_faction_bonus_messages)
 
-            # Картинки героев (класс 3 или 4) или None
-            def _hero_img(army):
-                for u in army:
-                    if get_unit_class(u) in (3, 4):
+            # Картинки по приоритету:
+            # Нежить → всегда изображение нежити
+            # Иначе: класс 3 > класс 2 > класс 4 > класс 1
+            _UNDEAD_IMG = {
+                'files/army/death/king_.png',
+                'files/army/death/solder.png',
+                'files/army/death/zombie.png',
+                'files/army/death/death.png',
+                'files/army/death/banshi.png',
+            }
+
+            def _pick_battle_img(army, fraction):
+                if fraction == 'Нежить':
+                    # Ищем картинку любого юнита нежити, предпочтительно king_
+                    for u in army:
                         img = u.get('unit_image', '')
-                        if img:
+                        if img in _UNDEAD_IMG:
                             return img
+                    return 'files/army/death/king_.png'
+                # Приоритет: 3 > 2 > 4 > 1
+                by_class = {}
+                for u in army:
+                    uc = get_unit_class(u)
+                    img = u.get('unit_image', '')
+                    if img and uc not in by_class:
+                        by_class[uc] = img
+                for priority in (3, 2, 4, 1):
+                    if priority in by_class:
+                        return by_class[priority]
                 return None
 
-            _atk_hero_img = _hero_img(atk_army)
-            _def_hero_img = _hero_img(def_army)
+            _atk_hero_img = _pick_battle_img(atk_army, _attacking_fraction)
+            _def_hero_img = _pick_battle_img(def_army, _defending_fraction)
 
             def _show_battle_on_main_thread(dt):
                 try:
