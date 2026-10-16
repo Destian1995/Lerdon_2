@@ -1542,97 +1542,100 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
         markup=True, font_size=sp(10), size_hint_y=None, height=dp(14)
     ))
 
-    # ── Диагональная зона боя: [картинка ATK][/][картинка DEF] ──────────
-    _img_sz = dp(110) if is_mobile else dp(140)
-    _bar_h  = dp(20) if is_mobile else dp(26)
-    _fsize  = sp(10) if is_mobile else sp(12)
-    _battle_h = _img_sz + _bar_h + dp(22)  # картинка + шкала + подпись
+    # ── Диагональная зона боя: [ATK вверху-слева] \ [DEF внизу-справа] ──
+    # battle_area растягивается на всё доступное вертикальное пространство
+    _bar_h = dp(18) if is_mobile else dp(24)
+    _fsize = sp(9) if is_mobile else sp(11)
+    _cnt_h = dp(11) if is_mobile else dp(14)
+    _lbl_h = dp(14) if is_mobile else dp(16)
+    # каждый блок занимает 42% ширины → не пересекаются, центр свободен
+    _block_w_hint = 0.42
 
-    battle_area = FloatLayout(size_hint_y=None, height=_battle_h)
+    # Цвет диагонали = цвет фракции пользователя
+    _user_fc = _FC.get(user_faction, (0.85, 0.75, 0.2, 1))
 
-    # -- ATK блок (левый верхний угол) --
-    atk_box = BoxLayout(orientation='vertical', spacing=dp(3),
-                        size_hint=(None, None),
-                        size=(_img_sz, _battle_h),
-                        pos_hint={'x': 0, 'top': 1})
+    battle_area = FloatLayout(size_hint=(1, 1))
 
-    if atk_img_path:
-        atk_portrait = KivyImage(
-            source=atk_img_path,
-            size_hint=(1, None), height=_img_sz,
-            allow_stretch=True, keep_ratio=False
-        )
-    else:
-        atk_portrait = Widget(size_hint=(1, None), height=_img_sz)
-
+    # -- ATK блок (левый верхний угол, 42% ширины, полная высота) --
+    atk_box = BoxLayout(
+        orientation='vertical', spacing=dp(2), padding=[0, dp(2), 0, 0],
+        size_hint=(_block_w_hint, 1),
+        pos_hint={'x': 0, 'top': 1}
+    )
+    atk_portrait = (
+        KivyImage(source=atk_img_path, size_hint=(1, 1),
+                  allow_stretch=True, keep_ratio=True)
+        if atk_img_path else Widget(size_hint=(1, 1))
+    )
     atk_name_lbl = Label(
         text=f'[b][color={atk_hex}]{attacking_fraction}[/color][/b]',
-        markup=True, font_size=_fsize, size_hint=(1, None), height=dp(16),
+        markup=True, font_size=_fsize, size_hint=(1, None), height=_lbl_h,
         halign='left'
     )
     atk_name_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-
     atk_bar = BattleBar(size_hint=(1, None), height=_bar_h)
-    atk_cnt = Label(text='', markup=True, font_size=sp(8) if is_mobile else sp(9),
-                    color=(0.75, 0.75, 0.8, 1), size_hint=(1, None), height=dp(12),
-                    halign='left')
+    atk_cnt = Label(
+        text='', markup=True,
+        font_size=sp(7) if is_mobile else sp(9),
+        color=(0.75, 0.75, 0.8, 1),
+        size_hint=(1, None), height=_cnt_h, halign='left'
+    )
     atk_cnt.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-
     atk_box.add_widget(atk_portrait)
     atk_box.add_widget(atk_name_lbl)
     atk_box.add_widget(atk_bar)
     atk_box.add_widget(atk_cnt)
 
-    # -- DEF блок (правый нижний угол) --
-    def_box = BoxLayout(orientation='vertical', spacing=dp(3),
-                        size_hint=(None, None),
-                        size=(_img_sz, _battle_h),
-                        pos_hint={'right': 1, 'y': 0})
-
-    if def_img_path:
-        def_portrait = KivyImage(
-            source=def_img_path,
-            size_hint=(1, None), height=_img_sz,
-            allow_stretch=True, keep_ratio=False
-        )
-    else:
-        def_portrait = Widget(size_hint=(1, None), height=_img_sz)
-
+    # -- DEF блок (правый нижний угол, 42% ширины, полная высота) --
+    def_box = BoxLayout(
+        orientation='vertical', spacing=dp(2), padding=[0, 0, 0, dp(2)],
+        size_hint=(_block_w_hint, 1),
+        pos_hint={'right': 1, 'y': 0}
+    )
+    def_portrait = (
+        KivyImage(source=def_img_path, size_hint=(1, 1),
+                  allow_stretch=True, keep_ratio=True)
+        if def_img_path else Widget(size_hint=(1, 1))
+    )
     def_name_lbl = Label(
         text=f'[b][color={def_hex}]{defending_fraction}[/color][/b]',
-        markup=True, font_size=_fsize, size_hint=(1, None), height=dp(16),
+        markup=True, font_size=_fsize, size_hint=(1, None), height=_lbl_h,
         halign='right'
     )
     def_name_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-
     def_bar = BattleBar(size_hint=(1, None), height=_bar_h)
-    def_cnt = Label(text='', markup=True, font_size=sp(8) if is_mobile else sp(9),
-                    color=(0.75, 0.75, 0.8, 1), size_hint=(1, None), height=dp(12),
-                    halign='right')
+    def_cnt = Label(
+        text='', markup=True,
+        font_size=sp(7) if is_mobile else sp(9),
+        color=(0.75, 0.75, 0.8, 1),
+        size_hint=(1, None), height=_cnt_h, halign='right'
+    )
     def_cnt.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-
     def_box.add_widget(def_portrait)
     def_box.add_widget(def_name_lbl)
     def_box.add_widget(def_bar)
     def_box.add_widget(def_cnt)
 
-    # -- Диагональная линия поверх --
+    # -- Диагональная линия цвета фракции пользователя --
     diag_line = Widget(size_hint=(1, 1), pos_hint={'x': 0, 'y': 0})
 
     def _draw_diag(widget, *args):
         widget.canvas.after.clear()
         with widget.canvas.after:
-            Color(0.85, 0.75, 0.2, 0.7)
-            Line(points=[widget.x + dp(6), widget.y + dp(6),
-                         widget.right - dp(6), widget.top - dp(6)],
-                 width=dp(1.5))
+            Color(*_user_fc[:3], 0.75)
+            Line(
+                points=[widget.x + dp(4), widget.y + dp(4),
+                        widget.right - dp(4), widget.top - dp(4)],
+                width=dp(2)
+            )
     diag_line.bind(pos=_draw_diag, size=_draw_diag)
 
-    # -- VS по центру --
+    # -- VS по центру диагонали --
     vs_lbl = Label(
         text='[b][color=#E67E22]VS[/color][/b]',
-        markup=True, font_size=sp(16) if is_mobile else sp(20),
-        size_hint=(None, None), size=(dp(50), dp(50)),
+        markup=True,
+        font_size=sp(14) if is_mobile else sp(18),
+        size_hint=(None, None), size=(dp(40), dp(40)),
         pos_hint={'center_x': 0.5, 'center_y': 0.5}
     )
 
