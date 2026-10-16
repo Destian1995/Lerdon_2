@@ -1551,9 +1551,6 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
     # каждый блок занимает 42% ширины → не пересекаются, центр свободен
     _block_w_hint = 0.42
 
-    # Цвет диагонали = цвет фракции пользователя
-    _user_fc = _FC.get(user_faction, (0.85, 0.75, 0.2, 1))
-
     battle_area = FloatLayout(size_hint=(1, 1))
 
     # -- ATK блок (левый верхний угол, 42% ширины, полная высота) --
@@ -1616,21 +1613,7 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
     def_box.add_widget(def_bar)
     def_box.add_widget(def_cnt)
 
-    # -- Диагональная линия цвета фракции пользователя --
-    diag_line = Widget(size_hint=(1, 1), pos_hint={'x': 0, 'y': 0})
-
-    def _draw_diag(widget, *args):
-        widget.canvas.after.clear()
-        with widget.canvas.after:
-            Color(*_user_fc[:3], 0.75)
-            Line(
-                points=[widget.x + dp(4), widget.y + dp(4),
-                        widget.right - dp(4), widget.top - dp(4)],
-                width=dp(2)
-            )
-    diag_line.bind(pos=_draw_diag, size=_draw_diag)
-
-    # -- VS по центру диагонали --
+    # -- VS по центру --
     vs_lbl = Label(
         text='[b][color=#E67E22]VS[/color][/b]',
         markup=True,
@@ -1639,7 +1622,6 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
         pos_hint={'center_x': 0.5, 'center_y': 0.5}
     )
 
-    battle_area.add_widget(diag_line)
     battle_area.add_widget(atk_box)
     battle_area.add_widget(def_box)
     battle_area.add_widget(vs_lbl)
