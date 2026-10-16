@@ -110,10 +110,22 @@ def _has_buttons(widget):
     return False
 
 
+def _has_close_button(widget):
+    """Возвращает True если в дереве есть кнопка с текстом 'Закрыть' или 'Назад'."""
+    if isinstance(widget, Button):
+        t = (widget.text or '').strip().lower()
+        if t in ('закрыть', 'назад', 'закрыть окно'):
+            return True
+    for child in getattr(widget, 'children', []):
+        if _has_close_button(child):
+            return True
+    return False
+
+
 def _inject_close_x(popup_instance):
     """Оборачивает content попапа в FloatLayout и добавляет кнопку ✕
     в правый верхний угол. Вызывается автоматически при popup.open().
-    X добавляется только если в контенте уже есть другие кнопки."""
+    X добавляется только если в контенте есть кнопки, но нет кнопки Закрыть."""
     content = popup_instance.content
     if content is None:
         return
@@ -122,6 +134,9 @@ def _inject_close_x(popup_instance):
         return
     # Добавлять X только если в контенте есть кнопки
     if not _has_buttons(content):
+        return
+    # Не добавлять X если уже есть кнопка «Закрыть» / «Назад»
+    if _has_close_button(content):
         return
     popup_instance._close_x_injected = True
 
