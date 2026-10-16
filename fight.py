@@ -23,6 +23,7 @@ fight.py — боевая система v2 (всё в одном файле)
 crit_chance в units и units_default.
 """
 
+import os
 import random
 import sqlite3
 from db_lerdon_connect import *
@@ -930,6 +931,18 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             _conn = conn
             _bonus_msgs = list(_faction_bonus_messages)
 
+            # Картинки героев (класс 3 или 4) или None
+            def _hero_img(army):
+                for u in army:
+                    if get_unit_class(u) in (3, 4):
+                        img = u.get('unit_image', '')
+                        if img:
+                            return img
+                return None
+
+            _atk_hero_img = _hero_img(atk_army)
+            _def_hero_img = _hero_img(def_army)
+
             def _show_battle_on_main_thread(dt):
                 try:
                     def show_report():
@@ -950,7 +963,9 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                     show_battle_animation(_battle_rounds_copy, _attacking_fraction,
                                           _defending_fraction, winner, _user_faction,
                                           _attacking_city, _defending_city,
-                                          callback=show_report)
+                                          callback=show_report,
+                                          atk_hero_image=_atk_hero_img,
+                                          def_hero_image=_def_hero_img)
                 except Exception as e:
                     print(f"[ERROR] battle animation/report (main thread): {e}")
 
@@ -1278,26 +1293,52 @@ def show_battle_report(report_data, is_user_involved=False, user_faction=None, c
 
 
 def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction, winner,
-                          user_faction, attacking_city, defending_city, callback=None):
+                          user_faction, attacking_city, defending_city, callback=None,
+                          atk_hero_image=None, def_hero_image=None):
     """
-    Боевая анимация v2 — полностью переработана:
-      • Плавные HP-полосы с цветовым градиентом (зелёный→жёлтый→красный)
-      • Лента боевых событий последних 3 раундов
-      • Фракционные цвета на каждой стороне
-      • Финальный экран с победителем и кнопкой «Продолжить»
+    Боевая анимация v3 — с картинками героев/фракций по диагонали:
+      • Картинка атакующего (герой или фракция) — слева вверху
+      • Шкала HP атакующего — под его картинкой
+      • Картинка защитника — справа внизу
+      • Шкала HP защитника — под его картинкой
+      • Диагональный разделитель между ними
+      • На финальном экране — картинка победителя
     """
     from kivy.clock import Clock
     from kivy.uix.popup import Popup
     from kivy.uix.boxlayout import BoxLayout
+    from kivy.uix.floatlayout import FloatLayout
     from kivy.uix.label import Label
     from kivy.uix.button import Button
     from kivy.uix.widget import Widget
-    from kivy.graphics import Color, RoundedRectangle
+    from kivy.uix.image import Image as KivyImage
+    from kivy.graphics import Color, RoundedRectangle, Rectangle, Line
     from kivy.metrics import dp, sp
     from kivy.animation import Animation
     from kivy.properties import NumericProperty
     from kivy.utils import platform
     import random as _rnd
+
+    # ── Картинки фракций (запасной вариант) ──────────────────────────────
+    _FACTION_IMG = {
+        'Север':   'files/sov/people.jpg',
+        'Эльфы':   'files/sov/elfs.jpg',
+        'Вампиры': 'files/sov/vampire.jpg',
+        'Адепты':  'files/sov/adept.jpg',
+        'Элины':   'files/sov/poly.jpg',
+    }
+
+    def _resolve_image(hero_img, faction):
+        """Возвращает путь к картинке: герой → фракция → пусто."""
+        if hero_img and os.path.exists(hero_img):
+            return hero_img
+        fi = _FACTION_IMG.get(faction, '')
+        if fi and os.path.exists(fi):
+            return fi
+        return ''
+
+    atk_img_path = _resolve_image(atk_hero_image, attacking_fraction)
+    def_img_path = _resolve_image(def_hero_image, defending_fraction)
 
     # ── Фракционные цвета ────────────────────────────────────────────────
     _FC = {
@@ -1501,28 +1542,106 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
         markup=True, font_size=sp(10), size_hint_y=None, height=dp(14)
     ))
 
-    # ── Названия фракций ─────────────────────────────────────────────────
-    _fsize = sp(12) if is_mobile else sp(14)
-    names_row = BoxLayout(size_hint_y=None, height=dp(20))
-    atk_lbl = Label(
+    # ── Диагональная зона боя: [картинка ATK][/][картинка DEF] ──────────
+    _img_sz = dp(110) if is_mobile else dp(140)
+    _bar_h  = dp(20) if is_mobile else dp(26)
+    _fsize  = sp(10) if is_mobile else sp(12)
+    _battle_h = _img_sz + _bar_h + dp(22)  # картинка + шкала + подпись
+
+    battle_area = FloatLayout(size_hint_y=None, height=_battle_h)
+
+    # -- ATK блок (левый верхний угол) --
+    atk_box = BoxLayout(orientation='vertical', spacing=dp(3),
+                        size_hint=(None, None),
+                        size=(_img_sz, _battle_h),
+                        pos_hint={'x': 0, 'top': 1})
+
+    if atk_img_path:
+        atk_portrait = KivyImage(
+            source=atk_img_path,
+            size_hint=(1, None), height=_img_sz,
+            allow_stretch=True, keep_ratio=False
+        )
+    else:
+        atk_portrait = Widget(size_hint=(1, None), height=_img_sz)
+
+    atk_name_lbl = Label(
         text=f'[b][color={atk_hex}]{attacking_fraction}[/color][/b]',
-        markup=True, font_size=_fsize, halign='left'
+        markup=True, font_size=_fsize, size_hint=(1, None), height=dp(16),
+        halign='left'
     )
-    atk_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    atk_name_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+
+    atk_bar = BattleBar(size_hint=(1, None), height=_bar_h)
+    atk_cnt = Label(text='', markup=True, font_size=sp(8) if is_mobile else sp(9),
+                    color=(0.75, 0.75, 0.8, 1), size_hint=(1, None), height=dp(12),
+                    halign='left')
+    atk_cnt.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+
+    atk_box.add_widget(atk_portrait)
+    atk_box.add_widget(atk_name_lbl)
+    atk_box.add_widget(atk_bar)
+    atk_box.add_widget(atk_cnt)
+
+    # -- DEF блок (правый нижний угол) --
+    def_box = BoxLayout(orientation='vertical', spacing=dp(3),
+                        size_hint=(None, None),
+                        size=(_img_sz, _battle_h),
+                        pos_hint={'right': 1, 'y': 0})
+
+    if def_img_path:
+        def_portrait = KivyImage(
+            source=def_img_path,
+            size_hint=(1, None), height=_img_sz,
+            allow_stretch=True, keep_ratio=False
+        )
+    else:
+        def_portrait = Widget(size_hint=(1, None), height=_img_sz)
+
+    def_name_lbl = Label(
+        text=f'[b][color={def_hex}]{defending_fraction}[/color][/b]',
+        markup=True, font_size=_fsize, size_hint=(1, None), height=dp(16),
+        halign='right'
+    )
+    def_name_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+
+    def_bar = BattleBar(size_hint=(1, None), height=_bar_h)
+    def_cnt = Label(text='', markup=True, font_size=sp(8) if is_mobile else sp(9),
+                    color=(0.75, 0.75, 0.8, 1), size_hint=(1, None), height=dp(12),
+                    halign='right')
+    def_cnt.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+
+    def_box.add_widget(def_portrait)
+    def_box.add_widget(def_name_lbl)
+    def_box.add_widget(def_bar)
+    def_box.add_widget(def_cnt)
+
+    # -- Диагональная линия поверх --
+    diag_line = Widget(size_hint=(1, 1), pos_hint={'x': 0, 'y': 0})
+
+    def _draw_diag(widget, *args):
+        widget.canvas.after.clear()
+        with widget.canvas.after:
+            Color(0.85, 0.75, 0.2, 0.7)
+            Line(points=[widget.x + dp(6), widget.y + dp(6),
+                         widget.right - dp(6), widget.top - dp(6)],
+                 width=dp(1.5))
+    diag_line.bind(pos=_draw_diag, size=_draw_diag)
+
+    # -- VS по центру --
     vs_lbl = Label(
         text='[b][color=#E67E22]VS[/color][/b]',
-        markup=True, font_size=_fsize, size_hint_x=None, width=dp(36),
-        halign='center'
+        markup=True, font_size=sp(16) if is_mobile else sp(20),
+        size_hint=(None, None), size=(dp(50), dp(50)),
+        pos_hint={'center_x': 0.5, 'center_y': 0.5}
     )
-    def_lbl = Label(
-        text=f'[b][color={def_hex}]{defending_fraction}[/color][/b]',
-        markup=True, font_size=_fsize, halign='right'
-    )
-    def_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    names_row.add_widget(atk_lbl)
-    names_row.add_widget(vs_lbl)
-    names_row.add_widget(def_lbl)
-    root.add_widget(names_row)
+
+    battle_area.add_widget(diag_line)
+    battle_area.add_widget(atk_box)
+    battle_area.add_widget(def_box)
+    battle_area.add_widget(vs_lbl)
+
+    root.add_widget(battle_area)
 
     # Пульсация VS
     def _pulse_vs(dt):
@@ -1532,24 +1651,9 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
         anim.start(vs_lbl)
     Clock.schedule_once(_pulse_vs, 0.5)
 
-    # ── Встречная шкала ──────────────────────────────────────────────────
-    _bar_h = dp(28) if is_mobile else dp(36)
-    dual_bar = DualBattleBar(atk_c, def_c, size_hint_y=None, height=_bar_h)
-    root.add_widget(dual_bar)
-
-    # Частицы
+    # Частицы (скрытый placeholder высотой 1px для совместимости с burst)
     hit_fx = HitParticles(size_hint=(1, None), height=dp(1), opacity=1)
     root.add_widget(hit_fx)
-
-    # Счётчики бойцов
-    cnt_row = BoxLayout(size_hint_y=None, height=dp(14))
-    atk_cnt = Label(text='', markup=True, font_size=sp(9), color=(0.65, 0.65, 0.7, 1), halign='left')
-    atk_cnt.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    def_cnt = Label(text='', markup=True, font_size=sp(9), color=(0.65, 0.65, 0.7, 1), halign='right')
-    def_cnt.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    cnt_row.add_widget(atk_cnt)
-    cnt_row.add_widget(def_cnt)
-    root.add_widget(cnt_row)
 
     # Раунд
     round_lbl = Label(
@@ -1631,22 +1735,37 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
                    f'[b]{defending_city}[/b]!')
 
         root.clear_widgets()
-        root.padding = [dp(20), dp(50), dp(20), dp(30)]
-        root.spacing = dp(20)
+        root.padding = [dp(16), dp(20), dp(16), dp(20)]
+        root.spacing = dp(10)
 
         h_lbl = Label(text=header, markup=True, font_size=sp(24),
-                      size_hint_y=None, height=dp(52), opacity=0)
+                      size_hint_y=None, height=dp(48), opacity=0)
         root.add_widget(h_lbl)
         Animation(opacity=1, duration=0.70, t='out_cubic').start(h_lbl)
 
-        s_lbl = Label(text=sub, markup=True, font_size=sp(15),
-                      size_hint_y=None, height=dp(36), opacity=0)
+        s_lbl = Label(text=sub, markup=True, font_size=sp(14),
+                      size_hint_y=None, height=dp(30), opacity=0)
         root.add_widget(s_lbl)
         Clock.schedule_once(
             lambda dt: Animation(opacity=1, duration=0.50, t='out_cubic').start(s_lbl), 0.5
         )
 
-        root.add_widget(Label())  # spacer
+        # Картинка победителя
+        winner_img_path = (atk_img_path if winner == 'attacker' else def_img_path)
+        if winner_img_path:
+            _win_img_h = dp(160) if is_mobile else dp(200)
+            win_img = KivyImage(
+                source=winner_img_path,
+                size_hint_y=None, height=_win_img_h,
+                allow_stretch=True, keep_ratio=True,
+                opacity=0
+            )
+            root.add_widget(win_img)
+            Clock.schedule_once(
+                lambda dt: Animation(opacity=1, duration=0.60, t='out_cubic').start(win_img), 0.3
+            )
+        else:
+            root.add_widget(Label())  # spacer
 
         cont_btn = Button(
             text='Продолжить',
@@ -1688,7 +1807,8 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
         atk_ratio = rd['atk_total'] / rd['atk_max'] if rd['atk_max'] > 0 else 0.0
         def_ratio = rd['def_total'] / rd['def_max'] if rd['def_max'] > 0 else 0.0
 
-        dual_bar.animate_to(atk_ratio, def_ratio)
+        atk_bar.animate_to(atk_ratio)
+        def_bar.animate_to(def_ratio)
 
         atk_cnt.text = f'{rd["atk_total"]:,} / {rd["atk_max"]:,}'.replace(',', ' ')
         def_cnt.text = f'{rd["def_total"]:,} / {rd["def_max"]:,}'.replace(',', ' ')
@@ -1707,10 +1827,9 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
                     f'[color=#FFD700]!! КРИТИЧЕСКИЙ УДАР! {attacking_fraction}'
                     f'  -{d_loss} у врага[/color]'
                 )
-                # Тряска + частицы при крите
                 _shake = Animation(x=root.x + dp(4), duration=0.04) + Animation(x=root.x - dp(4), duration=0.04) + Animation(x=root.x, duration=0.04)
                 _shake.start(root)
-                hit_fx.burst(dual_bar.center_x + dual_bar.width * 0.2, dual_bar.center_y, def_c, 12)
+                hit_fx.burst(hit_fx.center_x, hit_fx.center_y, def_c, 12)
             elif is_crit and a_loss > 0:
                 _push_event(
                     f'[color=#FF8844]!! КРИТИЧЕСКИЙ УДАР! {defending_fraction}'
@@ -1718,19 +1837,19 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
                 )
                 _shake = Animation(x=root.x + dp(4), duration=0.04) + Animation(x=root.x - dp(4), duration=0.04) + Animation(x=root.x, duration=0.04)
                 _shake.start(root)
-                hit_fx.burst(dual_bar.center_x - dual_bar.width * 0.2, dual_bar.center_y, atk_c, 12)
+                hit_fx.burst(hit_fx.center_x, hit_fx.center_y, atk_c, 12)
             elif d_loss > a_loss and d_loss > 0:
                 _push_event(
                     f'[color=#88FF99]Раунд {rd["round"]}: {attacking_fraction}'
                     f' наступает  -{d_loss} врагов[/color]'
                 )
-                hit_fx.burst(dual_bar.center_x + dual_bar.width * 0.15, dual_bar.center_y, def_c, 5)
+                hit_fx.burst(hit_fx.center_x, hit_fx.center_y, def_c, 5)
             elif a_loss > d_loss and a_loss > 0:
                 _push_event(
                     f'[color=#FF8888]Раунд {rd["round"]}: {defending_fraction}'
                     f' держится  -{a_loss} атакующих[/color]'
                 )
-                hit_fx.burst(dual_bar.center_x - dual_bar.width * 0.15, dual_bar.center_y, atk_c, 5)
+                hit_fx.burst(hit_fx.center_x, hit_fx.center_y, atk_c, 5)
             elif a_loss > 0 or d_loss > 0:
                 _push_event(
                     f'[color=#AAAAAA]Раунд {rd["round"]}: обе стороны несут потери[/color]'
