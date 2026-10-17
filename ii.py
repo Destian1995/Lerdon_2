@@ -1197,28 +1197,30 @@ class AIController:
                 weights=[60, 30, 10],
                 k=1
             )[0]
+            # Множитель силы артефактов ИИ (+45%)
+            _AI_POWER = 1.45
             if param_choice == "both":
                 # Распределяем 40% на атаку, 60% на защиту (защита важнее)
                 atk_budget = budget * 0.4
                 def_budget = budget * 0.6
-                attack = int(atk_budget / AI_ATK_COST_PER_1)
-                defense = int(def_budget / AI_DEF_COST_PER_1)
-                attack = max(2000, min(attack, 14000))
-                defense = max(2000, min(defense, 14000))
+                attack = int(atk_budget / AI_ATK_COST_PER_1 * _AI_POWER)
+                defense = int(def_budget / AI_DEF_COST_PER_1 * _AI_POWER)
+                attack = max(2900, min(attack, 20300))
+                defense = max(2900, min(defense, 20300))
                 cost = int(attack * AI_ATK_COST_PER_1 + defense * AI_DEF_COST_PER_1)
             elif param_choice == "defense":
                 attack = 0
-                defense = int(budget / AI_DEF_COST_PER_1)
-                defense = max(3000, min(defense, 18000))
+                defense = int(budget / AI_DEF_COST_PER_1 * _AI_POWER)
+                defense = max(4350, min(defense, 26100))
                 cost = int(defense * AI_DEF_COST_PER_1)
             else:
                 # Только атака — редкий случай, но добавляем немного защиты
                 atk_budget = budget * 0.7
                 def_budget = budget * 0.3
-                attack = int(atk_budget / AI_ATK_COST_PER_1)
-                defense = int(def_budget / AI_DEF_COST_PER_1)
-                attack = max(3000, min(attack, 18000))
-                defense = max(1000, min(defense, 8000))
+                attack = int(atk_budget / AI_ATK_COST_PER_1 * _AI_POWER)
+                defense = int(def_budget / AI_DEF_COST_PER_1 * _AI_POWER)
+                attack = max(4350, min(attack, 26100))
+                defense = max(1450, min(defense, 11600))
                 cost = int(attack * AI_ATK_COST_PER_1 + defense * AI_DEF_COST_PER_1)
 
             cost = max(MIN_CROWNS_FOR_ARTIFACT, cost)
