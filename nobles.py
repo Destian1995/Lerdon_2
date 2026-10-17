@@ -263,7 +263,7 @@ class NobleCard(BoxLayout):
         return "[color=aaaaaa]Статус неизвестен[/color]"
 
     def _create_action_button(self, noble_data, conn, cash_player, refresh_callback):
-        """Создаёт кнопку действия для дворянина"""
+        """Метка для продажных дворян"""
         try:
             ideology_raw = noble_data.get('ideology', '{}')
             if isinstance(ideology_raw, str):
@@ -272,19 +272,18 @@ class NobleCard(BoxLayout):
                 ideology = ideology_raw
 
             if isinstance(ideology, dict) and ideology.get('type') == 'greed':
-                btn = StyledButton(text="Договориться", color=UIStyles.COLOR_GOLD)
-                btn.bind(on_release=lambda inst: self._handle_deal(conn, noble_data, cash_player, refresh_callback))
-                return btn
+                lbl = Label(
+                    text=f"[color=#FFAA55]Продажный[/color]",
+                    markup=True, font_size=sp(10),
+                    size_hint_x=0.25, halign='center', valign='middle'
+                )
+                lbl.bind(size=lbl.setter('text_size'))
+                return lbl
         except Exception:
             pass
 
         placeholder = Label(text="", size_hint_x=0.25)
         return placeholder
-
-    def _handle_deal(self, conn, noble_data, cash_player, refresh_callback):
-        """Обработка кнопки договориться"""
-        show_deal_popup(conn, noble_data, cash_player)
-        Clock.schedule_once(lambda dt: refresh_callback(), 0.5)
 
 # --- ОБНОВЛЕННЫЕ ФУНКЦИИ ИНТЕРФЕЙСА ---
 def _build_bonus_summary(nobles_data):
@@ -1198,108 +1197,146 @@ def show_toast_notification(message, is_success=True, duration=0.5):
     Clock.schedule_once(close_toast, duration)
 
 def show_event_popup(conn, player_faction, season_index, refresh_callback, cash_player):
-    """Показывает всплывающее окно для выбора и проведения мероприятия."""
+    """Показывает окно мероприятия с автоматическим подкупом продажных советников."""
     event_type = get_event_type_by_season(season_index)
     event_season = get_season_name_by_index(season_index)
-    cost = calculate_event_cost(season_index)
+    base_cost = calculate_event_cost(season_index)
 
-    is_android = UIStyles.is_android()
-    padding_main = dp(15) if not is_android else dp(10)
-    spacing_main = dp(15) if not is_android else dp(10)
-    font_title = sp(18) if not is_android else sp(16)
-    font_info = sp(15) if not is_android else sp(13)
-    btn_layout_height = UIStyles.get_btn_height()
+    _is_mobile = UIStyles.is_android()
+
+    # Считаем стоимость подкупа всех продажных советников
+    bribe_cost = 0
+    greedy_nobles = []
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, ideology FROM nobles WHERE status = 'active'")
+        for row in cursor.fetchall():
+            try:
+                traits = get_noble_traits(row[2])
+                if traits.get('type') == 'greed':
+                    demand = traits.get('demand', 0)
+                    bribe_cost += demand
+                    greedy_nobles.append((row[0], row[1], demand))
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    total_cost = base_cost + bribe_cost
 
     cash_player.load_resources()
     current_money = cash_player.resources.get("Кроны", 0)
 
-    if current_money < cost:
-        # Упрощенный popup ошибки без кнопок
-        content_err = Label(
-            text=f"Недостаточно Крон.\nСтоимость: {format_number(cost)}\nУ вас: {format_number(current_money)}",
-            halign='center',
-            valign='middle',
-            text_size=(dp(250), None),
-            font_size=sp(14) if not is_android else sp(12),
-            color=UIStyles.COLOR_DANGER
-        )
-        insufficient_funds_popup = Popup(
-            title="Недостаточно средств",
-            content=content_err,
-            size_hint=(0.85, 0.4) if not is_android else (0.95, 0.4),
-            pos_hint={'center_x': 0.5, 'center_y': 0.5},
-            background_color=(0, 0, 0, 0.8),
-            separator_height=0,
-            auto_dismiss=False
-        )
-        insufficient_funds_popup.open()
-        Clock.schedule_once(lambda dt: insufficient_funds_popup.dismiss() if insufficient_funds_popup._is_open else None, 1.0)
+    if current_money < total_cost:
+        show_insufficient_funds_popup(total_cost, int(current_money), total_cost - int(current_money))
         return
 
-    content = BoxLayout(orientation='vertical', padding=padding_main, spacing=spacing_main)
+    # Основной контейнер
+    content = BoxLayout(orientation='vertical', padding=[dp(14), dp(10)], spacing=dp(8))
+    with content.canvas.before:
+        Color(0.06, 0.07, 0.11, 1)
+        content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(12)])
+    content.bind(
+        pos=lambda i, v: setattr(i._bg, 'pos', v),
+        size=lambda i, v: setattr(i._bg, 'size', v)
+    )
 
-    event_type_label = Label(
+    # Заголовок
+    title_lbl = Label(
         text=f"[b]{event_type}[/b]",
-        font_size=font_title,
-        halign='center',
-        valign='middle',
-        size_hint_y=None,
-        height=dp(30) if not is_android else dp(25),
-        markup=True,
+        font_size=sp(18) if not _is_mobile else sp(16),
+        markup=True, halign='center', valign='middle',
+        size_hint_y=None, height=dp(32),
         color=(0.7, 0.9, 1, 1)
     )
-    event_type_label.bind(size=event_type_label.setter('text_size'))
+    title_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(title_lbl)
 
-    info_box = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(80) if not is_android else dp(70), spacing=dp(5))
-    season_label = Label(
-        text=f"Сезон: [b]{event_season}[/b]",
-        font_size=font_info,
-        halign='center',
-        valign='middle',
-        markup=True,
+    # Сезон
+    season_lbl = Label(
+        text=f"[color=#AAAAAA]Сезон:[/color]  [b]{event_season}[/b]",
+        font_size=sp(13) if not _is_mobile else sp(11),
+        markup=True, halign='center', valign='middle',
+        size_hint_y=None, height=dp(22),
         color=(0.8, 0.8, 1, 1)
     )
-    season_label.bind(size=season_label.setter('text_size'))
-    guests_label = Label(
-        text="Вся знать будет приглашена",
-        font_size=font_info - sp(1),
-        halign='center',
-        valign='middle',
-        color=(0.7, 0.9, 0.7, 1)
+    season_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(season_lbl)
+
+    # Разбивка стоимости
+    cost_text = f"[color=#AAAAAA]Мероприятие:[/color]  [b]{format_number(base_cost)}[/b] крон"
+    if bribe_cost > 0:
+        cost_text += f"\n[color=#FFAA55]Подкуп ({len(greedy_nobles)} сов.):[/color]  [b]{format_number(bribe_cost)}[/b] крон"
+    cost_text += f"\n\n[color=#FFD700]Итого:[/color]  [b]{format_number(total_cost)}[/b] крон"
+
+    cost_lbl = Label(
+        text=cost_text,
+        font_size=sp(13) if not _is_mobile else sp(11),
+        markup=True, halign='center', valign='middle',
+        size_hint_y=None, height=dp(75) if bribe_cost > 0 else dp(50),
+        color=(0.9, 0.9, 0.9, 1)
     )
-    guests_label.bind(size=guests_label.setter('text_size'))
-    cost_label = Label(
-        text=f"Стоимость: [b]{format_number(cost)}[/b] крон",
-        font_size=font_info,
-        halign='center',
-        valign='middle',
-        markup=True,
-        color=(1, 0.8, 0.6, 1)
+    cost_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(cost_lbl)
+
+    # Подсказка
+    hint_text = "Вся знать будет приглашена"
+    if greedy_nobles:
+        names = ', '.join(n[1] for n in greedy_nobles)
+        hint_text += f"\n[color=#FFAA55]Договор с: {names}[/color]"
+    hint_lbl = Label(
+        text=hint_text,
+        font_size=sp(11) if not _is_mobile else sp(9),
+        markup=True, halign='center', valign='middle',
+        size_hint_y=None, height=dp(35) if greedy_nobles else dp(22),
+        color=(0.6, 0.8, 0.6, 1)
     )
-    cost_label.bind(size=cost_label.setter('text_size'))
+    hint_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(hint_lbl)
 
-    info_box.add_widget(season_label)
-    info_box.add_widget(guests_label)
-    info_box.add_widget(cost_label)
+    # Распорка
+    content.add_widget(Widget(size_hint_y=1))
 
-    btn_layout = BoxLayout(size_hint_y=None, height=btn_layout_height, spacing=dp(15) if not is_android else dp(10))
-    confirm_btn = StyledButton(text="Провести", color=UIStyles.COLOR_SUCCESS)
-    cancel_btn = StyledButton(text="Отмена", color=(0.5, 0.5, 0.5, 1))
+    # Кнопки
+    btn_layout = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(10))
 
-    popup_size_hint = (0.85, 0.6) if not is_android else (0.95, 0.65)
+    confirm_btn = Button(
+        text="Провести", bold=True,
+        font_size=sp(14) if not _is_mobile else sp(12),
+        background_normal='', background_color=(0, 0, 0, 0),
+        color=(1, 1, 1, 1)
+    )
+    with confirm_btn.canvas.before:
+        Color(0.15, 0.45, 0.2, 0.95)
+        confirm_btn._rr = RoundedRectangle(pos=confirm_btn.pos, size=confirm_btn.size, radius=[dp(8)])
+    confirm_btn.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                     size=lambda i, v: setattr(i._rr, 'size', v))
+
+    cancel_btn = Button(
+        text="Отмена", bold=True,
+        font_size=sp(14) if not _is_mobile else sp(12),
+        background_normal='', background_color=(0, 0, 0, 0),
+        color=(0.8, 0.8, 0.8, 1)
+    )
+    with cancel_btn.canvas.before:
+        Color(0.15, 0.15, 0.22, 0.95)
+        cancel_btn._rr = RoundedRectangle(pos=cancel_btn.pos, size=cancel_btn.size, radius=[dp(8)])
+    cancel_btn.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                    size=lambda i, v: setattr(i._rr, 'size', v))
+
     popup = Popup(
-        title="Мероприятие",
+        title="",
         content=content,
-        size_hint=popup_size_hint,
+        size_hint=(0.75 if not _is_mobile else 0.9, 0.55 if not _is_mobile else 0.5),
         pos_hint={'center_x': 0.5, 'center_y': 0.5},
         auto_dismiss=False,
-        background_color=(0, 0, 0, 0.7),
+        background_color=(0.04, 0.05, 0.09, 0.98),
         separator_height=0
     )
 
     def on_confirm(instance):
         popup.dismiss()
-        success = cash_player.deduct_resources(cost)
+        success = cash_player.deduct_resources(total_cost)
         if success:
             try:
                 cursor = conn.cursor()
@@ -1308,8 +1345,10 @@ def show_event_popup(conn, player_faction, season_index, refresh_callback, cash_
                 for noble_row in active_nobles:
                     noble_id = noble_row[0]
                     update_noble_loyalty_for_event(conn, noble_id, player_faction, event_type, event_season)
-                # Тост-уведомление (быстрое)
-                show_toast_notification("Мероприятие проведено!", is_success=True, duration=0.4)
+                # Автоматический подкуп продажных
+                for noble_id, noble_name, demand in greedy_nobles:
+                    pay_greedy_noble(conn, noble_id, demand)
+                show_toast_notification("Мероприятие проведено!", is_success=True, duration=0.8)
                 if callable(refresh_callback):
                     Clock.schedule_once(lambda dt: refresh_callback(), 0.5)
             except Exception as e:
@@ -1318,18 +1357,13 @@ def show_event_popup(conn, player_faction, season_index, refresh_callback, cash_
         else:
             show_toast_notification("Недостаточно средств", is_success=False, duration=1.5)
 
-    def on_cancel(instance):
-        popup.dismiss()
-
     confirm_btn.bind(on_release=on_confirm)
-    cancel_btn.bind(on_release=on_cancel)
+    cancel_btn.bind(on_release=lambda *a: popup.dismiss())
 
     btn_layout.add_widget(confirm_btn)
     btn_layout.add_widget(cancel_btn)
-
-    content.add_widget(event_type_label)
-    content.add_widget(info_box)
     content.add_widget(btn_layout)
+
     popup.open()
 
 def create_noble_widget_with_deal(noble_data, conn, cash_player, refresh_callback):
