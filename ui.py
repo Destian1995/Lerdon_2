@@ -1442,6 +1442,31 @@ class FortressInfoPopup(Popup):
                 except Exception:
                     pass
 
+            # Проверяем боевой дух (2+ побед над контрпиком за 4 хода)
+            _has_battle_spirit = False
+            _COUNTER_PICKS = {
+                'Адепты': ['Элины', 'Север'],
+                'Элины': ['Север', 'Эльфы'],
+                'Вампиры': ['Адепты', 'Элины'],
+                'Север': ['Вампиры', 'Эльфы'],
+                'Эльфы': ['Адепты', 'Вампиры'],
+            }
+            try:
+                _cpicks = _COUNTER_PICKS.get(self.ai_fraction, [])
+                if _cpicks:
+                    self.cursor.execute("SELECT turn_count FROM turn LIMIT 1")
+                    _tr = self.cursor.fetchone()
+                    _cur_turn = _tr[0] if _tr else 0
+                    _ph = ','.join('?' * len(_cpicks))
+                    self.cursor.execute(
+                        f"SELECT COUNT(*) FROM faction_victories "
+                        f"WHERE faction = ? AND defeated IN ({_ph}) AND turn > ?",
+                        [self.ai_fraction] + _cpicks + [_cur_turn - 4]
+                    )
+                    _has_battle_spirit = self.cursor.fetchone()[0] >= 2
+            except Exception:
+                pass
+
             for row_data in garrison_data:
                 unit_name, unit_count, unit_image = row_data[0], row_data[1], row_data[2]
                 unit_exp = row_data[3] if len(row_data) > 3 else 0
@@ -1773,12 +1798,13 @@ class FortressInfoPopup(Popup):
             stats_icons = [
                 ('Урон',       'files/pict/hire/sword.png',  _atk_text),
                 ('Защита',     'files/pict/hire/shield.png', _def_text),
-                ('Живучесть',  'files/pict/hire/health.png', _dur_text),
                 ('Тип',        'files/pict/hire/type.png',   _type_name),
                 ('Силён',      'files/pict/hire/strong.png', f'[color=#66CC66]{_strong_text}[/color]'),
                 ('Слаб',       'files/pict/hire/weak.png',   f'[color=#FF6644]{_weak_text}[/color]'),
                 ('Мораль',     'files/pict/hire/moral.png',  _morale_text),
             ]
+            if _has_battle_spirit:
+                stats_icons.append(('Дух', 'files/pict/hire/strong.png', '[color=#FFD700]+15% урон[/color]'))
         else:
             stats_icons = [
                 ('Урон',       'files/pict/hire/sword.png',  _atk_text),

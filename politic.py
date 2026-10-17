@@ -577,6 +577,14 @@ class DiplomacyManager:
             self.db_connection.commit()
             print(f"[ДИПЛОМАТИЯ] {self.faction} объявил войну {target_faction}!")
 
+            # Запоминаем чтобы не показывать попап "Фракция объявила войну"
+            try:
+                from game_process import _active_game_screen
+                if _active_game_screen and hasattr(_active_game_screen, 'player_declared_wars'):
+                    _active_game_screen.player_declared_wars.add(target_faction)
+            except Exception:
+                pass
+
             from nobles import show_toast
             show_toast(f"Война с {target_faction} объявлена!")
 

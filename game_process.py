@@ -918,6 +918,7 @@ class GameScreen(Screen):
         # === Отслеживание дипломатии ===
         self.prev_diplomacy_state = {}
         self.war_notification_shown = False
+        self.player_declared_wars = set()  # фракции, которым игрок сам объявил войну
 
     def init_ai_controllers(self):
         """Создание контроллеров ИИ для каждой фракции кроме выбранной"""
@@ -959,10 +960,15 @@ class GameScreen(Screen):
                     if prev_state != 'война':
                         new_wars.append(other_faction)
 
-            # Нежить и Мятежники не показывают уведомления, уничтоженные тоже
+            # Нежить, Мятежники, уничтоженные и те, кому игрок сам объявил войну — не показываем
             cursor.execute("SELECT DISTINCT faction FROM cities WHERE faction != 'Нейтрал'")
             alive = {r[0] for r in cursor.fetchall()}
-            new_wars = [f for f in new_wars if f not in ('Нежить', 'Мятежники') and f in alive]
+            new_wars = [f for f in new_wars
+                        if f not in ('Нежить', 'Мятежники')
+                        and f in alive
+                        and f not in self.player_declared_wars]
+            # Очищаем использованные записи
+            self.player_declared_wars -= set(new_wars) if new_wars else set()
 
             # Если есть новые войны - показываем уведомление
             if new_wars and not self.war_notification_shown:
