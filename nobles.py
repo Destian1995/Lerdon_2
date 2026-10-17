@@ -6,7 +6,8 @@ from kivy.metrics import dp, sp
 from kivy.core.window import Window
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.gridlayout import GridLayout
-from kivy.graphics import Color, RoundedRectangle
+from kivy.uix.widget import Widget
+from kivy.graphics import Color, RoundedRectangle, Rectangle, Line
 from kivy.clock import Clock
 import json
 
