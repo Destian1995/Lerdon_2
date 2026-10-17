@@ -385,7 +385,7 @@ def workshop(faction, db_conn):
     def screen2(layout):
 
         # === Система жетонов Ардании ===
-        ardanian_tokens_available = faction.money / 2000.0
+        ardanian_tokens_available = faction.money / 3200.0  # жетонов = макс. защиты за все кроны
         current_attack = current_data.get('attack', 0)
         current_defense = current_data.get('defense', 0)
 
