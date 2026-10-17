@@ -384,11 +384,18 @@ def battle_chain(attacker, defender, city, user_faction, conn,
         except Exception:
             pass
 
-    # Тип-преимущество
+    # Тип-преимущество: урон ×1.45 при атаке, защита ×1.35 при обороне против слабого типа
     atk_type = get_unit_type(attacker)
     def_type = get_unit_type(defender)
-    atk_attack *= TYPE_MOD.get(atk_type, {}).get(def_type, 1.0)
-    def_attack *= TYPE_MOD.get(def_type, {}).get(atk_type, 1.0)
+    atk_type_mod = TYPE_MOD.get(atk_type, {}).get(def_type, 1.0)
+    def_type_mod = TYPE_MOD.get(def_type, {}).get(atk_type, 1.0)
+    atk_attack *= atk_type_mod
+    def_attack *= def_type_mod
+    # Бонус к защите: если ты силён против атакующего, +35% защита
+    if def_type_mod > 1.0:
+        def_defense *= 1.35
+    if atk_type_mod > 1.0:
+        atk_defense *= 1.35
 
     # Контрудар слабее
     def_attack *= COUNTER_ATTACK_RATIO
