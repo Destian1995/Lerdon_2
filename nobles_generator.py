@@ -186,9 +186,9 @@ def generate_new_noble(conn, faction_race):
     elif trait_type == 'race_love':
         new_ideology = f"Любит {random.choice([r for r in RACES if r != faction_race])}"
     else:  # greed
-        base_demand = 1_000
+        base_demand = 500
         percentage = random.uniform(0.35, 0.75)
-        additional_demand = int(10_000 * percentage)
+        additional_demand = int(5_000 * percentage)
         total_demand = base_demand + additional_demand
         new_ideology = json.dumps({'type': 'greed', 'demand': total_demand})
 
@@ -237,9 +237,9 @@ def generate_initial_nobles(conn):
             loved_race = random.choice([r for r in RACES if r != faction_race])
             ideology = f"Любит {loved_race}"
         else: # greed
-            base_demand = 1_000
+            base_demand = 500
             percentage = random.uniform(0.25, 0.85)
-            additional_demand = int(10_000 * percentage)
+            additional_demand = int(5_000 * percentage)
             total_demand = base_demand + additional_demand
             ideology = json.dumps({'type': 'greed', 'demand': total_demand})
 

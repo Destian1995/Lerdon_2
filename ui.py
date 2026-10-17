@@ -1780,7 +1780,7 @@ class FortressInfoPopup(Popup):
             'archer': 'Стрелки',
             'mage': 'Маги',
             'beast': 'Бестии',
-            'siege': 'Осадные',
+            'siege': 'Восставшие',
         }
         _type_name = _TYPE_NAMES.get(unit_type, unit_type)
         _TYPE_ADVANTAGES = {
