@@ -34,13 +34,53 @@ if original_asset_path is None:
 copied_db = os.path.join(storage_dir, 'game_data.db')
 
 # ==========================
-# 3. Копируем базу при первом запуске
+# 3. Копируем базу при первом запуске или при обновлении
 # ==========================
-# Если файла нет в storage_dir → копируем из assets
+# Проверяем нужно ли обновить БД: сравниваем версию в assets и в storage
+_need_copy = False
 if not os.path.exists(copied_db):
+    _need_copy = True
+else:
+    # Проверяем версию: если assets-БД новее — перекопируем default-таблицы
     try:
-        # Если запускаемся на Android, original_asset_path будет указывать во внутрь APK (read-only),
-        # но можно копировать напрямую из ресурса:
+        import sqlite3 as _sq
+        _src = _sq.connect(original_asset_path)
+        _dst = _sq.connect(copied_db)
+        # Сравниваем структуру units_default (наличие новых колонок/данных)
+        _src_cols = {r[1] for r in _src.execute("PRAGMA table_info(units)").fetchall()}
+        _dst_cols = {r[1] for r in _dst.execute("PRAGMA table_info(units)").fetchall()}
+        if _src_cols != _dst_cols:
+            _need_copy = True
+        else:
+            # Сравниваем unit_type из units_default — если отличается, обновляем
+            try:
+                _src_types = set(_src.execute("SELECT unit_name, unit_type FROM units_default").fetchall())
+                _dst_types = set(_dst.execute("SELECT unit_name, unit_type FROM units_default").fetchall())
+                if _src_types != _dst_types:
+                    # Обновляем только default-таблицы, не трогая прогресс игрока
+                    _tables_to_refresh = [
+                        ("units_default", "units_default"),
+                        ("units", "units"),
+                    ]
+                    for _tbl in _tables_to_refresh:
+                        try:
+                            _dst.execute(f"DELETE FROM {_tbl[0]}")
+                            for row in _src.execute(f"SELECT * FROM {_tbl[0]}").fetchall():
+                                _placeholders = ','.join('?' * len(row))
+                                _dst.execute(f"INSERT INTO {_tbl[0]} VALUES ({_placeholders})", row)
+                        except Exception:
+                            pass
+                    _dst.commit()
+                    print("✅ Default tables refreshed from assets")
+            except Exception:
+                pass
+        _src.close()
+        _dst.close()
+    except Exception as _e:
+        print(f"[WARN] DB version check: {_e}")
+
+if _need_copy:
+    try:
         shutil.copyfile(original_asset_path, copied_db)
         print(f"✅ Database copying success: {copied_db}")
     except Exception as e:

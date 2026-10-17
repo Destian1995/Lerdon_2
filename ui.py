@@ -1658,13 +1658,14 @@ class FortressInfoPopup(Popup):
                 _uexp = unit_exp
                 _umor = unit_morale
                 _utype = unit_type
+                _uspirit = _has_battle_spirit
 
                 def _on_card_touch(instance, touch, n=_u_name, a=_u_atk,
                                    d=_u_def, dur=_u_dur, cnt=_u_cnt, cls=_u_cls, img=_u_img,
                                    hba=_hba, hbd=_hbd, hbdu=_hbdu, uexp=_uexp, mor=_umor,
-                                   utp=_utype):
+                                   utp=_utype, spirit=_uspirit):
                     if instance.collide_point(*touch.pos):
-                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls, img, hba, hbd, hbdu, uexp, mor, utp)
+                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls, img, hba, hbd, hbdu, uexp, mor, utp, spirit)
                         return True
                     return False
 
@@ -1690,7 +1691,7 @@ class FortressInfoPopup(Popup):
 
     def _show_unit_stats_popup(self, name, attack, defense, durability, count, unit_class, unit_image='',
                                hero_bonus_atk=0, hero_bonus_def=0, hero_bonus_dur=0, unit_exp=0,
-                               morale=100, unit_type='infantry'):
+                               morale=100, unit_type='infantry', battle_spirit=False):
         """Попап с изображением юнита справа и характеристиками слева."""
         _is_mobile = platform in ('android', 'ios')
         class_labels = {'1': '', '2': 'Герой', '3': 'Чемпион', '4': 'Легенда'}
@@ -1803,7 +1804,7 @@ class FortressInfoPopup(Popup):
                 ('Слаб',       'files/pict/hire/weak.png',   f'[color=#FF6644]{_weak_text}[/color]'),
                 ('Мораль',     'files/pict/hire/moral.png',  _morale_text),
             ]
-            if _has_battle_spirit:
+            if battle_spirit:
                 stats_icons.append(('Дух', 'files/pict/hire/strong.png', '[color=#FFD700]+15% урон[/color]'))
         else:
             stats_icons = [
