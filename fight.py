@@ -2083,14 +2083,19 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
 
             # Проверяем: остались ли юниты фракции города?
             _city_faction_alive = False
-            _hero_other_faction = None
+            _other_factions = {}  # {faction: max_class} — отслеживаем чужие фракции
             for unit in defending_army:
                 if unit['unit_count'] > 0:
                     uf = _determine_unit_faction(unit, conn)
                     if uf == defending_fraction:
                         _city_faction_alive = True
-                    elif get_unit_class(unit) >= 3:
-                        _hero_other_faction = uf
+                    elif uf:
+                        uc = get_unit_class(unit)
+                        _other_factions[uf] = max(_other_factions.get(uf, 0), uc)
+            # Выбираем фракцию-наследника: приоритет по классу героя (4>3>2>1)
+            _heir_faction = None
+            if _other_factions:
+                _heir_faction = max(_other_factions, key=lambda f: _other_factions[f])
 
             # Вставляем выживших обратно
             for unit in defending_army:
@@ -2111,15 +2116,15 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
                         _u_exp
                     ))
 
-            # Если все юниты фракции города погибли, но выжил герой другой фракции —
-            # город переходит к фракции героя
-            if not _city_faction_alive and _hero_other_faction:
+            # Если все юниты фракции города погибли, но выжили юниты/герои другой фракции —
+            # город переходит к фракции с наивысшим классом выжившего юнита
+            if not _city_faction_alive and _heir_faction:
                 cursor.execute("UPDATE cities SET faction = ? WHERE name = ?",
-                               (_hero_other_faction, defending_city))
-                _new_color = _faction_hex_colors.get(_hero_other_faction, '#AAAAAA')
+                               (_heir_faction, defending_city))
+                _new_color = _faction_hex_colors.get(_heir_faction, '#AAAAAA')
                 cursor.execute("UPDATE cities SET color_faction = ? WHERE name = ?",
                                (_new_color, defending_city))
-                print(f"[CAPTURE] {defending_city} перешёл к {_hero_other_faction} (герой выжил, юниты города погибли)")
+                print(f"[CAPTURE] {defending_city} перешёл к {_heir_faction} (юниты города погибли, выжили чужие)")
 
         # Обновляем гарнизон атакующего города
         original_counts = {}
