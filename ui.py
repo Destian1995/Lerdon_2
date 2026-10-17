@@ -1425,6 +1425,7 @@ class FortressInfoPopup(Popup):
             _hero_bonus_atk = 0
             _hero_bonus_def = 0
             _hero_bonus_dur = 0
+            _has_hero_in_garrison = False
             for rd in garrison_data:
                 try:
                     self.cursor.execute(
@@ -1432,6 +1433,8 @@ class FortressInfoPopup(Popup):
                         (rd[0],)
                     )
                     hi = self.cursor.fetchone()
+                    if hi and int(hi[0]) >= 2 and rd[1] > 0:
+                        _has_hero_in_garrison = True
                     if hi and int(hi[0]) in (2, 3) and rd[1] > 0:
                         _hero_bonus_atk += hi[1] or 0
                         _hero_bonus_def += hi[2] or 0
@@ -1467,7 +1470,9 @@ class FortressInfoPopup(Popup):
                         unit_attack = attack
                         unit_defense = defense
                         unit_durability = unit_info[3] if unit_info[3] else 0
-                        unit_morale = unit_info[4] if len(unit_info) > 4 and unit_info[4] is not None else 100
+                        _raw_morale = unit_info[4] if len(unit_info) > 4 and unit_info[4] is not None else 100
+                        # Без героя в гарнизоне: -30 мораль
+                        unit_morale = max(0, _raw_morale - 30) if not _has_hero_in_garrison else _raw_morale
                         unit_type = unit_info[5] if len(unit_info) > 5 and unit_info[5] else 'infantry'
                         if unit_class in ('2', '3'):
                             try:
