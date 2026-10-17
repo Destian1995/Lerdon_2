@@ -666,6 +666,7 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
         if random.random() < 0.5:
             success = True
             reduction_percentage = random.uniform(0.30, 0.75)
+            # Урон по войскам
             for unit_name, unit_count in all_units:
                 reduction_amount = int(unit_count * reduction_percentage)
                 new_count = max(0, unit_count - reduction_amount)
@@ -673,7 +674,26 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
                     cursor.execute("UPDATE garrisons SET unit_count = ? WHERE city_name = ? AND unit_name = ?", (new_count, target_city, unit_name))
                 else:
                     cursor.execute("DELETE FROM garrisons WHERE city_name = ? AND unit_name = ?", (target_city, unit_name))
-            message = f"Саботаж в городе {target_city} фракции {target_faction} успешен! Юниты повреждены."
+            # Урон по зданиям в том же проценте
+            buildings_destroyed = 0
+            try:
+                cursor.execute("SELECT building_type, count FROM buildings WHERE city_name = ? AND count > 0", (target_city,))
+                city_buildings = cursor.fetchall()
+                for b_type, b_count in city_buildings:
+                    b_reduction = max(1, int(b_count * reduction_percentage))
+                    new_b_count = max(0, b_count - b_reduction)
+                    if new_b_count > 0:
+                        cursor.execute("UPDATE buildings SET count = ? WHERE city_name = ? AND building_type = ?",
+                                       (new_b_count, target_city, b_type))
+                    else:
+                        cursor.execute("DELETE FROM buildings WHERE city_name = ? AND building_type = ?",
+                                       (target_city, b_type))
+                    buildings_destroyed += b_reduction
+            except Exception as e:
+                print(f"[SABOTAGE] Ошибка разрушения зданий: {e}")
+            bld_msg = f" Зданий разрушено: {buildings_destroyed}." if buildings_destroyed > 0 else ""
+            pct_display = int(reduction_percentage * 100)
+            message = f"Саботаж в {target_city} ({target_faction}) успешен! Войска -{pct_display}%.{bld_msg}"
         else:
             message = f"Саботаж в городе {target_city} фракции {target_faction} провален."
 
