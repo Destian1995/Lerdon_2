@@ -19,7 +19,7 @@ fight.py — боевая система v2 (всё в одном файле)
   • Если миграция units не пройдена — работает на дефолтах по unit_class.
 
 Перед использованием рекомендуется выполнить migrate_units_schema.py,
-который добавит колонки initiative, unit_type, aura_attack, aura_defense,
+который добавит колонки initiative, unit_type, morale,
 crit_chance в units и units_default.
 """
 
@@ -35,22 +35,28 @@ import copy
 # ======================================================================
 
 BASE_LETHALITY = 18.0          # летальность: чем меньше, тем кровавее бой
-COUNTER_ATTACK_RATIO = 0.65    # контрудар защитника слабее
+COUNTER_ATTACK_RATIO = 0.75    # контрудар защитника слабее
 RANDOM_MIN = 0.90              # рандом ±10%
 RANDOM_MAX = 1.10
-AURA_CAP_PERCENT = 100         # максимум суммарной ауры героев на армию
 DEFAULT_CRIT_CHANCE = 5
 CRIT_MULTIPLIER = 1.5
 MAX_ROUNDS = 100               # антизацикливание
 
 # Тип-модификаторы (камень-ножницы-бумага).
+# Тип-модификаторы — каждая фракция бьёт 2 и проигрывает 2:
+# Адепты(cavalry) > Вампиры(beast), Эльфы(infantry)
+# Элины(mage)     > Вампиры(beast), Адепты(cavalry)
+# Вампиры(beast)  > Север(archer),  Эльфы(infantry)
+# Север(archer)   > Адепты(cavalry), Элины(mage)
+# Эльфы(infantry) > Элины(mage),    Север(archer)
+# Нежить(siege)   = нейтрально ко всем (компенсация: Ужас Смерти)
 TYPE_MOD = {
-    "infantry": {"cavalry": 1.25, "archer": 0.9,  "infantry": 1.0, "mage": 1.1, "beast": 0.9,  "siege": 1.4},
-    "cavalry":  {"archer": 1.30,  "mage": 1.20,   "infantry": 0.8, "cavalry": 1.0, "beast": 1.0, "siege": 1.2},
-    "archer":   {"infantry": 1.20, "siege": 1.30, "cavalry": 0.7,  "archer": 1.0, "mage": 1.1,  "beast": 1.0},
-    "mage":     {"infantry": 1.30, "beast": 1.30, "mage": 0.7,     "cavalry": 0.9, "archer": 0.9, "siege": 1.1},
-    "beast":    {"archer": 1.20,   "mage": 0.9,   "infantry": 1.1, "cavalry": 1.0, "beast": 1.0, "siege": 1.0},
-    "siege":    {"infantry": 0.5,  "cavalry": 0.6, "archer": 0.7,  "mage": 0.8,   "beast": 0.7, "siege": 1.0},
+    "infantry": {"cavalry": 0.55, "archer": 1.45, "infantry": 1.0, "mage": 1.45, "beast": 0.55, "siege": 1.0},
+    "cavalry":  {"archer": 0.55,  "mage": 0.55,   "infantry": 1.45,"cavalry": 1.0,"beast": 1.45, "siege": 1.0},
+    "archer":   {"infantry": 0.55,"siege": 1.0,   "cavalry": 1.45, "archer": 1.0, "mage": 1.45, "beast": 0.55},
+    "mage":     {"infantry": 0.55,"beast": 1.45,  "mage": 1.0,     "cavalry": 1.45,"archer": 0.55,"siege": 1.0},
+    "beast":    {"archer": 1.45,  "mage": 0.55,   "infantry": 1.45,"cavalry": 0.55,"beast": 1.0, "siege": 1.0},
+    "siege":    {"infantry": 1.0, "cavalry": 1.0,  "archer": 1.0,  "mage": 1.0,   "beast": 1.0, "siege": 1.0},
 }
 
 
@@ -127,9 +133,6 @@ def _default_initiative(unit_class):
     return {1: 50, 2: 80, 3: 90, 4: 95}.get(unit_class, 50)
 
 
-def _default_aura(unit_class):
-    return {1: 0, 2: 10, 3: 20, 4: 30}.get(unit_class, 0)
-
 
 def _default_crit(unit_class):
     return {1: 5, 2: 10, 3: 15, 4: 20}.get(unit_class, 5)
@@ -178,8 +181,8 @@ def merge_units(army):
 
 def _enrich_with_db_stats(units, conn):
     """
-    Дополняет units_stats полями 'Инициатива', 'Тип', 'Аура атаки',
-    'Аура защиты', 'Крит'. Читает из таблицы units. БД не пишет.
+    Дополняет units_stats полями 'Инициатива', 'Тип', 'Мораль', 'Крит'.
+    Читает из таблицы units. БД не пишет.
     Если миграция не пройдена — использует дефолты по unit_class.
     """
     if not units:
@@ -188,13 +191,15 @@ def _enrich_with_db_stats(units, conn):
         cur = conn.cursor()
         cur.execute("PRAGMA table_info(units)")
         cols = {row[1] for row in cur.fetchall()}
-        has_new = {'initiative', 'unit_type', 'aura_attack', 'aura_defense', 'crit_chance'} <= cols
+        has_new = {'initiative', 'unit_type', 'crit_chance'} <= cols
+        has_morale = 'morale' in cols
 
         if has_new:
             names = list({u['unit_name'] for u in units})
             placeholders = ','.join('?' * len(names))
+            morale_col = ", morale" if has_morale else ""
             cur.execute(
-                f"SELECT unit_name, initiative, unit_type, aura_attack, aura_defense, crit_chance "
+                f"SELECT unit_name, initiative, unit_type, crit_chance{morale_col} "
                 f"FROM units WHERE unit_name IN ({placeholders})",
                 names
             )
@@ -207,18 +212,17 @@ def _enrich_with_db_stats(units, conn):
             u_class = get_unit_class(u)
             stats = u.setdefault('units_stats', {})
             if rec:
-                _, ini, utype, aatk, adef, crit = rec
+                _, ini, utype, crit = rec[:4]
+                morale_val = rec[4] if has_morale and len(rec) > 4 else 100
                 stats.setdefault('Инициатива', ini if ini is not None else _default_initiative(u_class))
                 stats.setdefault('Тип', (utype or 'infantry'))
-                stats.setdefault('Аура атаки', aatk if aatk is not None else _default_aura(u_class))
-                stats.setdefault('Аура защиты', adef if adef is not None else _default_aura(u_class))
                 stats.setdefault('Крит', crit if crit is not None else _default_crit(u_class))
+                stats.setdefault('Мораль', morale_val if morale_val is not None else 100)
             else:
                 stats.setdefault('Инициатива', _default_initiative(u_class))
                 stats.setdefault('Тип', 'infantry')
-                stats.setdefault('Аура атаки', _default_aura(u_class))
-                stats.setdefault('Аура защиты', _default_aura(u_class))
                 stats.setdefault('Крит', _default_crit(u_class))
+                stats.setdefault('Мораль', 100)
     except Exception as e:
         print(f"[WARN] _enrich_with_db_stats: {e}. Использую дефолты по классу.")
         for u in units:
@@ -226,22 +230,9 @@ def _enrich_with_db_stats(units, conn):
             stats = u.setdefault('units_stats', {})
             stats.setdefault('Инициатива', _default_initiative(u_class))
             stats.setdefault('Тип', 'infantry')
-            stats.setdefault('Аура атаки', _default_aura(u_class))
-            stats.setdefault('Аура защиты', _default_aura(u_class))
             stats.setdefault('Крит', _default_crit(u_class))
+            stats.setdefault('Мораль', 100)
 
-
-def calculate_army_auras(army):
-    """Суммарные ауры от живых героев (классы ≥2). Каждая ≤ AURA_CAP_PERCENT."""
-    total_atk = 0
-    total_def = 0
-    for u in army:
-        if u['unit_count'] <= 0:
-            continue
-        if get_unit_class(u) >= 2:
-            total_atk += _get_stat(u, 'Аура атаки', 0)
-            total_def += _get_stat(u, 'Аура защиты', 0)
-    return min(total_atk, AURA_CAP_PERCENT), min(total_def, AURA_CAP_PERCENT)
 
 
 def calculate_hero_stat_bonus(army):
@@ -307,8 +298,6 @@ def is_unit_combat_ready(unit, army=None):
 # ======================================================================
 
 def battle_chain(attacker, defender, city, user_faction, conn,
-                 atk_aura_atk=0, atk_aura_def=0,
-                 def_aura_atk=0, def_aura_def=0,
                  atk_hero_bonus=(0, 0, 0), def_hero_bonus=(0, 0, 0),
                  atk_fraction='', def_fraction=''):
     """Одна стычка: симметричные пропорциональные потери."""
@@ -319,6 +308,14 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     atk_defense = calculate_unit_power(attacker, is_attacking=False)
     def_attack = calculate_unit_power(defender, is_attacking=True)
     def_defense = calculate_unit_power(defender, is_attacking=False)
+
+    # Мятежники: все характеристики ×0.6
+    if atk_fraction == 'Мятежники' and get_unit_class(attacker) == 1:
+        atk_attack *= 0.6
+        atk_defense *= 0.6
+    if def_fraction == 'Мятежники' and get_unit_class(defender) == 1:
+        def_attack *= 0.6
+        def_defense *= 0.6
 
     # Сохраняем базовый урон до бонусов (для Шквала Севера)
     atk_base_attack = atk_attack
@@ -332,12 +329,6 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     if get_unit_class(defender) == 1 and defender.get('unit_name') != 'Зомби':
         def_attack += def_hero_bonus[0]
         def_defense += def_hero_bonus[1] + def_hero_bonus[2] / 2.0
-
-    # Ауры
-    atk_attack *= (1 + atk_aura_atk / 100.0)
-    atk_defense *= (1 + atk_aura_def / 100.0)
-    def_attack *= (1 + def_aura_atk / 100.0)
-    def_defense *= (1 + def_aura_def / 100.0)
 
     # Север: Шквал — если итоговый урон >= 20x от базового, урон x1.7 (в свой сезон x2.975)
     shkval_mult = 1.70 * _get_season_mult('Север', conn) if atk_fraction == 'Север' or def_fraction == 'Север' else 1.70
@@ -359,18 +350,37 @@ def battle_chain(attacker, defender, city, user_faction, conn,
         if def_defense / def_base_defense >= 20.0:
             def_defense = int(def_defense * oplot_mult)
 
-    # Боевой дух (казнь пленных): +25% урон на 3 хода
+    # Боевой дух: 2+ победы над контрпиком за последние 4 хода → +15% урон
+    # Контрпики — фракции, которые сильнее тебя по типу юнита
+    _COUNTER_PICKS = {
+        'Адепты': ['Элины', 'Север'],
+        'Элины': ['Север', 'Эльфы'],
+        'Вампиры': ['Адепты', 'Элины'],
+        'Север': ['Вампиры', 'Эльфы'],
+        'Эльфы': ['Адепты', 'Вампиры'],
+    }
     if conn:
         try:
             _mc = conn.cursor()
-            _mc.execute("SELECT bonus FROM morale_boost WHERE faction = ? AND turns_left > 0", (atk_fraction,))
-            _mr = _mc.fetchone()
-            if _mr:
-                atk_attack *= (1 + _mr[0])
-            _mc.execute("SELECT bonus FROM morale_boost WHERE faction = ? AND turns_left > 0", (def_fraction,))
-            _mr2 = _mc.fetchone()
-            if _mr2:
-                def_attack *= (1 + _mr2[0])
+            _mc.execute("SELECT turn_count FROM turn LIMIT 1")
+            _tr = _mc.fetchone()
+            _cur_turn = _tr[0] if _tr else 0
+            for _frac, _side in [(atk_fraction, 'atk'), (def_fraction, 'def')]:
+                _counters = _COUNTER_PICKS.get(_frac, [])
+                if not _counters:
+                    continue
+                _placeholders = ','.join('?' * len(_counters))
+                _mc.execute(
+                    f"SELECT COUNT(*) FROM faction_victories "
+                    f"WHERE faction = ? AND defeated IN ({_placeholders}) AND turn > ?",
+                    [_frac] + _counters + [_cur_turn - 4]
+                )
+                _wins = _mc.fetchone()[0]
+                if _wins >= 2:
+                    if _side == 'atk':
+                        atk_attack *= 1.15
+                    else:
+                        def_attack *= 1.15
         except Exception:
             pass
 
@@ -583,13 +593,6 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     # (в свой сезон Лето: 27.5%)
     # Реализуется после боя в _apply_elf_healing
 
-    # Адепты: Святое благословение — +20% защита (в свой сезон +35%)
-    adept_bonus = 0.20 * _season_mult('Адепты') if _season_mult('Адепты') > 1 else 0.20
-    if defending_fraction == 'Адепты':
-        for u in def_army:
-            stats = u.get('units_stats', {})
-            stats['Защита'] = stats.get('Защита', 0) * (1 + adept_bonus)
-
     # Нежить: Ужас Смерти — -15% атаки у врагов (в Зиму -25%)
     # Применяется к стороне, которая сражается ПРОТИВ Нежити
     _undead_fear = 0.0
@@ -638,25 +641,119 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     # Данные для анимации
     battle_rounds = []
 
-    # === Мораль: загружаем morale из units, проверяем бегство ===
-    # morale хранится в units table (колонка morale, дефолт 100)
-    # При потерях > 50% и morale < 50 — шанс бегства 15% юнитов за раунд
-    def _check_morale_rout(army):
-        """Проверяет бегство юнитов с низкой моралью."""
+    # === Мораль: динамическая система ===
+    # Стартовые модификаторы морали
+    for _side_army, _side_fraction in [(atk_army, attacking_fraction), (def_army, defending_fraction)]:
+        _has_hero = any(get_unit_class(u) >= 2 and u['unit_count'] > 0 for u in _side_army)
+        for u in _side_army:
+            if get_unit_class(u) >= 2:
+                continue  # Герои не теряют мораль
+            base_morale = _get_stat(u, 'Мораль', 100)
+            # Нет героя в армии → -30
+            if not _has_hero:
+                base_morale -= 30
+            u['_battle_morale'] = max(0, min(100, base_morale))
+
+    def _update_morale(army, fraction):
+        """Обновляет мораль каждый раунд на основе потерь."""
         total_initial = sum(u.get('initial_count', u['unit_count']) for u in army)
         total_current = sum(u['unit_count'] for u in army)
         if total_initial == 0:
             return
         loss_pct = (total_initial - total_current) / total_initial * 100
-        if loss_pct < 70:
-            return  # Потери < 70% — мораль держится
+
+        # Проверяем, погиб ли герой
+        _hero_died = any(
+            get_unit_class(u) >= 2 and u.get('initial_count', 0) > 0 and u['unit_count'] <= 0
+            for u in army
+        )
+
         for u in army:
             if u['unit_count'] <= 0 or get_unit_class(u) >= 2:
-                continue  # Герои не бегут
-            morale = _get_stat(u, 'Мораль', 100)
-            if morale < 50 and random.random() < 0.15:
+                continue
+            morale = u.get('_battle_morale', 100)
+
+            # Потери стека снижают мораль: -2 за каждые 5% потерь армии
+            morale_loss = int(loss_pct / 5) * 2
+            morale -= morale_loss
+
+            # Гибель героя → -40
+            if _hero_died:
+                morale -= 40
+
+            u['_battle_morale'] = max(0, min(100, morale))
+
+    def _apply_morale_effects(army):
+        """Применяет эффекты морали: воодушевление, паника, бегство."""
+        for u in army:
+            if u['unit_count'] <= 0 or get_unit_class(u) >= 2:
+                continue
+            morale = u.get('_battle_morale', 100)
+            stats = u.get('units_stats', {})
+
+            # Сбрасываем предыдущий модификатор морали
+            prev_mod = u.pop('_morale_atk_mod', 1.0)
+            if prev_mod != 1.0 and 'Урон' in stats:
+                stats['Урон'] = stats['Урон'] / prev_mod
+
+            # Воодушевление: мораль > 80 → +10% урон
+            if morale > 80:
+                mod = 1.10
+            # Паника: мораль < 40 → -20% урон
+            elif morale < 40:
+                mod = 0.80
+            else:
+                mod = 1.0
+
+            if mod != 1.0 and 'Урон' in stats:
+                stats['Урон'] = stats['Урон'] * mod
+            u['_morale_atk_mod'] = mod
+
+            # Бегство: мораль < 25 → 15% шанс потерять 15% стека
+            if morale < 25 and random.random() < 0.15:
                 fled = max(1, int(u['unit_count'] * 0.15))
                 u['unit_count'] = max(0, u['unit_count'] - fled)
+
+    # Проверяем боевой дух для сообщения игроку
+    _COUNTER_PICKS_MSG = {
+        'Адепты': ['Элины', 'Север'],
+        'Элины': ['Север', 'Эльфы'],
+        'Вампиры': ['Адепты', 'Элины'],
+        'Север': ['Вампиры', 'Эльфы'],
+        'Эльфы': ['Адепты', 'Вампиры'],
+    }
+    _spirit_factions = []
+    if conn and user_faction:
+        try:
+            _sc = conn.cursor()
+            _sc.execute("SELECT turn_count FROM turn LIMIT 1")
+            _st = _sc.fetchone()
+            _s_turn = _st[0] if _st else 0
+            for _sf in [attacking_fraction, defending_fraction]:
+                _cpicks = _COUNTER_PICKS_MSG.get(_sf, [])
+                if not _cpicks:
+                    continue
+                _sph = ','.join('?' * len(_cpicks))
+                _sc.execute(
+                    f"SELECT COUNT(*) FROM faction_victories "
+                    f"WHERE faction = ? AND defeated IN ({_sph}) AND turn > ?",
+                    [_sf] + _cpicks + [_s_turn - 4]
+                )
+                if _sc.fetchone()[0] >= 2:
+                    _spirit_factions.append(_sf)
+        except Exception:
+            pass
+
+    # Добавляем сообщения о боевом духе
+    for _spf in _spirit_factions:
+        if _spf == user_faction:
+            _faction_bonus_messages.append(
+                f"[color=#FFD700]Боевой дух![/color] +15% урон (победы над контрпиком)"
+            )
+        else:
+            _faction_bonus_messages.append(
+                f"[color=#FF6644]Враг воодушевлён![/color] {_spf}: +15% урон"
+            )
 
     # Боевой цикл
     round_num = 0
@@ -667,9 +764,6 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         def_alive = [u for u in def_army if is_unit_combat_ready(u, def_army)]
         if not atk_alive or not def_alive:
             break
-
-        atk_aura_atk, atk_aura_def = calculate_army_auras(atk_army)
-        def_aura_atk, def_aura_def = calculate_army_auras(def_army)
 
         # Сырые бонусы от героев 2+ класса для юнитов 1 класса
         atk_hero_bonus = calculate_hero_stat_bonus(atk_army)
@@ -696,14 +790,10 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
 
             if side == 'A':
                 battle_chain(unit, target, defending_city, user_faction, conn,
-                             atk_aura_atk=atk_aura_atk, atk_aura_def=atk_aura_def,
-                             def_aura_atk=def_aura_atk, def_aura_def=def_aura_def,
                              atk_hero_bonus=atk_hero_bonus, def_hero_bonus=def_hero_bonus,
                              atk_fraction=attacking_fraction, def_fraction=defending_fraction)
             else:
                 battle_chain(unit, target, defending_city, user_faction, conn,
-                             atk_aura_atk=def_aura_atk, atk_aura_def=def_aura_def,
-                             def_aura_atk=atk_aura_atk, def_aura_def=atk_aura_def,
                              atk_hero_bonus=def_hero_bonus, def_hero_bonus=atk_hero_bonus,
                              atk_fraction=defending_fraction, def_fraction=attacking_fraction)
 
@@ -746,9 +836,11 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                         stats['Защита'] = int(float(stats['Защита']) * 1.5)
                     print(f"[BattleHero] Герой 4 кл. '{hero4['unit_name']}' вступил в бой! +50%")
 
-        # Проверка морали — бегство при тяжёлых потерях
-        _check_morale_rout(atk_army)
-        _check_morale_rout(def_army)
+        # Динамическая мораль: обновляем и применяем эффекты
+        _update_morale(atk_army, attacking_fraction)
+        _update_morale(def_army, defending_fraction)
+        _apply_morale_effects(atk_army)
+        _apply_morale_effects(def_army)
 
         # Сохраняем состояние после раунда
         atk_total = sum(u['unit_count'] for u in atk_army)
@@ -772,6 +864,9 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
 
     # Список сообщений о фракционных бонусах для отчёта
     _faction_bonus_messages = []
+
+    # Сообщения о боевом духе (заполняется позже, после расчёта _spirit_factions)
+    # — добавляются перед возвратом результата
 
     # Вампиры: Вампиризм — 5% убитых врагов воскресают (в свой сезон 8.75%)
     vamp_rate = 0.05 * _season_mult('Вампиры') if _season_mult('Вампиры') > 1 else 0.05
@@ -833,6 +928,35 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         winner = 'defender'
     else:
         winner = 'defender'  # полный размен — побеждает защитник
+
+    # Записываем победу фракции для системы боевого духа
+    winning_faction = attacking_fraction if winner == 'attacker' else defending_fraction
+    losing_faction = defending_fraction if winner == 'attacker' else attacking_fraction
+    try:
+        _vc = conn.cursor()
+        _vc.execute("""
+            CREATE TABLE IF NOT EXISTS faction_victories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                faction TEXT NOT NULL,
+                defeated TEXT NOT NULL DEFAULT '',
+                turn INTEGER NOT NULL
+            )
+        """)
+        # Миграция: добавить колонку defeated если её нет
+        _vc.execute("PRAGMA table_info(faction_victories)")
+        _fv_cols = {r[1] for r in _vc.fetchall()}
+        if 'defeated' not in _fv_cols:
+            _vc.execute("ALTER TABLE faction_victories ADD COLUMN defeated TEXT NOT NULL DEFAULT ''")
+        _vc.execute("SELECT turn_count FROM turn LIMIT 1")
+        _vt = _vc.fetchone()
+        _v_turn = _vt[0] if _vt else 1
+        _vc.execute("INSERT INTO faction_victories (faction, defeated, turn) VALUES (?, ?, ?)",
+                    (winning_faction, losing_faction, _v_turn))
+        # Чистим старые записи (старше 5 ходов)
+        _vc.execute("DELETE FROM faction_victories WHERE turn < ?", (_v_turn - 5,))
+        conn.commit()
+    except Exception as e:
+        print(f"[MORALE] Ошибка записи победы: {e}")
 
     # Эльфы: Исцеление применяется ТОЛЬКО победившей стороне
     if winner == 'attacker':

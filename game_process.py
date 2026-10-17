@@ -1718,10 +1718,10 @@ class GameScreen(Screen):
                 App.get_running_app().restart_app()
                 return
 
-            # Уменьшаем боевой дух
+            # Чистка старых записей побед (боевой дух)
             try:
-                self.cursor.execute("UPDATE morale_boost SET turns_left = turns_left - 1 WHERE turns_left > 0")
-                self.cursor.execute("DELETE FROM morale_boost WHERE turns_left <= 0")
+                self.cursor.execute("DELETE FROM faction_victories WHERE turn < ?",
+                                    (self.turn_counter - 5,))
                 self.conn.commit()
             except Exception:
                 pass

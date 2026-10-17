@@ -1447,11 +1447,19 @@ class FortressInfoPopup(Popup):
                 unit_attack = 0
                 unit_defense = 0
                 unit_durability = 0
+                unit_morale = 100
+                unit_type = 'infantry'
                 try:
-                    self.cursor.execute(
-                        "SELECT unit_class, attack, defense, durability FROM units WHERE unit_name = ?",
-                        (unit_name,)
-                    )
+                    try:
+                        self.cursor.execute(
+                            "SELECT unit_class, attack, defense, durability, morale, unit_type FROM units WHERE unit_name = ?",
+                            (unit_name,)
+                        )
+                    except Exception:
+                        self.cursor.execute(
+                            "SELECT unit_class, attack, defense, durability FROM units WHERE unit_name = ?",
+                            (unit_name,)
+                        )
                     unit_info = self.cursor.fetchone()
                     if unit_info:
                         unit_class = str(unit_info[0])
@@ -1459,6 +1467,8 @@ class FortressInfoPopup(Popup):
                         unit_attack = attack
                         unit_defense = defense
                         unit_durability = unit_info[3] if unit_info[3] else 0
+                        unit_morale = unit_info[4] if len(unit_info) > 4 and unit_info[4] is not None else 100
+                        unit_type = unit_info[5] if len(unit_info) > 5 and unit_info[5] else 'infantry'
                         if unit_class in ('2', '3'):
                             try:
                                 if defense == 0 and attack > 0:
@@ -1616,12 +1626,15 @@ class FortressInfoPopup(Popup):
                 _hbd = _hero_bonus_def
                 _hbdu = _hero_bonus_dur
                 _uexp = unit_exp
+                _umor = unit_morale
+                _utype = unit_type
 
                 def _on_card_touch(instance, touch, n=_u_name, a=_u_atk,
                                    d=_u_def, dur=_u_dur, cnt=_u_cnt, cls=_u_cls, img=_u_img,
-                                   hba=_hba, hbd=_hbd, hbdu=_hbdu, uexp=_uexp):
+                                   hba=_hba, hbd=_hbd, hbdu=_hbdu, uexp=_uexp, mor=_umor,
+                                   utp=_utype):
                     if instance.collide_point(*touch.pos):
-                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls, img, hba, hbd, hbdu, uexp)
+                        self._show_unit_stats_popup(n, a, d, dur, cnt, cls, img, hba, hbd, hbdu, uexp, mor, utp)
                         return True
                     return False
 
@@ -1646,7 +1659,8 @@ class FortressInfoPopup(Popup):
             self.attacking_units_box.add_widget(error_label)
 
     def _show_unit_stats_popup(self, name, attack, defense, durability, count, unit_class, unit_image='',
-                               hero_bonus_atk=0, hero_bonus_def=0, hero_bonus_dur=0, unit_exp=0):
+                               hero_bonus_atk=0, hero_bonus_def=0, hero_bonus_dur=0, unit_exp=0,
+                               morale=100, unit_type='infantry'):
         """Попап с изображением юнита справа и характеристиками слева."""
         _is_mobile = platform in ('android', 'ios')
         class_labels = {'1': '', '2': 'Герой', '3': 'Чемпион', '4': 'Легенда'}
@@ -1708,8 +1722,9 @@ class FortressInfoPopup(Popup):
                     _atk_text = f'Шквал: {format_number(_eff_atk)} × {format_number(_cnt)} = {format_number(_eff_atk * _cnt)}'
                 else:
                     _atk_text = f'({format_number(attack)}+{format_number(hero_bonus_atk)}) × {format_number(_cnt)} = {format_number(_eff_atk * _cnt)}'
-                if self.ai_fraction == 'Адепты' and hero_bonus_def > 0 and defense > 0 and _eff_def / defense >= 20.0:
-                    _def_text = f'Оплот: {format_number(_eff_def)} × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'
+                if self.ai_fraction == 'Адепты' and hero_bonus_def > 0 and defense > 0 and (defense + hero_bonus_def) / defense >= 20.0:
+                    _oplot_bonus = int(_eff_def * 0.35)
+                    _def_text = f'Оплот: ({format_number(defense)}+{format_number(hero_bonus_def)}+{format_number(_oplot_bonus)}) × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'
                 else:
                     _def_text = f'({format_number(defense)}+{format_number(hero_bonus_def)}) × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'
                 _dur_text = f'({format_number(durability)}+{format_number(hero_bonus_dur)}) × {format_number(_cnt)} = {format_number(_eff_dur * _cnt)}'
@@ -1722,14 +1737,50 @@ class FortressInfoPopup(Popup):
             _def_text = format_number(defense)
             _dur_text = format_number(durability)
 
-        stats_icons = [
-            ('Урон',       'files/pict/hire/sword.png',  _atk_text),
-            ('Защита',     'files/pict/hire/shield.png', _def_text),
-            ('Живучесть',  'files/pict/hire/health.png', _dur_text),
-            ('Класс',      'files/pict/hire/class.png',  unit_class),
-        ]
-        if unit_class == '1' and count > 0:
-            stats_icons.insert(3, ('Кол-во', 'files/pict/hire/consumption.png', format_number(count)))
+        # Цвет морали: зелёный ≥50, красный <50
+        if morale >= 50:
+            _morale_text = f'[color=#66CC66]{morale}[/color]'
+        else:
+            _morale_text = f'[color=#FF6644]{morale}[/color]'
+        # Русские названия типов
+        _TYPE_NAMES = {
+            'infantry': 'Пехота',
+            'cavalry': 'Рыцари',
+            'archer': 'Стрелки',
+            'mage': 'Маги',
+            'beast': 'Бестии',
+            'siege': 'Осадные',
+        }
+        _type_name = _TYPE_NAMES.get(unit_type, unit_type)
+        _TYPE_ADVANTAGES = {
+            'infantry': {'strong': ['archer', 'mage'], 'weak': ['cavalry', 'beast']},
+            'cavalry':  {'strong': ['infantry', 'beast'], 'weak': ['archer', 'mage']},
+            'archer':   {'strong': ['cavalry', 'mage'], 'weak': ['infantry', 'beast']},
+            'mage':     {'strong': ['cavalry', 'beast'], 'weak': ['infantry', 'archer']},
+            'beast':    {'strong': ['infantry', 'archer'], 'weak': ['cavalry', 'mage']},
+            'siege':    {'strong': [], 'weak': []},
+        }
+        _adv = _TYPE_ADVANTAGES.get(unit_type, {'strong': [], 'weak': []})
+        _strong_text = ', '.join(_TYPE_NAMES.get(t, t) for t in _adv['strong']) or '—'
+        _weak_text = ', '.join(_TYPE_NAMES.get(t, t) for t in _adv['weak']) or '—'
+
+        if unit_class == '1':
+            stats_icons = [
+                ('Урон',       'files/pict/hire/sword.png',  _atk_text),
+                ('Защита',     'files/pict/hire/shield.png', _def_text),
+                ('Живучесть',  'files/pict/hire/health.png', _dur_text),
+                ('Тип',        'files/pict/hire/type.png',   _type_name),
+                ('Силён',      'files/pict/hire/strong.png', f'[color=#66CC66]{_strong_text}[/color]'),
+                ('Слаб',       'files/pict/hire/weak.png',   f'[color=#FF6644]{_weak_text}[/color]'),
+                ('Мораль',     'files/pict/hire/moral.png',  _morale_text),
+            ]
+        else:
+            stats_icons = [
+                ('Урон',       'files/pict/hire/sword.png',  _atk_text),
+                ('Защита',     'files/pict/hire/shield.png', _def_text),
+                ('Живучесть',  'files/pict/hire/health.png', _dur_text),
+                ('Класс',      'files/pict/hire/class.png',  unit_class),
+            ]
 
         # Распорка сверху чтобы статы были по центру
         stats_box.add_widget(Widget(size_hint_y=1))
