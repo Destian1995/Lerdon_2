@@ -2083,7 +2083,8 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
 
             # Проверяем: остались ли юниты фракции города?
             _city_faction_alive = False
-            _other_factions = {}  # {faction: max_class} — отслеживаем чужие фракции
+            # {faction: (max_class, total_power)} — класс + суммарная мощь
+            _other_factions = {}
             for unit in defending_army:
                 if unit['unit_count'] > 0:
                     uf = _determine_unit_faction(unit, conn)
@@ -2091,11 +2092,16 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
                         _city_faction_alive = True
                     elif uf:
                         uc = get_unit_class(unit)
-                        _other_factions[uf] = max(_other_factions.get(uf, 0), uc)
-            # Выбираем фракцию-наследника: приоритет по классу героя (4>3>2>1)
+                        atk = _get_stat(unit, 'Урон', 0) * unit['unit_count']
+                        dfs = _get_stat(unit, 'Защита', 0) * unit['unit_count']
+                        power = atk + dfs
+                        prev = _other_factions.get(uf, (0, 0))
+                        _other_factions[uf] = (max(prev[0], uc), prev[1] + power)
+            # Выбираем фракцию-наследника: приоритет по классу, при равном — по мощи
             _heir_faction = None
             if _other_factions:
-                _heir_faction = max(_other_factions, key=lambda f: _other_factions[f])
+                _heir_faction = max(_other_factions,
+                                    key=lambda f: (_other_factions[f][0], _other_factions[f][1]))
 
             # Вставляем выживших обратно
             for unit in defending_army:
