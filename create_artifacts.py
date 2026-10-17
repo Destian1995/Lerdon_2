@@ -478,8 +478,8 @@ def workshop(faction, db_conn):
 
         attack_section.add_widget(attack_header)
 
-        # Максимум атаки = все жетоны на атаку (1.0 за 1%)
-        max_attack_possible = max(int(ardanian_tokens_available / 1.0), 100)
+        # Максимум атаки = аналогично защите (2.0 жетона за 1%)
+        max_attack_possible = max(int(ardanian_tokens_available / 2.0), 100)
         attack_slider = Slider(
             min=0,
             max=max_attack_possible,
