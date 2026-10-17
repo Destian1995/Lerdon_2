@@ -250,6 +250,10 @@ class ResourceBox(BoxLayout):
         # При изменении высоты/ширины пересобираем (нужно для корректного рисования линий)
         self.bind(size=lambda *a: self.update_resources())
 
+        # Периодическое обновление ресурсов (каждые 2 сек)
+        from kivy.clock import Clock as _ResClock
+        _ResClock.schedule_interval(lambda dt: self.update_resources(), 2.0)
+
     def _update_bg(self, *args):
         self._bg_rect.pos = self.pos
         self._bg_rect.size = self.size

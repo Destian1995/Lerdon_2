@@ -1519,6 +1519,13 @@ class Faction:
             self.population = new_amount
         # Синхронизируем dict для немедленного отображения в UI
         self.resources[resource_type] = new_amount
+        # Моментально обновляем отображение ресурсов
+        try:
+            from game_process import _active_game_screen
+            if _active_game_screen and hasattr(_active_game_screen, 'resource_box') and _active_game_screen.resource_box:
+                _active_game_screen.resource_box.update_resources()
+        except Exception:
+            pass
 
     def get_resources(self):
         """Получение текущих ресурсов с форматированием чисел."""
