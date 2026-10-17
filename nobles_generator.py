@@ -710,13 +710,19 @@ def attempt_secret_service_action(conn, player_faction=None, target_noble_id=Non
             decrease_all_loyalty(conn, 11.0)
             return {
                 'success': False,
-                'message': f"Операция против {noble_name} провалена и раскрыта! Лояльность знати снизилась на 11%.",
+                'target': noble_name,
+                'discovered': True,
+                'effect': 'Лояльность знати −11%',
+                'message': f"Цель: {noble_name}\n\nОперация провалена и раскрыта!\nЛояльность знати снизилась на 11%.",
                 'noble_name': noble_name
             }
         else:
             return {
                 'success': False,
-                'message': f"Операция против {noble_name} провалена, но осталась незамеченной.",
+                'target': noble_name,
+                'discovered': False,
+                'effect': '',
+                'message': f"Цель: {noble_name}\n\nОперация провалена,\nно осталась незамеченной.",
                 'noble_name': noble_name
             }
 
@@ -733,21 +739,25 @@ def attempt_secret_service_action(conn, player_faction=None, target_noble_id=Non
     is_discovered = random.random() <= 0.5
     if is_discovered:
         increase_all_loyalty(conn, 6.0)
-        message_suffix = " Операция раскрыта! Акция устрашения повысила лояльность парламента на 6%."
+        effect = 'Лояльность парламента +6%'
     else:
-        message_suffix = " Операция прошла незамеченной."
+        effect = ''
 
     return {
         'success': True,
-        'message': f"Цель {noble_name} успешно устранена.{message_suffix}",
+        'target': noble_name,
+        'discovered': is_discovered,
+        'effect': effect,
+        'message': f"Цель: {noble_name}\n\nУспешно устранена.",
         'noble_name': noble_name
     }
 
 def show_secret_service_result_popup(result_dict):
-    """Отображает popup с результатом операции Тайной Службы (стильный, с кнопкой закрытия)."""
+    """Отображает popup с результатом операции Тайной Службы — структурированный, читаемый."""
     _is_mobile = UIStyles.is_android()
+    from kivy.uix.button import Button
 
-    content = BoxLayout(orientation='vertical', padding=[dp(15), dp(12)], spacing=dp(10))
+    content = BoxLayout(orientation='vertical', padding=[dp(16), dp(14)], spacing=dp(8))
     with content.canvas.before:
         Color(0.06, 0.07, 0.11, 1)
         content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(12)])
@@ -756,56 +766,75 @@ def show_secret_service_result_popup(result_dict):
         size=lambda i, v: setattr(i._bg, 'size', v)
     )
 
-    if result_dict.get('success', False):
-        title_text = "Операция выполнена"
-        title_color = (0.3, 0.85, 0.3, 1)
-        accent_color = (0.15, 0.35, 0.15, 0.8)
+    is_success = result_dict.get('success', False)
+    target = result_dict.get('target', '???')
+    discovered = result_dict.get('discovered', False)
+    effect = result_dict.get('effect', '')
+
+    # --- Строка 1: крупный статус ---
+    if is_success:
+        status_text = "ЦЕЛЬ УСТРАНЕНА"
+        status_color = (0.3, 0.9, 0.3, 1)
     else:
-        title_text = "Операция провалена"
-        title_color = (0.85, 0.25, 0.25, 1)
-        accent_color = (0.35, 0.12, 0.12, 0.8)
+        status_text = "ОПЕРАЦИЯ ПРОВАЛЕНА"
+        status_color = (0.9, 0.25, 0.25, 1)
 
-    # Акцентная полоса сверху
-    accent = Widget(size_hint_y=None, height=dp(3))
-    with accent.canvas:
-        Color(*accent_color)
-        accent._r = RoundedRectangle(pos=accent.pos, size=accent.size, radius=[dp(2)])
-    accent.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
-                size=lambda i, v: setattr(i._r, 'size', v))
-    content.add_widget(accent)
-
-    title_label = Label(
-        text=f"[b]{title_text}[/b]",
-        font_size=sp(17) if not _is_mobile else sp(15),
-        markup=True,
-        halign='center',
-        valign='middle',
-        size_hint_y=None,
-        height=dp(38),
-        color=title_color
+    status_lbl = Label(
+        text=f"[b]{status_text}[/b]",
+        font_size=sp(20) if not _is_mobile else sp(17),
+        markup=True, halign='center', valign='middle',
+        size_hint_y=None, height=dp(40),
+        color=status_color
     )
-    title_label.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    content.add_widget(title_label)
+    status_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(status_lbl)
 
-    message_label = Label(
-        text=result_dict.get('message', 'Неизвестный результат операции'),
+    # --- Строка 2: имя цели ---
+    target_lbl = Label(
+        text=f"[color=#AAAAAA]Цель:[/color]  [b]{target}[/b]",
+        font_size=sp(15) if not _is_mobile else sp(13),
+        markup=True, halign='center', valign='middle',
+        size_hint_y=None, height=dp(28),
+        color=(0.9, 0.88, 0.8, 1)
+    )
+    target_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(target_lbl)
+
+    # --- Строка 3: обнаружение ---
+    if discovered:
+        disc_text = "[color=#FF8844]Операция раскрыта[/color]"
+    else:
+        disc_text = "[color=#66CC66]Операция не обнаружена[/color]"
+    disc_lbl = Label(
+        text=disc_text,
         font_size=sp(13) if not _is_mobile else sp(11),
-        halign='center',
-        valign='middle',
-        markup=True,
-        color=(0.85, 0.85, 0.85, 1)
+        markup=True, halign='center', valign='middle',
+        size_hint_y=None, height=dp(24),
+        color=(0.8, 0.8, 0.8, 1)
     )
-    message_label.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    content.add_widget(message_label)
+    disc_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(disc_lbl)
+
+    # --- Строка 4: эффект (если есть) ---
+    if effect:
+        eff_color = '#66CC66' if '+' in effect else '#FF6644'
+        eff_lbl = Label(
+            text=f"[color={eff_color}]{effect}[/color]",
+            font_size=sp(13) if not _is_mobile else sp(11),
+            markup=True, halign='center', valign='middle',
+            size_hint_y=None, height=dp(24),
+            color=(0.8, 0.8, 0.8, 1)
+        )
+        eff_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+        content.add_widget(eff_lbl)
 
     # Распорка
     content.add_widget(Widget(size_hint_y=1))
 
     # Кнопка закрыть
-    from kivy.uix.button import Button
     close_btn = Button(
-        text="Закрыть", size_hint_y=None, height=dp(36),
-        font_size=sp(13) if not _is_mobile else sp(11),
+        text="Закрыть", size_hint_y=None, height=dp(38),
+        font_size=sp(14) if not _is_mobile else sp(12),
         bold=True,
         background_normal='', background_color=(0, 0, 0, 0),
         color=(0.9, 0.9, 0.9, 1)
@@ -820,7 +849,7 @@ def show_secret_service_result_popup(result_dict):
     popup = Popup(
         title="",
         content=content,
-        size_hint=(0.7 if not _is_mobile else 0.85, 0.45 if not _is_mobile else 0.4),
+        size_hint=(0.65 if not _is_mobile else 0.85, 0.42 if not _is_mobile else 0.38),
         pos_hint={'center_x': 0.5, 'center_y': 0.5},
         auto_dismiss=True,
         background_color=(0.04, 0.05, 0.09, 0.98),
