@@ -94,251 +94,292 @@ def show_diversion_window(conn, faction, class_faction):
     cash_player = CalculateCash(faction, class_faction)
     player_faction = faction
 
-    is_android = hasattr(Window, 'keyboard')
-    padding_main = dp(15)
-    spacing_main = dp(5)  # Уменьшен отступ между элементами
-    font_title = sp(18)   # Уменьшен размер заголовка окна
-    font_header = sp(12)  # Уменьшен размер заголовка таблицы
-    font_info = sp(11)    # Уменьшен размер текста информации
-    font_btn = sp(11)     # Уменьшен размер текста кнопки
-    btn_height = dp(25)   # Уменьшена высота кнопки вдвое
-    item_height = dp(27)  # Уменьшена высота строки вдвое (примерно)
-
-    content = BoxLayout(orientation='vertical', padding=padding_main, spacing=spacing_main)
-
     cursor = conn.cursor()
-    # Исключаем Мятежников из списка целей
     cursor.execute("SELECT DISTINCT faction FROM cities WHERE faction != ? AND faction NOT IN ('Мятежники', 'Нежить', 'Нейтрал')", (player_faction,))
-    target_factions_result = cursor.fetchall()
-    target_factions = [row[0] for row in target_factions_result if row[0]]
+    target_factions = [row[0] for row in cursor.fetchall() if row[0]]
 
     if not target_factions:
         no_targets_popup = ThemedPopup(
             title="Нет целей",
-            content=Label(
-                text="Нет других фракций для диверсии.",
-                halign='center',
-                valign='middle',
-                color=TEXT_COLOR,
-                text_size=(dp(250), None)
-            ),
-            size_hint=(0.95, 0.5) if _is_mobile else (0.8, 0.4)
+            content=Label(text="Нет других фракций для операций.", halign='center', valign='middle',
+                          color=TEXT_COLOR, text_size=(dp(250), None)),
+            size_hint=(0.8, 0.35) if not _is_mobile else (0.9, 0.3)
         )
         no_targets_popup.open()
         return
 
     targets_info = {}
-    for target_faction in target_factions:
+    for tf in target_factions:
         cursor.execute("""
             SELECT DISTINCT c.name FROM cities c
             JOIN garrisons g ON c.name = g.city_name
             JOIN units u ON g.unit_name = u.unit_name
             WHERE c.faction = ? AND u.faction = ?
-        """, (target_faction, target_faction))
-        cities_with_garrison = [row[0] for row in cursor.fetchall()]
-
+        """, (tf, tf))
+        cities_with = [r[0] for r in cursor.fetchall()]
         cursor.execute("""
-            SELECT name FROM cities
-            WHERE faction = ? AND name NOT IN (
+            SELECT name FROM cities WHERE faction = ? AND name NOT IN (
                 SELECT DISTINCT city_name FROM garrisons
-                JOIN units u ON garrisons.unit_name = u.unit_name
-                WHERE u.faction = ?
+                JOIN units u ON garrisons.unit_name = u.unit_name WHERE u.faction = ?
             )
-        """, (target_faction, target_faction))
-        cities_without_garrison = [row[0] for row in cursor.fetchall()]
-
+        """, (tf, tf))
+        cities_without = [r[0] for r in cursor.fetchall()]
         cursor.execute("""
             SELECT u.unit_name FROM units u
             JOIN garrisons g ON u.unit_name = g.unit_name
             WHERE u.faction = ? AND (u.attack > 0 OR u.defense > 0)
-        """, (target_faction,))
-        target_heroes = [row[0] for row in cursor.fetchall()]
-
-        targets_info[target_faction] = {
-            'cities_with_garrison': cities_with_garrison,
-            'cities_without_garrison': cities_without_garrison,
-            'heroes': target_heroes
+        """, (tf,))
+        heroes = [r[0] for r in cursor.fetchall()]
+        targets_info[tf] = {
+            'cities_with_garrison': cities_with,
+            'cities_without_garrison': cities_without,
+            'heroes': heroes
         }
 
-    # --- Обновленный интерфейс для Android ---
-    scroll_view_factions = ScrollView(do_scroll_x=False, size_hint=(1, 0.6))
-    table_factions = GridLayout(cols=2, spacing=dp(5), size_hint_y=None)
-    table_factions.bind(minimum_height=table_factions.setter('height'))
+    # Основной контейнер
+    content = BoxLayout(orientation='vertical', padding=[dp(12), dp(10)], spacing=dp(8))
+    with content.canvas.before:
+        Color(0.06, 0.07, 0.11, 1)
+        content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(12)])
+    content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                 size=lambda i, v: setattr(i._bg, 'size', v))
 
-    _BTN_DEFAULT = (0.18, 0.28, 0.45, 1)
-    _BTN_SELECTED = (0.72, 0.18, 0.22, 1)
-
-    selected_faction = [None]
-    selected_btn = [None]
-
-    def select_target_faction(instance):
-        popup.dismiss()
-        if selected_faction[0]:
-            show_operations_window(conn, player_faction, cash_player, selected_faction[0], targets_info)
-
-    for target_faction in target_factions:
-        # Создаем Label для названия фракции
-        faction_label = Label(
-            text=target_faction,
-            halign='left',
-            valign='middle',
-            font_size=font_info,
-            color=TEXT_COLOR,
-            size_hint_y=None,
-            height=item_height,
-            text_size=(dp(150), None)
-        )
-        faction_label.bind(size=faction_label.setter('text_size'))
-
-        # Создаем кнопку "Выбрать"
-        select_btn = ThemedButton(
-            text="Выбрать",
-            size_hint_y=None,
-            height=btn_height,
-            font_size=font_btn,
-            background_color=_BTN_DEFAULT
-        )
-
-        # Функция для выбора фракции
-        def make_select_handler(faction_name, btn):
-            def handler(instance):
-                if selected_btn[0] and selected_btn[0] is not btn:
-                    selected_btn[0]._btn_color_instr.rgba = _BTN_DEFAULT
-                btn._btn_color_instr.rgba = _BTN_SELECTED
-                selected_btn[0] = btn
-                selected_faction[0] = faction_name
-                select_all_btn.disabled = False
-            return handler
-
-        select_btn.bind(on_release=make_select_handler(target_faction, select_btn))
-
-        # Добавляем элементы в таблицу
-        table_factions.add_widget(faction_label)
-        table_factions.add_widget(select_btn)
-
-    scroll_view_factions.add_widget(table_factions)
-
-    # Кнопка "Перейти к операциям" (изначально отключена)
-    select_all_btn = ThemedButton(
-        text="Перейти к операциям",
-        size_hint_y=None,
-        height=btn_height, # Используем уменьшенную высоту
-        font_size=font_btn, # Используем уменьшенный шрифт
-        background_color=ACCENT_COLOR,
-        disabled=True
+    # Заголовок
+    header = Label(
+        text="[b]Тайная Служба[/b]", markup=True,
+        font_size=sp(18) if not _is_mobile else sp(16),
+        color=(0.85, 0.25, 0.25, 1),
+        size_hint_y=None, height=dp(34), halign='center'
     )
-    select_all_btn.bind(on_release=select_target_faction)
+    header.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(header)
 
-    close_btn = ThemedButton(
-        text="Закрыть",
-        size_hint_y=None,
-        height=btn_height, # Используем уменьшенную высоту
-        font_size=font_btn, # Используем уменьшенный шрифт
-        background_color=WARNING_COLOR
+    sub = Label(
+        text="[color=#AAAAAA]Выберите цель для операции[/color]", markup=True,
+        font_size=sp(12) if not _is_mobile else sp(10),
+        size_hint_y=None, height=dp(20), halign='center',
+        color=(0.7, 0.7, 0.7, 1)
     )
+    sub.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(sub)
 
-    content.add_widget(Label(text="Выберите цель:", font_size=font_header, bold=True, halign='center', color=TEXT_COLOR, size_hint_y=None, height=dp(25))) # Уменьшена высота заголовка
-    content.add_widget(scroll_view_factions)
-    content.add_widget(select_all_btn)
+    # Список фракций — каждая как карточка
+    scroll = ScrollView(do_scroll_x=False, size_hint_y=1)
+    factions_list = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(6))
+    factions_list.bind(minimum_height=factions_list.setter('height'))
+
+    _FACTION_COLORS = {
+        'Адепты': (0.2, 0.25, 0.45, 1), 'Вампиры': (0.35, 0.12, 0.18, 1),
+        'Эльфы': (0.12, 0.30, 0.18, 1), 'Север': (0.18, 0.25, 0.35, 1),
+        'Элины': (0.30, 0.22, 0.12, 1),
+    }
+
+    for tf in target_factions:
+        card = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(52),
+                         padding=[dp(10), dp(6)], spacing=dp(8))
+        _clr = _FACTION_COLORS.get(tf, (0.18, 0.18, 0.25, 1))
+        with card.canvas.before:
+            Color(*_clr)
+            card._bg = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(8)])
+        card.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                  size=lambda i, v: setattr(i._bg, 'size', v))
+
+        # Инфо
+        info = BoxLayout(orientation='vertical', size_hint_x=0.6, spacing=dp(2))
+        name_lbl = Label(
+            text=f"[b]{tf}[/b]", markup=True,
+            font_size=sp(14) if not _is_mobile else sp(12),
+            color=(0.95, 0.92, 0.85, 1), halign='left', valign='middle'
+        )
+        name_lbl.bind(size=name_lbl.setter('text_size'))
+        ti = targets_info[tf]
+        detail = f"[color=#AAAAAA]Городов: {len(ti['cities_with_garrison']) + len(ti['cities_without_garrison'])}  |  Героев: {len(ti['heroes'])}[/color]"
+        detail_lbl = Label(
+            text=detail, markup=True,
+            font_size=sp(10) if not _is_mobile else sp(9),
+            color=(0.6, 0.6, 0.6, 1), halign='left', valign='middle'
+        )
+        detail_lbl.bind(size=detail_lbl.setter('text_size'))
+        info.add_widget(name_lbl)
+        info.add_widget(detail_lbl)
+
+        # Кнопка
+        btn = Button(
+            text="Операции", size_hint_x=0.4,
+            font_size=sp(12) if not _is_mobile else sp(10),
+            bold=True, background_normal='', background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1)
+        )
+        with btn.canvas.before:
+            Color(0.55, 0.15, 0.15, 0.9)
+            btn._rr = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(6)])
+        btn.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                 size=lambda i, v: setattr(i._rr, 'size', v))
+
+        def _make_handler(_tf):
+            def _h(inst):
+                popup.dismiss()
+                show_operations_window(conn, player_faction, cash_player, _tf, targets_info)
+            return _h
+        btn.bind(on_release=_make_handler(tf))
+
+        card.add_widget(info)
+        card.add_widget(btn)
+        factions_list.add_widget(card)
+
+    scroll.add_widget(factions_list)
+    content.add_widget(scroll)
+
+    # Кнопка закрыть
+    close_btn = Button(
+        text="Закрыть", size_hint_y=None, height=dp(38),
+        font_size=sp(13) if not _is_mobile else sp(11),
+        bold=True, background_normal='', background_color=(0, 0, 0, 0),
+        color=(0.9, 0.9, 0.9, 1)
+    )
+    with close_btn.canvas.before:
+        Color(0.15, 0.15, 0.22, 0.95)
+        close_btn._rr = RoundedRectangle(pos=close_btn.pos, size=close_btn.size, radius=[dp(8)])
+    close_btn.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                   size=lambda i, v: setattr(i._rr, 'size', v))
     content.add_widget(close_btn)
 
-    popup = ThemedPopup(
-        title="Главное управление Тайной Службы",
-        content=content,
-        size_hint=(0.98, 0.95) if _is_mobile else (0.95, 0.9),
-        auto_dismiss=False
+    popup = Popup(
+        title="", content=content,
+        size_hint=(0.8 if not _is_mobile else 0.95, 0.75 if not _is_mobile else 0.85),
+        pos_hint={'center_x': 0.5, 'center_y': 0.5},
+        background_color=(0.04, 0.05, 0.09, 0.98),
+        separator_height=0
     )
-    close_btn.bind(on_release=popup.dismiss)
+    close_btn.bind(on_release=lambda *a: popup.dismiss())
     popup.open()
 
 def show_operations_window(conn, player_faction, cash_player, target_faction, targets_info):
-    is_android = hasattr(Window, 'keyboard')
-    padding_main = dp(15)
-    spacing_main = dp(5)  # Уменьшен отступ
-    font_title = sp(16)   # Уменьшен размер заголовка
-    font_info = sp(11)    # Уменьшен размер текста информации
-    font_btn = sp(11)     # Уменьшен размер текста кнопки
-    btn_height = dp(25)   # Уменьшена высота кнопки вдвое
+    content = BoxLayout(orientation='vertical', padding=[dp(12), dp(10)], spacing=dp(8))
+    with content.canvas.before:
+        Color(0.06, 0.07, 0.11, 1)
+        content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(12)])
+    content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                 size=lambda i, v: setattr(i._bg, 'size', v))
 
-    content = BoxLayout(orientation='vertical', padding=padding_main, spacing=spacing_main)
-
-    title_label = Label(
-        text=f"Цель: {target_faction}",
-        font_size=font_title,
-        bold=True,
-        color=TEXT_COLOR,
-        size_hint_y=None,
-        height=dp(30) # Уменьшена высота заголовка
+    # Заголовок
+    header = Label(
+        text=f"[b]Операции против {target_faction}[/b]", markup=True,
+        font_size=sp(17) if not _is_mobile else sp(15),
+        color=(0.85, 0.25, 0.25, 1),
+        size_hint_y=None, height=dp(34), halign='center'
     )
+    header.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(header)
 
     ops_descriptions = {
         'Саботаж': {
-            'desc': 'Снижение численности войск в городе на 5-40% (50% шанс успеха). Стоимость: 150 тыс.',
-            'cost': 150_000
+            'desc': 'Снижение войск в городе на 5-40%',
+            'detail': '50% шанс успеха',
+            'cost': 1_000_000
         },
         'Мятеж': {
-            'desc': 'Захват города без гарнизона.',
+            'desc': 'Захват города без гарнизона',
+            'detail': 'Нужны рабочие для мятежников',
             'cost': 700_000
         },
         'Заказ': {
-            'desc': 'Убийство вражеского героя (30% шанс успеха). Стоимость: 250 тыс.',
-            'cost': 250_000
+            'desc': 'Убийство вражеского героя',
+            'detail': '50% шанс успеха',
+            'cost': 1_000_000
         }
     }
 
-    # Создаем ScrollView для операций
-    operations_scroll = ScrollView(size_hint_y=0.6)
-    operations_layout = BoxLayout(orientation='vertical', size_hint_y=None, spacing=spacing_main) # Используем уменьшенный отступ
-    operations_layout.bind(minimum_height=operations_layout.setter('height'))
+    # Карточки операций
+    scroll = ScrollView(do_scroll_x=False, size_hint_y=1)
+    ops_list = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(6))
+    ops_list.bind(minimum_height=ops_list.setter('height'))
 
-    _OP_DEFAULT = (0.50, 0.14, 0.18, 1)
-    _OP_PRESSED = (0.72, 0.18, 0.22, 1)
-    _selected_op = [None]
+    _OP_COLORS = {
+        'Саботаж': (0.25, 0.18, 0.10, 1),
+        'Мятеж': (0.30, 0.12, 0.12, 1),
+        'Заказ': (0.18, 0.12, 0.30, 1),
+    }
 
     for op_name, op_info in ops_descriptions.items():
-        op_btn = ThemedButton(
-            text=f"{op_name}\n{op_info['desc']}",
-            size_hint_y=None,
-            height=dp(50),
-            font_size=font_info,
-            background_color=_OP_DEFAULT
+        card = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(75),
+                         padding=[dp(10), dp(6)], spacing=dp(3))
+        _clr = _OP_COLORS.get(op_name, (0.18, 0.18, 0.25, 1))
+        with card.canvas.before:
+            Color(*_clr)
+            card._bg = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(8)])
+        card.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                  size=lambda i, v: setattr(i._bg, 'size', v))
+
+        # Верх: название + стоимость
+        top_row = BoxLayout(size_hint_y=None, height=dp(22))
+        op_title = Label(
+            text=f"[b]{op_name}[/b]", markup=True,
+            font_size=sp(14) if not _is_mobile else sp(12),
+            color=(0.95, 0.90, 0.80, 1), halign='left', valign='middle'
         )
-        def make_op_handler(op_name, op_info):
-            def on_op_select(instance):
-                if _selected_op[0] and _selected_op[0] is not instance:
-                    _selected_op[0]._btn_color_instr.rgba = _OP_DEFAULT
-                instance._btn_color_instr.rgba = _OP_PRESSED
-                _selected_op[0] = instance
-                if op_name == 'Мятеж':
-                    show_rebellion_cost_selection(conn, player_faction, cash_player, op_name, op_info, target_faction, targets_info)
+        op_title.bind(size=op_title.setter('text_size'))
+        op_cost = Label(
+            text=f"[color=#FFD700]{format_number(op_info['cost'])} крон[/color]", markup=True,
+            font_size=sp(12) if not _is_mobile else sp(10),
+            halign='right', valign='middle',
+            color=(0.9, 0.8, 0.4, 1)
+        )
+        op_cost.bind(size=op_cost.setter('text_size'))
+        top_row.add_widget(op_title)
+        top_row.add_widget(op_cost)
+
+        # Описание
+        desc_lbl = Label(
+            text=f"[color=#AAAAAA]{op_info['desc']}[/color]  |  [color=#88AACC]{op_info['detail']}[/color]",
+            markup=True, font_size=sp(10) if not _is_mobile else sp(9),
+            halign='left', valign='middle', size_hint_y=None, height=dp(18),
+            color=(0.7, 0.7, 0.7, 1)
+        )
+        desc_lbl.bind(size=desc_lbl.setter('text_size'))
+
+        card.add_widget(top_row)
+        card.add_widget(desc_lbl)
+
+        # Делаем карточку кликабельной
+        def _make_op_handler(_op_name, _op_info):
+            def _h(instance, touch):
+                if not instance.collide_point(*touch.pos):
+                    return False
+                if _op_name == 'Мятеж':
+                    show_rebellion_cost_selection(conn, player_faction, cash_player, _op_name, _op_info, target_faction, targets_info)
                 else:
-                    show_confirmation_popup(conn, player_faction, cash_player, op_name, op_info, target_faction, targets_info)
-            return on_op_select
+                    show_confirmation_popup(conn, player_faction, cash_player, _op_name, _op_info, target_faction, targets_info)
+                return True
+            return _h
+        card.bind(on_touch_down=_make_op_handler(op_name, op_info))
+        ops_list.add_widget(card)
 
-        op_btn.bind(on_release=make_op_handler(op_name, op_info))
-        operations_layout.add_widget(op_btn)
+    scroll.add_widget(ops_list)
+    content.add_widget(scroll)
 
-    operations_scroll.add_widget(operations_layout)
-
-    close_btn = ThemedButton(
-        text="Назад",
-        size_hint_y=None,
-        height=btn_height, # Используем уменьшенную высоту
-        font_size=font_btn, # Используем уменьшенный шрифт
-        background_color=WARNING_COLOR
+    # Кнопка назад
+    back_btn = Button(
+        text="Назад", size_hint_y=None, height=dp(38),
+        font_size=sp(13) if not _is_mobile else sp(11),
+        bold=True, background_normal='', background_color=(0, 0, 0, 0),
+        color=(0.9, 0.9, 0.9, 1)
     )
+    with back_btn.canvas.before:
+        Color(0.15, 0.15, 0.22, 0.95)
+        back_btn._rr = RoundedRectangle(pos=back_btn.pos, size=back_btn.size, radius=[dp(8)])
+    back_btn.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                  size=lambda i, v: setattr(i._rr, 'size', v))
+    content.add_widget(back_btn)
 
-    content.add_widget(title_label)
-    content.add_widget(operations_scroll)
-    content.add_widget(close_btn)
-
-    popup = ThemedPopup(
-        title="Выберите операцию",
-        content=content,
-        size_hint=(0.98, 0.92) if _is_mobile else (0.9, 0.8),
-        auto_dismiss=False
+    popup = Popup(
+        title="", content=content,
+        size_hint=(0.8 if not _is_mobile else 0.95, 0.65 if not _is_mobile else 0.75),
+        pos_hint={'center_x': 0.5, 'center_y': 0.5},
+        background_color=(0.04, 0.05, 0.09, 0.98),
+        separator_height=0
     )
-    close_btn.bind(on_release=popup.dismiss)
+    back_btn.bind(on_release=lambda *a: popup.dismiss())
     popup.open()
 
 # --- Остальные функции остаются без изменений ---
@@ -703,7 +744,7 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
 
         hero_city, target_hero = random.choice(heroes_3_class)
 
-        if random.random() < 0.3:
+        if random.random() < 0.5:
             success = True
             cursor.execute("DELETE FROM garrisons WHERE unit_name = ?", (target_hero,))
             message = f"Заказ на героя {target_hero} фракции {target_faction} в городе {hero_city} успешен! Цель ликвидирована."
