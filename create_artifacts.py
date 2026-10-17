@@ -390,8 +390,8 @@ def workshop(faction, db_conn):
         current_defense = current_data.get('defense', 0)
 
         def calculate_tokens(attack, defense):
-            tokens_attack = attack * 1.0    # x4 от базовых 0.25
-            tokens_defense = defense * 2.0  # x4 от базовых 0.5
+            tokens_attack = attack / 1.6    # 1.6 единицы атаки за 1 жетон
+            tokens_defense = defense / 1.0  # 1 единица защиты за 1 жетон
             return tokens_attack + tokens_defense, tokens_attack, tokens_defense
 
         tokens_used, tokens_attack, tokens_defense = calculate_tokens(current_attack, current_defense)
@@ -478,8 +478,8 @@ def workshop(faction, db_conn):
 
         attack_section.add_widget(attack_header)
 
-        # Максимум атаки = аналогично защите (2.0 жетона за 1%)
-        max_attack_possible = max(int(ardanian_tokens_available / 2.0), 100)
+        # Максимум атаки = 1.6 единицы за жетон
+        max_attack_possible = max(int(ardanian_tokens_available * 1.6), 100)
         attack_slider = Slider(
             min=0,
             max=max_attack_possible,
@@ -534,8 +534,8 @@ def workshop(faction, db_conn):
 
         defense_section.add_widget(defense_header)
 
-        # Максимум защиты = все жетоны на защиту (2.0 за 1%)
-        max_defense_possible = max(int(ardanian_tokens_available / 2.0), 100)
+        # Максимум защиты = 1 единица за жетон
+        max_defense_possible = max(int(ardanian_tokens_available * 1.0), 100)
         defense_slider = Slider(
             min=0,
             max=max_defense_possible,
