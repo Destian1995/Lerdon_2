@@ -751,18 +751,17 @@ def get_events_count_from_history(conn):
     return max(all_lengths) if all_lengths else 0
 
 def show_secret_service_popup(conn, on_result_callback, cash_player, refresh_main_list_callback):
-    """Показывает всплывающее окно для Тайной службы (Адаптивное)"""
+    """Показывает всплывающее окно для Тайной службы (стильное, адаптивное)"""
     COST_SECRET_SERVICE = 100_000
+    _is_mobile = UIStyles.is_android()
 
     cash_player.load_resources()
     current_money = cash_player.resources.get("Кроны", 0)
 
-    # --- УЛУЧШЕННАЯ ПРОВЕРКА БАЛАНСА ---
     if current_money < COST_SECRET_SERVICE:
         shortage = COST_SECRET_SERVICE - current_money
         show_insufficient_funds_popup(COST_SECRET_SERVICE, current_money, shortage)
         return
-    # -----------------------------------
 
     events_count = get_events_count_from_history(conn)
 
@@ -800,53 +799,79 @@ def show_secret_service_popup(conn, on_result_callback, cash_player, refresh_mai
         return
 
     # Основной контейнер
-    main_layout = BoxLayout(orientation='vertical', padding=UIStyles.PADDING, spacing=dp(8))
-    main_layout.canvas.before.add(Color(*UIStyles.COLOR_BG))
-    main_layout.canvas.before.add(RoundedRectangle(pos=main_layout.pos, size=main_layout.size, radius=[dp(15)]))
+    main_layout = BoxLayout(orientation='vertical', padding=[dp(10), dp(8)], spacing=dp(6))
+    with main_layout.canvas.before:
+        Color(0.06, 0.07, 0.11, 1)
+        main_layout._bg = RoundedRectangle(pos=main_layout.pos, size=main_layout.size, radius=[dp(12)])
+    main_layout.bind(
+        pos=lambda i, v: setattr(i._bg, 'pos', v),
+        size=lambda i, v: setattr(i._bg, 'size', v)
+    )
 
     # Заголовок
     header = Label(
         text="[b]Тайная служба[/b]",
-        font_size=sp(UIStyles.get_font_size(20, is_label=True)),
-        color=UIStyles.COLOR_DANGER,
+        font_size=sp(18) if not _is_mobile else sp(16),
+        color=(0.85, 0.25, 0.25, 1),
         markup=True,
         size_hint_y=None,
-        height=dp(40),
+        height=dp(36),
         halign='center'
     )
+    header.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
     main_layout.add_widget(header)
 
-    # Информация о стоимости
+    # Подзаголовок: стоимость + баланс
     cost_info = Label(
-        text=f"Цена санкции: [b]{format_number(COST_SECRET_SERVICE)} крон[/b]",
-        font_size=sp(UIStyles.get_font_size(13, is_label=True)),
-        color=UIStyles.COLOR_TEXT_DIM,
+        text=f"[color=#AAAAAA]Цена операции:[/color] [b]{format_number(COST_SECRET_SERVICE)}[/b] крон"
+             f"   |   [color=#AAAAAA]Баланс:[/color] [b]{format_number(int(current_money))}[/b] крон",
+        font_size=sp(12) if not _is_mobile else sp(10),
+        color=(0.8, 0.8, 0.8, 1),
         markup=True,
         size_hint_y=None,
-        height=dp(25),
+        height=dp(22),
         halign='center'
     )
+    cost_info.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
     main_layout.add_widget(cost_info)
+
+    # Разделитель
+    sep = Widget(size_hint_y=None, height=dp(1))
+    with sep.canvas:
+        Color(0.3, 0.15, 0.15, 0.6)
+        sep._line = Rectangle(pos=sep.pos, size=sep.size)
+    sep.bind(pos=lambda i, v: setattr(i._line, 'pos', v),
+             size=lambda i, v: setattr(i._line, 'size', v))
+    main_layout.add_widget(sep)
 
     # Список целей
     scroll_view = ScrollView(do_scroll_x=False, size_hint_y=1)
-    nobles_list = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(4))
+    nobles_list = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(5))
     nobles_list.bind(minimum_height=nobles_list.setter('height'))
     scroll_view.add_widget(nobles_list)
     main_layout.add_widget(scroll_view)
 
-    # Кнопки внизу
-    btn_layout = BoxLayout(size_hint_y=None, height=UIStyles.get_btn_height() + dp(10), spacing=dp(10))
-    btn_cancel = StyledButton(text="Отмена", color=(0.5, 0.5, 0.5, 1))
-    btn_layout.add_widget(btn_cancel)
-    main_layout.add_widget(btn_layout)
+    # Кнопка закрыть
+    btn_cancel = Button(
+        text="Закрыть", size_hint_y=None, height=dp(38),
+        font_size=sp(14) if not _is_mobile else sp(12),
+        bold=True,
+        background_normal='', background_color=(0, 0, 0, 0),
+        color=(0.9, 0.9, 0.9, 1)
+    )
+    with btn_cancel.canvas.before:
+        Color(0.15, 0.15, 0.22, 0.95)
+        btn_cancel._rr = RoundedRectangle(pos=btn_cancel.pos, size=btn_cancel.size, radius=[dp(8)])
+    btn_cancel.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                    size=lambda i, v: setattr(i._rr, 'size', v))
+    main_layout.add_widget(btn_cancel)
 
     popup = Popup(
         title="",
         content=main_layout,
-        size_hint=(0.95, 0.9) if not UIStyles.is_android() else (1, 1),
+        size_hint=(0.85 if not _is_mobile else 0.95, 0.85 if not _is_mobile else 0.92),
         pos_hint={'center_x': 0.5, 'center_y': 0.5},
-        background_color=(0, 0, 0, 0.7),
+        background_color=(0.04, 0.05, 0.09, 0.98),
         separator_height=0
     )
 
@@ -931,14 +956,15 @@ def show_insufficient_funds_popup(required, current, shortage):
     Clock.schedule_once(lambda dt: popup.dismiss() if popup._is_open else None, 1.5)
 
 class SecretServiceCard(BoxLayout):
-    """Карточка цели для Тайной службы (Адаптивная)"""
+    """Карточка цели для Тайной службы (стильная, адаптивная)"""
     def __init__(self, noble_data, conn, cash_player, popup_ref, refresh_callback, events_count, **kwargs):
+        _is_mobile = UIStyles.is_android()
         super().__init__(
             orientation='horizontal',
             size_hint_y=None,
-            height=UIStyles.get_card_height(), # Адаптивная высота
-            padding=dp(5),
-            spacing=dp(5),
+            height=dp(62) if not _is_mobile else dp(56),
+            padding=[dp(8), dp(5)],
+            spacing=dp(6),
             **kwargs
         )
         self.noble_data = noble_data
@@ -951,18 +977,24 @@ class SecretServiceCard(BoxLayout):
 
         # Фон карточки
         with self.canvas.before:
-            Color(*UIStyles.COLOR_CARD)
-            self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[UIStyles.RADIUS])
+            Color(0.14, 0.12, 0.18, 1)
+            self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(8)])
+            # Тонкая обводка
+            Color(0.4, 0.15, 0.15, 0.5)
+            self._border = Line(
+                rounded_rectangle=(*self.pos, *self.size, dp(8)),
+                width=1.0
+            )
             self.bind(pos=self._update_rect, size=self._update_rect)
 
         # 1. Информация
         info_layout = BoxLayout(orientation='vertical', size_hint_x=0.65, spacing=dp(2))
         name_label = Label(
-            text=noble_data['name'],
-            font_size=sp(UIStyles.get_font_size(14, is_label=True)),
+            text=f"[b]{noble_data['name']}[/b]",
+            font_size=sp(13) if not _is_mobile else sp(12),
             halign='left',
             valign='middle',
-            color=UIStyles.COLOR_TEXT,
+            color=(0.95, 0.92, 0.85, 1),
             markup=True,
             shorten=True,
             shorten_from='right'
@@ -972,10 +1004,10 @@ class SecretServiceCard(BoxLayout):
         status_text = self._get_status_text()
         status_label = Label(
             text=status_text,
-            font_size=sp(UIStyles.get_font_size(10, is_label=True)),
+            font_size=sp(10) if not _is_mobile else sp(9),
             halign='left',
             valign='middle',
-            color=UIStyles.COLOR_TEXT_DIM,
+            color=(0.6, 0.6, 0.6, 1),
             markup=True
         )
         status_label.bind(size=status_label.setter('text_size'))
@@ -984,17 +1016,30 @@ class SecretServiceCard(BoxLayout):
         info_layout.add_widget(status_label)
 
         # 2. Кнопка устранения
-        btn_layout = BoxLayout(size_hint_x=0.35)
-        action_btn = StyledButton(text="Устранить", color=UIStyles.COLOR_DANGER)
-        action_btn.bind(on_release=lambda inst: self._handle_elimination())
-        btn_layout.add_widget(action_btn)
+        action_btn = Button(
+            text="Устранить",
+            size_hint_x=0.35,
+            font_size=sp(12) if not _is_mobile else sp(10),
+            bold=True,
+            background_normal='', background_color=(0, 0, 0, 0),
+            color=(1, 1, 1, 1)
+        )
+        with action_btn.canvas.before:
+            Color(0.55, 0.12, 0.12, 0.9)
+            action_btn._rr = RoundedRectangle(pos=action_btn.pos, size=action_btn.size, radius=[dp(6)])
+        action_btn.bind(
+            pos=lambda i, v: setattr(i._rr, 'pos', v),
+            size=lambda i, v: setattr(i._rr, 'size', v),
+            on_release=lambda inst: self._handle_elimination()
+        )
 
         self.add_widget(info_layout)
-        self.add_widget(btn_layout)
+        self.add_widget(action_btn)
 
     def _update_rect(self, instance, value):
         self.rect.pos = instance.pos
         self.rect.size = instance.size
+        self._border.rounded_rectangle = (*instance.pos, *instance.size, dp(8))
 
     def _get_status_text(self):
         parts = []
