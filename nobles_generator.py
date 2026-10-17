@@ -744,79 +744,91 @@ def attempt_secret_service_action(conn, player_faction=None, target_noble_id=Non
     }
 
 def show_secret_service_result_popup(result_dict):
-    """Отображает popup с результатом операции Тайной Службы. (БЕЗ КНОПОК, авто-скрытие)"""
-    is_android = UIStyles.is_android()
+    """Отображает popup с результатом операции Тайной Службы (стильный, с кнопкой закрытия)."""
+    _is_mobile = UIStyles.is_android()
 
-    # Адаптивные размеры (уменьшены для Android)
-    font_title = sp(UIStyles.get_font_size(15, is_label=True))
-    font_message = sp(UIStyles.get_font_size(11, is_label=True))
-    padding_main = dp(13) if is_android else dp(20)
-    spacing_main = dp(6) if is_android else dp(10)
-
-    content = BoxLayout(orientation='vertical', padding=padding_main, spacing=spacing_main)
-
-    # Фон карточки
+    content = BoxLayout(orientation='vertical', padding=[dp(15), dp(12)], spacing=dp(10))
     with content.canvas.before:
-        Color(*UIStyles.COLOR_CARD)
-        content.rect = RoundedRectangle(pos=content.pos, size=content.size, radius=[UIStyles.RADIUS])
-
-    def update_rect(instance, value):
-        content.rect.pos = instance.pos
-        content.rect.size = instance.size
-    content.bind(pos=update_rect, size=update_rect)
+        Color(0.06, 0.07, 0.11, 1)
+        content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(12)])
+    content.bind(
+        pos=lambda i, v: setattr(i._bg, 'pos', v),
+        size=lambda i, v: setattr(i._bg, 'size', v)
+    )
 
     if result_dict.get('success', False):
-        title_text = "✓ Операция выполнена"
-        title_color = UIStyles.COLOR_SUCCESS
+        title_text = "Операция выполнена"
+        title_color = (0.3, 0.85, 0.3, 1)
+        accent_color = (0.15, 0.35, 0.15, 0.8)
     else:
-        title_text = "✗ Операция провалена"
-        title_color = UIStyles.COLOR_DANGER
+        title_text = "Операция провалена"
+        title_color = (0.85, 0.25, 0.25, 1)
+        accent_color = (0.35, 0.12, 0.12, 0.8)
+
+    # Акцентная полоса сверху
+    accent = Widget(size_hint_y=None, height=dp(3))
+    with accent.canvas:
+        Color(*accent_color)
+        accent._r = RoundedRectangle(pos=accent.pos, size=accent.size, radius=[dp(2)])
+    accent.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
+                size=lambda i, v: setattr(i._r, 'size', v))
+    content.add_widget(accent)
 
     title_label = Label(
         text=f"[b]{title_text}[/b]",
-        font_size=font_title,
+        font_size=sp(17) if not _is_mobile else sp(15),
         markup=True,
         halign='center',
         valign='middle',
         size_hint_y=None,
-        height=dp(35) if is_android else dp(40),
+        height=dp(38),
         color=title_color
     )
-    title_label.bind(size=title_label.setter('text_size'))
+    title_label.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(title_label)
 
     message_label = Label(
         text=result_dict.get('message', 'Неизвестный результат операции'),
-        font_size=font_message,
+        font_size=sp(13) if not _is_mobile else sp(11),
         halign='center',
         valign='middle',
         markup=True,
-        color=UIStyles.COLOR_TEXT
+        color=(0.85, 0.85, 0.85, 1)
     )
-    message_label.bind(size=message_label.setter('text_size'))
-
-    content.add_widget(title_label)
+    message_label.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
     content.add_widget(message_label)
+
+    # Распорка
+    content.add_widget(Widget(size_hint_y=1))
+
+    # Кнопка закрыть
+    from kivy.uix.button import Button
+    close_btn = Button(
+        text="Закрыть", size_hint_y=None, height=dp(36),
+        font_size=sp(13) if not _is_mobile else sp(11),
+        bold=True,
+        background_normal='', background_color=(0, 0, 0, 0),
+        color=(0.9, 0.9, 0.9, 1)
+    )
+    with close_btn.canvas.before:
+        Color(0.15, 0.15, 0.22, 0.95)
+        close_btn._rr = RoundedRectangle(pos=close_btn.pos, size=close_btn.size, radius=[dp(8)])
+    close_btn.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                   size=lambda i, v: setattr(i._rr, 'size', v))
+    content.add_widget(close_btn)
 
     popup = Popup(
         title="",
         content=content,
-        size_hint=UIStyles.get_popup_size(),
+        size_hint=(0.7 if not _is_mobile else 0.85, 0.45 if not _is_mobile else 0.4),
         pos_hint={'center_x': 0.5, 'center_y': 0.5},
-        auto_dismiss=False,
-        background_color=(0, 0, 0, 0.7),
+        auto_dismiss=True,
+        background_color=(0.04, 0.05, 0.09, 0.98),
         separator_height=0
     )
 
-    def close_popup(dt):
-        try:
-            if popup._is_open:
-                popup.dismiss()
-        except:
-            pass
-
+    close_btn.bind(on_release=lambda *a: popup.dismiss())
     popup.open()
-    # Авто-закрытие через 1.5 секунды
-    Clock.schedule_once(close_popup, 1.5)
 
 def increase_all_loyalty(conn, amount):
     """Повышение лояльности всех активных дворян."""
