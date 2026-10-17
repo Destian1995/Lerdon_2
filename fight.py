@@ -49,14 +49,14 @@ MAX_ROUNDS = 100               # антизацикливание
 # Вампиры(beast)  > Север(archer),  Эльфы(infantry)
 # Север(archer)   > Адепты(cavalry), Элины(mage)
 # Эльфы(infantry) > Элины(mage),    Север(archer)
-# Нежить(siege)   = нейтрально ко всем (компенсация: Ужас Смерти)
+# Нежить(siege) сильна против всех (+ Ужас Смерти), но все бьют нежить без штрафа
 TYPE_MOD = {
     "infantry": {"cavalry": 0.55, "archer": 1.45, "infantry": 1.0, "mage": 1.45, "beast": 0.55, "siege": 1.0},
     "cavalry":  {"archer": 0.55,  "mage": 0.55,   "infantry": 1.45,"cavalry": 1.0,"beast": 1.45, "siege": 1.0},
     "archer":   {"infantry": 0.55,"siege": 1.0,   "cavalry": 1.45, "archer": 1.0, "mage": 1.45, "beast": 0.55},
     "mage":     {"infantry": 0.55,"beast": 1.45,  "mage": 1.0,     "cavalry": 1.45,"archer": 0.55,"siege": 1.0},
     "beast":    {"archer": 1.45,  "mage": 0.55,   "infantry": 1.45,"cavalry": 0.55,"beast": 1.0, "siege": 1.0},
-    "siege":    {"infantry": 1.0, "cavalry": 1.0,  "archer": 1.0,  "mage": 1.0,   "beast": 1.0, "siege": 1.0},
+    "siege":    {"infantry": 1.25,"cavalry": 1.25, "archer": 1.25, "mage": 1.25,  "beast": 1.25, "siege": 1.0},
 }
 
 

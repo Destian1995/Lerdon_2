@@ -1763,7 +1763,7 @@ class FortressInfoPopup(Popup):
             'archer':   {'strong': ['cavalry', 'mage'], 'weak': ['infantry', 'beast']},
             'mage':     {'strong': ['cavalry', 'beast'], 'weak': ['infantry', 'archer']},
             'beast':    {'strong': ['infantry', 'archer'], 'weak': ['cavalry', 'mage']},
-            'siege':    {'strong': [], 'weak': []},
+            'siege':    {'strong': ['infantry', 'cavalry', 'archer', 'mage', 'beast'], 'weak': []},
         }
         _adv = _TYPE_ADVANTAGES.get(unit_type, {'strong': [], 'weak': []})
         _strong_text = ', '.join(_TYPE_NAMES.get(t, t) for t in _adv['strong']) or '—'
