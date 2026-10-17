@@ -274,7 +274,7 @@ def show_operations_window(conn, player_faction, cash_player, target_faction, ta
 
     ops_descriptions = {
         'Саботаж': {
-            'desc': 'Снижение войск в городе на 5-40%',
+            'desc': 'Снижение войск в городе на 30-75%',
             'detail': '50% шанс успеха',
             'cost': 1_000_000
         },
@@ -497,97 +497,122 @@ def show_rebellion_cost_selection(conn, player_faction, cash_player, op_name, op
     popup.open()
 
 def show_confirmation_popup(conn, player_faction, cash_player, op_name, op_info, target_faction, targets_info, custom_cost=None, rebels_count=None):
-    is_android = hasattr(Window, 'keyboard')
-    padding_main = dp(15)
-    spacing_main = dp(5) # Уменьшен
-    font_title = sp(16) # Уменьшен
-    font_info = sp(11) # Уменьшен
-    font_btn = sp(11) # Уменьшен
-    btn_height = dp(25) # Уменьшен
-
-    content = BoxLayout(orientation='vertical', padding=padding_main, spacing=spacing_main)
-
-    title_label = Label(
-        text=f"Операция: {op_name}",
-        font_size=font_title,
-        bold=True,
-        color=TEXT_COLOR,
-        size_hint_y=None,
-        height=dp(30) # Уменьшена
-    )
-
     cost = custom_cost if custom_cost else op_info['cost']
-    desc = f"Цель: {target_faction}\nСтоимость: {format_number(cost)}"
-    if rebels_count:
-        desc += f"\nКоличество мятежников: {rebels_count}"
-
-    desc_label = Label(
-        text=desc,
-        font_size=font_info,
-        color=TEXT_COLOR,
-        halign='center',
-        valign='middle',
-        text_size=(dp(280), None)
-    )
-    desc_label.bind(size=desc_label.setter('text_size'))
 
     cash_player.load_resources()
     current_money = cash_player.resources.get("Кроны", 0)
     if current_money < cost:
-        insufficient_funds_popup = ThemedPopup(
-            title="Недостаточно средств",
-            content=Label(
-                text=f"Недостаточно Крон для операции.\nСтоимость: {format_number(cost)}\nУ вас: {format_number(current_money)}",
-                halign='center',
-                valign='middle',
-                color=WARNING_COLOR,
-                text_size=(dp(250), None)
-            ),
-            size_hint=(0.95, 0.5) if _is_mobile else (0.8, 0.4)
-        )
-        insufficient_funds_popup.open()
+        _err = BoxLayout(orientation='vertical', padding=[dp(14), dp(10)], spacing=dp(8))
+        with _err.canvas.before:
+            Color(0.06, 0.07, 0.11, 1)
+            _err._bg = RoundedRectangle(pos=_err.pos, size=_err.size, radius=[dp(12)])
+        _err.bind(pos=lambda i, v: setattr(i._bg, 'pos', v), size=lambda i, v: setattr(i._bg, 'size', v))
+        _err.add_widget(Label(
+            text=f"[b]Недостаточно средств[/b]\n\n"
+                 f"[color=#AAAAAA]Нужно:[/color] [b]{format_number(cost)}[/b] крон\n"
+                 f"[color=#AAAAAA]Есть:[/color] [b]{format_number(int(current_money))}[/b] крон\n"
+                 f"[color=#FF6644]Не хватает: {format_number(cost - int(current_money))}[/color]",
+            markup=True, font_size=sp(13) if not _is_mobile else sp(11),
+            halign='center', valign='middle', color=(0.9, 0.9, 0.9, 1)
+        ))
+        _ep = Popup(title="", content=_err,
+                    size_hint=(0.65 if not _is_mobile else 0.85, 0.35),
+                    background_color=(0.04, 0.05, 0.09, 0.98), separator_height=0)
+        _ep.open()
+        from kivy.clock import Clock
+        Clock.schedule_once(lambda dt: _ep.dismiss() if _ep._is_open else None, 2.0)
         return
 
-    # --- Проверка наличия целей до списания ---
     if op_name == 'Мятеж':
         cities_without_garrison = targets_info[target_faction]['cities_without_garrison']
         if not cities_without_garrison:
-            no_targets_popup = ThemedPopup(
-                title="Нет целей",
-                content=Label(
-                    text="Нет городов без гарнизона для мятежа.",
-                    halign='center',
-                    valign='middle',
-                    color=WARNING_COLOR,
-                    text_size=(dp(250), None)
-                ),
-                size_hint=(0.95, 0.5) if _is_mobile else (0.8, 0.4)
-            )
-            no_targets_popup.open()
+            _ne = BoxLayout(orientation='vertical', padding=[dp(14), dp(10)])
+            with _ne.canvas.before:
+                Color(0.06, 0.07, 0.11, 1)
+                _ne._bg = RoundedRectangle(pos=_ne.pos, size=_ne.size, radius=[dp(12)])
+            _ne.bind(pos=lambda i, v: setattr(i._bg, 'pos', v), size=lambda i, v: setattr(i._bg, 'size', v))
+            _ne.add_widget(Label(text="[b]Нет городов без гарнизона[/b]", markup=True,
+                                 font_size=sp(14), halign='center', valign='middle',
+                                 color=(0.9, 0.3, 0.3, 1)))
+            _np = Popup(title="", content=_ne,
+                        size_hint=(0.6 if not _is_mobile else 0.8, 0.25),
+                        background_color=(0.04, 0.05, 0.09, 0.98), separator_height=0)
+            _np.open()
+            from kivy.clock import Clock
+            Clock.schedule_once(lambda dt: _np.dismiss() if _np._is_open else None, 1.5)
             return
 
-    btn_layout = BoxLayout(size_hint_y=None, height=btn_height, spacing=dp(10))
+    # Основной контейнер подтверждения
+    content = BoxLayout(orientation='vertical', padding=[dp(16), dp(12)], spacing=dp(10))
+    with content.canvas.before:
+        Color(0.06, 0.07, 0.11, 1)
+        content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(12)])
+    content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                 size=lambda i, v: setattr(i._bg, 'size', v))
 
-    confirm_btn = ThemedButton(
-        text="Выполнить",
-        font_size=font_btn,
-        background_color=SECONDARY_COLOR
+    # Название операции
+    title_lbl = Label(
+        text=f"[b]{op_name}[/b]", markup=True,
+        font_size=sp(20) if not _is_mobile else sp(17),
+        color=(0.85, 0.25, 0.25, 1),
+        size_hint_y=None, height=dp(36), halign='center'
     )
-    cancel_btn = ThemedButton(
-        text="Отмена",
-        font_size=font_btn,
-        background_color=WARNING_COLOR
-    )
+    title_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(title_lbl)
 
-    popup = ThemedPopup(
-        title="Подтверждение операции",
-        content=content,
-        size_hint=(0.95, 0.7) if _is_mobile else (0.85, 0.6),
-        auto_dismiss=False
+    # Детали
+    detail_text = f"[color=#AAAAAA]Цель:[/color]  [b]{target_faction}[/b]\n"
+    detail_text += f"[color=#AAAAAA]Стоимость:[/color]  [color=#FFD700][b]{format_number(cost)} крон[/b][/color]"
+    if rebels_count:
+        detail_text += f"\n[color=#AAAAAA]Мятежников:[/color]  [b]{rebels_count}[/b]"
+
+    detail_lbl = Label(
+        text=detail_text, markup=True,
+        font_size=sp(14) if not _is_mobile else sp(12),
+        halign='center', valign='middle',
+        size_hint_y=None, height=dp(55) if not rebels_count else dp(72),
+        color=(0.9, 0.9, 0.9, 1)
+    )
+    detail_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(detail_lbl)
+
+    content.add_widget(Widget(size_hint_y=1))
+
+    # Кнопки
+    btn_layout = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(10))
+
+    confirm_btn = Button(
+        text="Выполнить", bold=True,
+        font_size=sp(14) if not _is_mobile else sp(12),
+        background_normal='', background_color=(0, 0, 0, 0), color=(1, 1, 1, 1)
+    )
+    with confirm_btn.canvas.before:
+        Color(0.15, 0.45, 0.2, 0.95)
+        confirm_btn._rr = RoundedRectangle(pos=confirm_btn.pos, size=confirm_btn.size, radius=[dp(8)])
+    confirm_btn.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                     size=lambda i, v: setattr(i._rr, 'size', v))
+
+    cancel_btn = Button(
+        text="Отмена", bold=True,
+        font_size=sp(14) if not _is_mobile else sp(12),
+        background_normal='', background_color=(0, 0, 0, 0), color=(0.9, 0.9, 0.9, 1)
+    )
+    with cancel_btn.canvas.before:
+        Color(0.35, 0.15, 0.15, 0.95)
+        cancel_btn._rr = RoundedRectangle(pos=cancel_btn.pos, size=cancel_btn.size, radius=[dp(8)])
+    cancel_btn.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                    size=lambda i, v: setattr(i._rr, 'size', v))
+
+    popup = Popup(
+        title="", content=content,
+        size_hint=(0.65 if not _is_mobile else 0.85, 0.45 if not _is_mobile else 0.42),
+        pos_hint={'center_x': 0.5, 'center_y': 0.5},
+        auto_dismiss=False,
+        background_color=(0.04, 0.05, 0.09, 0.98),
+        separator_height=0
     )
 
     def on_confirm(instance):
-        # Списание ресурсов происходит только после проверки
         popup.dismiss()
         deduction_success = cash_player.deduct_resources(cost)
         if not deduction_success:
@@ -595,17 +620,11 @@ def show_confirmation_popup(conn, player_faction, cash_player, op_name, op_info,
             return
         execute_diversion_operation(conn, player_faction, op_name, op_info, target_faction, targets_info, custom_cost=custom_cost, rebels_count=rebels_count)
 
-    def on_cancel(instance):
-        popup.dismiss()
-
     confirm_btn.bind(on_release=on_confirm)
-    cancel_btn.bind(on_release=on_cancel)
+    cancel_btn.bind(on_release=lambda *a: popup.dismiss())
 
     btn_layout.add_widget(confirm_btn)
     btn_layout.add_widget(cancel_btn)
-
-    content.add_widget(title_label)
-    content.add_widget(desc_label)
     content.add_widget(btn_layout)
 
     popup.open()
@@ -646,7 +665,7 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
 
         if random.random() < 0.5:
             success = True
-            reduction_percentage = random.uniform(0.05, 0.40)
+            reduction_percentage = random.uniform(0.30, 0.75)
             for unit_name, unit_count in all_units:
                 reduction_amount = int(unit_count * reduction_percentage)
                 new_count = max(0, unit_count - reduction_amount)
