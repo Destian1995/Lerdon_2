@@ -347,6 +347,32 @@ def show_operations_window(conn, player_faction, cash_player, target_faction, ta
                 if not instance.collide_point(*touch.pos):
                     return False
                 if _op_name == 'Мятеж':
+                    # Проверяем — мятежники уже на карте?
+                    try:
+                        _mc = conn.cursor()
+                        _mc.execute("SELECT COUNT(*) FROM cities WHERE faction = 'Мятежники'")
+                        if _mc.fetchone()[0] > 0:
+                            from kivy.uix.popup import Popup as _MPopup
+                            _me = BoxLayout(orientation='vertical', padding=[dp(14), dp(10)])
+                            with _me.canvas.before:
+                                Color(0.06, 0.07, 0.11, 1)
+                                _me._bg = RoundedRectangle(pos=_me.pos, size=_me.size, radius=[dp(12)])
+                            _me.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                                     size=lambda i, v: setattr(i._bg, 'size', v))
+                            _me.add_widget(Label(
+                                text="[b]Мятеж невозможен[/b]\n\n[color=#AAAAAA]Мятежники уже присутствуют на карте.\n"
+                                     "Используйте чат с ними для управления.[/color]",
+                                markup=True, font_size=sp(13), halign='center', valign='middle',
+                                color=(0.9, 0.5, 0.2, 1)))
+                            _mp = _MPopup(title="", content=_me,
+                                          size_hint=(0.65 if not _is_mobile else 0.85, 0.3),
+                                          background_color=(0.04, 0.05, 0.09, 0.98), separator_height=0)
+                            _mp.open()
+                            from kivy.clock import Clock as _MC
+                            _MC.schedule_once(lambda dt: _mp.dismiss() if _mp._is_open else None, 2.5)
+                            return True
+                    except Exception:
+                        pass
                     show_rebellion_cost_selection(conn, player_faction, cash_player, _op_name, _op_info, target_faction, targets_info)
                 else:
                     show_confirmation_popup(conn, player_faction, cash_player, _op_name, _op_info, target_faction, targets_info)
