@@ -2221,7 +2221,7 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
                         _sword_id = _max_id + 1
                         cursor.execute("""
                             INSERT INTO artifacts (id, attack, defense, season_name, image_url, name, cost, artifact_type, is_created)
-                            VALUES (?, 2500, 2500, 'Все', 'files/pict/artifacts/king_death/0m_king_death.png',
+                            VALUES (?, 4000, 4000, 'Все', 'files/pict/artifacts/king_death/0m_king_death.png',
                                     'Меч Короля Мёртвых', 10000000, 0, 1)
                         """, (_sword_id,))
                         print(f"[UNDEAD SWORD] Меч Короля Мёртвых создан! ID={_sword_id}, фракция {_sword_owner}")
@@ -2289,7 +2289,7 @@ def _show_sword_offer(conn, sword_id):
 
     # Характеристики
     stats = Label(
-        text="[color=#FF6644]Атака: +2500%[/color]\n[color=#4488FF]Защита: +2500%[/color]\n"
+        text="[color=#FF6644]Атака: +4000%[/color]\n[color=#4488FF]Защита: +4000%[/color]\n"
              "[color=#AAAAAA]Слот: Оружие[/color]\n[color=#66CC66]Трофей — бесплатно[/color]\n\n"
              "[color=#AAAAAA]Заменит текущее оружие героя[/color]",
         markup=True, font_size=sp(13) if not _is_m else sp(11),
@@ -2371,7 +2371,7 @@ def _show_sword_offer(conn, sword_id):
                 VALUES (?, ?, '0', ?, ?)
             """, (player_faction, hero_name, sword_id, _sword_img))
             # Записываем бонусы в artifact_effects_log чтобы статы применились
-            for _stat, _val in [('attack', 2500), ('defense', 2500)]:
+            for _stat, _val in [('attack', 4000), ('defense', 4000)]:
                 cur.execute("""
                     INSERT OR REPLACE INTO artifact_effects_log
                     (hero_name, artifact_id, stat_name, value_change)
@@ -2426,7 +2426,7 @@ def _ai_equip_sword(conn, faction, sword_id):
     _ai_id = _max + 1
     cur.execute("""
         INSERT INTO artifacts_ai (id, attack, defense, season_name, image_url, name, cost, artifact_type)
-        VALUES (?, 2500, 2500, 'Все', 'files/pict/artifacts/king_death/0m_king_death.png',
+        VALUES (?, 4000, 4000, 'Все', 'files/pict/artifacts/king_death/0m_king_death.png',
                 'Меч Короля Мёртвых', 10000000, 0)
     """, (_ai_id,))
     cur.execute("INSERT INTO ai_hero_equipment (hero_name, slot, artifact_id) VALUES (?, 0, ?)",

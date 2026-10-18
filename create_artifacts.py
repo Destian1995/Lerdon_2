@@ -388,7 +388,7 @@ def workshop(faction, db_conn):
         # Лимит стоимости артефакта (жетоны + чертёж 50К)
         _BLUEPRINT_COST = 50_000
         _faction_name = getattr(faction, 'faction', '')
-        _MAX_ARTIFACT_COST = 14_900_000 if _faction_name == 'Элины' else 9_900_000
+        _MAX_ARTIFACT_COST = 12_000_000 if _faction_name == 'Элины' else 9_900_000
         _max_budget_for_stats = _MAX_ARTIFACT_COST - _BLUEPRINT_COST  # макс. на жетоны
 
         # Бюджет: минимум из (деньги, лимит артефакта)
@@ -486,8 +486,10 @@ def workshop(faction, db_conn):
 
         attack_section.add_widget(attack_header)
 
-        # Максимум атаки = 1.5 единицы за жетон (в 1.5 раза дешевле защиты)
-        max_attack_possible = max(int(ardanian_tokens_available * 1.5), 100)
+        # Максимум атаки: минимум из (жетоны * 1.5, лимит крон / 2400)
+        _max_atk_by_tokens = int(ardanian_tokens_available * 1.5)
+        _max_atk_by_cost = int(_max_budget_for_stats / 2400)
+        max_attack_possible = max(min(_max_atk_by_tokens, _max_atk_by_cost), 100)
         attack_slider = Slider(
             min=0,
             max=max_attack_possible,
@@ -889,7 +891,7 @@ def workshop(faction, db_conn):
         total_cost = base_cost * negative_modifier
         min_cost = 20000
         _fn3 = getattr(faction, 'faction', '')
-        _max_total = 14_850_000 if _fn3 == 'Элины' else 9_850_000  # лимит минус 50K чертежа
+        _max_total = 11_950_000 if _fn3 == 'Элины' else 9_850_000  # лимит минус 50K чертежа
         total_cost = max(min_cost, min(total_cost, _max_total))
 
         artifact_cost_label = Label(
@@ -961,7 +963,7 @@ def workshop(faction, db_conn):
                 return
             current_data['slot'] = slots[slot_index[0]]  # Обновляем слот перед созданием
             _fn = getattr(faction, 'faction', '')
-            _max_cost = 14_900_000 if _fn == 'Элины' else 9_900_000
+            _max_cost = 12_000_000 if _fn == 'Элины' else 9_900_000
             _full_cost = total_cost + 50_000  # жетоны + чертёж
             if _full_cost > _max_cost:
                 _limit_text = format_number(_max_cost)
