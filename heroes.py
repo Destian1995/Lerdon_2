@@ -1046,13 +1046,24 @@ def open_artifacts_popup(faction, season_manager):
                 def _make_slot_click(_slot_type):
                     def _on_slot_click(instance):
                         _eq = hero_equipment.get(_slot_type)
-                        if _eq and _eq.get('artifact_id'):
-                            _art_name = _eq.get('name', 'Артефакт')
-                            _art_atk = _eq.get('attack', 0)
-                            _art_def = _eq.get('defense', 0)
-                            _art_img = _eq.get('image_url', '')
-                            _art_cost = _eq.get('cost', 0)
-                            _art_season = _eq.get('season_name', '')
+                        _art_id = _eq.get('id') if _eq else None
+                        if _art_id:
+                            # Подгружаем данные артефакта из БД
+                            try:
+                                _ac = conn.cursor()
+                                _ac.execute("""
+                                    SELECT name, attack, defense, cost, season_name, image_url
+                                    FROM artifacts WHERE id = ?
+                                """, (_art_id,))
+                                _ar = _ac.fetchone()
+                                if not _ar:
+                                    from ui_components import show_message
+                                    show_message("Ошибка", "Артефакт не найден в базе данных.")
+                                    return
+                                _art_name, _art_atk, _art_def, _art_cost, _art_season, _art_img = _ar
+                            except Exception as _e:
+                                print(f"[SLOT] Ошибка загрузки артефакта: {_e}")
+                                return
                             _slot_label = slot_names_map.get(_slot_type, '')
 
                             _sc = BoxLayout(orientation='vertical', padding=[dp(12), dp(8)], spacing=dp(6))
