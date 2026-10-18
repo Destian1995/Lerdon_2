@@ -2290,7 +2290,7 @@ def _show_sword_offer(conn, sword_id):
     # Характеристики
     stats = Label(
         text="[color=#FF6644]Атака: +2500%[/color]\n[color=#4488FF]Защита: +2500%[/color]\n"
-             "[color=#AAAAAA]Слот: Оружие[/color]\n[color=#FFD700]Стоимость: 10 млн крон[/color]\n\n"
+             "[color=#AAAAAA]Слот: Оружие[/color]\n[color=#66CC66]Трофей — бесплатно[/color]\n\n"
              "[color=#AAAAAA]Заменит текущее оружие героя[/color]",
         markup=True, font_size=sp(13) if not _is_m else sp(11),
         halign='center', valign='middle',
@@ -2334,7 +2334,7 @@ def _show_sword_offer(conn, sword_id):
         popup.dismiss()
         try:
             cur = conn.cursor()
-            # Ищем героя 3 класса игрока
+            # Ищем фракцию и героя 3 класса игрока
             cur.execute("SELECT faction_name FROM user_faction")
             _pf = cur.fetchone()
             if not _pf:
@@ -2348,26 +2348,34 @@ def _show_sword_offer(conn, sword_id):
             """, (player_faction,))
             _hero = cur.fetchone()
             if not _hero:
+                print("[UNDEAD SWORD] Нет героя 3 класса для экипировки")
                 return
             hero_name = _hero[0]
-            # Удаляем старое оружие (slot 0)
+            # Удаляем старое оружие (slot_type = '0')
             cur.execute("""
                 SELECT artifact_id FROM hero_equipment
-                WHERE hero_name = ? AND slot = 0
-            """, (hero_name,))
+                WHERE faction_name = ? AND slot_type = '0'
+            """, (player_faction,))
             _old = cur.fetchone()
             if _old:
-                cur.execute("DELETE FROM hero_equipment WHERE hero_name = ? AND slot = 0", (hero_name,))
+                cur.execute("DELETE FROM hero_equipment WHERE faction_name = ? AND slot_type = '0'",
+                            (player_faction,))
                 cur.execute("DELETE FROM artifacts WHERE id = ?", (_old[0],))
-            # Экипируем меч
+            # Получаем image_url меча
+            cur.execute("SELECT image_url FROM artifacts WHERE id = ?", (sword_id,))
+            _img_row = cur.fetchone()
+            _sword_img = _img_row[0] if _img_row else 'files/pict/artifacts/king_death/0m_king_death.png'
+            # Экипируем меч (бесплатно — трофей)
             cur.execute("""
-                INSERT INTO hero_equipment (hero_name, slot, artifact_id)
-                VALUES (?, 0, ?)
-            """, (hero_name, sword_id))
+                INSERT INTO hero_equipment (faction_name, hero_name, slot_type, artifact_id, image_url)
+                VALUES (?, ?, '0', ?, ?)
+            """, (player_faction, hero_name, sword_id, _sword_img))
             conn.commit()
-            print(f"[UNDEAD SWORD] Меч экипирован на {hero_name}")
+            print(f"[UNDEAD SWORD] Меч экипирован на {hero_name} (фракция {player_faction})")
         except Exception as e:
             print(f"[UNDEAD SWORD] Ошибка экипировки: {e}")
+            import traceback
+            traceback.print_exc()
 
     accept_btn.bind(on_release=_accept)
     decline_btn.bind(on_release=lambda *a: popup.dismiss())
