@@ -139,7 +139,7 @@ def get_noble_trait_text(noble_data):
 
     if traits.get('type') == 'greed':
         demand = traits.get('demand', 0)
-        return f"[color=ffaa55]Корыстный (хочет {demand:,} крон)[/color]"
+        return f"[color=ffaa55]Коррумпированный ({demand:,} крон)[/color]"
     return "[color=aaaaaa]Неизвестно[/color]"
 
 
@@ -149,105 +149,96 @@ class NobleCard(BoxLayout):
         super().__init__(
             orientation='vertical',
             size_hint_y=None,
-            height=dp(105),
-            padding=dp(8),
-            spacing=dp(4),
+            height=dp(68),
+            padding=[dp(10), dp(5)],
+            spacing=dp(2),
             **kwargs
         )
+        _is_mobile = UIStyles.is_android()
         loyalty = noble_data.get('loyalty', 0)
 
-        # Цвет рамки по лояльности
+        # Цвет левой полоски по лояльности
         if loyalty >= 70:
-            border_color = (0.2, 0.7, 0.3, 0.8)
+            _accent = (0.2, 0.75, 0.3, 1)
         elif loyalty >= 50:
-            border_color = (0.7, 0.65, 0.15, 0.8)
+            _accent = (0.75, 0.65, 0.15, 1)
         elif loyalty >= 30:
-            border_color = (0.7, 0.4, 0.1, 0.8)
+            _accent = (0.75, 0.4, 0.1, 1)
         else:
-            border_color = (0.7, 0.15, 0.15, 0.8)
+            _accent = (0.75, 0.15, 0.15, 1)
 
         with self.canvas.before:
-            Color(*border_color)
-            self._border = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(12)])
-            Color(*UIStyles.COLOR_CARD)
-            self._bg = RoundedRectangle(
-                pos=(self.x + dp(2), self.y + dp(2)),
-                size=(self.width - dp(4), self.height - dp(4)),
-                radius=[dp(10)]
-            )
+            Color(0.12, 0.13, 0.18, 1)
+            self._bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(8)])
+            Color(*_accent)
+            self._accent = Rectangle(pos=self.pos, size=(dp(4), self.height))
         self.bind(pos=self._update_bg, size=self._update_bg)
 
-        # --- Верхняя строка: имя + лояльность + кнопка ---
-        top_row = BoxLayout(size_hint_y=None, height=dp(30), spacing=dp(6))
+        # --- Строка 1: имя | лояльность | посещаемость ---
+        top_row = BoxLayout(size_hint_y=None, height=dp(22), spacing=dp(4))
 
         name_lbl = Label(
             text=f"[b]{noble_data['name']}[/b]", markup=True,
-            font_size=sp(15), color=UIStyles.COLOR_TEXT,
-            halign='left', valign='middle', size_hint_x=0.45
+            font_size=sp(13) if not _is_mobile else sp(11),
+            color=(0.95, 0.92, 0.85, 1),
+            halign='left', valign='middle', size_hint_x=0.4
         )
         name_lbl.bind(size=name_lbl.setter('text_size'))
 
         loyalty_color = "00ff00" if loyalty >= 70 else "ffff00" if loyalty >= 50 else "ff8800" if loyalty >= 30 else "ff0000"
         loyalty_lbl = Label(
-            text=f"[color={loyalty_color}]Лояльность: {int(loyalty)}%[/color]", markup=True,
-            font_size=sp(12), halign='center', valign='middle', size_hint_x=0.3
+            text=f"[color={loyalty_color}]{int(loyalty)}%[/color]", markup=True,
+            font_size=sp(12) if not _is_mobile else sp(10),
+            halign='center', valign='middle', size_hint_x=0.2
         )
         loyalty_lbl.bind(size=loyalty_lbl.setter('text_size'))
-
-        # Кнопка действия
-        action_widget = self._create_action_button(noble_data, conn, cash_player, refresh_callback)
-        action_widget.size_hint_x = 0.25
-
-        top_row.add_widget(name_lbl)
-        top_row.add_widget(loyalty_lbl)
-        top_row.add_widget(action_widget)
-
-        # --- Средняя строка: тип советника + посещаемость ---
-        mid_row = BoxLayout(size_hint_y=None, height=dp(22), spacing=dp(6))
-
-        trait_text = get_noble_trait_text(noble_data)
-        trait_lbl = Label(
-            text=trait_text, markup=True,
-            font_size=sp(11), halign='left', valign='middle', size_hint_x=0.6
-        )
-        trait_lbl.bind(size=trait_lbl.setter('text_size'))
 
         status_text = self._get_status_text(noble_data)
         status_lbl = Label(
             text=status_text, markup=True,
-            font_size=sp(11), halign='right', valign='middle', size_hint_x=0.4
+            font_size=sp(10) if not _is_mobile else sp(9),
+            halign='right', valign='middle', size_hint_x=0.4
         )
         status_lbl.bind(size=status_lbl.setter('text_size'))
 
-        mid_row.add_widget(trait_lbl)
-        mid_row.add_widget(status_lbl)
+        top_row.add_widget(name_lbl)
+        top_row.add_widget(loyalty_lbl)
+        top_row.add_widget(status_lbl)
 
-        # --- Нижняя строка: бонус ---
+        # --- Строка 2: взгляды | бонус ---
+        bot_row = BoxLayout(size_hint_y=None, height=dp(20), spacing=dp(4))
+
+        trait_text = get_noble_trait_text(noble_data)
+        trait_lbl = Label(
+            text=trait_text, markup=True,
+            font_size=sp(10) if not _is_mobile else sp(9),
+            halign='left', valign='middle', size_hint_x=0.55
+        )
+        trait_lbl.bind(size=trait_lbl.setter('text_size'))
+
         bonus_text = get_noble_bonus_text(noble_data)
         if bonus_text:
-            bonus_lbl = Label(
-                text=f"Бонус: {bonus_text}", markup=True,
-                font_size=sp(12), halign='left', valign='middle',
-                size_hint_y=None, height=dp(20)
-            )
-            bonus_lbl.bind(size=bonus_lbl.setter('text_size'))
+            _bonus_display = f"[color=#88CC88]{bonus_text}[/color]"
         else:
-            bonus_lbl = Label(
-                text="[color=666666]Бонус: лояльность ниже 50%[/color]", markup=True,
-                font_size=sp(11), halign='left', valign='middle',
-                size_hint_y=None, height=dp(20)
-            )
-            bonus_lbl.bind(size=bonus_lbl.setter('text_size'))
+            _bonus_display = "[color=#666666]нет бонуса[/color]"
+        bonus_lbl = Label(
+            text=_bonus_display, markup=True,
+            font_size=sp(10) if not _is_mobile else sp(9),
+            halign='right', valign='middle', size_hint_x=0.45
+        )
+        bonus_lbl.bind(size=bonus_lbl.setter('text_size'))
+
+        bot_row.add_widget(trait_lbl)
+        bot_row.add_widget(bonus_lbl)
 
         self.add_widget(top_row)
-        self.add_widget(mid_row)
-        self.add_widget(bonus_lbl)
+        self.add_widget(bot_row)
 
     def _update_bg(self, instance, value):
-        self._border.pos = instance.pos
-        self._border.size = instance.size
-        self._bg.pos = (instance.x + dp(2), instance.y + dp(2))
-        self._bg.size = (instance.width - dp(4), instance.height - dp(4))
+        self._bg.pos = instance.pos
+        self._bg.size = instance.size
+        self._accent.pos = instance.pos
+        self._accent.size = (dp(4), instance.height)
 
     def _get_status_text(self, noble_data):
         attendance = noble_data.get('attendance_history', '')
@@ -262,28 +253,6 @@ class NobleCard(BoxLayout):
                 pass
         return "[color=aaaaaa]Статус неизвестен[/color]"
 
-    def _create_action_button(self, noble_data, conn, cash_player, refresh_callback):
-        """Метка для продажных дворян"""
-        try:
-            ideology_raw = noble_data.get('ideology', '{}')
-            if isinstance(ideology_raw, str):
-                ideology = json.loads(ideology_raw)
-            else:
-                ideology = ideology_raw
-
-            if isinstance(ideology, dict) and ideology.get('type') == 'greed':
-                lbl = Label(
-                    text=f"[color=#FFAA55]Продажный[/color]",
-                    markup=True, font_size=sp(10),
-                    size_hint_x=0.25, halign='center', valign='middle'
-                )
-                lbl.bind(size=lbl.setter('text_size'))
-                return lbl
-        except Exception:
-            pass
-
-        placeholder = Label(text="", size_hint_x=0.25)
-        return placeholder
 
 # --- ОБНОВЛЕННЫЕ ФУНКЦИИ ИНТЕРФЕЙСА ---
 def _build_bonus_summary(nobles_data):
@@ -1062,7 +1031,7 @@ class SecretServiceCard(BoxLayout):
                     'Любит Адепты': "Адепты",
                 }
                 if noble_traits['type'] == 'greed':
-                    views = "Продажный"
+                    views = "Коррумпированный"
                 else:
                     views = ideology_to_text.get(noble_traits['value'], noble_traits['value'])
                 parts.append(f"[color=cccccc]{views}[/color]")
