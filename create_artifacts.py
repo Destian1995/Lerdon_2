@@ -888,7 +888,9 @@ def workshop(faction, db_conn):
 
         total_cost = base_cost * negative_modifier
         min_cost = 20000
-        total_cost = max(min_cost, total_cost)
+        _fn3 = getattr(faction, 'faction', '')
+        _max_total = 14_850_000 if _fn3 == 'Элины' else 9_850_000  # лимит минус 50K чертежа
+        total_cost = max(min_cost, min(total_cost, _max_total))
 
         artifact_cost_label = Label(
             text=f"Стоимость: {format_number(int(total_cost))} крон",
