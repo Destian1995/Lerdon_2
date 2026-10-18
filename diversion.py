@@ -280,7 +280,7 @@ def show_operations_window(conn, player_faction, cash_player, target_faction, ta
         },
         'Мятеж': {
             'desc': 'Захват города без гарнизона',
-            'detail': 'Нужны рабочие для мятежников',
+            'detail': 'От 700K до 6.5M крон',
             'cost': 700_000
         },
         'Заказ': {
