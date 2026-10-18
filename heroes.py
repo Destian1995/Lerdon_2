@@ -1050,7 +1050,7 @@ def open_artifacts_popup(faction, season_manager):
                         if _art_id:
                             # Подгружаем данные артефакта из БД
                             try:
-                                _ac = conn.cursor()
+                                _ac = faction.conn.cursor()
                                 _ac.execute("""
                                     SELECT name, attack, defense, cost, season_name, image_url
                                     FROM artifacts WHERE id = ?
