@@ -1041,6 +1041,66 @@ def open_artifacts_popup(faction, season_manager):
                     color=(0.7, 0.7, 0.8, 0.6)
                 )
                 apply_slot_style(slot_widget, st)
+
+                # Обработчик клика — показать характеристики артефакта в слоте
+                def _make_slot_click(_slot_type):
+                    def _on_slot_click(instance):
+                        _eq = hero_equipment.get(_slot_type)
+                        if _eq and _eq.get('artifact_id'):
+                            _art_name = _eq.get('name', 'Артефакт')
+                            _art_atk = _eq.get('attack', 0)
+                            _art_def = _eq.get('defense', 0)
+                            _art_img = _eq.get('image_url', '')
+                            _art_cost = _eq.get('cost', 0)
+                            _art_season = _eq.get('season_name', '')
+                            _slot_label = slot_names_map.get(_slot_type, '')
+
+                            _sc = BoxLayout(orientation='vertical', padding=[dp(12), dp(8)], spacing=dp(6))
+                            with _sc.canvas.before:
+                                Color(0.06, 0.07, 0.11, 1)
+                                _sc._bg = RoundedRectangle(pos=_sc.pos, size=_sc.size, radius=[dp(12)])
+                            _sc.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                                     size=lambda i, v: setattr(i._bg, 'size', v))
+
+                            if _art_img and os.path.exists(_art_img):
+                                _sc.add_widget(Image(source=_art_img, size_hint=(1, 0.45),
+                                                     allow_stretch=True, keep_ratio=True))
+
+                            _info = (
+                                f"[b]{_art_name}[/b]\n"
+                                f"[color=#AAAAAA]Слот:[/color] {_slot_label}\n"
+                                f"[color=#FF6644]Атака: +{_art_atk}%[/color]\n"
+                                f"[color=#4488FF]Защита: +{_art_def}%[/color]"
+                            )
+                            if _art_season:
+                                _info += f"\n[color=#AAAAAA]Сезон: {_art_season}[/color]"
+
+                            _il = Label(text=_info, markup=True,
+                                        font_size=sp(13) if not is_android else sp(11),
+                                        halign='center', valign='middle',
+                                        color=(0.9, 0.9, 0.9, 1), size_hint_y=0.45)
+                            _il.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], s[1])))
+                            _sc.add_widget(_il)
+
+                            _cb = Button(text="Закрыть", size_hint_y=None, height=dp(36),
+                                         font_size=sp(13), bold=True,
+                                         background_normal='', background_color=(0.15, 0.15, 0.22, 0.95),
+                                         color=(0.9, 0.9, 0.9, 1))
+                            _sc.add_widget(_cb)
+
+                            _sp = Popup(title="", content=_sc,
+                                        size_hint=(0.7 if not is_android else 0.85, 0.55),
+                                        background_color=(0.04, 0.05, 0.09, 0.98),
+                                        separator_height=0)
+                            _cb.bind(on_release=lambda *a: _sp.dismiss())
+                            _sp.open()
+                        else:
+                            from ui_components import show_message
+                            show_message("Слот пуст", f"В слоте \"{slot_names_map.get(_slot_type, '')}\" нет артефакта.")
+                    return _on_slot_click
+
+                slot_widget.bind(on_release=_make_slot_click(st))
+
                 right_panel.add_widget(slot_widget)
                 equipment_slots[st] = slot_widget
 
