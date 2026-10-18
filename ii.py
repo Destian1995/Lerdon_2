@@ -4870,11 +4870,27 @@ class AIController:
                 print(f"[UNDEAD] Нет войск в {from_city}")
                 return
 
+            # Проверяем: это столица нежити? Если да — оставляем 10K призраков
+            _is_capital = False
+            try:
+                self.cursor.execute("SELECT capital_city FROM undead_invasion WHERE id = 1")
+                _cap = self.cursor.fetchone()
+                _is_capital = _cap and _cap[0] == from_city
+            except Exception:
+                pass
+
             # Берём 70% юнитов 1 класса, всех героев
             attack_units = []
             for unit_name, unit_count, unit_image in garrison:
                 uc = self.get_unit_class(unit_name)
-                take = int(unit_count * 0.7) if uc == 1 else unit_count
+                if uc == 1:
+                    take = int(unit_count * 0.7)
+                    # Столица: оставляем минимум 10K призраков
+                    if _is_capital and unit_name == 'Призрак':
+                        max_take = max(0, unit_count - 10000)
+                        take = min(take, max_take)
+                else:
+                    take = unit_count
                 if take <= 0:
                     continue
                 attack_units.append({
@@ -4936,7 +4952,7 @@ class AIController:
                     (self.faction, '#33BF99', target_city)
                 )
 
-                # Перемещаем ВСЮ армию в захваченный город
+                # Перемещаем армию в захваченный город (оставляем 10K призраков в столице)
                 self.cursor.execute(
                     "SELECT unit_name, unit_count, unit_image FROM garrisons WHERE city_name = ?",
                     (from_city,)
@@ -4944,12 +4960,22 @@ class AIController:
                 all_units = self.cursor.fetchall()
                 self.cursor.execute("DELETE FROM garrisons WHERE city_name = ?", (from_city,))
                 for u_name, u_count, u_image in all_units:
-                    if u_count > 0:
+                    _move_count = u_count
+                    if _is_capital and u_name == 'Призрак':
+                        _move_count = max(0, u_count - 10000)
+                        _keep = u_count - _move_count
+                        if _keep > 0:
+                            self.cursor.execute("""
+                                INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                                VALUES (?, ?, ?, ?)
+                                ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = ?
+                            """, (from_city, u_name, _keep, u_image or '', _keep))
+                    if _move_count > 0:
                         self.cursor.execute("""
                             INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
                             VALUES (?, ?, ?, ?)
                             ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
-                        """, (target_city, u_name, u_count, u_image or '', u_count))
+                        """, (target_city, u_name, _move_count, u_image or '', _move_count))
 
                 self.db_connection.commit()
                 print(f"[UNDEAD] Город {target_city} захвачен без боя! Армия переместилась.")
@@ -4986,17 +5012,25 @@ class AIController:
                     (self.faction, '#33BF99', target_city)
                 )
 
-                # Перемещаем ВСЮ армию (Царь + призраки) из исходного города в захваченный
+                # Перемещаем армию (Царь + призраки) — оставляем 10K в столице
                 self.cursor.execute(
                     "SELECT unit_name, unit_count, unit_image FROM garrisons WHERE city_name = ?",
                     (from_city,)
                 )
                 remaining_garrison = self.cursor.fetchall()
-                # Удаляем из старого города
                 self.cursor.execute("DELETE FROM garrisons WHERE city_name = ?", (from_city,))
-                # Добавляем в новый
                 for u_name, u_count, u_image in remaining_garrison:
-                    if u_count > 0:
+                    _move_count = u_count
+                    if _is_capital and u_name == 'Призрак':
+                        _move_count = max(0, u_count - 10000)
+                        _keep = u_count - _move_count
+                        if _keep > 0:
+                            self.cursor.execute("""
+                                INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                                VALUES (?, ?, ?, ?)
+                                ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = ?
+                            """, (from_city, u_name, _keep, u_image or '', _keep))
+                    if _move_count > 0:
                         self.cursor.execute("""
                             INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
                             VALUES (?, ?, ?, ?)
