@@ -385,7 +385,15 @@ def workshop(faction, db_conn):
     def screen2(layout):
 
         # === Система жетонов Ардании ===
-        ardanian_tokens_available = faction.money / 3200.0  # жетонов = макс. защиты за все кроны
+        # Лимит стоимости артефакта (жетоны + чертёж 50К)
+        _BLUEPRINT_COST = 50_000
+        _faction_name = getattr(faction, 'faction', '')
+        _MAX_ARTIFACT_COST = 14_900_000 if _faction_name == 'Элины' else 9_900_000
+        _max_budget_for_stats = _MAX_ARTIFACT_COST - _BLUEPRINT_COST  # макс. на жетоны
+
+        # Бюджет: минимум из (деньги, лимит артефакта)
+        _budget = min(faction.money, _max_budget_for_stats)
+        ardanian_tokens_available = _budget / 3200.0  # жетонов = макс. защиты за бюджет
         current_attack = current_data.get('attack', 0)
         current_defense = current_data.get('defense', 0)
 
@@ -950,9 +958,15 @@ def workshop(faction, db_conn):
                              "Установите значение Атаки или Защиты больше 0%.")
                 return
             current_data['slot'] = slots[slot_index[0]]  # Обновляем слот перед созданием
-            if total_cost > 200000000:
+            _fn = getattr(faction, 'faction', '')
+            _max_cost = 14_900_000 if _fn == 'Элины' else 9_900_000
+            _full_cost = total_cost + 50_000  # жетоны + чертёж
+            if _full_cost > _max_cost:
+                _limit_text = format_number(_max_cost)
                 show_message("Ошибка",
-                             "Стоимость производства артефакта превышает 20 млн. крон. \nПожалуйста, уменьшите параметры артефакта.")
+                             f"Общая стоимость артефакта ({format_number(int(_full_cost))} крон)\n"
+                             f"превышает лимит {_limit_text} крон.\n"
+                             f"Уменьшите параметры артефакта.")
                 return
 
             if faction.money < 50000:

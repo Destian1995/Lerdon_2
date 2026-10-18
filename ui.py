@@ -2805,7 +2805,18 @@ class FortressInfoPopup(Popup):
                 print(f"defending_garrison={defending_garrison}")
 
                 if not defending_garrison:
-                    self.capture_city(destination_fortress_name, source_owner, attacking_units)
+                    # Определяем фракцию юнитов для захвата
+                    _cap_factions = {}
+                    for _cu in attacking_units:
+                        try:
+                            cursor.execute("SELECT faction FROM units WHERE unit_name = ?", (_cu.get('unit_name', ''),))
+                            _cf = cursor.fetchone()
+                            if _cf:
+                                _cap_factions[_cf[0]] = _cap_factions.get(_cf[0], 0) + _cu.get('unit_count', 0)
+                        except Exception:
+                            pass
+                    _cap_owner = list(_cap_factions.keys())[0] if len(_cap_factions) == 1 else source_owner
+                    self.capture_city(destination_fortress_name, _cap_owner, attacking_units)
                     self.close_current_popup()
                     return
 
@@ -2889,13 +2900,29 @@ class FortressInfoPopup(Popup):
                         }
                     })
 
+                # Определяем фракцию атакующих юнитов (может отличаться от владельца города)
+                _atk_factions = {}
+                for u in attacking_army:
+                    try:
+                        cursor.execute("SELECT faction FROM units WHERE unit_name = ?", (u['unit_name'],))
+                        _uf_row = cursor.fetchone()
+                        if _uf_row:
+                            _uf = _uf_row[0]
+                            _atk_factions[_uf] = _atk_factions.get(_uf, 0) + u['unit_count']
+                    except Exception:
+                        pass
+                if len(_atk_factions) == 1:
+                    _actual_atk_fraction = list(_atk_factions.keys())[0]
+                else:
+                    _actual_atk_fraction = source_owner
+
                 # Запускаем сам бой
                 result = fight(
                     attacking_city=source_fortress_name,
                     defending_city=destination_fortress_name,
                     defending_army=defending_army,
                     attacking_army=attacking_army,
-                    attacking_fraction=source_owner,
+                    attacking_fraction=_actual_atk_fraction,
                     defending_fraction=destination_owner,
                     conn=self.conn
                 )
