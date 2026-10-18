@@ -258,11 +258,17 @@ def check_and_trigger_invasion(conn, current_turn, player_faction):
             return False, None
         chosen_city_id, chosen_city_name = random.choice(undead_cities)
 
-    # Только выбранный город становится "Нежить"
+    # Только выбранный город становится "Нежить" — он же столица
     cursor.execute(
         "UPDATE cities SET faction = ?, color_faction = ? WHERE id = ?",
         (UNDEAD_FACTION_NAME, '#33BF99', chosen_city_id)
     )
+    # Сохраняем столицу нежити
+    try:
+        cursor.execute("ALTER TABLE undead_invasion ADD COLUMN capital_city TEXT")
+    except Exception:
+        pass
+    cursor.execute("UPDATE undead_invasion SET capital_city = ? WHERE id = 1", (chosen_city_name,))
 
     # Спавним разнообразную армию нежити + Царя Мёртвых
     # 60% Призраки, 25% Зомби, 15% Банши + Низар
@@ -443,22 +449,32 @@ def process_undead_turn(conn, current_turn):
     # Царь Мёртвых бессмертен — если погиб, возрождается
     _respawn_king_if_dead(cursor)
 
-    # Суперкрепость: каждый город нежити гарантированно имеет 10K призраков-стражей
-    cursor.execute("SELECT name FROM cities WHERE faction = ? AND is_undead = 1", (UNDEAD_FACTION_NAME,))
-    _undead_cities = cursor.fetchall()
-    for (_uc_name,) in _undead_cities:
-        cursor.execute("SELECT unit_count FROM garrisons WHERE city_name = ? AND unit_name = ?",
-                       (_uc_name, UNDEAD_UNIT_NAME))
-        _ghost_row = cursor.fetchone()
-        _current_ghosts = _ghost_row[0] if _ghost_row else 0
-        if _current_ghosts < 10000:
-            _add = 10000 - _current_ghosts
-            cursor.execute("""
-                INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
-                VALUES (?, ?, ?, 'files/army/death/solder.png')
-                ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
-            """, (_uc_name, UNDEAD_UNIT_NAME, _add, _add))
-            print(f"[UNDEAD] Стража {_uc_name}: +{_add} призраков (до 10K)")
+    # Суперкрепость столицы: 10K призраков-стражей (не уходят, только защищают)
+    _capital = None
+    try:
+        cursor.execute("SELECT capital_city FROM undead_invasion WHERE id = 1")
+        _cap_row = cursor.fetchone()
+        _capital = _cap_row[0] if _cap_row and _cap_row[0] else None
+    except Exception:
+        pass
+
+    if _capital:
+        # Проверяем что столица всё ещё под контролем нежити
+        cursor.execute("SELECT faction FROM cities WHERE name = ?", (_capital,))
+        _cf = cursor.fetchone()
+        if _cf and _cf[0] == UNDEAD_FACTION_NAME:
+            cursor.execute("SELECT unit_count FROM garrisons WHERE city_name = ? AND unit_name = ?",
+                           (_capital, UNDEAD_UNIT_NAME))
+            _ghost_row = cursor.fetchone()
+            _current_ghosts = _ghost_row[0] if _ghost_row else 0
+            if _current_ghosts < 10000:
+                _add = 10000 - _current_ghosts
+                cursor.execute("""
+                    INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                    VALUES (?, ?, ?, 'files/army/death/solder.png')
+                    ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
+                """, (_capital, UNDEAD_UNIT_NAME, _add, _add))
+                print(f"[UNDEAD] Стража столицы {_capital}: +{_add} призраков (до 10K)")
 
     # Захватываем нейтральные города нежити (is_undead=1) — мор распространяется
     cursor.execute("SELECT id, name FROM cities WHERE is_undead = 1 AND faction = 'Нейтрал'")

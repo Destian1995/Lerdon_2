@@ -2202,14 +2202,18 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
         except Exception as e:
             print(f"[EXP] Ошибка обновления опыта: {e}")
 
-        # Меч Короля Мёртвых: при захвате столицы нежити (город с Низаром)
+        # Меч Короля Мёртвых: при захвате столицы нежити
         if winner == 'attacking' and defending_fraction == 'Нежить':
             try:
-                _had_nizar = any(u.get('unit_name') == 'Низар' for u in defending_army)
-                if _had_nizar:
-                    cursor.execute("SELECT COALESCE(is_undead, 0) FROM cities WHERE name = ?", (defending_city,))
-                    _und = cursor.fetchone()
-                    if _und and _und[0]:
+                # Проверяем: это столица нежити?
+                _is_capital = False
+                try:
+                    cursor.execute("SELECT capital_city FROM undead_invasion WHERE id = 1")
+                    _cap = cursor.fetchone()
+                    _is_capital = _cap and _cap[0] == defending_city
+                except Exception:
+                    pass
+                if _is_capital:
                         _sword_owner = _determine_army_owner(attacking_army, conn, attacking_fraction)
                         # Создаём артефакт
                         cursor.execute("SELECT MAX(id) FROM artifacts")

@@ -1191,7 +1191,17 @@ class MapWidget(Widget):
             if is_undead_city:
                 cx = drawn_x + 38.5  # Центр иконки 77x77
                 cy = drawn_y + 38.5
-                self._undead_shield_data.append((cx, cy))
+                # Определяем столицу нежити
+                _is_capital = False
+                try:
+                    _cap_cur = self.conn.cursor()
+                    _cap_cur.execute("SELECT capital_city FROM undead_invasion WHERE id = 1")
+                    _cap_r = _cap_cur.fetchone()
+                    if _cap_r and _cap_r[0] == fortress_name:
+                        _is_capital = True
+                except Exception:
+                    pass
+                self._undead_shield_data.append((cx, cy, _is_capital))
 
             # --- Сохраняем данные для кликов ---
             self.fortress_data_for_canvas.append((fortress_name, kingdom, fort_x, fort_y, drawn_x, drawn_y))  # ← Исправлена скобка
@@ -1297,7 +1307,9 @@ class MapWidget(Widget):
         # --- Статичный щит (рисуется один раз) ---
         static = InstructionGroup()
         shield_r = 52
-        for cx, cy in self._undead_shield_data:
+        for _sd in self._undead_shield_data:
+            cx, cy = _sd[0], _sd[1]
+            _is_cap = _sd[2] if len(_sd) > 2 else False
             # Внешнее свечение
             static.add(Color(0.2, 0.0, 0.3, 0.1))
             static.add(GlEllipse(
@@ -1316,6 +1328,19 @@ class MapWidget(Widget):
                 ellipse=(cx - shield_r, cy - shield_r, shield_r * 2, shield_r * 2),
                 width=1.5
             ))
+            # Столица: двойной щит + красное кольцо
+            if _is_cap:
+                _cap_r = shield_r + 10
+                static.add(Color(0.5, 0.0, 0.0, 0.15))
+                static.add(GlEllipse(
+                    pos=(cx - _cap_r, cy - _cap_r),
+                    size=(_cap_r * 2, _cap_r * 2)
+                ))
+                static.add(Color(0.7, 0.1, 0.1, 0.4))
+                static.add(GlLine(
+                    ellipse=(cx - _cap_r, cy - _cap_r, _cap_r * 2, _cap_r * 2),
+                    width=2.0
+                ))
         self._undead_static_group = static
         self.canvas.after.add(static)
 
@@ -1373,14 +1398,15 @@ class MapWidget(Widget):
 
             group = InstructionGroup()
 
-            for i, (cx, cy) in enumerate(self._undead_shield_data):
-                # Перегенерируем 2-3 молнии
+            for _sd in self._undead_shield_data:
+                cx, cy = _sd[0], _sd[1]
+                _is_cap = _sd[2] if len(_sd) > 2 else False
+                # Перегенерируем 2-3 молнии (фиолетовые)
                 bolts = []
                 for _ in range(_rnd.randint(2, 3)):
                     bolts.append(_gen_bolt(cx, cy))
 
                 for trunk, branches in bolts:
-                    # Ствол: свечение + основная линия
                     trunk_pts = []
                     for x1, y1, x2, y2 in trunk:
                         trunk_pts.extend([x1, y1, x2, y2])
@@ -1404,6 +1430,26 @@ class MapWidget(Widget):
                         group.add(GlLine(points=b_pts, width=1.0))
                         group.add(Color(0.2, 0.0, 0.3, 0.3))
                         group.add(GlLine(points=b_pts, width=0.5))
+
+                # Столица: дополнительные красные молнии
+                if _is_cap:
+                    for _ in range(_rnd.randint(2, 3)):
+                        _rt, _rb = _gen_bolt(cx, cy)
+                        _rpts = []
+                        for x1, y1, x2, y2 in _rt:
+                            _rpts.extend([x1, y1, x2, y2])
+                        group.add(Color(0.6, 0.05, 0.05, 0.4))
+                        group.add(GlLine(points=_rpts, width=2.5))
+                        group.add(Color(0.8, 0.1, 0.1, 0.7))
+                        group.add(GlLine(points=_rpts, width=1.2))
+                        group.add(Color(1.0, 0.2, 0.15, 0.4))
+                        group.add(GlLine(points=_rpts, width=0.6))
+                        for _brn in _rb:
+                            _bpts = []
+                            for x1, y1, x2, y2 in _brn:
+                                _bpts.extend([x1, y1, x2, y2])
+                            group.add(Color(0.7, 0.1, 0.1, 0.5))
+                            group.add(GlLine(points=_bpts, width=0.8))
 
             self._undead_shield_group = group
             self.canvas.after.add(group)
