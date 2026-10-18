@@ -2205,24 +2205,42 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
         # Меч Короля Мёртвых: при захвате столицы нежити (город с Низаром)
         if winner == 'attacking' and defending_fraction == 'Нежить':
             try:
-                # Проверяем: был ли Низар в защитниках?
                 _had_nizar = any(u.get('unit_name') == 'Низар' for u in defending_army)
                 if _had_nizar:
-                    # Проверяем is_undead
                     cursor.execute("SELECT COALESCE(is_undead, 0) FROM cities WHERE name = ?", (defending_city,))
                     _und = cursor.fetchone()
                     if _und and _und[0]:
-                        # Создаём уникальный артефакт "Меч Короля Мёртвых"
+                        _sword_owner = _determine_army_owner(attacking_army, conn, attacking_fraction)
+                        # Создаём артефакт
                         cursor.execute("SELECT MAX(id) FROM artifacts")
                         _max_id = cursor.fetchone()[0] or 0
                         _sword_id = _max_id + 1
                         cursor.execute("""
                             INSERT INTO artifacts (id, attack, defense, season_name, image_url, name, cost, artifact_type, is_created)
-                            VALUES (?, 2500, 2500, 'Все', 'files/pict/artifacts/klinok_zabveniya.png',
-                                    'Меч Короля Мёртвых', 0, 0, 1)
+                            VALUES (?, 2500, 2500, 'Все', 'files/pict/artifacts/king_death/0m_king_death.png',
+                                    'Меч Короля Мёртвых', 10000000, 0, 1)
                         """, (_sword_id,))
-                        print(f"[UNDEAD SWORD] Меч Короля Мёртвых создан! ID={_sword_id}, "
-                              f"фракция {_determine_army_owner(attacking_army, conn, attacking_fraction)}")
+                        print(f"[UNDEAD SWORD] Меч Короля Мёртвых создан! ID={_sword_id}, фракция {_sword_owner}")
+
+                        # Определяем фракцию игрока
+                        cursor.execute("SELECT faction_name FROM user_faction")
+                        _uf_row = cursor.fetchone()
+                        _user_f = _uf_row[0] if _uf_row else None
+
+                        if _sword_owner == _user_f:
+                            # Игрок — показать попап с предложением
+                            try:
+                                from kivy.clock import Clock as _SwordClock
+                                _SwordClock.schedule_once(
+                                    lambda dt: _show_sword_offer(conn, _sword_id), 1.0)
+                            except Exception:
+                                pass
+                        else:
+                            # AI — автоматически экипировать
+                            try:
+                                _ai_equip_sword(conn, _sword_owner, _sword_id)
+                            except Exception as _ae:
+                                print(f"[UNDEAD SWORD] AI equip error: {_ae}")
             except Exception as e:
                 print(f"[UNDEAD SWORD] Ошибка: {e}")
 
@@ -2230,6 +2248,165 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
 
     except sqlite3.Error as e:
         print(f"Ошибка при обновлении гарнизонов: {e}")
+
+
+def _show_sword_offer(conn, sword_id):
+    """Попап предложения Меча Короля Мёртвых игроку."""
+    from kivy.uix.popup import Popup
+    from kivy.uix.boxlayout import BoxLayout
+    from kivy.uix.label import Label
+    from kivy.uix.button import Button
+    from kivy.uix.image import Image
+    from kivy.metrics import dp, sp
+    from kivy.graphics import Color, RoundedRectangle
+    from kivy.utils import platform
+
+    _is_m = platform in ('android', 'ios')
+
+    content = BoxLayout(orientation='vertical', padding=[dp(14), dp(10)], spacing=dp(8))
+    with content.canvas.before:
+        Color(0.06, 0.07, 0.11, 1)
+        content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(12)])
+    content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                 size=lambda i, v: setattr(i._bg, 'size', v))
+
+    # Заголовок
+    title = Label(text="[b]Трофей: Меч Короля Мёртвых[/b]", markup=True,
+                  font_size=sp(17) if not _is_m else sp(15),
+                  color=(0.85, 0.25, 0.25, 1),
+                  size_hint_y=None, height=dp(32), halign='center')
+    title.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(title)
+
+    # Изображение
+    img = Image(source='files/pict/artifacts/king_death/0m_king_death.png',
+                size_hint=(1, 0.4), allow_stretch=True, keep_ratio=True)
+    content.add_widget(img)
+
+    # Характеристики
+    stats = Label(
+        text="[color=#FF6644]Атака: +2500%[/color]\n[color=#4488FF]Защита: +2500%[/color]\n"
+             "[color=#AAAAAA]Слот: Оружие[/color]\n[color=#FFD700]Стоимость: 10 млн крон[/color]\n\n"
+             "[color=#AAAAAA]Заменит текущее оружие героя[/color]",
+        markup=True, font_size=sp(13) if not _is_m else sp(11),
+        halign='center', valign='middle',
+        size_hint_y=None, height=dp(100),
+        color=(0.9, 0.9, 0.9, 1)
+    )
+    stats.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(stats)
+
+    from kivy.uix.widget import Widget
+    content.add_widget(Widget(size_hint_y=1))
+
+    # Кнопки
+    btn_row = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(10))
+
+    accept_btn = Button(text="Взять", bold=True,
+                        font_size=sp(14) if not _is_m else sp(12),
+                        background_normal='', background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+    with accept_btn.canvas.before:
+        Color(0.15, 0.45, 0.2, 0.95)
+        accept_btn._rr = RoundedRectangle(pos=accept_btn.pos, size=accept_btn.size, radius=[dp(8)])
+    accept_btn.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                    size=lambda i, v: setattr(i._rr, 'size', v))
+
+    decline_btn = Button(text="Отказаться", bold=True,
+                         font_size=sp(14) if not _is_m else sp(12),
+                         background_normal='', background_color=(0, 0, 0, 0), color=(0.9, 0.9, 0.9, 1))
+    with decline_btn.canvas.before:
+        Color(0.35, 0.15, 0.15, 0.95)
+        decline_btn._rr = RoundedRectangle(pos=decline_btn.pos, size=decline_btn.size, radius=[dp(8)])
+    decline_btn.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                     size=lambda i, v: setattr(i._rr, 'size', v))
+
+    popup = Popup(title="", content=content,
+                  size_hint=(0.75 if not _is_m else 0.9, 0.7 if not _is_m else 0.65),
+                  pos_hint={'center_x': 0.5, 'center_y': 0.5},
+                  auto_dismiss=False,
+                  background_color=(0.04, 0.05, 0.09, 0.98), separator_height=0)
+
+    def _accept(*a):
+        popup.dismiss()
+        try:
+            cur = conn.cursor()
+            # Ищем героя 3 класса игрока
+            cur.execute("SELECT faction_name FROM user_faction")
+            _pf = cur.fetchone()
+            if not _pf:
+                return
+            player_faction = _pf[0]
+            cur.execute("""
+                SELECT u.unit_name FROM units u
+                JOIN garrisons g ON u.unit_name = g.unit_name
+                WHERE u.faction = ? AND u.unit_class = 3 AND g.unit_count > 0
+                LIMIT 1
+            """, (player_faction,))
+            _hero = cur.fetchone()
+            if not _hero:
+                return
+            hero_name = _hero[0]
+            # Удаляем старое оружие (slot 0)
+            cur.execute("""
+                SELECT artifact_id FROM hero_equipment
+                WHERE hero_name = ? AND slot = 0
+            """, (hero_name,))
+            _old = cur.fetchone()
+            if _old:
+                cur.execute("DELETE FROM hero_equipment WHERE hero_name = ? AND slot = 0", (hero_name,))
+                cur.execute("DELETE FROM artifacts WHERE id = ?", (_old[0],))
+            # Экипируем меч
+            cur.execute("""
+                INSERT INTO hero_equipment (hero_name, slot, artifact_id)
+                VALUES (?, 0, ?)
+            """, (hero_name, sword_id))
+            conn.commit()
+            print(f"[UNDEAD SWORD] Меч экипирован на {hero_name}")
+        except Exception as e:
+            print(f"[UNDEAD SWORD] Ошибка экипировки: {e}")
+
+    accept_btn.bind(on_release=_accept)
+    decline_btn.bind(on_release=lambda *a: popup.dismiss())
+
+    btn_row.add_widget(accept_btn)
+    btn_row.add_widget(decline_btn)
+    content.add_widget(btn_row)
+
+    popup.open()
+
+
+def _ai_equip_sword(conn, faction, sword_id):
+    """AI автоматически экипирует Меч Короля Мёртвых."""
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT u.unit_name FROM units u
+        JOIN garrisons g ON u.unit_name = g.unit_name
+        WHERE u.faction = ? AND u.unit_class = 3 AND g.unit_count > 0
+        LIMIT 1
+    """, (faction,))
+    _hero = cur.fetchone()
+    if not _hero:
+        return
+    hero_name = _hero[0]
+    # Удаляем старое оружие
+    cur.execute("SELECT artifact_id FROM ai_hero_equipment WHERE hero_name = ? AND slot = 0", (hero_name,))
+    _old = cur.fetchone()
+    if _old:
+        cur.execute("DELETE FROM ai_hero_equipment WHERE hero_name = ? AND slot = 0", (hero_name,))
+        cur.execute("DELETE FROM artifacts_ai WHERE id = ?", (_old[0],))
+    # Создаём копию в artifacts_ai и экипируем
+    cur.execute("SELECT MAX(id) FROM artifacts_ai")
+    _max = cur.fetchone()[0] or 0
+    _ai_id = _max + 1
+    cur.execute("""
+        INSERT INTO artifacts_ai (id, attack, defense, season_name, image_url, name, cost, artifact_type)
+        VALUES (?, 2500, 2500, 'Все', 'files/pict/artifacts/king_death/0m_king_death.png',
+                'Меч Короля Мёртвых', 10000000, 0)
+    """, (_ai_id,))
+    cur.execute("INSERT INTO ai_hero_equipment (hero_name, slot, artifact_id) VALUES (?, 0, ?)",
+                (hero_name, _ai_id))
+    conn.commit()
+    print(f"[UNDEAD SWORD] AI {faction}: Меч экипирован на {hero_name}")
 
 
 def damage_to_infrastructure(all_damage, city_name, user_faction, conn):
