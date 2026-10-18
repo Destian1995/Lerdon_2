@@ -443,6 +443,23 @@ def process_undead_turn(conn, current_turn):
     # Царь Мёртвых бессмертен — если погиб, возрождается
     _respawn_king_if_dead(cursor)
 
+    # Суперкрепость: каждый город нежити гарантированно имеет 10K призраков-стражей
+    cursor.execute("SELECT name FROM cities WHERE faction = ? AND is_undead = 1", (UNDEAD_FACTION_NAME,))
+    _undead_cities = cursor.fetchall()
+    for (_uc_name,) in _undead_cities:
+        cursor.execute("SELECT unit_count FROM garrisons WHERE city_name = ? AND unit_name = ?",
+                       (_uc_name, UNDEAD_UNIT_NAME))
+        _ghost_row = cursor.fetchone()
+        _current_ghosts = _ghost_row[0] if _ghost_row else 0
+        if _current_ghosts < 10000:
+            _add = 10000 - _current_ghosts
+            cursor.execute("""
+                INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                VALUES (?, ?, ?, 'files/army/death/solder.png')
+                ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
+            """, (_uc_name, UNDEAD_UNIT_NAME, _add, _add))
+            print(f"[UNDEAD] Стража {_uc_name}: +{_add} призраков (до 10K)")
+
     # Захватываем нейтральные города нежити (is_undead=1) — мор распространяется
     cursor.execute("SELECT id, name FROM cities WHERE is_undead = 1 AND faction = 'Нейтрал'")
     neutral_undead = cursor.fetchall()

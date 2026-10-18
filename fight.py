@@ -638,6 +638,20 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             base_def = stats.get('Защита', 0)
             stats['Защита'] = base_def * (1 + city_wall_bonus)
 
+    # Суперкрепость нежити: +65% защита если город is_undead
+    if defending_fraction == 'Нежить':
+        try:
+            _uc = conn.cursor()
+            _uc.execute("SELECT COALESCE(is_undead, 0) FROM cities WHERE name = ?", (defending_city,))
+            _ur = _uc.fetchone()
+            if _ur and _ur[0]:
+                for u in def_army:
+                    stats = u.get('units_stats', {})
+                    stats['Защита'] = stats.get('Защита', 0) * 1.65
+                print(f"[UNDEAD] Суперкрепость {defending_city}: +65% защита гарнизону")
+        except Exception:
+            pass
+
     # Применяем бонус Кузниц: усиливаем атаку юнитов обороны
     if city_smithy_bonus > 0:
         for u in def_army:
@@ -2187,6 +2201,30 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
                 print(f"[EXP] +1 опыт {_exp_count} юнитам ({_side}) в {_win_city}")
         except Exception as e:
             print(f"[EXP] Ошибка обновления опыта: {e}")
+
+        # Меч Короля Мёртвых: при захвате столицы нежити (город с Низаром)
+        if winner == 'attacking' and defending_fraction == 'Нежить':
+            try:
+                # Проверяем: был ли Низар в защитниках?
+                _had_nizar = any(u.get('unit_name') == 'Низар' for u in defending_army)
+                if _had_nizar:
+                    # Проверяем is_undead
+                    cursor.execute("SELECT COALESCE(is_undead, 0) FROM cities WHERE name = ?", (defending_city,))
+                    _und = cursor.fetchone()
+                    if _und and _und[0]:
+                        # Создаём уникальный артефакт "Меч Короля Мёртвых"
+                        cursor.execute("SELECT MAX(id) FROM artifacts")
+                        _max_id = cursor.fetchone()[0] or 0
+                        _sword_id = _max_id + 1
+                        cursor.execute("""
+                            INSERT INTO artifacts (id, attack, defense, season_name, image_url, name, cost, artifact_type, is_created)
+                            VALUES (?, 2500, 2500, 'Все', 'files/pict/artifacts/klinok_zabveniya.png',
+                                    'Меч Короля Мёртвых', 0, 0, 1)
+                        """, (_sword_id,))
+                        print(f"[UNDEAD SWORD] Меч Короля Мёртвых создан! ID={_sword_id}, "
+                              f"фракция {_determine_army_owner(attacking_army, conn, attacking_fraction)}")
+            except Exception as e:
+                print(f"[UNDEAD SWORD] Ошибка: {e}")
 
         conn.commit()
 

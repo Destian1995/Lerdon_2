@@ -228,19 +228,72 @@ class FortressInfoPopup(Popup):
 
         if self._is_undead_city:
             right.add_widget(_section_header('Проклятые земли'))
-            # Уникальное изображение для каждого города нежити
             _undead_images = {
                 'Некрополь': 'files/city/death/nekropolis.png',
                 'Горгум': 'files/city/death/gorgum.png',
                 'Морготар': 'files/city/death/morgotar.png',
             }
+            _undead_lore = {
+                'Некрополь': 'Древнейший город мёртвых. Здесь покоятся останки тысяч воинов '
+                             'павших в Первой войне. Когда Низар пробудился, земля разверзлась '
+                             'и мёртвые восстали из своих могил. Теперь это сердце армии нежити — '
+                             'бесконечный источник призраков и ужаса.',
+                'Горгум': 'Заброшенная крепость на краю болот. Веками здесь слышали стоны из-под земли, '
+                          'но никто не решался копать. Когда началась инвазия, болота вскипели '
+                          'и из них поднялись легионы зомби. Горгум стал оплотом разложения — '
+                          'чума распространяется от его стен.',
+                'Морготар': 'Проклятая башня на перекрёстке древних дорог. Говорят, именно здесь '
+                            'Низар заключил пакт с бездной. Стены Морготара покрыты рунами смерти, '
+                            'а воздух пропитан воем банши. Каждую ночь из башни '
+                            'вылетают новые тени, пополняя армию мёртвых.',
+            }
             _img_src = _undead_images.get(self.city_name, 'files/city/death/city.png')
+            _lore_text = _undead_lore.get(self.city_name, 'Проклятое место, где обитает нежить.')
+            _city_name = self.city_name
+
             death_img = Image(
                 source=_img_src,
                 size_hint=(1, 1),
                 allow_stretch=True,
                 keep_ratio=True,
             )
+
+            def _show_undead_lore(instance, touch, _src=_img_src, _lore=_lore_text, _name=_city_name):
+                if not instance.collide_point(*touch.pos):
+                    return False
+                _is_m = platform in ('android', 'ios')
+                _content = BoxLayout(orientation='vertical', padding=[dp(10), dp(8)], spacing=dp(8))
+                with _content.canvas.before:
+                    from kivy.graphics import Color as _LC, RoundedRectangle as _LRR
+                    _LC(0.06, 0.07, 0.11, 1)
+                    _content._bg = _LRR(pos=_content.pos, size=_content.size, radius=[dp(12)])
+                _content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                              size=lambda i, v: setattr(i._bg, 'size', v))
+                _lore_img = Image(source=_src, size_hint=(1, 0.5), allow_stretch=True, keep_ratio=True)
+                _content.add_widget(_lore_img)
+                _lore_lbl = Label(
+                    text=_lore, font_size=sp(12) if not _is_m else sp(10),
+                    halign='center', valign='top', color=(0.8, 0.75, 0.65, 1),
+                    size_hint_y=0.4
+                )
+                _lore_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], s[1])))
+                _content.add_widget(_lore_lbl)
+                _close = Button(text="Закрыть", size_hint_y=None, height=dp(36),
+                                font_size=sp(13), bold=True,
+                                background_normal='', background_color=(0.15, 0.15, 0.22, 0.95),
+                                color=(0.9, 0.9, 0.9, 1))
+                _content.add_widget(_close)
+                _lp = Popup(title=_name, content=_content,
+                            size_hint=(0.8 if not _is_m else 0.95, 0.7),
+                            background_color=(0.04, 0.05, 0.09, 0.98),
+                            separator_color=(0.3, 0.15, 0.15, 0.6),
+                            title_color=(0.85, 0.25, 0.25, 1),
+                            title_size=sp(17), title_align='center')
+                _close.bind(on_release=lambda *a: _lp.dismiss())
+                _lp.open()
+                return True
+
+            death_img.bind(on_touch_down=_show_undead_lore)
             right.add_widget(death_img)
         else:
             right.add_widget(_section_header('Здания'))
