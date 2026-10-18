@@ -6746,6 +6746,106 @@ class EnhancedDiplomacyChat():
                 print(f"[IMPROVE REL] Ошибка: {e}")
                 _show_main_buttons()
 
+        def _show_rebel_transfer_city(inst):
+            """Мятежники передают свой город под контроль фракции игрока."""
+            quick_row.clear_widgets()
+            try:
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT name FROM cities WHERE faction = 'Мятежники'")
+                rebel_cities = [r[0] for r in cursor.fetchall()]
+                if not rebel_cities:
+                    self.add_chat_message_system("У Мятежников нет городов для передачи.")
+                    _show_main_buttons()
+                    return
+
+                from kivy.uix.popup import Popup as _TPop
+                from kivy.uix.scrollview import ScrollView as _TSv
+
+                _pop_content = BoxLayout(orientation='vertical', spacing=dp(6),
+                                         padding=[dp(10), dp(8)])
+                with _pop_content.canvas.before:
+                    from kivy.graphics import Color as _TC, RoundedRectangle as _TRR
+                    _TC(0.06, 0.07, 0.11, 1)
+                    _pop_content._bg = _TRR(pos=_pop_content.pos, size=_pop_content.size, radius=[dp(12)])
+                _pop_content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                                  size=lambda i, v: setattr(i._bg, 'size', v))
+
+                _title = Label(text="[b]Передать город[/b]", markup=True,
+                               font_size=sp(16), color=(0.3, 0.85, 0.3, 1),
+                               size_hint_y=None, height=dp(32), halign='center')
+                _title.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+                _pop_content.add_widget(_title)
+
+                _sub = Label(text=f"[color=#AAAAAA]Город перейдёт под контроль {self.faction}[/color]",
+                             markup=True, font_size=sp(11), size_hint_y=None, height=dp(20),
+                             halign='center', color=(0.7, 0.7, 0.7, 1))
+                _sub.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+                _pop_content.add_widget(_sub)
+
+                _scroll = _TSv(size_hint=(1, 1))
+                _list = BoxLayout(orientation='vertical', spacing=dp(6), size_hint_y=None)
+                _list.bind(minimum_height=_list.setter('height'))
+
+                _is_m = kivy_platform in ('android', 'ios')
+                _t_popup = _TPop(title='', content=_pop_content,
+                                 size_hint=(0.88 if _is_m else 0.45, 0.65 if _is_m else 0.55),
+                                 auto_dismiss=False, separator_height=0,
+                                 background_color=(0.04, 0.05, 0.09, 0.98))
+
+                _faction_hex = {
+                    'Север': '#4085EB', 'Эльфы': '#38C252', 'Вампиры': '#C71A28',
+                    'Адепты': '#5A5A61', 'Элины': '#F28014', 'Нежить': '#33BF99',
+                    'Мятежники': '#888888', 'Нейтрал': '#AAAAAA'
+                }
+
+                for city_name in rebel_cities:
+                    cb = Button(text=city_name, font_size=sp(13), bold=True,
+                                size_hint_y=None, height=dp(42),
+                                background_normal='', background_color=(0.2, 0.45, 0.2, 1))
+
+                    def _do_transfer(i, _city=city_name):
+                        _t_popup.dismiss()
+                        try:
+                            cur = self.db_connection.cursor()
+                            _new_color = _faction_hex.get(self.faction, '#AAAAAA')
+                            cur.execute("UPDATE cities SET faction = ?, color_faction = ? WHERE name = ?",
+                                        (self.faction, _new_color, _city))
+                            self.db_connection.commit()
+                            from datetime import datetime
+                            _tm = datetime.now().strftime("%d.%m %H:%M")
+                            self.add_chat_message(f"Передай мне {_city}.", self.faction, _tm, is_player=True)
+                            resp = random.choice([
+                                f"Город {_city} теперь ваш, командир! Да здравствует {self.faction}!",
+                                f"{_city} передан под ваш контроль. Используйте его мудро!",
+                                f"Принято! {_city} — теперь территория {self.faction}.",
+                            ])
+                            self.add_chat_message(resp, 'Мятежники', _tm, is_player=False)
+                            try:
+                                from game_process import refresh_map
+                                refresh_map()
+                            except Exception:
+                                pass
+                        except Exception as e:
+                            print(f"[REBEL TRANSFER] Ошибка: {e}")
+                        _show_main_buttons()
+
+                    cb.bind(on_press=_do_transfer)
+                    _list.add_widget(cb)
+
+                _scroll.add_widget(_list)
+                _pop_content.add_widget(_scroll)
+
+                _cancel = Button(text="Отмена", font_size=sp(13), bold=True,
+                                 size_hint_y=None, height=dp(38),
+                                 background_normal='', background_color=(0.35, 0.15, 0.15, 1))
+                _cancel.bind(on_press=lambda i: (_t_popup.dismiss(), _show_main_buttons()))
+                _pop_content.add_widget(_cancel)
+
+                _t_popup.open()
+            except Exception as e:
+                print(f"[REBEL TRANSFER] Ошибка: {e}")
+                _show_main_buttons()
+
         def _show_main_buttons():
             quick_row.clear_widgets()
             # Для Мятежников — особые кнопки
@@ -6754,6 +6854,7 @@ class EnhancedDiplomacyChat():
                     ("Артефакты", _show_rebel_artifacts),
                     ("Войска", _show_rebel_troops),
                     ("Атаковать", _show_rebel_attack),
+                    ("Передать город", _show_rebel_transfer_city),
                 ]
                 for label, handler in _rebel_main:
                     b = _styled_btn(label)
