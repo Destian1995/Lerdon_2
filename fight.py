@@ -2370,7 +2370,21 @@ def _show_sword_offer(conn, sword_id):
                 INSERT INTO hero_equipment (faction_name, hero_name, slot_type, artifact_id, image_url)
                 VALUES (?, ?, '0', ?, ?)
             """, (player_faction, hero_name, sword_id, _sword_img))
+            # Записываем бонусы в artifact_effects_log чтобы статы применились
+            for _stat, _val in [('attack', 2500), ('defense', 2500)]:
+                cur.execute("""
+                    INSERT OR REPLACE INTO artifact_effects_log
+                    (hero_name, artifact_id, stat_name, value_change)
+                    VALUES (?, ?, ?, ?)
+                """, (hero_name, sword_id, _stat, _val))
             conn.commit()
+            # Пересчитываем статы героя
+            try:
+                from seasons import SeasonManager
+                _sm = SeasonManager(conn)
+                _sm._recalculate_all_units(conn, _sm.last_idx)
+            except Exception as _se:
+                print(f"[UNDEAD SWORD] Пересчёт: {_se}")
             print(f"[UNDEAD SWORD] Меч экипирован на {hero_name} (фракция {player_faction})")
         except Exception as e:
             print(f"[UNDEAD SWORD] Ошибка экипировки: {e}")
@@ -2417,6 +2431,13 @@ def _ai_equip_sword(conn, faction, sword_id):
     """, (_ai_id,))
     cur.execute("INSERT INTO ai_hero_equipment (hero_name, slot, artifact_id) VALUES (?, 0, ?)",
                 (hero_name, _ai_id))
+    # Записываем бонусы
+    for _stat, _val in [('attack', 2500), ('defense', 2500)]:
+        cur.execute("""
+            INSERT OR REPLACE INTO artifact_effects_log
+            (hero_name, artifact_id, stat_name, value_change)
+            VALUES (?, ?, ?, ?)
+        """, (hero_name, _ai_id + 100000, _stat, _val))
     conn.commit()
     print(f"[UNDEAD SWORD] AI {faction}: Меч экипирован на {hero_name}")
 
