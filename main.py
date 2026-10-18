@@ -1117,7 +1117,8 @@ class MapWidget(Widget):
             'Эльфы': 'files/buildings/celestia.png',
             'Адепты': 'files/buildings/eteria.png',
             'Элины': 'files/buildings/halidon.png',
-            'Нежить': 'files/buildings/castle_death.png'
+            'Нежить': 'files/buildings/castle_death.png',
+            'Мятежники': 'files/buildings/keig.png'
         }
 
         try:

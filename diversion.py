@@ -387,113 +387,211 @@ def show_operations_window(conn, player_faction, cash_player, target_faction, ta
 # Просто убедитесь, что в них используются те же уменьшенные значения для высот и шрифтов, где это возможно и логично.
 
 def show_rebellion_cost_selection(conn, player_faction, cash_player, op_name, op_info, target_faction, targets_info):
-    is_android = hasattr(Window, 'keyboard')
-    padding_main = dp(15)
-    spacing_main = dp(5) # Уменьшен
-    font_title = sp(16) # Уменьшен
-    font_info = sp(11) # Уменьшен
-    font_btn = sp(11) # Уменьшен
-    btn_height = dp(25) # Уменьшен
+    """Окно мятежа — выбор типа цели, суммы, количества мятежников."""
 
-    content = BoxLayout(orientation='vertical', padding=padding_main, spacing=spacing_main)
+    # Определяем доступные города
+    cities_empty = targets_info[target_faction].get('cities_without_garrison', [])
+    # Города с гарнизоном но без героев 2-4 класса
+    cities_with_garrison_no_heroes = []
+    try:
+        cursor = conn.cursor()
+        for city in targets_info[target_faction].get('cities_with_garrison', []):
+            cursor.execute("""
+                SELECT COUNT(*) FROM garrisons g
+                JOIN units u ON g.unit_name = u.unit_name
+                WHERE g.city_name = ? AND u.unit_class >= 2 AND g.unit_count > 0
+            """, (city,))
+            hero_count = cursor.fetchone()[0]
+            if hero_count == 0:
+                cities_with_garrison_no_heroes.append(city)
+    except Exception:
+        pass
 
-    title_label = Label(
-        text="Стоимость мятежа",
-        font_size=font_title,
-        bold=True,
-        color=TEXT_COLOR,
-        size_hint_y=None,
-        height=dp(30) # Уменьшена
+    has_empty = len(cities_empty) > 0
+    has_garrison = len(cities_with_garrison_no_heroes) > 0
+
+    if not has_empty and not has_garrison:
+        _ne = BoxLayout(orientation='vertical', padding=[dp(14), dp(10)])
+        with _ne.canvas.before:
+            Color(0.06, 0.07, 0.11, 1)
+            _ne._bg = RoundedRectangle(pos=_ne.pos, size=_ne.size, radius=[dp(12)])
+        _ne.bind(pos=lambda i, v: setattr(i._bg, 'pos', v), size=lambda i, v: setattr(i._bg, 'size', v))
+        _ne.add_widget(Label(text="[b]Восстание невозможно[/b]\n\n[color=#AAAAAA]Все города защищены героями[/color]",
+                             markup=True, font_size=sp(14), halign='center', valign='middle',
+                             color=(0.9, 0.3, 0.3, 1)))
+        _np = Popup(title="", content=_ne,
+                    size_hint=(0.65 if not _is_mobile else 0.85, 0.3),
+                    background_color=(0.04, 0.05, 0.09, 0.98), separator_height=0)
+        _np.open()
+        from kivy.clock import Clock as _C
+        _C.schedule_once(lambda dt: _np.dismiss() if _np._is_open else None, 2.0)
+        return
+
+    # Состояние
+    _state = {'target_type': 'empty', 'cost_mult': 1.0}  # empty или garrison
+
+    content = BoxLayout(orientation='vertical', padding=[dp(14), dp(10)], spacing=dp(8))
+    with content.canvas.before:
+        Color(0.06, 0.07, 0.11, 1)
+        content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(12)])
+    content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
+                 size=lambda i, v: setattr(i._bg, 'size', v))
+
+    # Заголовок
+    title_lbl = Label(
+        text="[b]Мятеж[/b]", markup=True,
+        font_size=sp(18) if not _is_mobile else sp(16),
+        color=(0.85, 0.25, 0.25, 1),
+        size_hint_y=None, height=dp(32), halign='center'
     )
+    title_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(title_lbl)
 
-    desc_label = Label(
-        text="Выберите сумму (от 700 тыс до 6.5 млн):",
-        font_size=font_info,
-        color=TEXT_COLOR,
-        halign='center',
-        valign='middle',
-        text_size=(dp(280), None)
+    # Выбор типа цели
+    type_row = BoxLayout(size_hint_y=None, height=dp(36), spacing=dp(8))
+
+    btn_empty = Button(
+        text=f"Без гарнизона ({len(cities_empty)})", bold=True,
+        font_size=sp(11) if not _is_mobile else sp(10),
+        background_normal='', background_color=(0, 0, 0, 0), color=(1, 1, 1, 1),
+        disabled=not has_empty
     )
-    desc_label.bind(size=desc_label.setter('text_size'))
+    with btn_empty.canvas.before:
+        Color(0.15, 0.45, 0.2, 0.95)
+        btn_empty._rr = RoundedRectangle(pos=btn_empty.pos, size=btn_empty.size, radius=[dp(6)])
+    btn_empty.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                   size=lambda i, v: setattr(i._rr, 'size', v))
 
+    btn_garrison = Button(
+        text=f"С гарнизоном ({len(cities_with_garrison_no_heroes)})", bold=True,
+        font_size=sp(11) if not _is_mobile else sp(10),
+        background_normal='', background_color=(0, 0, 0, 0), color=(1, 1, 1, 1),
+        disabled=not has_garrison
+    )
+    with btn_garrison.canvas.before:
+        Color(0.45, 0.2, 0.15, 0.95)
+        btn_garrison._rr = RoundedRectangle(pos=btn_garrison.pos, size=btn_garrison.size, radius=[dp(6)])
+    btn_garrison.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                      size=lambda i, v: setattr(i._rr, 'size', v))
+
+    def _select_empty(*a):
+        _state['target_type'] = 'empty'
+        _state['cost_mult'] = 1.0
+        btn_empty._rr.size = btn_empty.size  # refresh
+        cost_hint.text = "[color=#AAAAAA]Цель: город без гарнизона[/color]"
+        _update_display()
+
+    def _select_garrison(*a):
+        _state['target_type'] = 'garrison'
+        _state['cost_mult'] = 1.25
+        cost_hint.text = "[color=#FF8844]Цель: город с гарнизоном (+25% стоимость)[/color]"
+        _update_display()
+
+    btn_empty.bind(on_release=_select_empty)
+    btn_garrison.bind(on_release=_select_garrison)
+    type_row.add_widget(btn_empty)
+    type_row.add_widget(btn_garrison)
+    content.add_widget(type_row)
+
+    # Подсказка
+    cost_hint = Label(
+        text="[color=#AAAAAA]Цель: город без гарнизона[/color]", markup=True,
+        font_size=sp(10) if not _is_mobile else sp(9),
+        size_hint_y=None, height=dp(18), halign='center',
+        color=(0.7, 0.7, 0.7, 1)
+    )
+    cost_hint.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(cost_hint)
+
+    # Слайдер
     cash_player.load_resources()
     current_money = cash_player.resources.get("Кроны", 0)
     max_affordable = min(6_500_000, current_money)
 
-    slider = Slider(
-        min=700_000,
-        max=max_affordable,
-        value=700_000,
-        step=10000
-    )
-    slider_label = Label(
-        text=f"Выбрано: {format_number(slider.value)}",
-        font_size=font_info,
-        color=TEXT_COLOR,
-        halign='center',
-        valign='middle',
-        text_size=(dp(280), None)
-    )
-    slider.bind(value=lambda instance, value: slider_label.setter('text')(slider_label, f"Выбрано: {format_number(value)}"))
+    slider = Slider(min=700_000, max=max(700_000, max_affordable), value=700_000, step=10000,
+                    size_hint_y=None, height=dp(35))
+    content.add_widget(slider)
 
     def calculate_rebels(cost):
         base_cost = 700_000
         extra_money = max(0, cost - base_cost)
         extra_percentage = (extra_money // 100_000) * 0.37
-        total_percentage = 1.0 + extra_percentage
-        return int(2750 * total_percentage)
+        return int(2750 * (1.0 + extra_percentage))
 
-    rebels_label = Label(
-        text=f"Количество мятежников: {calculate_rebels(slider.value)}",
-        font_size=font_info,
-        color=TEXT_COLOR,
-        halign='center',
-        valign='middle',
-        text_size=(dp(280), None)
+    info_lbl = Label(
+        text="", markup=True,
+        font_size=sp(12) if not _is_mobile else sp(10),
+        size_hint_y=None, height=dp(40), halign='center',
+        color=(0.9, 0.9, 0.9, 1)
     )
-    slider.bind(value=lambda instance, value: rebels_label.setter('text')(rebels_label, f"Количество мятежников: {calculate_rebels(value)}"))
+    info_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    content.add_widget(info_lbl)
 
-    btn_layout = BoxLayout(size_hint_y=None, height=btn_height, spacing=dp(10))
+    def _update_display(*a):
+        base = int(slider.value)
+        final_cost = int(base * _state['cost_mult'])
+        rebels = calculate_rebels(base)
+        info_lbl.text = (
+            f"[color=#FFD700]Стоимость: {format_number(final_cost)} крон[/color]\n"
+            f"[color=#AAAAAA]Мятежников: [b]{format_number(rebels)}[/b][/color]"
+        )
 
-    confirm_btn = ThemedButton(
-        text="Подтвердить",
-        font_size=font_btn,
-        background_color=SECONDARY_COLOR
+    slider.bind(value=lambda *a: _update_display())
+    _update_display()
+
+    content.add_widget(Widget(size_hint_y=1))
+
+    # Кнопки
+    btn_layout = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(10))
+
+    confirm_btn = Button(
+        text="Поднять мятеж", bold=True,
+        font_size=sp(13) if not _is_mobile else sp(11),
+        background_normal='', background_color=(0, 0, 0, 0), color=(1, 1, 1, 1)
     )
-    cancel_btn = ThemedButton(
-        text="Отмена",
-        font_size=font_btn,
-        background_color=WARNING_COLOR
+    with confirm_btn.canvas.before:
+        Color(0.55, 0.15, 0.15, 0.95)
+        confirm_btn._rr = RoundedRectangle(pos=confirm_btn.pos, size=confirm_btn.size, radius=[dp(8)])
+    confirm_btn.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                     size=lambda i, v: setattr(i._rr, 'size', v))
+
+    cancel_btn = Button(
+        text="Отмена", bold=True,
+        font_size=sp(13) if not _is_mobile else sp(11),
+        background_normal='', background_color=(0, 0, 0, 0), color=(0.9, 0.9, 0.9, 1)
+    )
+    with cancel_btn.canvas.before:
+        Color(0.15, 0.15, 0.22, 0.95)
+        cancel_btn._rr = RoundedRectangle(pos=cancel_btn.pos, size=cancel_btn.size, radius=[dp(8)])
+    cancel_btn.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
+                    size=lambda i, v: setattr(i._rr, 'size', v))
+
+    popup = Popup(
+        title="", content=content,
+        size_hint=(0.75 if not _is_mobile else 0.95, 0.6 if not _is_mobile else 0.55),
+        pos_hint={'center_x': 0.5, 'center_y': 0.5},
+        auto_dismiss=False,
+        background_color=(0.04, 0.05, 0.09, 0.98), separator_height=0
     )
 
     def on_confirm(instance):
-        selected_cost = int(slider.value)
-        rebels_count = calculate_rebels(selected_cost)
+        selected_cost = int(slider.value * _state['cost_mult'])
+        rebels_count = calculate_rebels(int(slider.value))
         popup.dismiss()
-        show_confirmation_popup(conn, player_faction, cash_player, op_name, op_info, target_faction, targets_info, custom_cost=selected_cost, rebels_count=rebels_count)
-
-    def on_cancel(instance):
-        popup.dismiss()
+        # Передаём тип цели через op_info
+        _op_info = dict(op_info)
+        _op_info['_target_type'] = _state['target_type']
+        _op_info['_garrison_cities'] = cities_with_garrison_no_heroes
+        show_confirmation_popup(conn, player_faction, cash_player, op_name, _op_info, target_faction,
+                                targets_info, custom_cost=selected_cost, rebels_count=rebels_count)
 
     confirm_btn.bind(on_release=on_confirm)
-    cancel_btn.bind(on_release=on_cancel)
+    cancel_btn.bind(on_release=lambda *a: popup.dismiss())
 
     btn_layout.add_widget(confirm_btn)
     btn_layout.add_widget(cancel_btn)
-
-    content.add_widget(title_label)
-    content.add_widget(desc_label)
-    content.add_widget(slider)
-    content.add_widget(slider_label)
-    content.add_widget(rebels_label)
     content.add_widget(btn_layout)
 
-    popup = ThemedPopup(
-        title="Мятеж",
-        content=content,
-        size_hint=(0.95, 0.8) if _is_mobile else (0.85, 0.7),
-        auto_dismiss=False
-    )
     popup.open()
 
 def show_confirmation_popup(conn, player_faction, cash_player, op_name, op_info, target_faction, targets_info, custom_cost=None, rebels_count=None):
@@ -698,19 +796,17 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
             message = f"Саботаж в городе {target_city} фракции {target_faction} провален."
 
     elif op_name == 'Мятеж':
-        cities_without_garrison = targets_info[target_faction]['cities_without_garrison']
-        if not cities_without_garrison:
-            show_result_popup("Ошибка", "Нет подходящих целей для мятежа.", False)
-            return
-        target_city = random.choice(cities_without_garrison)
+        _target_type = op_info.get('_target_type', 'empty')
+        _garrison_cities = op_info.get('_garrison_cities', [])
 
-        # Получаем фракцию, которой принадлежал город до мятежа
-        cursor.execute("SELECT faction FROM cities WHERE name = ?", (target_city,))
-        original_faction = cursor.fetchone()
-        if not original_faction:
-            show_result_popup("Ошибка", f"Не удалось получить фракцию города {target_city}.", False)
-            return
-        original_faction = original_faction[0]
+        if _target_type == 'garrison' and _garrison_cities:
+            target_city = random.choice(_garrison_cities)
+        else:
+            cities_without_garrison = targets_info[target_faction]['cities_without_garrison']
+            if not cities_without_garrison:
+                show_result_popup("Ошибка", "Нет подходящих целей для мятежа.", False)
+                return
+            target_city = random.choice(cities_without_garrison)
 
         rebel_hero_name = "Кейдж"
         rebel_peasant_name = "Мятежники"
@@ -719,28 +815,62 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
         existing_units = {row[0]: row[1] for row in cursor.fetchall()}
 
         if rebel_hero_name not in existing_units or rebel_peasant_name not in existing_units:
-            show_result_popup("Ошибка", f"Необходимые юниты для мятежа ('{rebel_hero_name}', '{rebels_count}') отсутствуют в таблице 'units'.", False)
+            show_result_popup("Ошибка", "Юниты для мятежа отсутствуют в БД.", False)
             return
 
-        rebel_units_to_add = [
-            {"name": rebel_hero_name, "count": 1},
-            {"name": rebel_peasant_name, "count": rebels_count}
-        ]
-
-        cursor.execute("UPDATE cities SET faction = 'Мятежники' WHERE name = ?", (target_city,))
-        cursor.execute("DELETE FROM garrisons WHERE city_name = ?", (target_city,))
-        for unit in rebel_units_to_add:
-            unit_name = unit["name"]
-            unit_image_path = existing_units[unit_name]
+        if _target_type == 'garrison':
+            # Мятежники вступают в бой с гарнизоном
+            rebel_army = [
+                {"unit_name": rebel_hero_name, "unit_count": 1,
+                 "unit_image": existing_units[rebel_hero_name],
+                 "units_stats": {}},
+                {"unit_name": rebel_peasant_name, "unit_count": rebels_count,
+                 "unit_image": existing_units[rebel_peasant_name],
+                 "units_stats": {}}
+            ]
+            # Собираем гарнизон защитника
             cursor.execute("""
-                INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
-                VALUES (?, ?, ?, ?)
-            """, (target_city, unit_name, unit["count"], unit_image_path))
+                SELECT g.unit_name, g.unit_count, g.unit_image FROM garrisons g
+                WHERE g.city_name = ?
+            """, (target_city,))
+            def_garrison = cursor.fetchall()
+            defending_army = []
+            for row in def_garrison:
+                defending_army.append({
+                    "unit_name": row[0], "unit_count": row[1],
+                    "unit_image": row[2], "units_stats": {}
+                })
 
-        success = True
-        message = f"Мятеж в городе {target_city} успешен!"
+            from fight import fight
+            result = fight(
+                attacking_city=target_city,
+                defending_city=target_city,
+                defending_army=defending_army,
+                attacking_army=rebel_army,
+                attacking_fraction='Мятежники',
+                defending_fraction=target_faction,
+                conn=conn
+            )
+            if result['winner'] == 'attacker':
+                success = True
+                cursor.execute("UPDATE cities SET faction = 'Мятежники', color_faction = '#888888' WHERE name = ?", (target_city,))
+                message = f"Мятеж в {target_city} успешен! Гарнизон разбит."
+            else:
+                message = f"Мятеж в {target_city} подавлен гарнизоном."
+        else:
+            # Город без гарнизона — захват напрямую
+            cursor.execute("UPDATE cities SET faction = 'Мятежники', color_faction = '#888888' WHERE name = ?", (target_city,))
+            cursor.execute("DELETE FROM garrisons WHERE city_name = ?", (target_city,))
+            for unit_info in [{"name": rebel_hero_name, "count": 1},
+                              {"name": rebel_peasant_name, "count": rebels_count}]:
+                cursor.execute("""
+                    INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                    VALUES (?, ?, ?, ?)
+                """, (target_city, unit_info["name"], unit_info["count"], existing_units[unit_info["name"]]))
+            success = True
+            message = f"Мятеж в городе {target_city} успешен!"
 
-        # Перерисовка карты — город сменил владельца
+        # Перерисовка карты
         try:
             from game_process import refresh_map
             refresh_map()
