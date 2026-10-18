@@ -6854,7 +6854,7 @@ class EnhancedDiplomacyChat():
                     ("Артефакты", _show_rebel_artifacts),
                     ("Войска", _show_rebel_troops),
                     ("Атаковать", _show_rebel_attack),
-                    ("Передать город", _show_rebel_transfer_city),
+                    ("Попросить трофеи", _show_rebel_transfer_city),
                 ]
                 for label, handler in _rebel_main:
                     b = _styled_btn(label)
