@@ -1993,37 +1993,44 @@ class AIController:
                 if ally_system.strip() != victim_system.strip():
                     continue  # Другая идеология — не вступает
 
-                # Проверяем, не воюет ли уже с агрессором
+                # Проверяем отношения с агрессором (оба направления)
                 self.cursor.execute("""
                     SELECT relationship FROM diplomacies
-                    WHERE faction1 = ? AND faction2 = ?
-                """, (ally_faction, aggressor))
+                    WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
+                """, (ally_faction, aggressor, aggressor, ally_faction))
                 dip_row = self.cursor.fetchone()
-                if dip_row and dip_row[0] == 'война':
+                _existing_rel = dip_row[0] if dip_row else None
+                if _existing_rel == 'война':
                     continue  # Уже воюют
+                if _existing_rel == 'союз':
+                    continue  # Союзник агрессора — не вступает в коалицию против него
 
-                # Союз с жертвой
+                # Союз с жертвой (только если ещё нет союза)
                 self.cursor.execute("""
                     INSERT INTO diplomacies (faction1, faction2, relationship)
                     VALUES (?, ?, 'союз')
-                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship = 'союз'
+                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship =
+                        CASE WHEN relationship = 'союз' THEN 'союз' ELSE 'союз' END
                 """, (ally_faction, victim))
                 self.cursor.execute("""
                     INSERT INTO diplomacies (faction1, faction2, relationship)
                     VALUES (?, ?, 'союз')
-                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship = 'союз'
+                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship =
+                        CASE WHEN relationship = 'союз' THEN 'союз' ELSE 'союз' END
                 """, (victim, ally_faction))
 
-                # Война с агрессором
+                # Война с агрессором (только если нет союза с ним)
                 self.cursor.execute("""
                     INSERT INTO diplomacies (faction1, faction2, relationship)
                     VALUES (?, ?, 'война')
-                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship = 'война'
+                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship =
+                        CASE WHEN relationship = 'союз' THEN 'союз' ELSE 'война' END
                 """, (ally_faction, aggressor))
                 self.cursor.execute("""
                     INSERT INTO diplomacies (faction1, faction2, relationship)
                     VALUES (?, ?, 'война')
-                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship = 'война'
+                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship =
+                        CASE WHEN relationship = 'союз' THEN 'союз' ELSE 'война' END
                 """, (aggressor, ally_faction))
 
                 self.db_connection.commit()
@@ -4617,15 +4624,16 @@ class AIController:
         return ctx
 
     def _is_allied_with_player(self):
-        """Проверяет, заключён ли уже союз с игроком."""
+        """Проверяет, заключён ли уже союз с игроком (оба направления)."""
         try:
             player = self._get_player_faction_name()
             if not player:
                 return False
             cursor = self.db_connection.cursor()
             cursor.execute(
-                "SELECT relationship FROM diplomacies WHERE faction1 = ? AND faction2 = ?",
-                (self.faction, player)
+                "SELECT relationship FROM diplomacies WHERE "
+                "(faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)",
+                (self.faction, player, player, self.faction)
             )
             row = cursor.fetchone()
             return row and row[0] == 'союз'

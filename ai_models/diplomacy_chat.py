@@ -4506,9 +4506,20 @@ class EnhancedDiplomacyChat():
             return "Назови сумму которую готов заплатить или ответь 'да'/'нет'."
 
     def _declare_war_on_faction(self, requesting_faction, target_faction):
-        """Вспомогательный метод для объявления войны фракции и немедленной атаки"""
+        """Вспомогательный метод для объявления войны фракции и немедленной атаки.
+        Не ломает существующий союз — если есть союз, война не объявляется."""
         try:
             cursor = self.db_connection.cursor()
+
+            # Проверяем: есть ли союз между requesting и target
+            cursor.execute("""
+                SELECT relationship FROM diplomacies
+                WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
+            """, (requesting_faction, target_faction, target_faction, requesting_faction))
+            _rel = cursor.fetchone()
+            if _rel and _rel[0] == 'союз':
+                print(f"[DIPLOMACY] Не объявляем войну {target_faction} — есть союз с {requesting_faction}")
+                return
 
             # Объявляем войну
             cursor.execute("""
