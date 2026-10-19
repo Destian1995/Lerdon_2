@@ -101,10 +101,42 @@
       "Bash(cp files/army/poly/clare.jpg C:/Users/lerdo/Desktop/VirtMach/APK/project/files/army/poly/clare.jpg)",
       "Bash(cp files/army/vampires/anabel.jpg C:/Users/lerdo/Desktop/VirtMach/APK/project/files/army/vampires/anabel.jpg)",
       "Bash(cp files/menu/author.jpg C:/Users/lerdo/Desktop/VirtMach/APK/project/files/menu/author.jpg)",
-      "Bash(ls -lh C:/Users/lerdo/Desktop/VirtMach/APK/project/bin/*.apk)"
+      "Bash(ls -lh C:/Users/lerdo/Desktop/VirtMach/APK/project/bin/*.apk)",
+      "Read(//d//**)",
+      "Bash(reg query:*)",
+      "Read(//c/ProgramData/Microsoft/Windows/Start Menu/Programs/Startup//**)",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\ui.py\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\ui.py\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\game_process.py\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\game_process.py\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\politic.py\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\politic.py\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\ii.py\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\ii.py\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\create_artifacts.py\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\create_artifacts.py\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\db_lerdon_connect.py\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\db_lerdon_connect.py\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\economic.py\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\economic.py\")",
+      "Bash(taskkill //F //IM Discord.exe)",
+      "Bash(taskkill //F //IM Update.exe)",
+      "Bash(reg delete:*)",
+      "Bash(echo \"registry: $?\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\nobles_generator.py\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\nobles_generator.py\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\main.py\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\main.py\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\buildozer.spec\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\buildozer.spec\")",
+      "Bash(sqlite3 \"c:/Users/lerdo/IdeaProjects/Lerdon_2/game_data.db\" \".schema garrisons\")",
+      "Bash(sqlite3 \"c:/Users/lerdo/IdeaProjects/Lerdon_2/game_data.db\" \".schema cities\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\fight.py\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\fight.py\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\diversion.py\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\diversion.py\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\nobles.py\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\nobles.py\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\ai_models\\\\diplomacy_chat.py\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\ai_models\\\\diplomacy_chat.py\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\undead_invasion.py\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\undead_invasion.py\")",
+      "Bash(ls \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\files\\\\pict\\\\artifacts\\\\king_death\"*)",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\heroes.py\" \"C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK\\\\project\\\\heroes.py\")",
+      "Bash(cp -r ai_models/*.py \"C:/Users/lerdo/Desktop/VirtMach/APK/project/ai_models/\")",
+      "Bash(cp assets/game_data.db \"C:/Users/lerdo/Desktop/VirtMach/APK/project/assets/game_data.db\")",
+      "Bash(cp game_data.db \"C:/Users/lerdo/Desktop/VirtMach/APK/project/game_data.db\")",
+      "Bash(cp buildozer.spec \"C:/Users/lerdo/Desktop/VirtMach/APK/project/buildozer.spec\")"
     ],
     "additionalDirectories": [
-      "\\tmp"
+      "\\tmp",
+      "C:\\Users\\lerdo\\AppData\\Roaming\\discord",
+      "C:\\Users\\lerdo\\Desktop"
     ]
   }
 }
