@@ -263,7 +263,7 @@ class SeasonManager:
 
             # Проверяем сезон
             season_ok = True
-            if a_season_name is not None and a_season_name.strip() != "":
+            if a_season_name is not None and a_season_name.strip() not in ("", "Все"):
                 allowed_seasons = [s.strip() for s in a_season_name.split(',')]
                 if current_season not in allowed_seasons:
                     season_ok = False
@@ -295,7 +295,7 @@ class SeasonManager:
 
         for hero_name, artifact_id, a_season_name in active_artifact_details:
             season_ok = True
-            if a_season_name is not None and a_season_name.strip() != "":
+            if a_season_name is not None and a_season_name.strip() not in ("", "Все"):
                 allowed_seasons = [s.strip() for s in a_season_name.split(',')]
                 if current_season not in allowed_seasons:
                     season_ok = False

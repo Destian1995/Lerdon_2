@@ -4895,7 +4895,7 @@ class AIController:
                     take = int(unit_count * 0.7)
                     # Столица: оставляем минимум 10K призраков
                     if _is_capital and unit_name == 'Призрак':
-                        max_take = max(0, unit_count - 10000)
+                        max_take = max(0, unit_count - 100000)
                         take = min(take, max_take)
                 else:
                     take = unit_count
@@ -4970,7 +4970,7 @@ class AIController:
                 for u_name, u_count, u_image in all_units:
                     _move_count = u_count
                     if _is_capital and u_name == 'Призрак':
-                        _move_count = max(0, u_count - 10000)
+                        _move_count = max(0, u_count - 100000)
                         _keep = u_count - _move_count
                         if _keep > 0:
                             self.cursor.execute("""
@@ -5030,7 +5030,7 @@ class AIController:
                 for u_name, u_count, u_image in remaining_garrison:
                     _move_count = u_count
                     if _is_capital and u_name == 'Призрак':
-                        _move_count = max(0, u_count - 10000)
+                        _move_count = max(0, u_count - 100000)
                         _keep = u_count - _move_count
                         if _keep > 0:
                             self.cursor.execute("""

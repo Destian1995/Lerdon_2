@@ -467,8 +467,8 @@ def process_undead_turn(conn, current_turn):
                            (_capital, UNDEAD_UNIT_NAME))
             _ghost_row = cursor.fetchone()
             _current_ghosts = _ghost_row[0] if _ghost_row else 0
-            if _current_ghosts < 10000:
-                _add = 10000 - _current_ghosts
+            if _current_ghosts < 100000:
+                _add = 100000 - _current_ghosts
                 cursor.execute("""
                     INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
                     VALUES (?, ?, ?, 'files/army/death/solder.png')
