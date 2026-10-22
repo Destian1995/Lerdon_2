@@ -131,7 +131,15 @@
       "Bash(cp -r ai_models/*.py \"C:/Users/lerdo/Desktop/VirtMach/APK/project/ai_models/\")",
       "Bash(cp assets/game_data.db \"C:/Users/lerdo/Desktop/VirtMach/APK/project/assets/game_data.db\")",
       "Bash(cp game_data.db \"C:/Users/lerdo/Desktop/VirtMach/APK/project/game_data.db\")",
-      "Bash(cp buildozer.spec \"C:/Users/lerdo/Desktop/VirtMach/APK/project/buildozer.spec\")"
+      "Bash(cp buildozer.spec \"C:/Users/lerdo/Desktop/VirtMach/APK/project/buildozer.spec\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\seasons.py\" \"/c/Users/lerdo/Desktop/VirtMach/APK/project/seasons.py\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\undead_invasion.py\" \"/c/Users/lerdo/Desktop/VirtMach/APK/project/undead_invasion.py\")",
+      "Bash(cp \"c:\\\\Users\\\\lerdo\\\\IdeaProjects\\\\Lerdon_2\\\\ii.py\" \"/c/Users/lerdo/Desktop/VirtMach/APK/project/ii.py\")",
+      "Bash(cp -r \"/c/Users/lerdo/IdeaProjects/Lerdon_2/files/city\" \"/c/Users/lerdo/Desktop/VirtMach/APK/project/files/\")",
+      "Bash(cp -r \"/c/Users/lerdo/IdeaProjects/Lerdon_2/files/army\" \"/c/Users/lerdo/Desktop/VirtMach/APK/project/files/\")",
+      "Bash(cp -r \"/c/Users/lerdo/IdeaProjects/Lerdon_2/files/buildings\" \"/c/Users/lerdo/Desktop/VirtMach/APK/project/files/\")",
+      "Bash(cp -r \"/c/Users/lerdo/IdeaProjects/Lerdon_2/files/menu\" \"/c/Users/lerdo/Desktop/VirtMach/APK/project/files/\")",
+      "Bash(cp -r \"/c/Users/lerdo/IdeaProjects/Lerdon_2/files/status\" \"/c/Users/lerdo/Desktop/VirtMach/APK/project/files/\")"
     ],
     "additionalDirectories": [
       "\\tmp",

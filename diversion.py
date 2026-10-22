@@ -845,14 +845,24 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
             return
 
         if _target_type == 'garrison':
+            # Загружаем статы юнитов из БД
+            def _load_unit_stats(unit_name):
+                cursor.execute(
+                    "SELECT attack, defense, durability, unit_class FROM units WHERE unit_name = ?",
+                    (unit_name,))
+                _s = cursor.fetchone()
+                if _s:
+                    return {"Урон": _s[0], "Защита": _s[1], "Живучесть": _s[2], "Класс юнита": _s[3]}
+                return {"Урон": 0, "Защита": 0, "Живучесть": 0, "Класс юнита": 1}
+
             # Мятежники вступают в бой с гарнизоном
             rebel_army = [
                 {"unit_name": rebel_hero_name, "unit_count": 1,
                  "unit_image": existing_units[rebel_hero_name],
-                 "units_stats": {}},
+                 "units_stats": _load_unit_stats(rebel_hero_name)},
                 {"unit_name": rebel_peasant_name, "unit_count": rebels_count,
                  "unit_image": existing_units[rebel_peasant_name],
-                 "units_stats": {}}
+                 "units_stats": _load_unit_stats(rebel_peasant_name)}
             ]
             # Собираем гарнизон защитника
             cursor.execute("""
@@ -864,7 +874,8 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
             for row in def_garrison:
                 defending_army.append({
                     "unit_name": row[0], "unit_count": row[1],
-                    "unit_image": row[2], "units_stats": {}
+                    "unit_image": row[2],
+                    "units_stats": _load_unit_stats(row[0])
                 })
 
             from fight import fight

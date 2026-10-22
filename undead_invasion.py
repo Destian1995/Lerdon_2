@@ -467,14 +467,25 @@ def process_undead_turn(conn, current_turn):
                            (_capital, UNDEAD_UNIT_NAME))
             _ghost_row = cursor.fetchone()
             _current_ghosts = _ghost_row[0] if _ghost_row else 0
-            if _current_ghosts < 100000:
-                _add = 100000 - _current_ghosts
+            if _current_ghosts < 250000:
+                _add = 250000 - _current_ghosts
                 cursor.execute("""
                     INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
                     VALUES (?, ?, ?, 'files/army/death/solder.png')
                     ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
                 """, (_capital, UNDEAD_UNIT_NAME, _add, _add))
-                print(f"[UNDEAD] Стража столицы {_capital}: +{_add} призраков (до 10K)")
+                print(f"[UNDEAD] Стража столицы {_capital}: +{_add} призраков (до 250K)")
+            # Наместник — всегда в столице (класс 2, 800 защиты, 8 атаки)
+            cursor.execute("SELECT unit_count FROM garrisons WHERE city_name = ? AND unit_name = 'Наместник'",
+                           (_capital,))
+            _gov = cursor.fetchone()
+            if not _gov or _gov[0] <= 0:
+                cursor.execute("""
+                    INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                    VALUES (?, 'Наместник', 1, 'files/army/death/death.png')
+                    ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = 1
+                """, (_capital,))
+                print(f"[UNDEAD] Наместник возрождён в столице {_capital}")
 
     # Захватываем нейтральные города нежити (is_undead=1) — мор распространяется
     cursor.execute("SELECT id, name FROM cities WHERE is_undead = 1 AND faction = 'Нейтрал'")
