@@ -6821,6 +6821,28 @@ class EnhancedDiplomacyChat():
                             _new_color = _faction_hex.get(self.faction, '#AAAAAA')
                             cur.execute("UPDATE cities SET faction = ?, color_faction = ? WHERE name = ?",
                                         (self.faction, _new_color, _city))
+
+                            # Перемещаем гарнизон мятежников в другой их город
+                            cur.execute("SELECT name FROM cities WHERE faction = 'Мятежники' AND name != ?", (_city,))
+                            _other_rebel_cities = [r[0] for r in cur.fetchall()]
+
+                            cur.execute("SELECT unit_name, unit_count, unit_image FROM garrisons WHERE city_name = ?", (_city,))
+                            _garrison = cur.fetchall()
+
+                            if _garrison:
+                                if _other_rebel_cities:
+                                    # Перемещаем в первый доступный город мятежников
+                                    _dest = _other_rebel_cities[0]
+                                    for _un, _uc, _ui in _garrison:
+                                        cur.execute("""
+                                            INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
+                                            VALUES (?, ?, ?, ?)
+                                            ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
+                                        """, (_dest, _un, _uc, _ui or '', _uc))
+                                    print(f"[REBEL TRANSFER] Гарнизон из {_city} перемещён в {_dest}")
+                                # Удаляем гарнизон из переданного города
+                                cur.execute("DELETE FROM garrisons WHERE city_name = ?", (_city,))
+
                             self.db_connection.commit()
                             from datetime import datetime
                             _tm = datetime.now().strftime("%d.%m %H:%M")
