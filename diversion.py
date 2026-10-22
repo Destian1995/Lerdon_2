@@ -915,6 +915,7 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
             pass
 
         # --- Объявляем войну между Мятежниками и фракцией, которой принадлежал город ---
+        original_faction = target_faction
         cursor.execute("""
             SELECT relationship FROM diplomacies
             WHERE (faction1 = 'Мятежники' AND faction2 = ?) OR (faction1 = ? AND faction2 = 'Мятежники')
