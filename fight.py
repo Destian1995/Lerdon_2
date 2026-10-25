@@ -639,6 +639,7 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             stats['Защита'] = base_def * (1 + city_wall_bonus)
 
     # Суперкрепость нежити: +65% защита если город is_undead
+    _is_undead_capital = False
     if defending_fraction == 'Нежить':
         try:
             _uc = conn.cursor()
@@ -649,6 +650,11 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                     stats = u.get('units_stats', {})
                     stats['Защита'] = stats.get('Защита', 0) * 1.65
                 print(f"[UNDEAD] Суперкрепость {defending_city}: +65% защита гарнизону")
+                # Проверяем, является ли город столицей нежити
+                _uc.execute("SELECT capital_city FROM undead_invasion WHERE id = 1")
+                _cap = _uc.fetchone()
+                if _cap and _cap[0] == defending_city:
+                    _is_undead_capital = True
         except Exception:
             pass
 
@@ -789,6 +795,12 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         # Сырые бонусы от героев 2+ класса для юнитов 1 класса
         atk_hero_bonus = calculate_hero_stat_bonus(atk_army)
         def_hero_bonus = calculate_hero_stat_bonus(def_army)
+
+        # Стены столицы нежити: +100 атаки, +1800 защиты (как герой 2 класса)
+        if _is_undead_capital:
+            def_hero_bonus = (def_hero_bonus[0] + 100,
+                              def_hero_bonus[1] + 1800,
+                              def_hero_bonus[2])
 
         all_combatants = [(get_initiative(u), 'A', u) for u in atk_alive] + \
                          [(get_initiative(u), 'D', u) for u in def_alive]

@@ -2,13 +2,16 @@ import os
 
 from kivy.uix.popup import Popup
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.scrollview import ScrollView
 
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.slider import Slider
 
 from kivy.uix.image import Image
-from kivy.graphics import Color, RoundedRectangle
+from kivy.graphics import Color, RoundedRectangle, Rectangle, Line
 
 from kivy.metrics import dp, sp
 from kivy.core.window import Window
@@ -19,79 +22,153 @@ from ui_components import show_message
 from utils.helpers import format_number
 
 
+# ======================================================================
+#  Цветовая палитра мастерской (тёмная RPG-тема с золотом и пурпуром)
+# ======================================================================
+_CLR_BG = (0.05, 0.06, 0.10, 1)          # Основной фон
+_CLR_BG_CARD = (0.08, 0.09, 0.14, 1)     # Фон карточки
+_CLR_BG_PANEL = (0.07, 0.08, 0.12, 1)    # Фон панели
+_CLR_GOLD = (0.90, 0.75, 0.25, 1)        # Золотой акцент
+_CLR_GOLD_DIM = (0.65, 0.55, 0.18, 1)    # Приглушённое золото
+_CLR_PURPLE = (0.55, 0.30, 0.80, 1)      # Пурпурный акцент
+_CLR_PURPLE_LIGHT = (0.65, 0.40, 0.90, 1)
+_CLR_TEXT = (0.88, 0.90, 0.95, 1)         # Основной текст
+_CLR_TEXT_DIM = (0.55, 0.58, 0.65, 1)    # Приглушённый текст
+_CLR_GREEN = (0.30, 0.75, 0.40, 1)       # Зелёный (подтверждение)
+_CLR_RED = (0.80, 0.25, 0.25, 1)         # Красный (ошибка/отмена)
+_CLR_BLUE = (0.30, 0.55, 0.85, 1)        # Синий (информация)
+_CLR_SELECTED = (0.90, 0.75, 0.25, 0.35) # Подсветка выбранного
+_CLR_SLOT_BORDER = (0.45, 0.35, 0.65, 1) # Рамка слота
+
+
 def workshop(faction, db_conn):
-    # === Определение устройства ===
+    """Мастерская артефактов — полноэкранный 3-шаговый визард."""
+
+    # === Платформа ===
     from kivy.utils import platform as _platform
     is_android = _platform == 'android'
 
     # === Адаптивные размеры ===
-    font_title = sp(16) if not is_android else sp(14)
-    font_normal = sp(12) if not is_android else sp(10)
-    font_small = sp(10) if not is_android else sp(8)
+    font_title = sp(17) if not is_android else sp(15)
+    font_normal = sp(13) if not is_android else sp(11)
+    font_small = sp(11) if not is_android else sp(9)
+    font_tiny = sp(9) if not is_android else sp(7)
 
-    padding_main = dp(8) if is_android else dp(12)
-    spacing_main = dp(4) if is_android else dp(6)
-    btn_height = dp(30) if is_android else dp(35)
-    input_height = dp(25) if is_android else dp(30)
-    label_height = dp(20) if is_android else dp(25)
+    padding_main = dp(10) if is_android else dp(14)
+    spacing_main = dp(6) if is_android else dp(8)
+    btn_height = dp(36) if is_android else dp(40)
 
-    # === Создание всплывающего окна ===
+    # Размер миниатюры артефакта в сетке
+    thumb_size = dp(80) if is_android else dp(100)
+    # Размер превью артефакта (крупное)
+    preview_size = dp(140) if is_android else dp(180)
+
+    # === Попап ===
     workshop_popup = Popup(
-        title="Мастерская артефактов",
-        size_hint=(0.95 if is_android else 0.75, 0.92 if is_android else 0.88),
-        title_size=font_title,
-        title_align='center',
-        title_color=(0.85, 0.70, 0.20, 1),
-        background_color=(0.06, 0.07, 0.11, 0.98),
-        separator_color=(0.60, 0.35, 0.85, 0.7),
+        title="",
+        separator_height=0,
+        size_hint=(0.96 if is_android else 0.80, 0.94 if is_android else 0.90),
+        background_color=(0, 0, 0, 0),
         auto_dismiss=False
     )
 
-    # === Данные между экранами ===
+    # === Общие данные ===
     current_data = {
         'icon': None,
         'name': '',
         'attack': 0,
         'defense': 0,
         'season': 'Нет',
-        'slot': 'Оружие'  # По умолчанию
+        'slot': 'Оружие'
     }
 
-    # === Список изображений ===
+    # === Изображения артефактов ===
     artifact_images_path = r"files/pict/artifacts/custom"
     if os.path.exists(artifact_images_path):
-        image_files = [f for f in os.listdir(artifact_images_path) if
-                       f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))]
+        image_files = sorted([
+            f for f in os.listdir(artifact_images_path)
+            if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))
+        ])
     else:
         image_files = []
 
     selected_image = [None]
     current_index = [0]
 
-    # === Функция переключения экрана ===
+    # ======================================================================
+    #  Утилиты UI
+    # ======================================================================
+
+    def _make_rounded_bg(widget, color, radius=dp(10)):
+        """Добавляет скруглённый фон виджету."""
+        with widget.canvas.before:
+            widget._bg_color = Color(*color)
+            widget._bg_rect = RoundedRectangle(pos=widget.pos, size=widget.size, radius=[radius])
+        widget.bind(
+            pos=lambda w, v: setattr(w._bg_rect, 'pos', v),
+            size=lambda w, v: setattr(w._bg_rect, 'size', v)
+        )
+
+    def _make_action_btn(text, color, font_sz=None, height=None):
+        """Создаёт стилизованную кнопку действия."""
+        b = Button(
+            text=text,
+            size_hint_y=None,
+            height=height or btn_height,
+            background_color=(0, 0, 0, 0),
+            background_normal='',
+            font_size=font_sz or font_normal,
+            color=(1, 1, 1, 1),
+            bold=True
+        )
+        _make_rounded_bg(b, color, dp(10))
+        return b
+
+    def _make_label(text, font_sz=None, color=None, bold=False, halign='center',
+                    height=None, size_hint_y=None):
+        """Создаёт стилизованный Label."""
+        lbl = Label(
+            text=text,
+            font_size=font_sz or font_normal,
+            color=color or _CLR_TEXT,
+            bold=bold,
+            halign=halign,
+            valign='middle',
+            size_hint_y=size_hint_y,
+            height=height or dp(24),
+            markup=True
+        )
+        if size_hint_y is None:
+            lbl.size_hint_y = None
+        lbl.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, None)))
+        return lbl
+
+    def _step_indicator(step_num, total=3):
+        """Индикатор шагов: ● ● ○"""
+        dots = ''
+        for i in range(1, total + 1):
+            if i == step_num:
+                dots += f'[color=e6bf3a]●[/color]  '
+            else:
+                dots += f'[color=555555]○[/color]  '
+        return dots.strip()
+
+    # ======================================================================
+    #  Переключение экранов
+    # ======================================================================
+
     def switch_to_screen(screen_func):
-        layout = BoxLayout(orientation='vertical', padding=padding_main, spacing=spacing_main)
-        with layout.canvas.before:
-            Color(0.06, 0.07, 0.11, 1)
-            layout._bg = RoundedRectangle(pos=layout.pos, size=layout.size, radius=[dp(8)])
-        layout.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-                     size=lambda i, v: setattr(i._bg, 'size', v))
-        screen_func(layout)
-        workshop_popup.content = layout
+        root = BoxLayout(orientation='vertical', padding=0, spacing=0)
+        _make_rounded_bg(root, _CLR_BG, dp(12))
+        screen_func(root)
+        workshop_popup.content = root
 
-    # === Функция генерации случайного названия ===
+    # ======================================================================
+    #  Генерация имени артефакта
+    # ======================================================================
+
     def generate_random_name(filename=None):
-        """
-        Генерирует случайное название артефакта на основе типа и подкласса,
-        определённых по первым символам имени файла.
-
-        Формат имени файла: {type}{subclass}...
-        Примеры: '0v_sniper.png' (огнестрел), '1c_royal.jpg' (корона), '3p_knight.png' (латы)
-
-        :param filename: имя файла (например, '0vап.png', '3r_mage.jpg') или None
-        :return: tuple (название_артефакта, тип_артефакта)
-        """
-        # === ПОДКЛАССЫ ДЛЯ ОРУЖИЯ (тип 0) ===
+        """Генерирует случайное RPG-название артефакта по имени файла."""
         weapon_subclasses = {
             'v': ["Винтовка", "Ружьё", "Карабин"],
             'a': ["Арбалет"],
@@ -101,35 +178,21 @@ def workshop(faction, db_conn):
             's': ["Секира", "Топор"],
             'l': ["Лук"]
         }
-
-        # === ПОДКЛАССЫ ДЛЯ ГОЛОВЫ (тип 1) ===
         head_subclasses = {
-            'k': ["Корона", "Диадема"],
-            'h': ["Шлем"],
-            's': ["Шляпа", "Колпак"],
-            'v': ["Венок"],
+            'k': ["Корона", "Диадема"], 'h': ["Шлем"],
+            's': ["Шляпа", "Колпак"], 'v': ["Венок"],
         }
-
-        # === ПОДКЛАССЫ ДЛЯ НОГ (тип 2) ===
-        legs_subclasses = {
-            's': ["Сапоги", "Ботинки"],
-        }
-
-        # === ПОДКЛАССЫ ДЛЯ ТУЛОВИЩА (тип 3) ===
+        legs_subclasses = {'s': ["Сапоги", "Ботинки"]}
         torso_subclasses = {
             'b': ["Броня", "Латы", "Кираса", "Панцирь", "Доспех"],
             'm': ["Мантия", "Плащ", "Накидка"],
             'g': ["Жилет", "Камзол", "Дублет"],
         }
-
-        # === ПОДКЛАССЫ ДЛЯ АКСЕССУАРОВ (тип 4) ===
         accessory_subclasses = {
             'k': ["Кольцо", "Перстень"],
             'a': ["Амулет", "Талисман", "Медальон", "Филактерия", "Оберег"],
             's': ["Серьга"],
         }
-
-        # === ОБЩИЕ СПИСКИ ПО ТИПАМ (fallback, если подкласс не указан) ===
         prefixes_by_type = {
             0: ["Секира", "Меч", "Клинок", "Винтовка", "Мушкет", "Дробовик", "Арбалет",
                 "Кинжал", "Скипетр", "Ружьё", "Копьё", "Посох", "Палаш", "Шпага", "Рапира"],
@@ -142,8 +205,6 @@ def workshop(faction, db_conn):
             4: ["Амулет", "Кольцо", "Серьга", "Браслет", "Талисман", "Артефакт",
                 "Сердце", "Душа", "Звезда", "Камень", "Медальон", "Подвеска", "Чары", "Перстень"]
         }
-
-        # === Общие суффиксы для всех типов ===
         suffixes = [
             "Силы", "Защиты", "Мудрости", "Света", "Тьмы", "Мощи",
             "Вампиров", "Эльфов", "Просветления", "Судьбы", "Веры",
@@ -151,442 +212,417 @@ def workshop(faction, db_conn):
             "Бездны", "Рассвета", "Заката", "Бури", "Огня", "Льда",
             "Ветра", "Земли", "Воды", "Грома", "Теней", "Истины", "Хаоса"
         ]
-
-        # === По умолчанию — тип 0 (оружие) ===
         artifact_type = 0
+        prefixes = prefixes_by_type[0]
 
         if filename:
             try:
-                # Убираем расширение и приводим к нижнему регистру
                 clean_name = os.path.splitext(filename.strip())[0].lower().replace(' ', '_')
-
                 if len(clean_name) >= 1 and clean_name[0].isdigit():
-                    # Первый символ — тип артефакта (0-4)
                     artifact_type = int(clean_name[0])
-
-                    # === ПРОВЕРКА ПОДКЛАССА (вторая буква) ===
+                    subclass_dict = {
+                        0: weapon_subclasses, 1: head_subclasses,
+                        2: legs_subclasses, 3: torso_subclasses, 4: accessory_subclasses,
+                    }.get(artifact_type, {})
                     if len(clean_name) >= 2 and clean_name[1].isalpha():
-                        subclass_key = clean_name[1]  # 'v', 'm', 'c', 'b', 'r' и т.д.
-
-                        # Выбираем словарь подклассов по типу артефакта
-                        subclass_dict = {
-                            0: weapon_subclasses,
-                            1: head_subclasses,
-                            2: legs_subclasses,
-                            3: torso_subclasses,
-                            4: accessory_subclasses,
-                        }.get(artifact_type, {})
-
-                        # Если подкласс найден — используем специализированный список
+                        subclass_key = clean_name[1]
                         if subclass_key in subclass_dict:
                             prefixes = subclass_dict[subclass_key]
-                            print(f"[DEBUG] Тип {artifact_type}, подкласс '{subclass_key}' → {prefixes[:3]}...")
                         else:
-                            # Подкласс не найден — берём общий список по типу
                             prefixes = prefixes_by_type.get(artifact_type, prefixes_by_type[0])
-                            print(
-                                f"[DEBUG] Подкласс '{subclass_key}' не найден для типа {artifact_type}, используем общий список")
                     else:
-                        # Нет второй буквы — берём общий список по типу
                         prefixes = prefixes_by_type.get(artifact_type, prefixes_by_type[0])
                 else:
-                    # Не начинается с цифры — fallback на оружие
                     prefixes = prefixes_by_type[0]
-
-            except (IndexError, ValueError, AttributeError) as e:
-                print(f"[WARNING] Не удалось определить подкласс для '{filename}': {e}")
+            except (IndexError, ValueError, AttributeError):
                 prefixes = prefixes_by_type.get(artifact_type, prefixes_by_type[0])
-        else:
-            # filename=None — берём общий список оружия
-            prefixes = prefixes_by_type[0]
 
-        # === Генерация названия ===
-        prefix = random.choice(prefixes)
-        suffix = random.choice(suffixes)
+        return f"{random.choice(prefixes)} {random.choice(suffixes)}", artifact_type
 
-        # Возвращаем название и тип артефакта (для автоустановки слота)
-        return f"{prefix} {suffix}", artifact_type
+    # ======================================================================
+    #  ЭКРАН 1 — Выбор иконки (сетка крупных миниатюр)
+    # ======================================================================
 
-    # === Экран 1: Выбор иконки и названия ===
     def screen1(layout):
-        # Заголовок
-        title = Label(
-            text="Выберите иконку артефакта",
-            font_size=font_normal,
-            color=(0.85, 0.90, 1.0, 1),
-            size_hint_y=None,
-            height=label_height,
-            halign='center',
-            valign='middle',
-            bold=True
-        )
-        title.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        layout.add_widget(title)
+        # --- Шапка ---
+        header = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(60),
+                           padding=[padding_main, dp(8), padding_main, 0])
+        _make_rounded_bg(header, _CLR_BG_PANEL, dp(10))
 
-        # Кнопки навигации иконки
-        nav_layout = BoxLayout(size_hint_y=None, height=dp(28), spacing=dp(4))
-        def _nav_btn(txt):
-            b = Button(
-                text=txt, size_hint_x=0.3,
-                font_size=font_small, color=(1, 1, 1, 1),
-                background_color=(0, 0, 0, 0),
-                size_hint_y=None, height=dp(28)
-            )
-            with b.canvas.before:
-                b._bc = Color(0.18, 0.28, 0.45, 1)
-                b._br = RoundedRectangle(pos=b.pos, size=b.size, radius=[dp(8)])
-            b.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
-                   size=lambda i, v: setattr(i._br, 'size', v))
-            return b
+        step_lbl = _make_label(_step_indicator(1), font_sz=font_normal, height=dp(20))
+        header.add_widget(step_lbl)
 
-        prev_btn = _nav_btn("<")
-        next_btn = _nav_btn(">")
-        nav_layout.add_widget(prev_btn)
-        nav_layout.add_widget(next_btn)
-        layout.add_widget(nav_layout)
+        title_lbl = _make_label("Выберите облик артефакта", font_sz=font_title,
+                                color=_CLR_GOLD, bold=True, height=dp(30))
+        header.add_widget(title_lbl)
+        layout.add_widget(header)
 
-        # Отображение текущей иконки
-        current_icon_display = Image(
+        # --- Превью выбранного артефакта (крупное) ---
+        preview_panel = BoxLayout(orientation='horizontal', size_hint_y=None,
+                                  height=preview_size + dp(20),
+                                  padding=[padding_main, dp(6)], spacing=dp(12))
+        _make_rounded_bg(preview_panel, _CLR_BG_CARD, dp(10))
+
+        # Контейнер изображения с рамкой
+        img_container = FloatLayout(size_hint_x=None, width=preview_size)
+
+        preview_img = Image(
             source="" if not image_files else os.path.join(artifact_images_path, image_files[0]),
-            size_hint_y=None,
-            height=dp(60) if is_android else dp(72),
+            size_hint=(None, None),
+            size=(preview_size - dp(8), preview_size - dp(8)),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
             allow_stretch=True,
             keep_ratio=True
         )
-        layout.add_widget(current_icon_display)
+        img_container.add_widget(preview_img)
 
-        # Метка с текущим названием артефакта (только для чтения)
-        name_display_label = Label(
-            text="—",
-            font_size=font_small,
-            color=(0.75, 0.95, 0.85, 1),
-            size_hint_y=None,
-            height=label_height,
-            halign='center',
-            valign='middle',
-            bold=True
-        )
-        name_display_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        layout.add_widget(name_display_label)
+        # Золотая рамка
+        with img_container.canvas.after:
+            img_container._border_color = Color(*_CLR_GOLD_DIM)
+            img_container._border_line = Line(
+                rounded_rectangle=(0, 0, 10, 10, dp(6)),
+                width=dp(1.5)
+            )
 
-        def update_current_icon():
+        def _update_border(inst, _):
+            inst._border_line.rounded_rectangle = (
+                inst.x + dp(2), inst.y + dp(2),
+                inst.width - dp(4), inst.height - dp(4), dp(6)
+            )
+        img_container.bind(pos=_update_border, size=_update_border)
+
+        preview_panel.add_widget(img_container)
+
+        # Информация справа от превью
+        info_box = BoxLayout(orientation='vertical', spacing=dp(4),
+                             padding=[0, dp(10), 0, dp(10)])
+
+        name_lbl = _make_label("—", font_sz=font_normal, color=_CLR_GOLD,
+                               bold=True, halign='left', height=dp(28))
+        info_box.add_widget(name_lbl)
+
+        type_lbl = _make_label("Тип: —", font_sz=font_small, color=_CLR_TEXT_DIM,
+                               halign='left', height=dp(20))
+        info_box.add_widget(type_lbl)
+
+        counter_lbl = _make_label("", font_sz=font_tiny, color=_CLR_TEXT_DIM,
+                                  halign='left', height=dp(18))
+        info_box.add_widget(counter_lbl)
+
+        # Кнопка перегенерации имени
+        rename_btn = _make_action_btn("⟳ Новое имя", (0.20, 0.35, 0.55, 1),
+                                      font_sz=font_small, height=dp(30))
+        info_box.add_widget(rename_btn)
+
+        # Спейсер
+        info_box.add_widget(BoxLayout())
+
+        preview_panel.add_widget(info_box)
+        layout.add_widget(preview_panel)
+
+        # --- Сетка миниатюр ---
+        grid_label = _make_label("Доступные иконки:", font_sz=font_small,
+                                 color=_CLR_TEXT_DIM, halign='left', height=dp(22))
+        grid_label.padding = [padding_main, 0]
+        layout.add_widget(grid_label)
+
+        scroll = ScrollView(size_hint_y=1, do_scroll_x=False)
+        cols = 4 if is_android else 5
+        grid = GridLayout(cols=cols, spacing=dp(6), padding=[dp(6)],
+                          size_hint_y=None)
+        grid.bind(minimum_height=grid.setter('height'))
+
+        _thumb_widgets = []
+
+        def _select_thumb(idx, *_args):
+            current_index[0] = idx
+            _update_selection()
+
+        def _update_selection():
+            idx = current_index[0]
             if not image_files:
-                current_icon_display.source = ""
-                selected_image[0] = None
-                name_display_label.text = "—"
-                current_data['name'] = ''
                 return
-            idx = current_index[0] % len(image_files)
+
             img_filename = image_files[idx]
             img_path = os.path.join(artifact_images_path, img_filename)
-            current_icon_display.source = img_path
+            preview_img.source = img_path
             selected_image[0] = img_filename
 
-            # === Автоопределение типа артефакта и установка слота ===
-            try:
-                first_char = img_filename.strip().lower()[0]
-                if first_char.isdigit():
-                    artifact_type = int(first_char)
-                    slot_map = {0: 'Оружие', 1: 'Голова', 2: 'Ноги', 3: 'Туловище', 4: 'Аксессуар'}
-                    if artifact_type in slot_map:
-                        current_data['slot'] = slot_map[artifact_type]
-            except (IndexError, ValueError):
-                pass
-
-            # Автоматически генерируем название при смене иконки
             auto_name, detected_type = generate_random_name(img_filename)
             current_data['name'] = auto_name
-            name_display_label.text = auto_name
+            current_data['icon'] = img_filename
+            name_lbl.text = auto_name
+
             slot_map = {0: 'Оружие', 1: 'Голова', 2: 'Ноги', 3: 'Туловище', 4: 'Аксессуар'}
             if detected_type in slot_map:
                 current_data['slot'] = slot_map[detected_type]
+                type_lbl.text = f"Тип: {slot_map[detected_type]}"
 
-        def on_prev(instance):
-            current_index[0] -= 1
-            update_current_icon()
+            counter_lbl.text = f"{idx + 1} / {len(image_files)}"
 
-        def on_next(instance):
-            current_index[0] += 1
-            update_current_icon()
+            # Обновляем подсветку миниатюр
+            for i, tw in enumerate(_thumb_widgets):
+                if i == idx:
+                    if hasattr(tw, '_sel_color'):
+                        tw._sel_color.rgba = _CLR_SELECTED
+                else:
+                    if hasattr(tw, '_sel_color'):
+                        tw._sel_color.rgba = (0, 0, 0, 0)
 
-        prev_btn.bind(on_release=on_prev)
-        next_btn.bind(on_release=on_next)
-        update_current_icon()
+        for i, fname in enumerate(image_files):
+            cell = FloatLayout(size_hint_y=None, height=thumb_size)
 
-        # Кнопка случайного названия (единственный способ задать имя)
-        random_name_btn = Button(
-            text="Сгенерировать название",
-            size_hint_y=None,
-            height=btn_height,
-            background_color=(0, 0, 0, 0),
-            font_size=font_normal,
-            color=(1, 1, 1, 1),
-            bold=True,
-            size_hint_x=1
-        )
-        with random_name_btn.canvas.before:
-            random_name_btn._bc = Color(0.18, 0.45, 0.55, 1)
-            random_name_btn._br = RoundedRectangle(
-                pos=random_name_btn.pos, size=random_name_btn.size, radius=[dp(10)]
+            # Фон с подсветкой
+            with cell.canvas.before:
+                cell._sel_color = Color(0, 0, 0, 0)
+                cell._sel_rect = RoundedRectangle(pos=cell.pos, size=cell.size, radius=[dp(8)])
+                Color(*_CLR_BG_CARD)
+                cell._bg_rect = RoundedRectangle(pos=cell.pos, size=cell.size, radius=[dp(8)])
+
+            def _bind_bg(w):
+                def _upd(inst, val):
+                    inst._sel_rect.pos = val
+                    inst._bg_rect.pos = val
+                def _upd_sz(inst, val):
+                    inst._sel_rect.size = val
+                    inst._bg_rect.size = val
+                w.bind(pos=_upd, size=_upd_sz)
+            _bind_bg(cell)
+
+            thumb_img = Image(
+                source=os.path.join(artifact_images_path, fname),
+                size_hint=(None, None),
+                size=(thumb_size - dp(12), thumb_size - dp(12)),
+                pos_hint={'center_x': 0.5, 'center_y': 0.5},
+                allow_stretch=True,
+                keep_ratio=True
             )
-        random_name_btn.bind(
-            pos=lambda i, v: setattr(i._br, 'pos', v),
-            size=lambda i, v: setattr(i._br, 'size', v)
-        )
-        layout.add_widget(random_name_btn)
+            cell.add_widget(thumb_img)
 
-        # Кнопки навигации внизу
-        btn_box = BoxLayout(orientation='horizontal', spacing=dp(4), size_hint=(1, None), height=btn_height)
-
-        def _action_btn(txt, color):
-            b = Button(
-                text=txt, size_hint=(0.5, 1),
+            # Невидимая кнопка поверх для обработки нажатия
+            touch_btn = Button(
+                size_hint=(1, 1),
                 background_color=(0, 0, 0, 0),
-                font_size=font_normal, color=(1, 1, 1, 1), bold=True
+                background_normal='',
+                on_release=lambda inst, _i=i: _select_thumb(_i)
             )
-            with b.canvas.before:
-                b._bc = Color(*color)
-                b._br = RoundedRectangle(pos=b.pos, size=b.size, radius=[dp(10)])
-            b.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
-                   size=lambda i, v: setattr(i._br, 'size', v))
-            return b
+            cell.add_widget(touch_btn)
 
-        close_btn = _action_btn("Закрыть", (0.65, 0.18, 0.18, 1))
-        next_scr_btn = _action_btn("Далее", (0.18, 0.55, 0.22, 1))
-        btn_box.add_widget(close_btn)
-        btn_box.add_widget(next_scr_btn)
-        layout.add_widget(btn_box)
+            grid.add_widget(cell)
+            _thumb_widgets.append(cell)
 
-        # Привязка событий
-        def on_next_screen(instance):
+        scroll.add_widget(grid)
+        layout.add_widget(scroll)
+
+        # --- Нижняя панель ---
+        bottom = BoxLayout(orientation='horizontal', size_hint_y=None,
+                           height=btn_height + dp(12), spacing=dp(8),
+                           padding=[padding_main, dp(6)])
+        _make_rounded_bg(bottom, _CLR_BG_PANEL, dp(10))
+
+        close_btn = _make_action_btn("Закрыть", _CLR_RED)
+        next_btn = _make_action_btn("Далее  ➜", (0.18, 0.52, 0.28, 1))
+
+        bottom.add_widget(close_btn)
+        bottom.add_widget(next_btn)
+        layout.add_widget(bottom)
+
+        # --- События ---
+        def on_rename(*_):
+            if selected_image[0]:
+                name, dt = generate_random_name(selected_image[0])
+                current_data['name'] = name
+                name_lbl.text = name
+
+        def on_next(*_):
             current_data['icon'] = selected_image[0]
             if not current_data['icon']:
-                show_message("Ошибка", "Пожалуйста, выберите иконку")
+                show_message("Ошибка", "Выберите иконку артефакта")
                 return
-            # Если название ещё не сгенерировано — генерируем автоматически
             if not current_data.get('name'):
                 auto_name, _ = generate_random_name(selected_image[0])
                 current_data['name'] = auto_name
             switch_to_screen(screen2)
 
-        def on_random_name(instance):
-            name, detected_type = generate_random_name(selected_image[0])
-            current_data['name'] = name
-            name_display_label.text = name
-            slot_map = {0: 'Оружие', 1: 'Голова', 2: 'Ноги', 3: 'Туловище', 4: 'Аксессуар'}
-            if detected_type in slot_map:
-                current_data['slot'] = slot_map[detected_type]
-
+        rename_btn.bind(on_release=on_rename)
         close_btn.bind(on_release=lambda x: workshop_popup.dismiss())
-        next_scr_btn.bind(on_release=on_next_screen)
-        random_name_btn.bind(on_release=on_random_name)
+        next_btn.bind(on_release=on_next)
 
-    # === Экран 2: Выбор характеристик через слайдеры с системой жетонов Ардании ===
+        # Инициализация
+        if image_files:
+            _update_selection()
+
+    # ======================================================================
+    #  ЭКРАН 2 — Характеристики (слайдеры + превью)
+    # ======================================================================
+
     def screen2(layout):
-
-        # === Система жетонов Ардании ===
-        # Лимит стоимости артефакта (жетоны + чертёж 50К)
         _BLUEPRINT_COST = 50_000
         _faction_name = getattr(faction, 'faction', '')
         _MAX_ARTIFACT_COST = 12_000_000 if _faction_name == 'Элины' else 9_900_000
-        _max_budget_for_stats = _MAX_ARTIFACT_COST - _BLUEPRINT_COST  # макс. на жетоны
-
-        # Бюджет: минимум из (деньги, лимит артефакта)
+        _max_budget_for_stats = _MAX_ARTIFACT_COST - _BLUEPRINT_COST
         _budget = min(faction.money, _max_budget_for_stats)
-        ardanian_tokens_available = _budget / 3200.0  # жетонов = макс. защиты за бюджет
+        ardanian_tokens_available = _budget / 3200.0
         current_attack = current_data.get('attack', 0)
         current_defense = current_data.get('defense', 0)
 
         def calculate_tokens(attack, defense):
-            tokens_attack = attack / 1.5    # жетон атаки в 1.5 раза дешевле жетона защиты
-            tokens_defense = defense / 1.0  # 1 единица защиты за 1 жетон
-            return tokens_attack + tokens_defense, tokens_attack, tokens_defense
+            ta = attack / 1.5
+            td = defense / 1.0
+            return ta + td, ta, td
 
-        tokens_used, tokens_attack, tokens_defense = calculate_tokens(current_attack, current_defense)
+        # --- Шапка ---
+        header = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(56),
+                           padding=[padding_main, dp(6), padding_main, 0])
+        _make_rounded_bg(header, _CLR_BG_PANEL, dp(10))
+        header.add_widget(_make_label(_step_indicator(2), font_sz=font_normal, height=dp(18)))
+        header.add_widget(_make_label("Настройка характеристик", font_sz=font_title,
+                                      color=_CLR_GOLD, bold=True, height=dp(28)))
+        layout.add_widget(header)
 
-        # === Отображение баланса жетонов ===
-        tokens_info = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(75))
+        # --- Мини-превью артефакта ---
+        mini_preview = BoxLayout(orientation='horizontal', size_hint_y=None,
+                                 height=dp(70), padding=[padding_main, dp(6)], spacing=dp(10))
+        _make_rounded_bg(mini_preview, _CLR_BG_CARD, dp(8))
 
-        balance_label = Label(
-            text=f"Доступно жетонов Ардании: {ardanian_tokens_available:.1f}",
-            font_size=font_small,
-            color=(0.7, 0.9, 0.7, 1) if tokens_used <= ardanian_tokens_available else (0.9, 0.3, 0.3, 1),
-            size_hint_y=None,
-            height=label_height * 1.3,
-            halign='center',
-            valign='middle',
-            bold=True
+        _icon_path = os.path.join(artifact_images_path, current_data['icon']) if current_data['icon'] else ''
+        mini_img = Image(
+            source=_icon_path,
+            size_hint=(None, None),
+            size=(dp(54), dp(54)),
+            pos_hint={'center_y': 0.5},
+            allow_stretch=True, keep_ratio=True
         )
-        balance_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width * 0.95, None)))
-        tokens_info.add_widget(balance_label)
+        mini_preview.add_widget(mini_img)
 
-        used_label = Label(
-            text=f"Использовано: {tokens_used:.1f} (Атака: {tokens_attack:.1f}, Защита: {tokens_defense:.1f})",
-            font_size=font_small,
-            color=(0.9, 0.9, 0.5, 1),
-            size_hint_y=None,
-            height=label_height,
-            halign='center',
-            valign='middle'
+        mini_info = BoxLayout(orientation='vertical', spacing=dp(2))
+        mini_info.add_widget(_make_label(current_data['name'], font_sz=font_normal,
+                                         color=_CLR_GOLD, bold=True, halign='left', height=dp(22)))
+        mini_info.add_widget(_make_label(f"Тип: {current_data['slot']}", font_sz=font_small,
+                                         color=_CLR_TEXT_DIM, halign='left', height=dp(18)))
+        mini_info.add_widget(_make_label(f"Бюджет: {format_number(int(_budget))} крон",
+                                         font_sz=font_small, color=_CLR_BLUE,
+                                         halign='left', height=dp(18)))
+        mini_preview.add_widget(mini_info)
+        layout.add_widget(mini_preview)
+
+        # --- Панель баланса жетонов ---
+        token_panel = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(62),
+                                padding=[padding_main, dp(4)], spacing=dp(2))
+        _make_rounded_bg(token_panel, (0.06, 0.08, 0.14, 1), dp(8))
+
+        balance_label = _make_label(
+            f"Жетоны Ардании: {ardanian_tokens_available:.1f}",
+            font_sz=font_small, color=_CLR_GREEN, bold=True, height=dp(20)
         )
-        used_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width * 0.95, None)))
-        tokens_info.add_widget(used_label)
+        token_panel.add_widget(balance_label)
 
-        cost_label = Label(
-            text=f"Стоимость: {format_number(int((current_attack * 2400) + (current_defense * 3200)))} крон",
-            font_size=font_small,
-            color=(0.9, 0.9, 0.9, 1),
-            size_hint_y=None,
-            height=label_height,
-            halign='center',
-            valign='middle'
+        used_label = _make_label(
+            f"Использовано: 0.0",
+            font_sz=font_tiny, color=_CLR_TEXT_DIM, height=dp(18)
         )
-        cost_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width * 0.95, None)))
-        tokens_info.add_widget(cost_label)
+        token_panel.add_widget(used_label)
 
-        layout.add_widget(tokens_info)
-
-        # === Слайдер АТАКИ ===
-        attack_section = BoxLayout(orientation='vertical', spacing=dp(2), size_hint_y=None, height=dp(85))
-
-        attack_header = BoxLayout(orientation='horizontal', size_hint_y=None, height=label_height)
-        attack_title = Label(
-            text="Атака:",
-            font_size=font_small,
-            color=(0.9, 0.9, 0.9, 1),
-            size_hint_x=0.25,
-            halign='left',
-            valign='middle'
+        cost_label = _make_label(
+            f"Стоимость: 0 крон",
+            font_sz=font_tiny, color=_CLR_TEXT, height=dp(18)
         )
-        attack_title.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        attack_header.add_widget(attack_title)
+        token_panel.add_widget(cost_label)
+        layout.add_widget(token_panel)
 
-        attack_value_label = Label(
-            text=f"{current_attack}%",
-            font_size=font_small,
-            color=(0.7, 0.9, 0.7, 1),
-            size_hint_x=0.2,
-            halign='center',
-            valign='middle',
-            bold=True
-        )
-        attack_value_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        attack_header.add_widget(attack_value_label)
+        # --- Слайдер АТАКИ ---
+        atk_section = BoxLayout(orientation='vertical', spacing=dp(2),
+                                size_hint_y=None, height=dp(78),
+                                padding=[padding_main, dp(4)])
+        _make_rounded_bg(atk_section, _CLR_BG_CARD, dp(8))
 
-        attack_cost_label = Label(
-            text=f"{int(current_attack * 2400)} крон",
-            font_size=font_small,
-            color=(0.7, 0.9, 0.7, 1),
-            size_hint_x=0.55,
-            halign='right',
-            valign='middle'
-        )
-        attack_cost_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        attack_header.add_widget(attack_cost_label)
+        atk_header = BoxLayout(size_hint_y=None, height=dp(22), spacing=dp(4))
+        atk_icon_lbl = _make_label("⚔  Атака", font_sz=font_small, color=_CLR_RED,
+                                   bold=True, halign='left', height=dp(22))
+        atk_icon_lbl.size_hint_x = 0.35
+        atk_header.add_widget(atk_icon_lbl)
 
-        attack_section.add_widget(attack_header)
+        atk_value_lbl = _make_label(f"{current_attack}", font_sz=font_normal,
+                                    color=_CLR_TEXT, bold=True, height=dp(22))
+        atk_value_lbl.size_hint_x = 0.25
+        atk_header.add_widget(atk_value_lbl)
 
-        # Максимум атаки: минимум из (жетоны * 1.5, лимит крон / 2400)
-        _max_atk_by_tokens = int(ardanian_tokens_available * 1.5)
-        _max_atk_by_cost = int(_max_budget_for_stats / 2400)
-        max_attack_possible = max(min(_max_atk_by_tokens, _max_atk_by_cost), 100)
-        attack_slider = Slider(
-            min=0,
-            max=max_attack_possible,
-            value=current_attack,
-            step=1,
-            size_hint_y=None,
-            height=dp(35),
-            background_width=dp(3),
-            cursor_size=(dp(30), dp(30)) if is_android else (dp(25), dp(25)),
+        atk_cost_lbl = _make_label(f"{format_number(current_attack * 2400)} крон",
+                                   font_sz=font_tiny, color=_CLR_TEXT_DIM,
+                                   halign='right', height=dp(22))
+        atk_cost_lbl.size_hint_x = 0.40
+        atk_header.add_widget(atk_cost_lbl)
+        atk_section.add_widget(atk_header)
+
+        _max_atk = max(min(int(ardanian_tokens_available * 1.5), int(_max_budget_for_stats / 2400)), 100)
+        atk_slider = Slider(
+            min=0, max=_max_atk, value=current_attack, step=1,
+            size_hint_y=None, height=dp(38),
+            cursor_size=(dp(28), dp(28)) if is_android else (dp(24), dp(24)),
             cursor_image='atlas://data/images/defaulttheme/slider_cursor'
         )
-        attack_section.add_widget(attack_slider)
-        layout.add_widget(attack_section)
+        atk_section.add_widget(atk_slider)
+        layout.add_widget(atk_section)
 
-        # === Слайдер ЗАЩИТЫ ===
-        defense_section = BoxLayout(orientation='vertical', spacing=dp(2), size_hint_y=None, height=dp(85))
+        # --- Слайдер ЗАЩИТЫ ---
+        def_section = BoxLayout(orientation='vertical', spacing=dp(2),
+                                size_hint_y=None, height=dp(78),
+                                padding=[padding_main, dp(4)])
+        _make_rounded_bg(def_section, _CLR_BG_CARD, dp(8))
 
-        defense_header = BoxLayout(orientation='horizontal', size_hint_y=None, height=label_height)
-        defense_title = Label(
-            text="Защита:",
-            font_size=font_small,
-            color=(0.9, 0.9, 0.9, 1),
-            size_hint_x=0.25,
-            halign='left',
-            valign='middle'
-        )
-        defense_title.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        defense_header.add_widget(defense_title)
+        def_header = BoxLayout(size_hint_y=None, height=dp(22), spacing=dp(4))
+        def_icon_lbl = _make_label("🛡  Защита", font_sz=font_small, color=_CLR_BLUE,
+                                   bold=True, halign='left', height=dp(22))
+        def_icon_lbl.size_hint_x = 0.35
+        def_header.add_widget(def_icon_lbl)
 
-        defense_value_label = Label(
-            text=f"{current_defense}%",
-            font_size=font_small,
-            color=(0.7, 0.9, 0.7, 1),
-            size_hint_x=0.2,
-            halign='center',
-            valign='middle',
-            bold=True
-        )
-        defense_value_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        defense_header.add_widget(defense_value_label)
+        def_value_lbl = _make_label(f"{current_defense}", font_sz=font_normal,
+                                    color=_CLR_TEXT, bold=True, height=dp(22))
+        def_value_lbl.size_hint_x = 0.25
+        def_header.add_widget(def_value_lbl)
 
-        defense_cost_label = Label(
-            text=f"{int(current_defense * 3200)} крон",
-            font_size=font_small,
-            color=(0.7, 0.9, 0.7, 1),
-            size_hint_x=0.55,
-            halign='right',
-            valign='middle'
-        )
-        defense_cost_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        defense_header.add_widget(defense_cost_label)
+        def_cost_lbl = _make_label(f"{format_number(current_defense * 3200)} крон",
+                                   font_sz=font_tiny, color=_CLR_TEXT_DIM,
+                                   halign='right', height=dp(22))
+        def_cost_lbl.size_hint_x = 0.40
+        def_header.add_widget(def_cost_lbl)
+        def_section.add_widget(def_header)
 
-        defense_section.add_widget(defense_header)
-
-        # Максимум защиты = 1 единица за жетон
-        max_defense_possible = max(int(ardanian_tokens_available * 1.0), 100)
-        defense_slider = Slider(
-            min=0,
-            max=max_defense_possible,
-            value=current_defense,
-            step=1,
-            size_hint_y=None,
-            height=dp(35),
-            background_width=dp(3),
-            cursor_size=(dp(30), dp(30)) if is_android else (dp(25), dp(25)),
+        _max_def = max(int(ardanian_tokens_available), 100)
+        def_slider = Slider(
+            min=0, max=_max_def, value=current_defense, step=1,
+            size_hint_y=None, height=dp(38),
+            cursor_size=(dp(28), dp(28)) if is_android else (dp(24), dp(24)),
             cursor_image='atlas://data/images/defaulttheme/slider_cursor'
         )
-        defense_section.add_widget(defense_slider)
-        layout.add_widget(defense_section)
+        def_section.add_widget(def_slider)
+        layout.add_widget(def_section)
 
-        prev_season_btn = Button(
-            text="<",
-            size_hint_x=0.2,
-            font_size=font_small,
-            background_color=(0.2, 0.2, 0.2, 1),
-            background_normal='',
-            size_hint_y=None,
-            height=dp(25)
-        )
-        current_season_label = Label(
-            text=current_data['season'],
-            font_size=font_small,
-            color=(0.9, 0.9, 0.9, 1),
-            halign='center',
-            valign='middle',
-            size_hint_x=0.6
-        )
-        current_season_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        next_season_btn = Button(
-            text=">",
-            size_hint_x=0.2,
-            font_size=font_small,
-            background_color=(0.2, 0.2, 0.2, 1),
-            background_normal='',
-            size_hint_y=None,
-            height=dp(25)
-        )
+        # --- Выбор сезона ---
+        season_panel = BoxLayout(orientation='horizontal', size_hint_y=None,
+                                 height=dp(36), padding=[padding_main, dp(2)], spacing=dp(6))
+        _make_rounded_bg(season_panel, _CLR_BG_CARD, dp(8))
+
+        season_title = _make_label("Сезон:", font_sz=font_small, color=_CLR_PURPLE_LIGHT,
+                                   bold=True, halign='left', height=dp(30))
+        season_title.size_hint_x = 0.22
+        season_panel.add_widget(season_title)
+
+        prev_season_btn = _make_action_btn("◀", (0.25, 0.20, 0.40, 1),
+                                           font_sz=font_small, height=dp(30))
+        prev_season_btn.size_hint_x = 0.12
+        season_panel.add_widget(prev_season_btn)
+
+        season_lbl = _make_label(current_data['season'], font_sz=font_small,
+                                 color=_CLR_TEXT, height=dp(30))
+        season_lbl.size_hint_x = 0.54
+        season_panel.add_widget(season_lbl)
+
+        next_season_btn = _make_action_btn("▶", (0.25, 0.20, 0.40, 1),
+                                           font_sz=font_small, height=dp(30))
+        next_season_btn.size_hint_x = 0.12
+        season_panel.add_widget(next_season_btn)
+        layout.add_widget(season_panel)
 
         seasons = [
             'Нет', 'Весна', 'Лето', 'Осень', 'Зима',
@@ -598,428 +634,297 @@ def workshop(faction, db_conn):
         ]
         season_index = [seasons.index(current_data['season']) if current_data['season'] in seasons else 0]
 
-        def update_season_label():
-            current_season_label.text = seasons[season_index[0]]
-
-        def on_prev_season(instance):
+        def on_prev_season(*_):
             season_index[0] = (season_index[0] - 1) % len(seasons)
-            update_season_label()
+            season_lbl.text = seasons[season_index[0]]
 
-        def on_next_season(instance):
+        def on_next_season(*_):
             season_index[0] = (season_index[0] + 1) % len(seasons)
-            update_season_label()
+            season_lbl.text = seasons[season_index[0]]
 
         prev_season_btn.bind(on_release=on_prev_season)
         next_season_btn.bind(on_release=on_next_season)
 
-        # === Кнопки навигации (СОЗДАЁМ ДО вызова update_values!) ===
-        btn_box = BoxLayout(orientation='horizontal', spacing=dp(4), size_hint=(1, None), height=btn_height)
+        # Спейсер
+        layout.add_widget(BoxLayout(size_hint_y=1))
 
-        def _s2_btn(txt, clr):
-            b = Button(
-                text=txt, size_hint=(0.5, 1),
-                background_color=(0, 0, 0, 0),
-                font_size=font_normal, color=(1, 1, 1, 1), bold=True
-            )
-            with b.canvas.before:
-                b._bc = Color(*clr)
-                b._br = RoundedRectangle(pos=b.pos, size=b.size, radius=[dp(10)])
-            b.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
-                   size=lambda i, v: setattr(i._br, 'size', v))
-            return b
+        # --- Навигация ---
+        bottom = BoxLayout(orientation='horizontal', size_hint_y=None,
+                           height=btn_height + dp(12), spacing=dp(8),
+                           padding=[padding_main, dp(6)])
+        _make_rounded_bg(bottom, _CLR_BG_PANEL, dp(10))
 
-        back_btn = _s2_btn("Назад", (0.50, 0.42, 0.10, 1))
-        next_scr_btn = _s2_btn("Далее", (0.18, 0.55, 0.22, 1))
-        btn_box.add_widget(back_btn)
-        btn_box.add_widget(next_scr_btn)
-        layout.add_widget(btn_box)
+        back_btn = _make_action_btn("← Назад", _CLR_GOLD_DIM)
+        next_btn = _make_action_btn("Далее  ➜", (0.18, 0.52, 0.28, 1))
+        bottom.add_widget(back_btn)
+        bottom.add_widget(next_btn)
+        layout.add_widget(bottom)
 
-        # === Функция обновления значений (теперь имеет доступ к next_scr_btn) ===
-        def update_values(*args):
-            attack_val = int(attack_slider.value)
-            defense_val = int(defense_slider.value)
+        # --- Обновление значений ---
+        def update_values(*_):
+            av = int(atk_slider.value)
+            dv = int(def_slider.value)
+            atk_value_lbl.text = str(av)
+            def_value_lbl.text = str(dv)
+            atk_cost_lbl.text = f"{format_number(av * 2400)} крон"
+            def_cost_lbl.text = f"{format_number(dv * 3200)} крон"
 
-            # Обновляем отображение
-            attack_value_label.text = f"{attack_val}%"
-            defense_value_label.text = f"{defense_val}%"
-            attack_cost_label.text = f"{int(attack_val * 2400)} крон"
-            defense_cost_label.text = f"{int(defense_val * 3200)} крон"
+            tu, ta, td = calculate_tokens(av, dv)
+            used_label.text = f"Использовано: {tu:.1f}  (⚔ {ta:.1f}  🛡 {td:.1f})"
+            total_c = av * 2400 + dv * 3200
+            cost_label.text = f"Стоимость: {format_number(total_c)} крон"
 
-            # Расчет жетонов
-            tokens_used, tokens_a, tokens_d = calculate_tokens(attack_val, defense_val)
-            used_label.text = f"Использовано: {tokens_used:.1f} (Атака: {tokens_a:.1f}, Защита: {tokens_d:.1f})"
-
-            # Расчет стоимости
-            total_cost = (attack_val * 2400) + (defense_val * 3200)
-            cost_label.text = f"Стоимость: {format_number(int(total_cost))} крон"
-
-            # Валидация бюджета
-            if tokens_used > ardanian_tokens_available:
-                balance_label.color = (0.95, 0.3, 0.3, 1)
-                balance_label.text = f"БЮДЖЕТ ПРЕВЫШЕН! Доступно: {ardanian_tokens_available:.1f}, Нужно: {tokens_used:.1f}"
-                next_scr_btn.disabled = True
-                if hasattr(next_scr_btn, '_bc'):
-                    next_scr_btn._bc.rgba = (0.35, 0.35, 0.35, 1)
+            if tu > ardanian_tokens_available:
+                balance_label.color = _CLR_RED
+                balance_label.text = f"ПРЕВЫШЕН БЮДЖЕТ!  Нужно: {tu:.1f} / {ardanian_tokens_available:.1f}"
+                next_btn.disabled = True
+                if hasattr(next_btn, '_bg_color'):
+                    next_btn._bg_color.rgba = (0.3, 0.3, 0.3, 1)
             else:
-                balance_label.color = (0.6, 0.95, 0.6, 1)
-                balance_label.text = f"Доступно жетонов: {ardanian_tokens_available:.1f} | Использовано: {tokens_used:.1f}"
-                next_scr_btn.disabled = False
-                if hasattr(next_scr_btn, '_bc'):
-                    next_scr_btn._bc.rgba = (0.18, 0.55, 0.22, 1)
+                balance_label.color = _CLR_GREEN
+                balance_label.text = f"Жетоны: {ardanian_tokens_available:.1f}  |  Осталось: {ardanian_tokens_available - tu:.1f}"
+                next_btn.disabled = False
+                if hasattr(next_btn, '_bg_color'):
+                    next_btn._bg_color.rgba = (0.18, 0.52, 0.28, 1)
 
-            # Сохраняем текущие значения
-            current_data['attack'] = attack_val
-            current_data['defense'] = defense_val
+            current_data['attack'] = av
+            current_data['defense'] = dv
 
-        # Привязка обновления к слайдерам
-        attack_slider.bind(value=update_values)
-        defense_slider.bind(value=update_values)
-
-        # Инициализация значений (вызываем ПОСЛЕ создания всех виджетов)
+        atk_slider.bind(value=update_values)
+        def_slider.bind(value=update_values)
         update_values()
 
-        # === Привязка событий кнопок ===
-        def on_back(instance):
-            current_data['attack'] = int(attack_slider.value)
-            current_data['defense'] = int(defense_slider.value)
+        def on_back(*_):
+            current_data['attack'] = int(atk_slider.value)
+            current_data['defense'] = int(def_slider.value)
             current_data['season'] = seasons[season_index[0]]
             switch_to_screen(screen1)
 
-        def on_next_screen(instance):
-            attack_val = int(attack_slider.value)
-            defense_val = int(defense_slider.value)
-            tokens_used, _, _ = calculate_tokens(attack_val, defense_val)
-
-            if tokens_used > ardanian_tokens_available:
-                show_message("Ошибка бюджета",
-                             f"Недостаточно жетонов Ардании!\n"
-                             f"Доступно: {ardanian_tokens_available:.1f}\n"
-                             f"Требуется: {tokens_used:.1f}\n\n"
-                             f"Уменьшите параметры артефакта.")
+        def on_next(*_):
+            av = int(atk_slider.value)
+            dv = int(def_slider.value)
+            tu, _, _ = calculate_tokens(av, dv)
+            if tu > ardanian_tokens_available:
+                show_message("Бюджет", "Недостаточно жетонов Ардании!")
                 return
-
-            current_data['attack'] = attack_val
-            current_data['defense'] = defense_val
+            current_data['attack'] = av
+            current_data['defense'] = dv
             current_data['season'] = seasons[season_index[0]]
             switch_to_screen(screen3)
 
         back_btn.bind(on_release=on_back)
-        next_scr_btn.bind(on_release=on_next_screen)
+        next_btn.bind(on_release=on_next)
 
-    # === Экран 3: Выбор слота и создание ===
+    # ======================================================================
+    #  ЭКРАН 3 — Итоговый чертёж и создание
+    # ======================================================================
+
     def screen3(layout):
-        # Заголовок
-        title = Label(
-            text="Выберите слот и создайте чертеж артефакта",
-            font_size=font_normal,
-            color=(0.9, 0.9, 0.9, 1),
-            size_hint_y=None,
-            height=label_height,
-            halign='center',
-            valign='middle'
+        # --- Шапка ---
+        header = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(56),
+                           padding=[padding_main, dp(6), padding_main, 0])
+        _make_rounded_bg(header, _CLR_BG_PANEL, dp(10))
+        header.add_widget(_make_label(_step_indicator(3), font_sz=font_normal, height=dp(18)))
+        header.add_widget(_make_label("Чертёж артефакта", font_sz=font_title,
+                                      color=_CLR_GOLD, bold=True, height=dp(28)))
+        layout.add_widget(header)
+
+        # --- Большая карточка артефакта ---
+        card = BoxLayout(orientation='vertical', size_hint_y=None,
+                         height=preview_size + dp(120),
+                         padding=[padding_main, dp(8)], spacing=dp(6))
+        _make_rounded_bg(card, _CLR_BG_CARD, dp(12))
+
+        # Изображение по центру (крупное)
+        img_row = BoxLayout(size_hint_y=None, height=preview_size)
+        img_row.add_widget(BoxLayout())  # left spacer
+
+        _icon_path = os.path.join(artifact_images_path, current_data['icon']) if current_data['icon'] else ''
+        big_img = Image(
+            source=_icon_path,
+            size_hint=(None, None),
+            size=(preview_size - dp(16), preview_size - dp(16)),
+            pos_hint={'center_y': 0.5},
+            allow_stretch=True, keep_ratio=True
         )
-        title.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        layout.add_widget(title)
+        img_row.add_widget(big_img)
+        img_row.add_widget(BoxLayout())  # right spacer
+        card.add_widget(img_row)
 
-        # Слот — теперь кнопки
-        slot_label = Label(
-            text="Слот артефакта:",
-            font_size=font_small,
-            color=(0.9, 0.9, 0.9, 1),
-            size_hint_y=None,
-            height=label_height,
-            halign='left',
-            valign='middle'
-        )
-        slot_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        layout.add_widget(slot_label)
+        # Название
+        card.add_widget(_make_label(current_data['name'], font_sz=font_title,
+                                    color=_CLR_GOLD, bold=True, height=dp(26)))
 
-        # Кнопки для выбора слота
-        slot_layout = BoxLayout(orientation='horizontal', spacing=dp(3), size_hint_y=None, height=dp(25))
-        prev_slot_btn = Button(
-            text="<",
-            size_hint_x=0.2,
-            font_size=font_small,
-            background_color=(0.2, 0.2, 0.2, 1),
-            background_normal='',
-            size_hint_y=None,
-            height=dp(25)
-        )
-        current_slot_label = Label(
-            text=current_data['slot'],
-            font_size=font_small,
-            color=(0.9, 0.9, 0.9, 1),
-            halign='center',
-            valign='middle',
-            size_hint_x=0.6
-        )
-        current_slot_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        next_slot_btn = Button(
-            text=">",
-            size_hint_x=0.2,
-            font_size=font_small,
-            background_color=(0.2, 0.2, 0.2, 1),
-            background_normal='',
-            size_hint_y=None,
-            height=dp(25)
-        )
-        slot_layout.add_widget(prev_slot_btn)
-        slot_layout.add_widget(current_slot_label)
-        slot_layout.add_widget(next_slot_btn)
-        layout.add_widget(slot_layout)
+        # Статы
+        atk_val = current_data['attack']
+        def_val = current_data['defense']
+        stats_text = f"⚔ Атака: [b]{atk_val}[/b]     🛡 Защита: [b]{def_val}[/b]"
+        card.add_widget(_make_label(stats_text, font_sz=font_normal, color=_CLR_TEXT, height=dp(22)))
 
-        # Список слотов
-        slots = ['Оружие', 'Голова', 'Ноги', 'Туловище', 'Аксессуар']
-        slot_index = [0]
-        # === Сначала объявляем функции ===
-        def update_slot_label():
-            current_slot_label.text = slots[slot_index[0]]
+        # Сезон
+        season_text = current_data['season']
+        season_color = _CLR_PURPLE_LIGHT if season_text != 'Нет' else _CLR_TEXT_DIM
+        card.add_widget(_make_label(f"Сезон: {season_text}", font_sz=font_small,
+                                    color=season_color, height=dp(20)))
 
-        def on_prev_slot(instance):
-            slot_index[0] = (slot_index[0] - 1) % len(slots)
-            update_slot_label()
-
-        def on_next_slot(instance):
-            slot_index[0] = (slot_index[0] + 1) % len(slots)
-            update_slot_label()
-
-        # === Привязка кнопок ===
-        prev_slot_btn.bind(on_release=on_prev_slot)
-        next_slot_btn.bind(on_release=on_next_slot)
-
-        # === Только теперь синхронизируем и обновляем отображение ===
-        slot_index[0] = slots.index(current_data['slot']) if current_data['slot'] in slots else 0
-        update_slot_label()  # ✅ Теперь функция уже определена
-        prev_slot_btn.bind(on_release=on_prev_slot)
-        next_slot_btn.bind(on_release=on_next_slot)
-
-        # === Отображение итогового артефакта ===
-        artifact_title = Label(
-            text="Итоговый артефакт:",
-            font_size=font_normal,
-            color=(0.9, 0.9, 0.9, 1),
-            size_hint_y=None,
-            height=label_height,
-            halign='center',
-            valign='middle'
-        )
-        artifact_title.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        layout.add_widget(artifact_title)
-
-        artifact_display = BoxLayout(orientation='horizontal', spacing=dp(5), size_hint_y=None, height=dp(45))
-
-        # Подгружаем иконку правильно — с полным путем
-        full_icon_path = os.path.join(artifact_images_path, current_data['icon']) if current_data['icon'] else ''
-        artifact_image = Image(
-            source=full_icon_path,
-            size_hint_x=None,
-            width=dp(35),
-            allow_stretch=True,
-            keep_ratio=True
-        )
-        artifact_display.add_widget(artifact_image)
-
-        artifact_info = BoxLayout(orientation='vertical', spacing=dp(1))
-        artifact_name_label = Label(
-            text=current_data['name'] if current_data['name'] else "Название не задано",
-            font_size=font_small,
-            color=(0.9, 0.9, 0.9, 1),
-            halign='left',
-            valign='middle',
-            size_hint_y=None,
-            height=dp(18)
-        )
-        artifact_name_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        artifact_info.add_widget(artifact_name_label)
-
-        # Расчет стоимости
+        # --- Расчет стоимости ---
         attack_bonus = current_data['attack']
         defense_bonus = current_data['defense']
 
-        # Преобразуем строку сезонов в список
-        if current_data['season'] == 'Нет':
-            seasons_bonus = []
-        elif current_data['season'] == 'Все':
-            seasons_bonus = ['Весна', 'Лето', 'Осень', 'Зима']
-        else:
-            seasons_bonus = [s.strip() for s in current_data['season'].split(',')]
-
-        # Логика расчета стоимости
-        # === Расчет стоимости БЕЗ случайных множителей ===
-        attack_bonus = current_data['attack']
-        defense_bonus = current_data['defense']
-
-        # Фиксированные коэффициенты (x4 от базовых)
-        attack_cost = abs(attack_bonus) * 2.4 * 1000  # 2400 крон за 1%
-        defense_cost = abs(defense_bonus) * 3.2 * 1000  # 3200 крон за 1%
+        attack_cost = abs(attack_bonus) * 2400
+        defense_cost = abs(defense_bonus) * 3200
         base_cost = attack_cost + defense_cost
 
-        # Сезонные модификаторы (без изменений)
         if current_data['season'] == 'Нет':
-            base_cost *= 1.12  # Нет влияния сезонов + 12%
+            seasons_bonus = []
+            base_cost *= 1.12
         elif current_data['season'] == 'Все':
-            season_discount = 0.10
-            base_cost *= (1 - season_discount)
+            seasons_bonus = ['Весна', 'Лето', 'Осень', 'Зима']
+            base_cost *= 0.90
         else:
             seasons_bonus = [s.strip() for s in current_data['season'].split(',')]
             if len(seasons_bonus) == 1:
-                season_discount = 0.75
+                base_cost *= 0.25
             elif len(seasons_bonus) == 2:
                 consecutive_pairs = [
-                    ['Весна', 'Лето'],
-                    ['Лето', 'Осень'],
-                    ['Осень', 'Зима'],
-                    ['Зима', 'Весна']
+                    ['Весна', 'Лето'], ['Лето', 'Осень'],
+                    ['Осень', 'Зима'], ['Зима', 'Весна']
                 ]
                 if sorted(seasons_bonus) in [sorted(p) for p in consecutive_pairs]:
-                    season_discount = 0.25
+                    base_cost *= 0.75
                 else:
-                    season_discount = 0.45
+                    base_cost *= 0.55
             elif len(seasons_bonus) >= 3:
-                season_discount = 0.10
-            else:
-                season_discount = 0
+                base_cost *= 0.90
 
-            base_cost *= (1 - season_discount)
-
-        # Модификатор негативных значений
         negative_modifier = 1.0
         if attack_bonus < 0 or defense_bonus < 0:
             negative_count = sum(1 for x in [attack_bonus, defense_bonus] if x < 0)
             negative_modifier = 1 - (negative_count * 0.3)
 
         total_cost = base_cost * negative_modifier
-        min_cost = 20000
         _fn3 = getattr(faction, 'faction', '')
-        _max_total = 11_950_000 if _fn3 == 'Элины' else 9_850_000  # лимит минус 50K чертежа
-        total_cost = max(min_cost, min(total_cost, _max_total))
+        _max_total = 11_950_000 if _fn3 == 'Элины' else 9_850_000
+        total_cost = max(20000, min(total_cost, _max_total))
 
-        artifact_cost_label = Label(
-            text=f"Стоимость: {format_number(int(total_cost))} крон",
-            font_size=font_small,
-            color=(0.9, 0.9, 0.9, 1),
-            halign='left',
-            valign='middle',
-            size_hint_y=None,
-            height=dp(18)
-        )
-        artifact_cost_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
-        artifact_info.add_widget(artifact_cost_label)
+        # Стоимость
+        cost_row = BoxLayout(size_hint_y=None, height=dp(24))
+        cost_row.add_widget(_make_label(
+            f"Стоимость: [b]{format_number(int(total_cost))}[/b] крон  +  50 000 (чертёж)",
+            font_sz=font_small, color=_CLR_TEXT, height=dp(24)
+        ))
+        card.add_widget(cost_row)
 
-        artifact_display.add_widget(artifact_info)
-        layout.add_widget(artifact_display)
+        layout.add_widget(card)
 
-        # Кнопка создания
-        create_btn = Button(
-            text="Создать чертеж артефакта",
-            size_hint_y=None,
-            height=btn_height * 0.9,
-            background_normal='',
-            background_color=(0.6, 0.2, 0.6, 1),
-            font_size=font_normal,
-            bold=True,
-            size_hint_x=1
-        )
+        # --- Выбор слота ---
+        slot_panel = BoxLayout(orientation='horizontal', size_hint_y=None,
+                               height=dp(38), padding=[padding_main, dp(2)], spacing=dp(6))
+        _make_rounded_bg(slot_panel, _CLR_BG_CARD, dp(8))
+
+        slot_title = _make_label("Слот:", font_sz=font_small, color=_CLR_SLOT_BORDER,
+                                 bold=True, halign='left', height=dp(32))
+        slot_title.size_hint_x = 0.18
+        slot_panel.add_widget(slot_title)
+
+        prev_slot_btn = _make_action_btn("◀", (0.25, 0.20, 0.40, 1),
+                                         font_sz=font_small, height=dp(30))
+        prev_slot_btn.size_hint_x = 0.12
+        slot_panel.add_widget(prev_slot_btn)
+
+        slots = ['Оружие', 'Голова', 'Ноги', 'Туловище', 'Аксессуар']
+        slot_index = [slots.index(current_data['slot']) if current_data['slot'] in slots else 0]
+
+        slot_lbl = _make_label(slots[slot_index[0]], font_sz=font_normal,
+                               color=_CLR_TEXT, bold=True, height=dp(32))
+        slot_lbl.size_hint_x = 0.58
+        slot_panel.add_widget(slot_lbl)
+
+        next_slot_btn = _make_action_btn("▶", (0.25, 0.20, 0.40, 1),
+                                         font_sz=font_small, height=dp(30))
+        next_slot_btn.size_hint_x = 0.12
+        slot_panel.add_widget(next_slot_btn)
+        layout.add_widget(slot_panel)
+
+        def on_prev_slot(*_):
+            slot_index[0] = (slot_index[0] - 1) % len(slots)
+            slot_lbl.text = slots[slot_index[0]]
+
+        def on_next_slot(*_):
+            slot_index[0] = (slot_index[0] + 1) % len(slots)
+            slot_lbl.text = slots[slot_index[0]]
+
+        prev_slot_btn.bind(on_release=on_prev_slot)
+        next_slot_btn.bind(on_release=on_next_slot)
+
+        # Спейсер
+        layout.add_widget(BoxLayout(size_hint_y=1))
+
+        # --- Кнопка создания ---
+        create_btn = _make_action_btn("✦  Создать чертёж  ✦", _CLR_PURPLE,
+                                      font_sz=font_title, height=dp(44))
+        create_btn.padding = [padding_main, 0]
         layout.add_widget(create_btn)
 
-        # Кнопки навигации — добавим кнопку "Назад"
-        btn_box = BoxLayout(orientation='horizontal', spacing=dp(3), size_hint=(1, None), height=btn_height)
-        back_btn = Button(
-            text="Назад",
-            size_hint=(0.5, 1),
-            background_normal='',
-            background_color=(0.6, 0.6, 0.2, 1),
-            font_size=font_normal,
-            color=(1, 1, 1, 1)
-        )
-        close_btn = Button(
-            text="Закрыть",
-            size_hint=(0.5, 1),
-            background_normal='',
-            background_color=(0.7, 0.2, 0.2, 1),
-            font_size=font_normal,
-            color=(1, 1, 1, 1)
-        )
-        btn_box.add_widget(back_btn)
-        btn_box.add_widget(close_btn)
-        layout.add_widget(btn_box)
+        # --- Навигация ---
+        bottom = BoxLayout(orientation='horizontal', size_hint_y=None,
+                           height=btn_height + dp(12), spacing=dp(8),
+                           padding=[padding_main, dp(6)])
+        _make_rounded_bg(bottom, _CLR_BG_PANEL, dp(10))
 
-        # Привязка событий
-        def on_back(instance):
-            current_data['slot'] = slots[slot_index[0]]  # Сохраняем слот перед возвратом
+        back_btn = _make_action_btn("← Назад", _CLR_GOLD_DIM)
+        close_btn = _make_action_btn("Закрыть", _CLR_RED)
+        bottom.add_widget(back_btn)
+        bottom.add_widget(close_btn)
+        layout.add_widget(bottom)
+
+        # --- События ---
+        def on_back(*_):
+            current_data['slot'] = slots[slot_index[0]]
             switch_to_screen(screen2)
 
-        def on_close(instance):
-            workshop_popup.dismiss()
+        def on_create(*_):
+            current_data['slot'] = slots[slot_index[0]]
 
-        def on_create(instance):
-            current_data['slot'] = slots[slot_index[0]]  # Обновляем слот перед созданием
-
-            # === НОВАЯ ПРОВЕРКА: нельзя создать артефакт с 0% атаки и 0% защиты ===
             if current_data['attack'] == 0 and current_data['defense'] == 0:
                 show_message("Ошибка",
                              "Артефакт должен иметь хотя бы одну характеристику!\n"
-                             "Установите значение Атаки или Защиты больше 0%.")
+                             "Установите Атаку или Защиту больше 0.")
                 return
-            current_data['slot'] = slots[slot_index[0]]  # Обновляем слот перед созданием
+
             _fn = getattr(faction, 'faction', '')
             _max_cost = 12_000_000 if _fn == 'Элины' else 9_900_000
-            _full_cost = total_cost + 50_000  # жетоны + чертёж
+            _full_cost = total_cost + 50_000
             if _full_cost > _max_cost:
-                _limit_text = format_number(_max_cost)
                 show_message("Ошибка",
-                             f"Общая стоимость артефакта ({format_number(int(_full_cost))} крон)\n"
-                             f"превышает лимит {_limit_text} крон.\n"
-                             f"Уменьшите параметры артефакта.")
+                             f"Общая стоимость ({format_number(int(_full_cost))} крон)\n"
+                             f"превышает лимит {format_number(_max_cost)} крон.")
                 return
 
             if faction.money < 50000:
-                show_message("Ошибка", "Недостаточно средств для создания чертежа артефакта (требуется 50 тыс. крон)")
+                show_message("Ошибка", "Недостаточно средств для чертежа (50 000 крон)")
                 return
 
             faction.money -= 50000
-            money_label = Label(
-                text=f"Баланс: {format_number(faction.money)}",
-                font_size=font_small,
-                color=(0.9, 0.9, 0.9, 1),
-                halign='left',
-                valign='middle',
-                size_hint_y=None,
-                height=label_height
-            )
-            money_label.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, inst.height)))
 
-            artifact_name = current_data['name']
-            if not artifact_name:
-                artifact_name = generate_random_name()
-
+            artifact_name = current_data['name'] or generate_random_name()[0]
             image_path = os.path.join(artifact_images_path, current_data['icon'])
-
             artifact_type_map = {
-                'Оружие': 0,
-                'Голова': 1,
-                'Ноги': 2,
-                'Туловище': 3,
-                'Аксессуар': 4
+                'Оружие': 0, 'Голова': 1, 'Ноги': 2,
+                'Туловище': 3, 'Аксессуар': 4
             }
 
-            # Добавляем в базу
             try:
                 cursor = db_conn.cursor()
                 cursor.execute("SELECT MAX(id) FROM artifacts")
                 result = cursor.fetchone()
-                current_max_id = result[0]
-
-                if current_max_id is None:
-                    new_artifact_id = 1
-                else:
-                    new_artifact_id = current_max_id + 1
+                new_id = (result[0] or 0) + 1
 
                 cursor.execute('''
                     INSERT INTO artifacts (id, attack, defense, season_name, image_url, name, cost, artifact_type, is_created)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
-                    new_artifact_id,
+                    new_id,
                     attack_bonus,
                     defense_bonus,
                     ', '.join(seasons_bonus),
@@ -1029,17 +934,16 @@ def workshop(faction, db_conn):
                     artifact_type_map[current_data['slot']],
                     1
                 ))
-
                 db_conn.commit()
-                show_message("Успех", f"Артефакт '{artifact_name}' (ID: {new_artifact_id}) добавлен в лавку!")
+                show_message("Успех", f"Артефакт «{artifact_name}» создан и добавлен в лавку!")
                 workshop_popup.dismiss()
             except Exception as e:
-                show_message("Ошибка", f"Не удалось добавить артефакт в базу данных: {str(e)}")
+                show_message("Ошибка", f"Не удалось создать артефакт: {e}")
 
         back_btn.bind(on_release=on_back)
-        close_btn.bind(on_release=on_close)
+        close_btn.bind(on_release=lambda x: workshop_popup.dismiss())
         create_btn.bind(on_release=on_create)
 
-    # === Открываем первый экран ===
+    # === Запуск ===
     switch_to_screen(screen1)
     workshop_popup.open()
