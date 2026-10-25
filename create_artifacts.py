@@ -144,13 +144,13 @@ def workshop(faction, db_conn):
         return lbl
 
     def _step_indicator(step_num, total=3):
-        """Индикатор шагов: ● ● ○"""
+        """Индикатор шагов: [1] [2] [3]"""
         dots = ''
         for i in range(1, total + 1):
             if i == step_num:
-                dots += f'[color=e6bf3a]●[/color]  '
+                dots += f'[color=e6bf3a][{i}][/color]  '
             else:
-                dots += f'[color=555555]○[/color]  '
+                dots += f'[color=555555]{i}[/color]  '
         return dots.strip()
 
     # ======================================================================
@@ -310,7 +310,7 @@ def workshop(faction, db_conn):
         info_box.add_widget(counter_lbl)
 
         # Кнопка перегенерации имени
-        rename_btn = _make_action_btn("⟳ Новое имя", (0.20, 0.35, 0.55, 1),
+        rename_btn = _make_action_btn("Новое имя", (0.20, 0.35, 0.55, 1),
                                       font_sz=font_small, height=dp(30))
         info_box.add_widget(rename_btn)
 
@@ -421,7 +421,7 @@ def workshop(faction, db_conn):
         _make_rounded_bg(bottom, _CLR_BG_PANEL, dp(10))
 
         close_btn = _make_action_btn("Закрыть", _CLR_RED)
-        next_btn = _make_action_btn("Далее  ➜", (0.18, 0.52, 0.28, 1))
+        next_btn = _make_action_btn("Далее >>", (0.18, 0.52, 0.28, 1))
 
         bottom.add_widget(close_btn)
         bottom.add_widget(next_btn)
@@ -537,7 +537,7 @@ def workshop(faction, db_conn):
         _make_rounded_bg(atk_section, _CLR_BG_CARD, dp(8))
 
         atk_header = BoxLayout(size_hint_y=None, height=dp(22), spacing=dp(4))
-        atk_icon_lbl = _make_label("⚔  Атака", font_sz=font_small, color=_CLR_RED,
+        atk_icon_lbl = _make_label("ATK  Атака", font_sz=font_small, color=_CLR_RED,
                                    bold=True, halign='left', height=dp(22))
         atk_icon_lbl.size_hint_x = 0.35
         atk_header.add_widget(atk_icon_lbl)
@@ -571,7 +571,7 @@ def workshop(faction, db_conn):
         _make_rounded_bg(def_section, _CLR_BG_CARD, dp(8))
 
         def_header = BoxLayout(size_hint_y=None, height=dp(22), spacing=dp(4))
-        def_icon_lbl = _make_label("🛡  Защита", font_sz=font_small, color=_CLR_BLUE,
+        def_icon_lbl = _make_label("DEF  Защита", font_sz=font_small, color=_CLR_BLUE,
                                    bold=True, halign='left', height=dp(22))
         def_icon_lbl.size_hint_x = 0.35
         def_header.add_widget(def_icon_lbl)
@@ -608,7 +608,7 @@ def workshop(faction, db_conn):
         season_title.size_hint_x = 0.22
         season_panel.add_widget(season_title)
 
-        prev_season_btn = _make_action_btn("◀", (0.25, 0.20, 0.40, 1),
+        prev_season_btn = _make_action_btn("<", (0.25, 0.20, 0.40, 1),
                                            font_sz=font_small, height=dp(30))
         prev_season_btn.size_hint_x = 0.12
         season_panel.add_widget(prev_season_btn)
@@ -618,7 +618,7 @@ def workshop(faction, db_conn):
         season_lbl.size_hint_x = 0.54
         season_panel.add_widget(season_lbl)
 
-        next_season_btn = _make_action_btn("▶", (0.25, 0.20, 0.40, 1),
+        next_season_btn = _make_action_btn(">", (0.25, 0.20, 0.40, 1),
                                            font_sz=font_small, height=dp(30))
         next_season_btn.size_hint_x = 0.12
         season_panel.add_widget(next_season_btn)
@@ -654,8 +654,8 @@ def workshop(faction, db_conn):
                            padding=[padding_main, dp(6)])
         _make_rounded_bg(bottom, _CLR_BG_PANEL, dp(10))
 
-        back_btn = _make_action_btn("← Назад", _CLR_GOLD_DIM)
-        next_btn = _make_action_btn("Далее  ➜", (0.18, 0.52, 0.28, 1))
+        back_btn = _make_action_btn("<< Назад", _CLR_GOLD_DIM)
+        next_btn = _make_action_btn("Далее >>", (0.18, 0.52, 0.28, 1))
         bottom.add_widget(back_btn)
         bottom.add_widget(next_btn)
         layout.add_widget(bottom)
@@ -670,7 +670,7 @@ def workshop(faction, db_conn):
             def_cost_lbl.text = f"{format_number(dv * 3200)} крон"
 
             tu, ta, td = calculate_tokens(av, dv)
-            used_label.text = f"Использовано: {tu:.1f}  (⚔ {ta:.1f}  🛡 {td:.1f})"
+            used_label.text = f"Использовано: {tu:.1f}  (ATK {ta:.1f}  DEF {td:.1f})"
             total_c = av * 2400 + dv * 3200
             cost_label.text = f"Стоимость: {format_number(total_c)} крон"
 
@@ -758,7 +758,7 @@ def workshop(faction, db_conn):
         # Статы
         atk_val = current_data['attack']
         def_val = current_data['defense']
-        stats_text = f"⚔ Атака: [b]{atk_val}[/b]     🛡 Защита: [b]{def_val}[/b]"
+        stats_text = f"ATK Атака: [b]{atk_val}[/b]     DEF Защита: [b]{def_val}[/b]"
         card.add_widget(_make_label(stats_text, font_sz=font_normal, color=_CLR_TEXT, height=dp(22)))
 
         # Сезон
@@ -827,7 +827,7 @@ def workshop(faction, db_conn):
         slot_title.size_hint_x = 0.18
         slot_panel.add_widget(slot_title)
 
-        prev_slot_btn = _make_action_btn("◀", (0.25, 0.20, 0.40, 1),
+        prev_slot_btn = _make_action_btn("<", (0.25, 0.20, 0.40, 1),
                                          font_sz=font_small, height=dp(30))
         prev_slot_btn.size_hint_x = 0.12
         slot_panel.add_widget(prev_slot_btn)
@@ -840,7 +840,7 @@ def workshop(faction, db_conn):
         slot_lbl.size_hint_x = 0.58
         slot_panel.add_widget(slot_lbl)
 
-        next_slot_btn = _make_action_btn("▶", (0.25, 0.20, 0.40, 1),
+        next_slot_btn = _make_action_btn(">", (0.25, 0.20, 0.40, 1),
                                          font_sz=font_small, height=dp(30))
         next_slot_btn.size_hint_x = 0.12
         slot_panel.add_widget(next_slot_btn)
@@ -861,7 +861,7 @@ def workshop(faction, db_conn):
         layout.add_widget(BoxLayout(size_hint_y=1))
 
         # --- Кнопка создания ---
-        create_btn = _make_action_btn("✦  Создать чертёж  ✦", _CLR_PURPLE,
+        create_btn = _make_action_btn("Создать чертёж", _CLR_PURPLE,
                                       font_sz=font_title, height=dp(44))
         create_btn.padding = [padding_main, 0]
         layout.add_widget(create_btn)
@@ -872,7 +872,7 @@ def workshop(faction, db_conn):
                            padding=[padding_main, dp(6)])
         _make_rounded_bg(bottom, _CLR_BG_PANEL, dp(10))
 
-        back_btn = _make_action_btn("← Назад", _CLR_GOLD_DIM)
+        back_btn = _make_action_btn("<< Назад", _CLR_GOLD_DIM)
         close_btn = _make_action_btn("Закрыть", _CLR_RED)
         bottom.add_widget(back_btn)
         bottom.add_widget(close_btn)
