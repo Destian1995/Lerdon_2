@@ -1,9 +1,18 @@
 import os
+import sys
+import traceback
+
 os.environ['KIVY_VIDEO'] = 'ffpyplayer'
-from game_process import GameScreen
-from ui import *
-from db_lerdon_connect import *
-from generate_map import generate_map_and_cities
+
+try:
+    from game_process import GameScreen
+    from ui import *
+    from db_lerdon_connect import *
+    from generate_map import generate_map_and_cities
+except Exception as e:
+    print(f"[CRASH] Import error: {e}")
+    traceback.print_exc()
+    sys.exit(1)
 from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
@@ -5160,8 +5169,12 @@ class Lerdon(MDApp):
 
     def build(self):
         """Создает начальный интерфейс приложения."""
-
-        return LoadingScreen(self.conn)
+        try:
+            return LoadingScreen(self.conn)
+        except Exception as e:
+            print(f"[CRASH] build() error: {e}")
+            traceback.print_exc()
+            raise
 
     def restart_app(self):
         """Перезапуск игры — очистка БД, восстановление бэкапа, пересоздание интерфейса."""
@@ -5225,4 +5238,8 @@ class Lerdon(MDApp):
 
 
 if __name__ == '__main__':
-    Lerdon().run()
+    try:
+        Lerdon().run()
+    except Exception as e:
+        print(f"[CRASH] App.run() error: {e}")
+        traceback.print_exc()

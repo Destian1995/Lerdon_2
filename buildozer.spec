@@ -53,10 +53,11 @@ p4a.bootstrap = sdl2
 
 android.release = True
 android.release_artifact = apk
+android.numeric_version = 60507
 
 # ---------------------------------
 # Прочее
 # ---------------------------------
 
 buildozer.build_logfile = buildozer.log
-android.add_gradle_properties = org.gradle.jvmargs=-Xmx4g
+android.add_gradle_properties = org.gradle.jvmargs=-Xmx6g

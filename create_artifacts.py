@@ -1,24 +1,7 @@
 import os
-
-from kivy.uix.popup import Popup
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.gridlayout import GridLayout
-from kivy.uix.scrollview import ScrollView
-
-from kivy.uix.button import Button
-from kivy.uix.label import Label
-from kivy.uix.slider import Slider
-
-from kivy.uix.image import Image
-from kivy.graphics import Color, RoundedRectangle, Rectangle, Line
-
-from kivy.metrics import dp, sp
-from kivy.core.window import Window
 import random
 
 from ui_components import show_message
-
 from utils.helpers import format_number
 
 
@@ -43,6 +26,21 @@ _CLR_SLOT_BORDER = (0.45, 0.35, 0.65, 1) # Рамка слота
 
 def workshop(faction, db_conn):
     """Мастерская артефактов — полноэкранный 3-шаговый визард."""
+
+    # === Ленивые импорты (избегаем краш при загрузке модуля) ===
+    from kivy.uix.popup import Popup
+    from kivy.uix.boxlayout import BoxLayout
+    from kivy.uix.floatlayout import FloatLayout
+    from kivy.uix.gridlayout import GridLayout
+    from kivy.uix.scrollview import ScrollView
+    from kivy.uix.button import Button
+    from kivy.uix.label import Label
+    from kivy.uix.slider import Slider
+    from kivy.uix.image import Image
+    from kivy.graphics import Color, RoundedRectangle, Line
+    from kivy.metrics import dp, sp
+    from kivy.core.window import Window
+    from kivy.uix.widget import Widget
 
     # === Платформа ===
     from kivy.utils import platform as _platform
