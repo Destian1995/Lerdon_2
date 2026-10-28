@@ -282,7 +282,7 @@ def workshop(faction, db_conn):
             counter_lbl.text = f"{idx + 1} / {len(imgs)}"
             # Подсветка выбранного
             for i, tb in enumerate(_thumb_btns):
-                tb.background_color = (0.9, 0.75, 0.25, 0.4) if i == idx else (0.12, 0.13, 0.18, 1)
+                tb.background_color = (1, 0.85, 0.3, 1) if i == idx else (0.75, 0.75, 0.80, 1)
 
         def _rebuild():
             grid.clear_widgets()
@@ -294,7 +294,7 @@ def workshop(faction, db_conn):
                     size_hint_y=None, height=thumb_size,
                     background_normal=img_path,
                     background_down=img_path,
-                    background_color=(0.12, 0.13, 0.18, 1),
+                    background_color=(0.75, 0.75, 0.80, 1),
                     border=(0, 0, 0, 0)
                 )
 
