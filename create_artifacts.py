@@ -23,6 +23,24 @@ _CLR_BLUE = (0.30, 0.55, 0.85, 1)        # Синий (информация)
 _CLR_SELECTED = (0.90, 0.75, 0.25, 0.35) # Подсветка выбранного
 _CLR_SLOT_BORDER = (0.45, 0.35, 0.65, 1) # Рамка слота
 
+# Маппинг типов артефактов: префикс файла -> (название слота, id типа)
+_SLOT_MAP = {
+    0: 'Оружие',
+    1: 'Голова',
+    2: 'Ноги',
+    3: 'Туловище',
+    4: 'Аксессуар',
+}
+
+_SLOT_LABELS = ['Все', 'Оружие', 'Голова', 'Ноги', 'Туловище', 'Аксессуар']
+_SLOT_PREFIXES = {
+    'Оружие': '0',
+    'Голова': '1',
+    'Ноги': '2',
+    'Туловище': '3',
+    'Аксессуар': '4',
+}
+
 
 def workshop(faction, db_conn):
     """Мастерская артефактов — полноэкранный 3-шаговый визард."""
@@ -83,15 +101,23 @@ def workshop(faction, db_conn):
     # === Изображения артефактов ===
     artifact_images_path = r"files/pict/artifacts/custom"
     if os.path.exists(artifact_images_path):
-        image_files = sorted([
+        all_image_files = sorted([
             f for f in os.listdir(artifact_images_path)
             if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))
         ])
     else:
-        image_files = []
+        all_image_files = []
 
     selected_image = [None]
     current_index = [0]
+    current_filter = ['Все']  # Текущий фильтр типа
+
+    def _get_filtered_images():
+        """Возвращает список файлов, отфильтрованных по текущему типу."""
+        if current_filter[0] == 'Все':
+            return all_image_files[:]
+        prefix = _SLOT_PREFIXES.get(current_filter[0], '')
+        return [f for f in all_image_files if f.startswith(prefix)]
 
     # ======================================================================
     #  Утилиты UI
@@ -238,7 +264,7 @@ def workshop(faction, db_conn):
         return f"{random.choice(prefixes)} {random.choice(suffixes)}", artifact_type
 
     # ======================================================================
-    #  ЭКРАН 1 — Выбор иконки (сетка крупных миниатюр)
+    #  ЭКРАН 1 — Выбор типа и иконки
     # ======================================================================
 
     def screen1(layout):
@@ -250,22 +276,66 @@ def workshop(faction, db_conn):
         step_lbl = _make_label(_step_indicator(1), font_sz=font_normal, height=dp(20))
         header.add_widget(step_lbl)
 
-        title_lbl = _make_label("Выберите облик артефакта", font_sz=font_title,
+        title_lbl = _make_label("Выберите тип и облик артефакта", font_sz=font_title,
                                 color=_CLR_GOLD, bold=True, height=dp(30))
         header.add_widget(title_lbl)
         layout.add_widget(header)
 
-        # --- Превью выбранного артефакта (крупное) ---
+        # --- Кнопки фильтра по типу ---
+        filter_scroll = ScrollView(size_hint_y=None, height=dp(38), do_scroll_y=False)
+        filter_row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(34),
+                               size_hint_x=None, spacing=dp(4), padding=[dp(4), dp(2)])
+
+        _filter_btns = []
+
+        def _on_filter(slot_name, *_args):
+            current_filter[0] = slot_name
+            current_index[0] = 0
+            # Обновляем подсветку кнопок фильтра
+            for fb, fn in _filter_btns:
+                if fn == slot_name:
+                    if hasattr(fb, '_bg_color'):
+                        fb._bg_color.rgba = _CLR_GOLD_DIM
+                    fb.color = (1, 1, 1, 1)
+                else:
+                    if hasattr(fb, '_bg_color'):
+                        fb._bg_color.rgba = (0.15, 0.16, 0.22, 1)
+                    fb.color = (0.6, 0.6, 0.65, 1)
+            _rebuild_grid()
+
+        for slot_name in _SLOT_LABELS:
+            fb = Button(
+                text=slot_name,
+                size_hint=(None, None),
+                width=dp(80) if slot_name != 'Все' else dp(50),
+                height=dp(30),
+                background_color=(0, 0, 0, 0),
+                background_normal='',
+                font_size=font_small,
+                bold=True,
+                color=(1, 1, 1, 1) if slot_name == current_filter[0] else (0.6, 0.6, 0.65, 1)
+            )
+            active_color = _CLR_GOLD_DIM if slot_name == current_filter[0] else (0.15, 0.16, 0.22, 1)
+            _make_rounded_bg(fb, active_color, dp(6))
+            fb.bind(on_release=lambda inst, sn=slot_name: _on_filter(sn))
+            filter_row.add_widget(fb)
+            _filter_btns.append((fb, slot_name))
+
+        filter_row.width = sum(dp(80) if sn != 'Все' else dp(50) for sn in _SLOT_LABELS) + dp(4) * (len(_SLOT_LABELS) - 1) + dp(8)
+        filter_scroll.add_widget(filter_row)
+        layout.add_widget(filter_scroll)
+
+        # --- Превью выбранного артефакта ---
         preview_panel = BoxLayout(orientation='horizontal', size_hint_y=None,
                                   height=preview_size + dp(20),
                                   padding=[padding_main, dp(6)], spacing=dp(12))
         _make_rounded_bg(preview_panel, _CLR_BG_CARD, dp(10))
 
-        # Контейнер изображения с рамкой
         img_container = FloatLayout(size_hint_x=None, width=preview_size)
 
+        filtered = _get_filtered_images()
         preview_img = Image(
-            source="" if not image_files else os.path.join(artifact_images_path, image_files[0]),
+            source="" if not filtered else os.path.join(artifact_images_path, filtered[0]),
             size_hint=(None, None),
             size=(preview_size - dp(8), preview_size - dp(8)),
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
@@ -295,11 +365,11 @@ def workshop(faction, db_conn):
         info_box = BoxLayout(orientation='vertical', spacing=dp(4),
                              padding=[0, dp(10), 0, dp(10)])
 
-        name_lbl = _make_label("—", font_sz=font_normal, color=_CLR_GOLD,
+        name_lbl = _make_label("--", font_sz=font_normal, color=_CLR_GOLD,
                                bold=True, halign='left', height=dp(28))
         info_box.add_widget(name_lbl)
 
-        type_lbl = _make_label("Тип: —", font_sz=font_small, color=_CLR_TEXT_DIM,
+        type_lbl = _make_label("Тип: --", font_sz=font_small, color=_CLR_TEXT_DIM,
                                halign='left', height=dp(20))
         info_box.add_widget(type_lbl)
 
@@ -312,9 +382,7 @@ def workshop(faction, db_conn):
                                       font_sz=font_small, height=dp(30))
         info_box.add_widget(rename_btn)
 
-        # Спейсер
         info_box.add_widget(BoxLayout())
-
         preview_panel.add_widget(info_box)
         layout.add_widget(preview_panel)
 
@@ -330,6 +398,9 @@ def workshop(faction, db_conn):
                           size_hint_y=None)
         grid.bind(minimum_height=grid.setter('height'))
 
+        scroll.add_widget(grid)
+        layout.add_widget(scroll)
+
         _thumb_widgets = []
 
         def _select_thumb(idx, *_args):
@@ -337,11 +408,20 @@ def workshop(faction, db_conn):
             _update_selection()
 
         def _update_selection():
+            filtered_imgs = _get_filtered_images()
             idx = current_index[0]
-            if not image_files:
+            if not filtered_imgs:
+                preview_img.source = ''
+                name_lbl.text = '--'
+                type_lbl.text = 'Тип: --'
+                counter_lbl.text = '0 / 0'
                 return
 
-            img_filename = image_files[idx]
+            if idx >= len(filtered_imgs):
+                idx = 0
+                current_index[0] = 0
+
+            img_filename = filtered_imgs[idx]
             img_path = os.path.join(artifact_images_path, img_filename)
             preview_img.source = img_path
             selected_image[0] = img_filename
@@ -351,12 +431,11 @@ def workshop(faction, db_conn):
             current_data['icon'] = img_filename
             name_lbl.text = auto_name
 
-            slot_map = {0: 'Оружие', 1: 'Голова', 2: 'Ноги', 3: 'Туловище', 4: 'Аксессуар'}
-            if detected_type in slot_map:
-                current_data['slot'] = slot_map[detected_type]
-                type_lbl.text = f"Тип: {slot_map[detected_type]}"
+            if detected_type in _SLOT_MAP:
+                current_data['slot'] = _SLOT_MAP[detected_type]
+                type_lbl.text = f"Тип: {_SLOT_MAP[detected_type]}"
 
-            counter_lbl.text = f"{idx + 1} / {len(image_files)}"
+            counter_lbl.text = f"{idx + 1} / {len(filtered_imgs)}"
 
             # Обновляем подсветку миниатюр
             for i, tw in enumerate(_thumb_widgets):
@@ -367,50 +446,53 @@ def workshop(faction, db_conn):
                     if hasattr(tw, '_sel_color'):
                         tw._sel_color.rgba = (0, 0, 0, 0)
 
-        for i, fname in enumerate(image_files):
-            cell = FloatLayout(size_hint_y=None, height=thumb_size)
+        def _rebuild_grid():
+            grid.clear_widgets()
+            _thumb_widgets.clear()
+            filtered_imgs = _get_filtered_images()
 
-            # Фон с подсветкой
-            with cell.canvas.before:
-                cell._sel_color = Color(0, 0, 0, 0)
-                cell._sel_rect = RoundedRectangle(pos=cell.pos, size=cell.size, radius=[dp(8)])
-                Color(*_CLR_BG_CARD)
-                cell._bg_rect = RoundedRectangle(pos=cell.pos, size=cell.size, radius=[dp(8)])
+            for i, fname in enumerate(filtered_imgs):
+                cell = FloatLayout(size_hint_y=None, height=thumb_size)
 
-            def _bind_bg(w):
-                def _upd(inst, val):
-                    inst._sel_rect.pos = val
-                    inst._bg_rect.pos = val
-                def _upd_sz(inst, val):
-                    inst._sel_rect.size = val
-                    inst._bg_rect.size = val
-                w.bind(pos=_upd, size=_upd_sz)
-            _bind_bg(cell)
+                with cell.canvas.before:
+                    cell._sel_color = Color(0, 0, 0, 0)
+                    cell._sel_rect = RoundedRectangle(pos=cell.pos, size=cell.size, radius=[dp(8)])
+                    Color(*_CLR_BG_CARD)
+                    cell._bg_rect = RoundedRectangle(pos=cell.pos, size=cell.size, radius=[dp(8)])
 
-            thumb_img = Image(
-                source=os.path.join(artifact_images_path, fname),
-                size_hint=(None, None),
-                size=(thumb_size - dp(12), thumb_size - dp(12)),
-                pos_hint={'center_x': 0.5, 'center_y': 0.5},
-                allow_stretch=True,
-                keep_ratio=True
-            )
-            cell.add_widget(thumb_img)
+                def _bind_bg(w):
+                    def _upd(inst, val):
+                        inst._sel_rect.pos = val
+                        inst._bg_rect.pos = val
+                    def _upd_sz(inst, val):
+                        inst._sel_rect.size = val
+                        inst._bg_rect.size = val
+                    w.bind(pos=_upd, size=_upd_sz)
+                _bind_bg(cell)
 
-            # Невидимая кнопка поверх для обработки нажатия
-            touch_btn = Button(
-                size_hint=(1, 1),
-                background_color=(0, 0, 0, 0),
-                background_normal='',
-                on_release=lambda inst, _i=i: _select_thumb(_i)
-            )
-            cell.add_widget(touch_btn)
+                thumb_img = Image(
+                    source=os.path.join(artifact_images_path, fname),
+                    size_hint=(None, None),
+                    size=(thumb_size - dp(12), thumb_size - dp(12)),
+                    pos_hint={'center_x': 0.5, 'center_y': 0.5},
+                    allow_stretch=True,
+                    keep_ratio=True
+                )
+                cell.add_widget(thumb_img)
 
-            grid.add_widget(cell)
-            _thumb_widgets.append(cell)
+                touch_btn = Button(
+                    size_hint=(1, 1),
+                    background_color=(0, 0, 0, 0),
+                    background_normal='',
+                    on_release=lambda inst, _i=i: _select_thumb(_i)
+                )
+                cell.add_widget(touch_btn)
 
-        scroll.add_widget(grid)
-        layout.add_widget(scroll)
+                grid.add_widget(cell)
+                _thumb_widgets.append(cell)
+
+            if filtered_imgs:
+                _update_selection()
 
         # --- Нижняя панель ---
         bottom = BoxLayout(orientation='horizontal', size_hint_y=None,
@@ -446,9 +528,8 @@ def workshop(faction, db_conn):
         close_btn.bind(on_release=lambda x: workshop_popup.dismiss())
         next_btn.bind(on_release=on_next)
 
-        # Инициализация
-        if image_files:
-            _update_selection()
+        # Инициализация — построить сетку
+        _rebuild_grid()
 
     # ======================================================================
     #  ЭКРАН 2 — Характеристики (слайдеры + превью)
@@ -733,10 +814,9 @@ def workshop(faction, db_conn):
                          padding=[padding_main, dp(8)], spacing=dp(6))
         _make_rounded_bg(card, _CLR_BG_CARD, dp(12))
 
-        # Изображение по центру (крупное)
+        # Изображение по центру
         img_row = BoxLayout(size_hint_y=None, height=preview_size)
-        img_row.add_widget(BoxLayout())  # left spacer
-
+        img_row.add_widget(BoxLayout())
         _icon_path = os.path.join(artifact_images_path, current_data['icon']) if current_data['icon'] else ''
         big_img = Image(
             source=_icon_path,
@@ -746,7 +826,7 @@ def workshop(faction, db_conn):
             allow_stretch=True, keep_ratio=True
         )
         img_row.add_widget(big_img)
-        img_row.add_widget(BoxLayout())  # right spacer
+        img_row.add_widget(BoxLayout())
         card.add_widget(img_row)
 
         # Название
@@ -764,6 +844,10 @@ def workshop(faction, db_conn):
         season_color = _CLR_PURPLE_LIGHT if season_text != 'Нет' else _CLR_TEXT_DIM
         card.add_widget(_make_label(f"Сезон: {season_text}", font_sz=font_small,
                                     color=season_color, height=dp(20)))
+
+        # Слот (определён автоматически по иконке)
+        card.add_widget(_make_label(f"Слот: {current_data['slot']}", font_sz=font_small,
+                                    color=_CLR_SLOT_BORDER, height=dp(20)))
 
         # --- Расчет стоимости ---
         attack_bonus = current_data['attack']
@@ -815,46 +899,6 @@ def workshop(faction, db_conn):
 
         layout.add_widget(card)
 
-        # --- Выбор слота ---
-        slot_panel = BoxLayout(orientation='horizontal', size_hint_y=None,
-                               height=dp(38), padding=[padding_main, dp(2)], spacing=dp(6))
-        _make_rounded_bg(slot_panel, _CLR_BG_CARD, dp(8))
-
-        slot_title = _make_label("Слот:", font_sz=font_small, color=_CLR_SLOT_BORDER,
-                                 bold=True, halign='left', height=dp(32))
-        slot_title.size_hint_x = 0.18
-        slot_panel.add_widget(slot_title)
-
-        prev_slot_btn = _make_action_btn("<", (0.25, 0.20, 0.40, 1),
-                                         font_sz=font_small, height=dp(30))
-        prev_slot_btn.size_hint_x = 0.12
-        slot_panel.add_widget(prev_slot_btn)
-
-        slots = ['Оружие', 'Голова', 'Ноги', 'Туловище', 'Аксессуар']
-        slot_index = [slots.index(current_data['slot']) if current_data['slot'] in slots else 0]
-
-        slot_lbl = _make_label(slots[slot_index[0]], font_sz=font_normal,
-                               color=_CLR_TEXT, bold=True, height=dp(32))
-        slot_lbl.size_hint_x = 0.58
-        slot_panel.add_widget(slot_lbl)
-
-        next_slot_btn = _make_action_btn(">", (0.25, 0.20, 0.40, 1),
-                                         font_sz=font_small, height=dp(30))
-        next_slot_btn.size_hint_x = 0.12
-        slot_panel.add_widget(next_slot_btn)
-        layout.add_widget(slot_panel)
-
-        def on_prev_slot(*_):
-            slot_index[0] = (slot_index[0] - 1) % len(slots)
-            slot_lbl.text = slots[slot_index[0]]
-
-        def on_next_slot(*_):
-            slot_index[0] = (slot_index[0] + 1) % len(slots)
-            slot_lbl.text = slots[slot_index[0]]
-
-        prev_slot_btn.bind(on_release=on_prev_slot)
-        next_slot_btn.bind(on_release=on_next_slot)
-
         # Спейсер
         layout.add_widget(BoxLayout(size_hint_y=1))
 
@@ -878,12 +922,9 @@ def workshop(faction, db_conn):
 
         # --- События ---
         def on_back(*_):
-            current_data['slot'] = slots[slot_index[0]]
             switch_to_screen(screen2)
 
         def on_create(*_):
-            current_data['slot'] = slots[slot_index[0]]
-
             if current_data['attack'] == 0 and current_data['defense'] == 0:
                 show_message("Ошибка",
                              "Артефакт должен иметь хотя бы одну характеристику!\n"
@@ -933,7 +974,7 @@ def workshop(faction, db_conn):
                     1
                 ))
                 db_conn.commit()
-                show_message("Успех", f"Артефакт «{artifact_name}» создан и добавлен в лавку!")
+                show_message("Успех", f"Артефакт \"{artifact_name}\" создан и добавлен в лавку!")
                 workshop_popup.dismiss()
             except Exception as e:
                 show_message("Ошибка", f"Не удалось создать артефакт: {e}")
