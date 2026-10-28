@@ -246,14 +246,16 @@ def workshop(faction, db_conn):
         layout.add_widget(prev_panel)
 
         # Сетка миниатюр (прокручиваемая)
-        scroll = ScrollView(size_hint_y=1, do_scroll_x=False)
+        scroll = ScrollView(size_hint_y=1, do_scroll_x=False,
+                            scroll_type=['bars', 'content'],
+                            bar_width=dp(4))
         cols = 5 if is_android else 6
         grid = GridLayout(cols=cols, spacing=dp(4), padding=[dp(4)], size_hint_y=None)
         grid.bind(minimum_height=grid.setter('height'))
         scroll.add_widget(grid)
         layout.add_widget(scroll)
 
-        _tw = []
+        _thumb_btns = []
 
         def _select_image(idx):
             current_index[0] = idx
@@ -278,45 +280,38 @@ def workshop(faction, db_conn):
                 current_data['slot'] = _SLOT_MAP[dt]
                 type_lbl.text = f"Тип: {_SLOT_MAP[dt]}"
             counter_lbl.text = f"{idx + 1} / {len(imgs)}"
-            for i, tw in enumerate(_tw):
-                if hasattr(tw, '_sel_color'):
-                    tw._sel_color.rgba = _CLR_SELECTED if i == idx else (0, 0, 0, 0)
-
-        def _make_thumb_callback(index):
-            def _cb(*_args):
-                _select_image(index)
-            return _cb
+            # Подсветка выбранного
+            for i, tb in enumerate(_thumb_btns):
+                if hasattr(tb, '_bg_color'):
+                    tb._bg_color.rgba = _CLR_SELECTED if i == idx else _CLR_BG_CARD
 
         def _rebuild():
             grid.clear_widgets()
-            _tw.clear()
+            _thumb_btns.clear()
             imgs = _get_filtered()
             for i, fn in enumerate(imgs):
-                cell = FloatLayout(size_hint_y=None, height=thumb_size)
-                with cell.canvas.before:
-                    cell._sel_color = Color(0, 0, 0, 0)
-                    cell._sel_rect = RoundedRectangle(pos=cell.pos, size=cell.size, radius=[dp(6)])
-                    Color(*_CLR_BG_CARD)
-                    cell._bg_rect = RoundedRectangle(pos=cell.pos, size=cell.size, radius=[dp(6)])
-                def _bb(w):
-                    def _u(inst, val):
-                        inst._sel_rect.pos = val; inst._bg_rect.pos = val
-                    def _us(inst, val):
-                        inst._sel_rect.size = val; inst._bg_rect.size = val
-                    w.bind(pos=_u, size=_us)
-                _bb(cell)
-                ti = Image(
+                # Кнопка-ячейка с картинкой
+                tb = Button(
+                    size_hint_y=None, height=thumb_size,
+                    background_color=(0, 0, 0, 0), background_normal='',
+                    border=(0, 0, 0, 0)
+                )
+                _make_bg(tb, _CLR_BG_CARD, dp(6))
+                # Картинка поверх кнопки
+                img_widget = Image(
                     source=os.path.join(artifact_images_path, fn),
-                    size_hint=(None, None), size=(thumb_size - dp(8), thumb_size - dp(8)),
+                    size_hint=(None, None), size=(thumb_size - dp(10), thumb_size - dp(10)),
                     pos_hint={'center_x': 0.5, 'center_y': 0.5},
                     allow_stretch=True, keep_ratio=True
                 )
-                cell.add_widget(ti)
-                tb = Button(size_hint=(1, 1), background_color=(0, 0, 0, 0), background_normal='')
-                tb.bind(on_release=_make_thumb_callback(i))
-                cell.add_widget(tb)
-                grid.add_widget(cell)
-                _tw.append(cell)
+                tb.add_widget(img_widget)
+
+                def _on_click(inst, _idx=i):
+                    _select_image(_idx)
+                tb.bind(on_press=_on_click)
+
+                grid.add_widget(tb)
+                _thumb_btns.append(tb)
             if imgs:
                 _select_image(0)
 
