@@ -282,29 +282,21 @@ def workshop(faction, db_conn):
             counter_lbl.text = f"{idx + 1} / {len(imgs)}"
             # Подсветка выбранного
             for i, tb in enumerate(_thumb_btns):
-                if hasattr(tb, '_bg_color'):
-                    tb._bg_color.rgba = _CLR_SELECTED if i == idx else _CLR_BG_CARD
+                tb.background_color = (0.9, 0.75, 0.25, 0.4) if i == idx else (0.12, 0.13, 0.18, 1)
 
         def _rebuild():
             grid.clear_widgets()
             _thumb_btns.clear()
             imgs = _get_filtered()
             for i, fn in enumerate(imgs):
-                # Кнопка-ячейка с картинкой
+                img_path = os.path.join(artifact_images_path, fn)
                 tb = Button(
                     size_hint_y=None, height=thumb_size,
-                    background_color=(0, 0, 0, 0), background_normal='',
+                    background_normal=img_path,
+                    background_down=img_path,
+                    background_color=(0.12, 0.13, 0.18, 1),
                     border=(0, 0, 0, 0)
                 )
-                _make_bg(tb, _CLR_BG_CARD, dp(6))
-                # Картинка поверх кнопки
-                img_widget = Image(
-                    source=os.path.join(artifact_images_path, fn),
-                    size_hint=(None, None), size=(thumb_size - dp(10), thumb_size - dp(10)),
-                    pos_hint={'center_x': 0.5, 'center_y': 0.5},
-                    allow_stretch=True, keep_ratio=True
-                )
-                tb.add_widget(img_widget)
 
                 def _on_click(inst, _idx=i):
                     _select_image(_idx)
