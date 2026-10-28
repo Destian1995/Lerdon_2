@@ -24,7 +24,7 @@ _CLR_SELECTED = (0.90, 0.75, 0.25, 0.35)
 _CLR_SLOT_BORDER = (0.45, 0.35, 0.65, 1)
 
 _SLOT_MAP = {0: 'Оружие', 1: 'Голова', 2: 'Ноги', 3: 'Туловище', 4: 'Аксессуар'}
-_SLOT_LABELS = ['Все', 'Оружие', 'Голова', 'Ноги', 'Туловище', 'Аксессуар']
+_SLOT_LABELS = ['Оружие', 'Голова', 'Ноги', 'Туловище', 'Аксессуар']
 _SLOT_PREFIXES = {'Оружие': '0', 'Голова': '1', 'Ноги': '2', 'Туловище': '3', 'Аксессуар': '4'}
 
 
@@ -79,7 +79,7 @@ def workshop(faction, db_conn):
 
     selected_image = [None]
     current_index = [0]
-    current_filter = ['Все']
+    current_filter = ['Оружие']
 
     def _get_filtered():
         if current_filter[0] == 'Все':
@@ -255,13 +255,9 @@ def workshop(faction, db_conn):
 
         _tw = []
 
-        def _select(idx, *_a):
+        def _select_image(idx):
             current_index[0] = idx
-            _upd()
-
-        def _upd():
             imgs = _get_filtered()
-            idx = current_index[0]
             if not imgs:
                 preview_img.source = ''
                 name_lbl.text = '--'
@@ -285,6 +281,11 @@ def workshop(faction, db_conn):
             for i, tw in enumerate(_tw):
                 if hasattr(tw, '_sel_color'):
                     tw._sel_color.rgba = _CLR_SELECTED if i == idx else (0, 0, 0, 0)
+
+        def _make_thumb_callback(index):
+            def _cb(*_args):
+                _select_image(index)
+            return _cb
 
         def _rebuild():
             grid.clear_widgets()
@@ -311,13 +312,13 @@ def workshop(faction, db_conn):
                     allow_stretch=True, keep_ratio=True
                 )
                 cell.add_widget(ti)
-                tb = Button(size_hint=(1, 1), background_color=(0, 0, 0, 0), background_normal='',
-                            on_release=lambda inst, _i=i: _select(_i))
+                tb = Button(size_hint=(1, 1), background_color=(0, 0, 0, 0), background_normal='')
+                tb.bind(on_release=_make_thumb_callback(i))
                 cell.add_widget(tb)
                 grid.add_widget(cell)
                 _tw.append(cell)
             if imgs:
-                _upd()
+                _select_image(0)
 
         # Нижняя панель
         bot = BoxLayout(orientation='horizontal', size_hint_y=None,
@@ -330,11 +331,12 @@ def workshop(faction, db_conn):
         bot.add_widget(next_btn)
         layout.add_widget(bot)
 
-        rename_btn.bind(on_release=lambda *_: (
-            generate_random_name(selected_image[0]) if selected_image[0] else ('', 0),
-            setattr(name_lbl, 'text', generate_random_name(selected_image[0])[0] if selected_image[0] else '--'),
-            current_data.__setitem__('name', name_lbl.text)
-        ))
+        def _on_rename(*_):
+            if selected_image[0]:
+                nm, _ = generate_random_name(selected_image[0])
+                current_data['name'] = nm
+                name_lbl.text = nm
+        rename_btn.bind(on_release=_on_rename)
         close_btn.bind(on_release=lambda x: workshop_popup.dismiss())
 
         def _next(*_):
