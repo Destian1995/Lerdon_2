@@ -1495,7 +1495,7 @@ class FortressInfoPopup(Popup):
                 except Exception:
                     pass
 
-            # Бонус стен столицы нежити (+100 атаки, +1800 защиты)
+            # Бонус стен столицы нежити (+100 атаки, +850 защиты)
             try:
                 self.cursor.execute("SELECT faction FROM cities WHERE name = ?", (self.city_name,))
                 _city_fac = self.cursor.fetchone()
@@ -1507,7 +1507,7 @@ class FortressInfoPopup(Popup):
                         _cap = self.cursor.fetchone()
                         if _cap and _cap[0] == self.city_name:
                             _hero_bonus_atk += 100
-                            _hero_bonus_def += 1800
+                            _hero_bonus_def += 850
                             _has_hero_in_garrison = True
             except Exception:
                 pass

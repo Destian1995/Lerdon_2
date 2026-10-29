@@ -796,10 +796,10 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         atk_hero_bonus = calculate_hero_stat_bonus(atk_army)
         def_hero_bonus = calculate_hero_stat_bonus(def_army)
 
-        # Стены столицы нежити: +100 атаки, +1800 защиты (как герой 2 класса)
+        # Стены столицы нежити: +100 атаки, +850 защиты
         if _is_undead_capital:
             def_hero_bonus = (def_hero_bonus[0] + 100,
-                              def_hero_bonus[1] + 1800,
+                              def_hero_bonus[1] + 850,
                               def_hero_bonus[2])
 
         all_combatants = [(get_initiative(u), 'A', u) for u in atk_alive] + \
