@@ -710,16 +710,20 @@ class LoadingScreen(FloatLayout):
         Clock.schedule_once(self.run_next_step, 0.5)
 
     def step_load_assets(self):
-        self.update_progress(10, 3)
-        from preload_cache import preload_textures
+        self.update_progress(5, 3)
+        from preload_cache import start_preload
 
-        def _do_preload(dt):
-            preload_textures(self.conn)
-            self.update_progress(10)
+        def _on_progress(done, total):
+            if total > 0:
+                pct = min(15, int(15 * done / total))
+                self.update_progress(pct)
+
+        def _on_done():
+            self.update_progress(15)
             Clock.schedule_once(self.run_next_step, 0.1)
 
-        # Загрузка текстур в главном потоке (Kivy texture cache требует этого)
-        Clock.schedule_once(_do_preload, 0.1)
+        # Загрузка текстур порциями в главном потоке (не блокирует UI)
+        start_preload(self.conn, on_progress=_on_progress, on_done=_on_done)
 
     def step_complete(self):
         self.update_progress(20, 4)

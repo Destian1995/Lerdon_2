@@ -409,7 +409,7 @@ def workshop(faction, db_conn):
                             padding=[padding_main, dp(3)])
         _make_bg(atk_row, _CLR_BG_CARD, dp(8))
         ah = BoxLayout(size_hint_y=None, height=dp(20))
-        atk_val = _lbl("ATK: 0", font_sz=font_small, color=_CLR_RED, bold=True, halign='left', height=dp(20))
+        atk_val = _lbl("АТК: 0", font_sz=font_small, color=_CLR_RED, bold=True, halign='left', height=dp(20))
         atk_cost = _lbl("0 крон", font_sz=font_tiny, color=_CLR_TEXT_DIM, halign='right', height=dp(20))
         ah.add_widget(atk_val)
         ah.add_widget(atk_cost)
@@ -426,7 +426,7 @@ def workshop(faction, db_conn):
                             padding=[padding_main, dp(3)])
         _make_bg(def_row, _CLR_BG_CARD, dp(8))
         dh = BoxLayout(size_hint_y=None, height=dp(20))
-        def_val = _lbl("DEF: 0", font_sz=font_small, color=_CLR_BLUE, bold=True, halign='left', height=dp(20))
+        def_val = _lbl("ЗАЩ: 0", font_sz=font_small, color=_CLR_BLUE, bold=True, halign='left', height=dp(20))
         def_cost = _lbl("0 крон", font_sz=font_tiny, color=_CLR_TEXT_DIM, halign='right', height=dp(20))
         dh.add_widget(def_val)
         dh.add_widget(def_cost)
@@ -521,8 +521,8 @@ def workshop(faction, db_conn):
         def _upd_vals(*_):
             av = int(atk_sl.value)
             dv = int(def_sl.value)
-            atk_val.text = f"ATK: {av}"
-            def_val.text = f"DEF: {dv}"
+            atk_val.text = f"АТК: {av}"
+            def_val.text = f"ЗАЩ: {dv}"
             atk_cost.text = f"{format_number(av * 2400)} крон"
             def_cost.text = f"{format_number(dv * 3200)} крон"
             sn = seasons[si[0]]
@@ -597,7 +597,7 @@ def workshop(faction, db_conn):
 
         av = current_data['attack']
         dv = current_data['defense']
-        card.add_widget(_lbl(f"ATK: [b]{av}[/b]     DEF: [b]{dv}[/b]", font_sz=font_normal, color=_CLR_TEXT, height=dp(20)))
+        card.add_widget(_lbl(f"АТК: [b]{av}[/b]     ЗАЩ: [b]{dv}[/b]", font_sz=font_normal, color=_CLR_TEXT, height=dp(20)))
 
         sn = current_data['season']
         sc = _CLR_PURPLE_LIGHT if sn != 'Нет' else _CLR_TEXT_DIM

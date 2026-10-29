@@ -1,21 +1,15 @@
 """
 Предзагрузка текстур при старте игры.
-Kivy кеширует текстуры глобально — после CoreImage(path) любой
-Image(source=path) использует кеш автоматически.
+Загружает порциями через Clock.schedule_once чтобы не блокировать UI.
 """
 import os
 
 _preloaded = False
+_texture_paths = []
 
 
-def preload_textures(conn):
-    """Загружает все изображения в текстурный кеш Kivy. Вызывать из главного потока."""
-    global _preloaded
-    if _preloaded:
-        return 0
-
-    from kivy.core.image import Image as CoreImage
-
+def collect_paths(conn):
+    """Собирает все пути изображений для предзагрузки."""
     paths = set()
 
     # 1) Иконки артефактов (мастерская)
@@ -49,7 +43,7 @@ def preload_textures(conn):
     except Exception:
         pass
 
-    # 4) Изображения героев
+    # 4) Изображения армий
     try:
         cur = conn.cursor()
         cur.execute("SELECT DISTINCT image FROM armies WHERE image IS NOT NULL")
@@ -72,7 +66,7 @@ def preload_textures(conn):
     ]:
         paths.add(p)
 
-    # 6) Фоновые изображения фракций
+    # 6) Портреты юнитов по фракциям
     for d in ['adepts', 'elfs', 'people', 'vampires', 'poly', 'death', 'rebellion']:
         army_dir = f'files/army/{d}'
         if os.path.exists(army_dir):
@@ -80,15 +74,45 @@ def preload_textures(conn):
                 if f.lower().endswith(('.png', '.jpg', '.jpeg')):
                     paths.add(os.path.join(army_dir, f))
 
-    loaded = 0
-    for p in paths:
-        try:
-            if os.path.exists(p):
-                CoreImage(p)
-                loaded += 1
-        except Exception:
-            pass
+    return [p for p in paths if os.path.exists(p)]
 
-    _preloaded = True
-    print(f"[CACHE] Предзагружено {loaded}/{len(paths)} текстур")
-    return loaded
+
+def start_preload(conn, on_progress=None, on_done=None):
+    """Запускает предзагрузку текстур порциями через Clock (не блокирует UI)."""
+    global _preloaded, _texture_paths
+    if _preloaded:
+        if on_done:
+            on_done()
+        return
+
+    from kivy.clock import Clock
+    from kivy.core.image import Image as CoreImage
+
+    _texture_paths = collect_paths(conn)
+    total = len(_texture_paths)
+    batch_size = 5  # по 5 текстур за кадр
+    idx = [0]
+    loaded = [0]
+
+    def _load_batch(dt):
+        end = min(idx[0] + batch_size, total)
+        for i in range(idx[0], end):
+            try:
+                CoreImage(_texture_paths[i])
+                loaded[0] += 1
+            except Exception:
+                pass
+        idx[0] = end
+
+        if on_progress and total > 0:
+            on_progress(idx[0], total)
+
+        if idx[0] < total:
+            Clock.schedule_once(_load_batch, 0)
+        else:
+            _preloaded = True
+            print(f"[CACHE] Предзагружено {loaded[0]}/{total} текстур")
+            if on_done:
+                on_done()
+
+    Clock.schedule_once(_load_batch, 0)
