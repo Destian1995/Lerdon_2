@@ -648,14 +648,15 @@ def show_confirmation_popup(conn, player_faction, cash_player, op_name, op_info,
         return
 
     if op_name == 'Мятеж':
-        cities_without_garrison = targets_info[target_faction]['cities_without_garrison']
-        if not cities_without_garrison:
+        cities_without = targets_info[target_faction].get('cities_without_garrison', [])
+        cities_with = targets_info[target_faction].get('cities_with_garrison', [])
+        if not cities_without and not cities_with:
             _ne = BoxLayout(orientation='vertical', padding=[dp(14), dp(10)])
             with _ne.canvas.before:
                 Color(0.06, 0.07, 0.11, 1)
                 _ne._bg = RoundedRectangle(pos=_ne.pos, size=_ne.size, radius=[dp(12)])
             _ne.bind(pos=lambda i, v: setattr(i._bg, 'pos', v), size=lambda i, v: setattr(i._bg, 'size', v))
-            _ne.add_widget(Label(text="[b]Нет городов без гарнизона[/b]", markup=True,
+            _ne.add_widget(Label(text="[b]Нет доступных городов для мятежа[/b]", markup=True,
                                  font_size=sp(14), halign='center', valign='middle',
                                  color=(0.9, 0.3, 0.3, 1)))
             _np = Popup(title="", content=_ne,
