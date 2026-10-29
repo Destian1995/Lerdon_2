@@ -314,7 +314,15 @@ def workshop(faction, db_conn):
         _MAX = 12_000_000 if _fn == 'Элины' else 9_900_000
         _max_stats = _MAX - 50_000
         _budget = min(faction.money, _max_stats)
-        tokens = _budget / 3200.0
+        _base_tokens = _budget / 3200.0
+        tokens = [_base_tokens]  # мутабельный для пересчёта при смене сезона
+
+        def _season_multiplier(season_name):
+            """Множитель жетонов за сезонное ограничение."""
+            if season_name in ('Нет', 'Все'):
+                return 1.0
+            cnt = len([x.strip() for x in season_name.split(',')])
+            return {1: 4.0, 2: 2.0, 3: 1.33}.get(cnt, 1.0)
 
         def calc_tokens(a, d):
             return a / 1.5 + d, a / 1.5, d
@@ -403,19 +411,26 @@ def workshop(faction, db_conn):
         sp_row.add_widget(disc_lbl)
         layout.add_widget(sp_row)
 
-        def _upd_disc():
+        def _upd_season():
             s = seasons[si[0]]
+            mult = _season_multiplier(s)
+            tokens[0] = _base_tokens * mult
+            # Обновляем лимиты слайдеров
+            new_ma = max(min(int(tokens[0] * 1.5), int(_max_stats / 2400)), 100)
+            new_md = max(int(tokens[0]), 100)
+            atk_sl.max = new_ma
+            def_sl.max = new_md
             if s in ('Нет', 'Все'):
                 disc_lbl.text = ""
             else:
                 cnt = len([x.strip() for x in s.split(',')])
                 d = {1: 75, 2: 50, 3: 25}.get(cnt, 0)
-                disc_lbl.text = f"-{d}%" if d else ""
+                disc_lbl.text = f"-{d}% (x{mult:.1f})" if d else ""
 
         pb.bind(on_release=lambda *_: (si.__setitem__(0, (si[0] - 1) % len(seasons)),
-                                        setattr(sl, 'text', seasons[si[0]]), _upd_disc(), _upd_vals()))
+                                        setattr(sl, 'text', seasons[si[0]]), _upd_season(), _upd_vals()))
         nb.bind(on_release=lambda *_: (si.__setitem__(0, (si[0] + 1) % len(seasons)),
-                                        setattr(sl, 'text', seasons[si[0]]), _upd_disc(), _upd_vals()))
+                                        setattr(sl, 'text', seasons[si[0]]), _upd_season(), _upd_vals()))
 
         # Стоимость
         tp = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(44),
@@ -458,15 +473,15 @@ def workshop(faction, db_conn):
             tc = _calc_cost(av, dv, sn)
             total_lbl.text = f"Стоимость: {format_number(int(tc))} крон"
             tu, _, _ = calc_tokens(av, dv)
-            if tu > tokens:
+            if tu > tokens[0]:
                 budget_lbl.color = _CLR_RED
-                budget_lbl.text = f"ПРЕВЫШЕН БЮДЖЕТ! {tu:.0f} / {tokens:.0f}"
+                budget_lbl.text = f"ПРЕВЫШЕН БЮДЖЕТ! {tu:.0f} / {tokens[0]:.0f}"
                 next_btn.disabled = True
                 if hasattr(next_btn, '_bg_color'):
                     next_btn._bg_color.rgba = (0.3, 0.3, 0.3, 1)
             else:
                 budget_lbl.color = _CLR_GREEN
-                budget_lbl.text = f"Жетонов: {tokens - tu:.0f} / {tokens:.0f}"
+                budget_lbl.text = f"Жетонов: {tokens[0] - tu:.0f} / {tokens[0]:.0f}"
                 next_btn.disabled = False
                 if hasattr(next_btn, '_bg_color'):
                     next_btn._bg_color.rgba = (0.18, 0.52, 0.28, 1)
@@ -476,7 +491,7 @@ def workshop(faction, db_conn):
         atk_sl.bind(value=_upd_vals)
         def_sl.bind(value=_upd_vals)
         _upd_vals()
-        _upd_disc()
+        _upd_season()
 
         back_btn.bind(on_release=lambda *_: (
             current_data.update({'attack': int(atk_sl.value), 'defense': int(def_sl.value), 'season': seasons[si[0]]}),
@@ -486,7 +501,7 @@ def workshop(faction, db_conn):
         def _next(*_):
             av, dv = int(atk_sl.value), int(def_sl.value)
             tu, _, _ = calc_tokens(av, dv)
-            if tu > tokens:
+            if tu > tokens[0]:
                 show_message("Бюджет", "Недостаточно жетонов!")
                 return
             current_data.update({'attack': av, 'defense': dv, 'season': seasons[si[0]]})
