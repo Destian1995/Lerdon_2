@@ -358,7 +358,7 @@ def workshop(faction, db_conn):
         ah.add_widget(atk_val)
         ah.add_widget(atk_cost)
         ar.add_widget(ah)
-        _ma = max(min(int(tokens * 1.5), int(_max_stats / 2400)), 100)
+        _ma = max(min(int(tokens[0] * 1.5), int(_max_stats / 2400)), 100)
         atk_sl = Slider(min=0, max=_ma, value=current_data.get('attack', 0), step=1,
                         size_hint_y=None, height=dp(36),
                         cursor_size=(dp(26), dp(26)) if is_android else (dp(22), dp(22)))
@@ -375,7 +375,7 @@ def workshop(faction, db_conn):
         dh.add_widget(def_val)
         dh.add_widget(def_cost)
         dr.add_widget(dh)
-        _md = max(int(tokens), 100)
+        _md = max(int(tokens[0]), 100)
         def_sl = Slider(min=0, max=_md, value=current_data.get('defense', 0), step=1,
                         size_hint_y=None, height=dp(36),
                         cursor_size=(dp(26), dp(26)) if is_android else (dp(22), dp(22)))
