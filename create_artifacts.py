@@ -111,6 +111,25 @@ def workshop(faction, db_conn):
         workshop_popup.content = root
 
     def gen_name(filename=None):
+        # Субклассы по второй букве файла
+        weapon_sub = {
+            'v': ["Винтовка", "Ружье", "Карабин"], 'a': ["Арбалет"],
+            'm': ["Меч", "Клинок", "Кинжал", "Сабля"],
+            'p': ["Посох", "Скипетр", "Жезл"], 'k': ["Копье"],
+            's': ["Секира", "Топор"], 'l': ["Лук"]
+        }
+        head_sub = {'k': ["Корона", "Диадема"], 'h': ["Шлем"], 's': ["Шляпа", "Колпак"], 'v': ["Венок"]}
+        legs_sub = {'s': ["Сапоги", "Ботинки"]}
+        torso_sub = {
+            'b': ["Броня", "Латы", "Кираса", "Панцирь", "Доспех"],
+            'm': ["Мантия", "Плащ", "Накидка"], 'g': ["Жилет", "Камзол", "Дублет"]
+        }
+        acc_sub = {
+            'k': ["Кольцо", "Перстень"],
+            'a': ["Амулет", "Талисман", "Медальон", "Филактерия", "Оберег"],
+            's': ["Серьга"]
+        }
+        sub_by_type = {0: weapon_sub, 1: head_sub, 2: legs_sub, 3: torso_sub, 4: acc_sub}
         pfx_map = {
             0: ["Секира", "Меч", "Клинок", "Винтовка", "Мушкет", "Арбалет", "Кинжал", "Скипетр", "Копье", "Посох", "Шпага"],
             1: ["Шлем", "Шляпа", "Корона", "Венец", "Диадема", "Каска", "Тиара", "Венок"],
@@ -122,14 +141,20 @@ def workshop(faction, db_conn):
                "Смерти", "Дракона", "Феникса", "Бездны", "Рассвета", "Бури", "Огня",
                "Льда", "Ветра", "Теней", "Истины", "Хаоса", "Веры", "Заката"]
         at = 0
+        pfx = pfx_map[0]
         if filename:
             try:
-                cn = os.path.splitext(filename)[0].lower()
+                cn = os.path.splitext(filename)[0].lower().replace(' ', '_')
                 if cn and cn[0].isdigit():
                     at = int(cn[0])
+                    sd = sub_by_type.get(at, {})
+                    if len(cn) >= 2 and cn[1].isalpha() and cn[1] in sd:
+                        pfx = sd[cn[1]]
+                    else:
+                        pfx = pfx_map.get(at, pfx_map[0])
             except Exception:
-                pass
-        return f"{random.choice(pfx_map.get(at, pfx_map[0]))} {random.choice(sfx)}", at
+                pfx = pfx_map.get(at, pfx_map[0])
+        return f"{random.choice(pfx)} {random.choice(sfx)}", at
 
     # ==================================================================
     #  ЭКРАН 1 — Выбор типа и иконки (стрелки)
