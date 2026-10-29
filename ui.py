@@ -1495,6 +1495,23 @@ class FortressInfoPopup(Popup):
                 except Exception:
                     pass
 
+            # Бонус стен столицы нежити (+100 атаки, +1800 защиты)
+            try:
+                self.cursor.execute("SELECT faction FROM cities WHERE name = ?", (self.city_name,))
+                _city_fac = self.cursor.fetchone()
+                if _city_fac and _city_fac[0] == 'Нежить':
+                    self.cursor.execute("SELECT COALESCE(is_undead, 0) FROM cities WHERE name = ?", (self.city_name,))
+                    _is_und = self.cursor.fetchone()
+                    if _is_und and _is_und[0]:
+                        self.cursor.execute("SELECT capital_city FROM undead_invasion WHERE id = 1")
+                        _cap = self.cursor.fetchone()
+                        if _cap and _cap[0] == self.city_name:
+                            _hero_bonus_atk += 100
+                            _hero_bonus_def += 1800
+                            _has_hero_in_garrison = True
+            except Exception:
+                pass
+
             # Проверяем боевой дух (2+ побед над контрпиком за 4 хода)
             _has_battle_spirit = False
             _COUNTER_PICKS = {
