@@ -284,6 +284,40 @@ def workshop(faction, db_conn):
         layout.add_widget(scroll_container)
 
         _thumb_btns = []
+        # Кеш кнопок: создаём все кнопки один раз, при переключении только показываем/скрываем
+        _btn_cache = {}  # {slot_name: [(btn, filename), ...]}
+
+        def _build_btn(fn, idx_in_filter):
+            img_path = os.path.join(artifact_images_path, fn)
+            tb = Button(
+                size_hint_y=None, height=thumb_size,
+                background_normal=img_path,
+                background_down=img_path,
+                background_color=(0.75, 0.75, 0.80, 1),
+                border=(0, 0, 0, 0)
+            )
+            tb.bind(width=lambda inst, w: setattr(inst, 'height', w))
+            return tb
+
+        def _precache_all():
+            """Создаём кнопки для всех типов заранее."""
+            for slot_name in _SLOT_LABELS:
+                prefix = _SLOT_PREFIXES.get(slot_name, '')
+                imgs = [f for f in all_image_files if f.startswith(prefix)]
+                btns = []
+                for i, fn in enumerate(imgs):
+                    tb = _build_btn(fn, i)
+                    def _on_click(inst, _fn=fn, _sl=slot_name):
+                        # Найти индекс в текущем фильтре
+                        filtered = _get_filtered()
+                        try:
+                            idx = filtered.index(_fn)
+                        except ValueError:
+                            idx = 0
+                        _select_image(idx)
+                    tb.bind(on_press=_on_click)
+                    btns.append((tb, fn))
+                _btn_cache[slot_name] = btns
 
         def _select_image(idx):
             current_index[0] = idx
@@ -308,34 +342,24 @@ def workshop(faction, db_conn):
                 current_data['slot'] = _SLOT_MAP[dt]
                 type_lbl.text = f"Тип: {_SLOT_MAP[dt]}"
             counter_lbl.text = f"{idx + 1} / {len(imgs)}"
-            # Подсветка выбранного
             for i, tb in enumerate(_thumb_btns):
                 tb.background_color = (1, 0.85, 0.3, 1) if i == idx else (0.75, 0.75, 0.80, 1)
 
         def _rebuild():
             grid.clear_widgets()
             _thumb_btns.clear()
-            imgs = _get_filtered()
-            for i, fn in enumerate(imgs):
-                img_path = os.path.join(artifact_images_path, fn)
-                tb = Button(
-                    size_hint_y=None, height=thumb_size,
-                    background_normal=img_path,
-                    background_down=img_path,
-                    background_color=(0.75, 0.75, 0.80, 1),
-                    border=(0, 0, 0, 0)
-                )
-                # Квадратная кнопка: высота = ширина
-                tb.bind(width=lambda inst, w: setattr(inst, 'height', w))
-
-                def _on_click(inst, _idx=i):
-                    _select_image(_idx)
-                tb.bind(on_press=_on_click)
-
+            slot = current_filter[0]
+            cached = _btn_cache.get(slot, [])
+            for tb, fn in cached:
+                tb.background_color = (0.75, 0.75, 0.80, 1)
                 grid.add_widget(tb)
                 _thumb_btns.append(tb)
+            imgs = _get_filtered()
             if imgs:
                 _select_image(0)
+
+        # Создаём все кнопки сразу
+        _precache_all()
 
         # Нижняя панель
         bot = BoxLayout(orientation='horizontal', size_hint_y=None,
