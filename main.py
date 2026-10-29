@@ -710,25 +710,8 @@ class LoadingScreen(FloatLayout):
         Clock.schedule_once(self.run_next_step, 0.5)
 
     def step_load_assets(self):
-        self.update_progress(0, 3)
-        from preload_cache import start_preload
-
-        # Базовый прогресс к моменту начала загрузки ассетов = 40 (20+0+20)
-        _base = self.target_progress
-
-        def _on_progress(done, total):
-            if total > 0:
-                # Абсолютный прогресс: base + до 40% от оставшегося до 100
-                target = _base + int(40 * done / total)
-                self.target_progress = min(target, 95)
-                self.smooth_progress_update()
-
-        def _on_done():
-            self.target_progress = 80
-            self.smooth_progress_update()
-            Clock.schedule_once(self.run_next_step, 0.1)
-
-        start_preload(self.conn, on_progress=_on_progress, on_done=_on_done)
+        self.update_progress(20, 3)
+        Clock.schedule_once(self.run_next_step, 0.3)
 
     def step_complete(self):
         self.target_progress = 100
@@ -3669,7 +3652,7 @@ class MenuWidget(FloatLayout):
 
         # ======== Версия внизу ========
         version_label = Label(
-            text="v6.5.7",
+            text="v6.5.9",
             font_size=sp(11),
             color=(0.5, 0.5, 0.55, 0.5),
             size_hint=(None, None),
