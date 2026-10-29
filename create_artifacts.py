@@ -54,7 +54,7 @@ def workshop(faction, db_conn):
     font_tiny = sp(9) if not is_android else sp(7)
     padding_main = dp(10) if is_android else dp(14)
     btn_height = dp(36) if is_android else dp(40)
-    thumb_size = dp(70) if is_android else dp(90)
+    thumb_size = dp(80) if is_android else dp(100)
     preview_size = dp(100) if is_android else dp(130)
 
     workshop_popup = Popup(
@@ -245,15 +245,43 @@ def workshop(faction, db_conn):
         prev_panel.add_widget(info)
         layout.add_widget(prev_panel)
 
-        # Сетка миниатюр (прокручиваемая)
-        scroll = ScrollView(size_hint_y=1, do_scroll_x=False,
+        # Сетка миниатюр (прокручиваемая) + подсказка стрелки
+        from kivy.animation import Animation
+
+        scroll_container = FloatLayout(size_hint_y=1)
+
+        scroll = ScrollView(size_hint=(1, 1), do_scroll_x=False,
                             scroll_type=['bars', 'content'],
                             bar_width=dp(4))
         cols = 5 if is_android else 6
         grid = GridLayout(cols=cols, spacing=dp(4), padding=[dp(4)], size_hint_y=None)
         grid.bind(minimum_height=grid.setter('height'))
         scroll.add_widget(grid)
-        layout.add_widget(scroll)
+        scroll_container.add_widget(scroll)
+
+        # Анимированная стрелка-подсказка "есть ещё"
+        arrow_hint = Label(
+            text='vvv',
+            font_size=font_normal, bold=True, color=(0.9, 0.75, 0.25, 0.8),
+            size_hint=(None, None), size=(dp(50), dp(24)),
+            pos_hint={'center_x': 0.5, 'y': 0.01}
+        )
+        scroll_container.add_widget(arrow_hint)
+
+        # Пульсирующая анимация
+        _anim = Animation(opacity=0.2, duration=0.8) + Animation(opacity=0.9, duration=0.8)
+        _anim.repeat = True
+        _anim.start(arrow_hint)
+
+        # Скрыть стрелку при прокрутке вниз
+        def _on_scroll(inst, val):
+            if scroll.scroll_y < 0.85:
+                if arrow_hint.opacity > 0:
+                    Animation.cancel_all(arrow_hint)
+                    Animation(opacity=0, duration=0.3).start(arrow_hint)
+        scroll.bind(scroll_y=_on_scroll)
+
+        layout.add_widget(scroll_container)
 
         _thumb_btns = []
 
@@ -297,6 +325,8 @@ def workshop(faction, db_conn):
                     background_color=(0.75, 0.75, 0.80, 1),
                     border=(0, 0, 0, 0)
                 )
+                # Квадратная кнопка: высота = ширина
+                tb.bind(width=lambda inst, w: setattr(inst, 'height', w))
 
                 def _on_click(inst, _idx=i):
                     _select_image(_idx)

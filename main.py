@@ -710,13 +710,76 @@ class LoadingScreen(FloatLayout):
         Clock.schedule_once(self.run_next_step, 0.5)
 
     def step_load_assets(self):
-        self.update_progress(10, 3)
+        self.update_progress(5, 3)
         from threading import Thread
+        from kivy.core.image import Image as CoreImage
+
         def load_task():
-            time.sleep(0.3)
-            Clock.schedule_once(lambda dt: self.update_progress(10), 0)
-            time.sleep(0.3)
+            loaded = 0
+            paths = set()
+
+            # 1) Иконки артефактов (мастерская)
+            custom_dir = 'files/pict/artifacts/custom'
+            if os.path.exists(custom_dir):
+                for f in os.listdir(custom_dir):
+                    if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+                        paths.add(os.path.join(custom_dir, f))
+
+            # 2) Изображения артефактов из БД (лавка)
+            try:
+                cur = self.conn.cursor()
+                cur.execute("SELECT image_url FROM artifacts WHERE image_url IS NOT NULL")
+                for row in cur.fetchall():
+                    if row[0]:
+                        paths.add(row[0])
+                cur.execute("SELECT image_url FROM artifacts_default WHERE image_url IS NOT NULL")
+                for row in cur.fetchall():
+                    if row[0]:
+                        paths.add(row[0])
+            except Exception:
+                pass
+
+            # 3) Изображения юнитов из БД (найм)
+            try:
+                cur = self.conn.cursor()
+                cur.execute("SELECT DISTINCT unit_image FROM units WHERE unit_image IS NOT NULL")
+                for row in cur.fetchall():
+                    if row[0]:
+                        paths.add(row[0])
+            except Exception:
+                pass
+
+            # 4) UI иконки
+            ui_icons = [
+                'files/pict/hire/sword.png', 'files/pict/hire/shield.png',
+                'files/pict/hire/health.png', 'files/pict/hire/class.png',
+                'files/pict/hire/consumption.png', 'files/pict/hire/strong.png',
+                'files/pict/hire/weak.png', 'files/pict/hire/type.png',
+                'files/pict/hire/moral.png',
+                'files/pict/right.png', 'files/pict/close.png',
+                'files/pict/up.png', 'files/pict/down.png',
+                'files/pict/question.png',
+                'files/menu/main_fon.jpg',
+            ]
+            for p in ui_icons:
+                paths.add(p)
+
+            # 5) Загрузка в кеш текстур Kivy
+            total = len(paths)
+            for p in paths:
+                try:
+                    if os.path.exists(p):
+                        CoreImage(p)
+                        loaded += 1
+                except Exception:
+                    pass
+                if loaded % 10 == 0 and total > 0:
+                    pct = min(15, int(15 * loaded / total))
+                    Clock.schedule_once(lambda dt, v=pct: self.update_progress(v), 0)
+
+            print(f"[CACHE] Предзагружено {loaded}/{total} текстур")
             Clock.schedule_once(self.run_next_step, 0)
+
         Thread(target=load_task, daemon=True).start()
 
     def step_complete(self):
