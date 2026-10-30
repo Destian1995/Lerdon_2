@@ -4,7 +4,7 @@
 # Основные параметры приложения
 # ---------------------------------
 
-version = 6.5.9
+version = 6.7.0
 title = Легенды Лэрдона
 package.name = lerdonlegends
 package.domain = com.lerdonlegends
@@ -53,7 +53,7 @@ p4a.bootstrap = sdl2
 
 android.release = True
 android.release_artifact = apk
-android.numeric_version = 60509
+android.numeric_version = 60700
 
 # ---------------------------------
 # Прочее
