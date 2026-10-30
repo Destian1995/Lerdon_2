@@ -2,4 +2,5 @@
 .idea
 __pycache__
 game_data.db-shm
-game_data.db-waldiplo_debug.log
+game_data.db-wal
+diplo_debug.log
