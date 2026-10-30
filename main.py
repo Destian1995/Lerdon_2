@@ -1109,11 +1109,11 @@ class MapWidget(Widget):
         self.fortress_data_for_canvas.clear()
 
         faction_images = {
-            'Вампиры': 'files/buildings/giperion.png',
-            'Север': 'files/buildings/arkadia.png',
-            'Эльфы': 'files/buildings/celestia.png',
-            'Адепты': 'files/buildings/eteria.png',
-            'Элины': 'files/buildings/halidon.png',
+            'Вампиры': 'files/buildings/vampires.png',
+            'Север': 'files/buildings/people.png',
+            'Эльфы': 'files/buildings/elfs.png',
+            'Адепты': 'files/buildings/adepts.png',
+            'Элины': 'files/buildings/poly.png',
             'Нежить': 'files/buildings/castle_death.png',
             'Мятежники': 'files/buildings/keig.png'
         }
@@ -3278,11 +3278,11 @@ class TutorialFactionScreen(FloatLayout):
 
     FACTIONS = ['Вампиры', 'Эльфы', 'Север', 'Адепты', 'Элины']
     FACTION_IMAGES = {
-        'Вампиры': 'files/buildings/giperion.png',
-        'Север': 'files/buildings/arkadia.png',
-        'Эльфы': 'files/buildings/celestia.png',
-        'Адепты': 'files/buildings/eteria.png',
-        'Элины': 'files/buildings/halidon.png',
+        'Вампиры': 'files/buildings/vampires.png',
+        'Север': 'files/buildings/people.png',
+        'Эльфы': 'files/buildings/elfs.png',
+        'Адепты': 'files/buildings/adepts.png',
+        'Элины': 'files/buildings/poly.png',
     }
     FACTION_COLORS = {
         'Вампиры': (0.40, 0.10, 0.50, 1),

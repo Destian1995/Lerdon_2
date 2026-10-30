@@ -21,11 +21,11 @@ CITY_NAMES_POOL = [
 
 # Цвета для фракций
 FACTION_COLORS = {
-    'Вампиры': 'files/buildings/giperion.png',
-    'Север': 'files/buildings/arkadia.png',
-    'Эльфы': 'files/buildings/celestia.png',
-    'Адепты': 'files/buildings/eteria.png',
-    'Элины': 'files/buildings/halidon.png',
+    'Вампиры': 'files/buildings/vampires.png',
+    'Север': 'files/buildings/people.png',
+    'Эльфы': 'files/buildings/elfs.png',
+    'Адепты': 'files/buildings/adepts.png',
+    'Элины': 'files/buildings/poly.png',
     'Нежить': 'files/buildings/default.png'
 }
 

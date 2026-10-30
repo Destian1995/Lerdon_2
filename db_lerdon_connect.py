@@ -92,3 +92,30 @@ if _need_copy:
 # В дальнейшем остальные модули (например, ваши DAO/ORM или SQL-запросы)
 # могут просто импортировать db_path из этого файла
 db_path = copied_db
+
+
+def migrate_city_icon_paths(conn):
+    """Обновляет пути иконок в прежних сохранениях без изменения фракций."""
+    renamed_icons = {
+        'arkadia': 'people',
+        'eteria': 'adepts',
+        'celestia': 'elfs',
+        'giperion': 'vampires',
+        'halidon': 'poly',
+    }
+    with conn:
+        conn.executemany(
+            'UPDATE cities SET color_faction = ? WHERE color_faction = ?',
+            [
+                (f'files/buildings/{new}.png', f'files/buildings/{old}.png')
+                for old, new in renamed_icons.items()
+            ],
+        )
+
+
+# До загрузки интерфейса приводим сохранённые пути к именам папок армий.
+_icon_migration_conn = sqlite3.connect(db_path)
+try:
+    migrate_city_icon_paths(_icon_migration_conn)
+finally:
+    _icon_migration_conn.close()
