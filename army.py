@@ -460,14 +460,8 @@ def start_army_mode(faction, game_area, class_faction, conn):
         key=lambda x: int(x[1]['stats']['Класс юнита'].split()[0])
     )
 
-    # Создание слайдов
-    for unit_name, unit_info in sorted_units:
-        slide = BoxLayout(
-            orientation='vertical',
-            size_hint=(0.8, 0.8),
-            spacing=dp(1),
-            padding=dp(1)
-        )
+    # Строим карточки по требованию, а не все до первого показа окна.
+    def build_slide(slide, unit_name, unit_info):
         card = BoxLayout(
             orientation='vertical',
             size_hint=(1, 1),
@@ -530,7 +524,7 @@ def start_army_mode(faction, game_area, class_faction, conn):
         cls_names = {1: 'Рекрут', 2: 'Герой', 3: 'Чемпион', 4: 'Легенда'}
         right_col = BoxLayout(orientation='vertical', size_hint=(0.58, 1),
                               spacing=dp(4), padding=[0, dp(4), dp(4), dp(4)])
-        right_col.add_widget(Image(source=unit_info['image'], size_hint=(1, 1),
+        right_col.add_widget(AsyncImage(source=unit_info['image'], size_hint=(1, 1),
                                    keep_ratio=True, allow_stretch=True, mipmap=True))
         _cls_hex = '#444444' if faction in _dark_text_factions else '#AAAAAA'
         _name_color = (0.1, 0.1, 0.1, 1) if faction in _dark_text_factions else (0.96, 0.96, 0.96, 1)
@@ -681,8 +675,46 @@ def start_army_mode(faction, game_area, class_faction, conn):
         card.add_widget(body)
         card.add_widget(cost_row)
         card.add_widget(ctrl)
-        carousel.add_widget(slide)
         slide.add_widget(card)
+
+    slides = []
+    built_slides = set()
+    warmup_event = None
+    for unit_name, unit_info in sorted_units:
+        slide = BoxLayout(orientation='vertical', size_hint=(0.8, 0.8),
+                          spacing=dp(1), padding=dp(1))
+        slides.append(slide)
+        carousel.add_widget(slide)
+
+    def ensure_slide(index):
+        if index not in built_slides:
+            unit_name, unit_info = sorted_units[index]
+            build_slide(slides[index], unit_name, unit_info)
+            built_slides.add(index)
+
+    def warm_neighbor(dt):
+        nonlocal warmup_event
+        warmup_event = None
+        if float_layout.parent is None or not slides:
+            return
+        index = carousel.index or 0
+        for neighbor in ((index + 1) % len(slides), (index - 1) % len(slides)):
+            if neighbor not in built_slides:
+                ensure_slide(neighbor)
+                warmup_event = Clock.schedule_once(warm_neighbor, 0.1)
+                break
+
+    def prepare_current(instance, index):
+        nonlocal warmup_event
+        if slides:
+            ensure_slide(index or 0)
+            if warmup_event is not None:
+                warmup_event.cancel()
+            warmup_event = Clock.schedule_once(warm_neighbor, 0.1)
+
+    # Привязка после добавления пустых слайдов: их начальная индексация
+    # не должна запускать загрузку остальных карточек.
+    carousel.bind(index=prepare_current)
 
     # Добавляем стрелки прокрутки
     arrow_size = dp(60)
@@ -744,12 +776,21 @@ def start_army_mode(faction, game_area, class_faction, conn):
     def on_close_press(instance, touch):
         if instance.collide_point(*touch.pos):
             game_area.clear_widgets()
-            animate_arrow_click(instance)
 
     close_icon.bind(on_touch_down=on_close_press)
     float_layout.add_widget(close_icon)
 
+    def release_resources(instance, parent):
+        nonlocal warmup_event
+        if parent is None:
+            if warmup_event is not None:
+                warmup_event.cancel()
+                warmup_event = None
+            Animation.cancel_all(arrow_right)
+
+    float_layout.bind(parent=release_resources)
     game_area.add_widget(float_layout)
+    prepare_current(carousel, carousel.index)
 
 
 def broadcast_units(unit_name, unit_cost, quantity_input, army_hire, image, unit_stats):

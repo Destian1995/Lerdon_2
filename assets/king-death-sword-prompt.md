@@ -1,0 +1,9 @@
+# Sword of the King of the Dead
+
+Generated with built-in `image_gen`, 2026-10-30; `transparent_background: true`.
+Edit target and final output: `files/pict/artifacts/king_death/0m_king_death.png`.
+Original silhouette and filename preserved; palette changed from icy blue to dark emerald green.
+
+## Final prompt
+
+Use case: style-transfer. Edit target: the referenced original sword icon, the legendary sword of the KING OF THE DEAD in a dark fantasy strategy game. Redraw as a premium detailed standalone inventory icon in DEADLY DARK GREEN tones. Preserve its recognizable long jagged double-edged blade with angular serrations, sharp pointed tip, gothic batwing-shaped crossguard with a central small skeletal skull, leather-wrapped hilt and pointed crystalline pommel. Preserve the original diagonal composition: blade tip at upper left and pommel at lower right, entire weapon fully visible with 7% safe margin. Replace ALL blue/cyan/icy light with sinister muted deep emerald, corpse-green, oxidized dark green and restrained sickly pale green accents. Blackened ancient steel blade with dark green recessed rune-like engravings and thin spectral emerald light within cracks; aged silver edge highlights keep the silhouette readable on a dark game map. Skull eyes and pommel gemstone glow a restrained ghostly green. Rich dimensional metal and leather craftsmanship, realistic hand-painted game art, cohesive ornate fantasy equipment icon family. Center the SINGLE complete sword on GENUINELY TRANSPARENT background. Important: no broad clouds, no surrounding smoke or fog, no scenery, no background panel, no frame, no readable text, no watermark, no detached skulls, no hands, no character. Keep any magic light very close to the blade; preserve sharp clean alpha edges. Render a finished iconic cursed royal sword, dark and ominous but clearly legible at 64px.

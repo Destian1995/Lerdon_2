@@ -755,18 +755,17 @@ class MapWidget(Widget):
         self.has_blinked = False
         self.update_cities_event = None
         self._undead_shield_data = []  # Данные для анимации щитов нежити
-        self._undead_shield_group = None
-        self._undead_anim_event = None
-        self._plague_group = None       # Визуал чумы на карте
-        self._plague_anim_event = None
-        self._plague_particles = []     # Частицы чумы
-        self._plague_labels = []        # Всплывающие цифры потерь
-        self._player_territory_colors = []  # Color инструкции территории игрока
+        self._map_atmosphere = None
+        self._player_territory_colors = []  # (Color, минимум alpha, максимум alpha)
         self._player_pulse_event = None
         self._player_pulse_phase = 0.0
-        # === Сезонный оверлей ===
-        self.season_overlay = None
-        self.add_season_overlay()
+        self._map_snapshot = None
+        self._territory_geometry_key = None
+        self._territory_geometry = None
+        self._city_label_cache = {}
+        self._road_geometry_key = None
+        self._road_geometry = []
+        self._road_group = None
 
         self.base_map_width = 1200
         self.base_map_height = 800
@@ -777,36 +776,31 @@ class MapWidget(Widget):
         self.random_map_source = self.get_random_map_source()
 
         self.initialize_map()
+        self._map_snapshot = self._read_map_snapshot()
         self.update_cities_event = Clock.schedule_interval(self.update_cities, 1.0)
 
-    def add_season_overlay(self):
-        """Добавляет сезонный оверлей"""
-        try:
-            self.season_overlay = SeasonalOverlay(self.conn)
-            self.season_overlay.size_hint = (1, 1)
-            self.season_overlay.pos_hint = {'x': 0, 'y': 0}
-            # НЕ добавляем сейчас - сделаем это в on_parent
-            print("[SEASON] Сезонный оверлей создан")
-        except Exception as e:
-            print(f"[ERROR] Не удалось создать сезонный оверлей: {e}")
-            import traceback
-            traceback.print_exc()
-
     def on_parent(self, widget, parent):
-        """Обработка удаления/добавления виджета"""
+        """Останавливает все эффекты при уходе с карты, возобновляет при возврате."""
         if parent is None:
             if self.update_cities_event:
-                Clock.unschedule(self.update_cities_event)
-            if self.season_overlay:
-                self.season_overlay.stop_season_animation()
+                self.update_cities_event.cancel()
+                self.update_cities_event = None
+            if self._player_pulse_event:
+                self._player_pulse_event.cancel()
+                self._player_pulse_event = None
+            if self._map_atmosphere:
+                self._map_atmosphere.stop()
         else:
-            # Добавляем оверлей только когда есть parent
-            if self.season_overlay and self.season_overlay.parent is None:
-                parent.add_widget(self.season_overlay)
-                print("[SEASON] Сезонный оверлей добавлен в parent")
+            if not self.update_cities_event:
+                self._map_snapshot = None
+                self.update_cities_event = Clock.schedule_interval(self.update_cities, 1.0)
+            if self._map_atmosphere:
+                self._map_atmosphere.start()
 
-    # 3. Измените update_cities - НЕ очищайте canvas.after:
     def update_cities(self, dt=None):
+        snapshot = self._read_map_snapshot()
+        if snapshot is not None and snapshot == self._map_snapshot:
+            return
         self.map_scale = self.calculate_scale()
         self.map_pos = self.calculate_centered_position()
         # Останавливаем пульсацию перед очисткой canvas
@@ -815,8 +809,6 @@ class MapWidget(Widget):
             self._player_pulse_event = None
         self._player_territory_colors = []
         self.canvas.clear()
-        # УДАЛИТЕ или закомментируйте эту строку:
-        # self.canvas.after.clear()  # ← Это удаляет сезонную анимацию!
 
         with self.canvas:
             Color(1, 1, 1, 1)
@@ -828,6 +820,33 @@ class MapWidget(Widget):
         self.draw_territories()
         self.draw_roads()
         self.draw_fortresses()
+
+        self._map_snapshot = snapshot
+
+    def _read_map_snapshot(self):
+        """Проверяет только данные визуализации, исключая записываемые экранные координаты."""
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute('SELECT name, faction, coordinates, COALESCE(is_undead, 0) FROM cities ORDER BY id')
+            cities = tuple(cursor.fetchall())
+            cursor.execute('SELECT city1, city2 FROM roads ORDER BY id')
+            roads = tuple(cursor.fetchall())
+            effects = []
+            for table in ('undead_invasion', 'plague_effects', 'season'):
+                cursor.execute('SELECT name FROM sqlite_master WHERE type = ? AND name = ?', ('table', table))
+                if cursor.fetchone():
+                    # Имена таблиц заданы константами, не пользовательским вводом.
+                    cursor.execute('SELECT * FROM ' + table + ' ORDER BY rowid')
+                    effects.append(tuple(cursor.fetchall()))
+                else:
+                    effects.append(())
+            return (cities, roads, tuple(effects), Window.width, Window.height,
+                    self.current_player_kingdom, self.random_map_source)
+        except sqlite3.Error:
+            # При временной ошибке БД не считаем старую картинку актуальной.
+            return None
+        finally:
+            cursor.close()
 
     def initialize_map(self, schedule_blink=True):
         self.map_scale = self.calculate_scale()
@@ -948,160 +967,151 @@ class MapWidget(Widget):
         return vertices, indices
 
     def draw_territories(self):
-        """Рисует секторные зоны территорий фракций на карте (диаграмма Вороного)."""
+        """Лёгкая политическая заливка и подсвеченные изнутри государственные границы."""
         from design_system import FACTION_COLORS
+        cursor = self.conn.cursor()
         try:
-            cursor = self.conn.cursor()
-            cursor.execute("SELECT name, faction, coordinates FROM cities")
+            cursor.execute('SELECT name, faction, coordinates FROM cities ORDER BY id')
             cities = cursor.fetchall()
-        except Exception:
+        except sqlite3.Error:
             return
-
-        if not cities:
-            return
-
-        # Собираем все города с их позициями
-        city_list = []  # (drawn_x, drawn_y, faction, name)
-        for name, faction, coords_str in cities:
+        finally:
+            cursor.close()
+        city_list = []
+        for name, faction, raw_coords in cities:
             try:
-                coords = ast.literal_eval(coords_str)
-                drawn_x = coords[0] * self.map_scale + self.map_pos[0] + 38
-                drawn_y = coords[1] * self.map_scale + self.map_pos[1] + 38
-                city_list.append((drawn_x, drawn_y, faction, name))
-            except Exception:
+                x, y = ast.literal_eval(raw_coords)
+                city_list.append((x * self.map_scale + self.map_pos[0] + 38.5,
+                                  y * self.map_scale + self.map_pos[1] + 38.5,
+                                  faction, name))
+            except (ValueError, TypeError, SyntaxError):
                 continue
-
         if not city_list:
             return
 
-        # Границы карты для обрезки ячеек Вороного
-        map_x = self.map_pos[0]
-        map_y = self.map_pos[1]
-        map_w = self.base_map_width * self.map_scale
-        map_h = self.base_map_height * self.map_scale
-        clip_rect = (map_x, map_y, map_x + map_w, map_y + map_h)
-
-        # Вычисляем ячейки Вороного для ВСЕХ городов
-        sites = [(c[0], c[1]) for c in city_list]
-        cells = self._compute_voronoi_cells(sites, clip_rect)
-
-        # Строим карту: для каждого ребра определяем, какие фракции граничат
-        # Ключ — отсортированная пара округлённых точек, значение — set фракций
-        edge_factions = {}
-        for idx, (cx, cy, faction, name) in enumerate(city_list):
-            cell = cells[idx]
-            if not cell or len(cell) < 3:
-                continue
-            n_pts = len(cell)
-            for i in range(n_pts):
-                p1 = (round(cell[i][0], 1), round(cell[i][1], 1))
-                p2 = (round(cell[(i + 1) % n_pts][0], 1), round(cell[(i + 1) % n_pts][1], 1))
-                edge_key = (min(p1, p2), max(p1, p2))
-                if edge_key not in edge_factions:
-                    edge_factions[edge_key] = set()
-                edge_factions[edge_key].add(faction)
-
-        # Сбрасываем список Color-инструкций территории игрока
-        self._player_territory_colors = []
+        # Отступ удерживает политический слой внутри рамки пергамента.
+        inset = 26 * self.map_scale
+        x, y = self.map_pos
+        clip_rect = (x + inset, y + inset,
+                     x + self.base_map_width * self.map_scale - inset,
+                     y + self.base_map_height * self.map_scale - inset)
+        sites = tuple((city[0], city[1]) for city in city_list)
+        geometry_key = (sites, clip_rect)
+        if geometry_key != self._territory_geometry_key:
+            cells = self._compute_voronoi_cells(sites, clip_rect)
+            # Центр веера всегда внутри обрезанной ячейки, даже у края карты.
+            meshes = []
+            edges = {}
+            for index, cell in enumerate(cells):
+                if len(cell) < 3:
+                    meshes.append(([], []))
+                    continue
+                center = (sum(p[0] for p in cell) / len(cell),
+                          sum(p[1] for p in cell) / len(cell))
+                meshes.append(self._triangulate_polygon(cell, center))
+                for a, b in zip(cell, cell[1:] + cell[:1]):
+                    key = tuple(sorted(((round(a[0], 3), round(a[1], 3)),
+                                        (round(b[0], 3), round(b[1], 3)))))
+                    edges.setdefault(key, []).append((index, a, b, center))
+            self._territory_geometry = (cells, meshes, edges)
+            self._territory_geometry_key = geometry_key
+        cells, meshes, edges = self._territory_geometry
         if self._player_pulse_event:
             self._player_pulse_event.cancel()
             self._player_pulse_event = None
+        self._player_territory_colors = []
+
+        def tint(faction, alpha, highlight=False, pulse_floor=0.35):
+            palette = FACTION_COLORS.get(faction)
+            rgb = palette['primary'][:3] if palette else (0.65, 0.65, 0.61)
+            if highlight:
+                rgb = tuple(c * 0.65 + 0.35 for c in rgb)
+            color = Color(*rgb, alpha)
+            if palette and faction == self.current_player_kingdom:
+                self._player_territory_colors.append((color, alpha * pulse_floor, alpha))
+            return color
 
         with self.canvas:
-            for idx, (cx, cy, faction, name) in enumerate(city_list):
-                cell = cells[idx]
-                if not cell or len(cell) < 3:
-                    continue
-
-                # Определяем цвет по фракции
-                fc = FACTION_COLORS.get(faction)
-                is_player = (faction == self.current_player_kingdom)
-                if fc:
-                    color = fc['primary']
-                    c_instr = Color(color[0], color[1], color[2], 0.25)
-                elif faction == 'Нейтрал':
-                    c_instr = Color(0.6, 0.6, 0.6, 0.12)
-                else:
-                    c_instr = Color(0.5, 0.5, 0.5, 0.12)
-
-                # Сохраняем Color территории игрока для пульсации
-                if is_player and fc:
-                    self._player_territory_colors.append(c_instr)
-
-                # Рисуем заполненный полигон через Mesh (triangle fan)
-                vertices, indices = self._triangulate_polygon(cell, (cx, cy))
-                if vertices and indices:
+            # Нейтральная земля сохраняет собственный цвет ландшафта.
+            for index, city in enumerate(city_list):
+                faction = city[2]
+                vertices, indices = meshes[index]
+                if vertices and FACTION_COLORS.get(faction):
+                    tint(faction, 0.30 if faction == self.current_player_kingdom else 0.14)
                     Mesh(vertices=vertices, indices=indices, mode='triangles')
 
-                # Рисуем границы сектора — жирные для межфракционных, тонкие для своих
-                n_pts = len(cell)
-                for i in range(n_pts):
-                    p1_raw = cell[i]
-                    p2_raw = cell[(i + 1) % n_pts]
-                    p1 = (round(p1_raw[0], 1), round(p1_raw[1], 1))
-                    p2 = (round(p2_raw[0], 1), round(p2_raw[1], 1))
-                    edge_key = (min(p1, p2), max(p1, p2))
-                    factions_on_edge = edge_factions.get(edge_key, set())
-                    is_border = len(factions_on_edge) > 1
-
-                    if is_border:
-                        # Жирная граница между разными фракциями
-                        if fc:
-                            Color(color[0], color[1], color[2], 0.7)
-                        else:
-                            Color(0.7, 0.7, 0.7, 0.5)
-                        Line(points=[p1_raw[0], p1_raw[1], p2_raw[0], p2_raw[1]], width=2.5)
-                    else:
-                        # Тонкая граница внутри фракции
-                        if fc:
-                            Color(color[0], color[1], color[2], 0.35)
-                        elif faction == 'Нейтрал':
-                            Color(0.7, 0.7, 0.7, 0.15)
-                        else:
-                            Color(0.5, 0.5, 0.5, 0.15)
-                        Line(points=[p1_raw[0], p1_raw[1], p2_raw[0], p2_raw[1]], width=1.2)
-
-        # Запускаем плавную пульсацию территории игрока
+            for owners in edges.values():
+                factions = {city_list[owner[0]][2] for owner in owners}
+                # Не рисуем сетку между городами одной державы или нейтралами.
+                if len(owners) > 1 and len(factions) == 1:
+                    continue
+                colored_owners = [o for o in owners if FACTION_COLORS.get(city_list[o[0]][2])]
+                if not colored_owners:
+                    continue
+                _, a, b, _ = owners[0]
+                player_border = any(city_list[o[0]][2] == self.current_player_kingdom
+                                    for o in colored_owners)
+                Color(0.08, 0.07, 0.09, 0.50 if player_border else 0.32)
+                Line(points=[*a, *b], width=2.7 if player_border else 1.4)
+                for index, a, b, center in colored_owners:
+                    faction = city_list[index][2]
+                    is_player = faction == self.current_player_kingdom
+                    dx, dy = b[0] - a[0], b[1] - a[1]
+                    length = math.hypot(dx, dy)
+                    if length < 0.1:
+                        continue
+                    nx, ny = -dy / length, dx / length
+                    if (center[0] - a[0]) * nx + (center[1] - a[1]) * ny < 0:
+                        nx, ny = -nx, -ny
+                    # Полупрозрачные полосы лежат только внутри собственной ячейки.
+                    # Ограничение глубины не даёт им выйти за узкий угол полигона.
+                    def inset_point(point, amount):
+                        vx, vy = center[0] - point[0], center[1] - point[1]
+                        distance = max(math.hypot(vx, vy), 0.001)
+                        factor = min(amount / distance, 0.45)
+                        return (point[0] + vx * factor, point[1] + vy * factor)
+                    bands = (((22.0, 0.10), (12.0, 0.17), (5.0, 0.26)) if is_player
+                             else ((14.0, 0.06), (8.0, 0.10), (3.5, 0.16)))
+                    for width, alpha in bands:
+                        ia = inset_point(a, width * self.map_scale)
+                        ib = inset_point(b, width * self.map_scale)
+                        tint(faction, alpha)
+                        Mesh(vertices=[*a, 0, 0, *b, 0, 0, *ib, 0, 0, *ia, 0, 0],
+                             indices=[0, 1, 2, 0, 2, 3], mode='triangles')
+                    # На общей границе два тонких канта лежат по своим сторонам.
+                    offset = 0.65 if len(colored_owners) > 1 else 0.0
+                    points = [a[0] + nx * offset, a[1] + ny * offset,
+                              b[0] + nx * offset, b[1] + ny * offset]
+                    if is_player:
+                        # Мягкий ореол дышит сильнее, читаемый контур остаётся всегда.
+                        for width, alpha in ((7.0, 0.10), (4.0, 0.20)):
+                            tint(faction, alpha, highlight=True, pulse_floor=0.08)
+                            Line(points=points, width=width)
+                    tint(faction, 0.95 if is_player else 0.82, pulse_floor=0.78)
+                    Line(points=points, width=2.0 if is_player else 1.4)
+                    tint(faction, 0.90 if is_player else 0.50,
+                         highlight=True, pulse_floor=0.65)
+                    Line(points=points, width=0.85 if is_player else 0.60)
         if self._player_territory_colors:
             self._start_player_pulse()
 
     def _start_player_pulse(self):
-        """Плавная пульсация территории: появление и исчезновение за 1.5 сек (ease in-out)."""
-        import math
-        self._player_pulse_phase = 0.0
-        self._player_base_alphas = [c.a for c in self._player_territory_colors]
+        """Заметное дыхание заливки и ореола с постоянно читаемой границей."""
+        if self._player_pulse_event:
+            self._player_pulse_event.cancel()
+        colors = tuple(self._player_territory_colors)
 
         def _pulse(dt):
-            self._player_pulse_phase += dt
-            # Полный цикл = 1.5 секунды
-            # cos даёт плавный ease in-out: 1 → -1 → 1
-            t = (math.cos(self._player_pulse_phase * 2.0 * math.pi / 1.5) + 1.0) / 2.0
-            # t: 1.0 → 0.0 → 1.0 плавно (cosine easing)
-            # Множитель: от 1.0 (яркий) до 0.2 (почти невидимый)
-            factor = 0.2 + 0.8 * t
-            for i, c_instr in enumerate(self._player_territory_colors):
-                c_instr.a = self._player_base_alphas[i] * factor
+            self._player_pulse_phase = (self._player_pulse_phase + dt) % 2.8
+            wave = 0.5 + 0.5 * math.cos(self._player_pulse_phase * 2 * math.pi / 2.8)
+            for color, low, high in colors:
+                color.a = low + (high - low) * wave
 
+        _pulse(0)
         self._player_pulse_event = Clock.schedule_interval(_pulse, 1 / 30.0)
 
     def draw_fortresses(self):
         """Рисует крепости на карте с анимацией при смене фракции."""
-        # Останавливаем анимации перед перерисовкой
-        if self._undead_anim_event:
-            self._undead_anim_event.cancel()
-            self._undead_anim_event = None
-        if self._undead_shield_group:
-            try:
-                self.canvas.after.remove(self._undead_shield_group)
-            except Exception:
-                pass
-            self._undead_shield_group = None
-        if hasattr(self, '_undead_static_group') and self._undead_static_group:
-            try:
-                self.canvas.after.remove(self._undead_static_group)
-            except Exception:
-                pass
-            self._undead_static_group = None
         self._undead_shield_data = []
 
         self.clear_widgets()
@@ -1135,6 +1145,16 @@ class MapWidget(Widget):
 
         # ← Список изменённых городов (ВНЕ основного цикла)
         changed_cities = []
+        capital_name = None
+        capital_cursor = self.conn.cursor()
+        try:
+            capital_cursor.execute('SELECT capital_city FROM undead_invasion WHERE id = 1')
+            capital_row = capital_cursor.fetchone()
+            capital_name = capital_row[0] if capital_row else None
+        except sqlite3.Error:
+            pass
+        finally:
+            capital_cursor.close()
 
         for row in fortresses_data:
             fortress_name, kingdom, coords_str, is_undead_city = row
@@ -1189,15 +1209,7 @@ class MapWidget(Widget):
                 cx = drawn_x + 38.5  # Центр иконки 77x77
                 cy = drawn_y + 38.5
                 # Определяем столицу нежити
-                _is_capital = False
-                try:
-                    _cap_cur = self.conn.cursor()
-                    _cap_cur.execute("SELECT capital_city FROM undead_invasion WHERE id = 1")
-                    _cap_r = _cap_cur.fetchone()
-                    if _cap_r and _cap_r[0] == fortress_name:
-                        _is_capital = True
-                except Exception:
-                    pass
+                _is_capital = capital_name == fortress_name
                 self._undead_shield_data.append((cx, cy, _is_capital))
 
             # --- Сохраняем данные для кликов ---
@@ -1206,9 +1218,7 @@ class MapWidget(Widget):
             # --- Рисуем название города с обводкой ---
             display_name = f"{fortress_name}({kingdom})"
 
-            label = CoreLabel(text=display_name, font_size=25, color=(1, 1, 1, 1))
-            label.refresh()
-            text_texture = label.texture
+            text_texture = self._get_city_label_texture(display_name)
             text_width, text_height = text_texture.size
 
             text_x = drawn_x + (40 - text_width) / 2
@@ -1250,21 +1260,21 @@ class MapWidget(Widget):
                 0.05
             )
 
-        # --- Запуск анимации щитов нежити ---
-        self._start_undead_shield_animation()
+        # Погода, грозовые тучи и чума находятся в одном ограниченном слое.
+        self._sync_map_atmosphere()
 
-        # --- Запуск анимации чумы ---
-        self._start_plague_animation()
-
-        # --- Обновляем icon_coordinates в БД ---
+        # Координаты меняются только при изменении состава городов или масштаба.
+        icon_positions = tuple((name, x, y) for name, _, _, _, x, y in self.fortress_data_for_canvas)
+        if icon_positions == getattr(self, '_saved_icon_positions', None):
+            return
         try:
             cursor2 = self.conn.cursor()
-            for fortress_name, _, _, _, drawn_x, drawn_y in self.fortress_data_for_canvas:
-                cursor2.execute(
-                    "UPDATE cities SET icon_coordinates = ? WHERE name = ?",
-                    (str([drawn_x, drawn_y]), fortress_name)
-                )
+            cursor2.executemany(
+                'UPDATE cities SET icon_coordinates = ? WHERE name = ?',
+                [(str([x, y]), name) for name, x, y in icon_positions]
+            )
             self.conn.commit()
+            self._saved_icon_positions = icon_positions
         except (sqlite3.Error, SystemError) as e:
             # Может конфликтовать с фоновым потоком ИИ — не критично
             pass
@@ -1276,304 +1286,50 @@ class MapWidget(Widget):
             except Exception:
                 pass
 
-    def _start_undead_shield_animation(self):
-        """Рисует статичные щиты и анимирует молнии вокруг городов нежити."""
-        if self._undead_anim_event:
-            self._undead_anim_event.cancel()
-            self._undead_anim_event = None
-        if self._undead_shield_group:
-            try:
-                self.canvas.after.remove(self._undead_shield_group)
-            except Exception:
-                pass
-            self._undead_shield_group = None
-        # Очищаем статичный щит
-        if hasattr(self, '_undead_static_group') and self._undead_static_group:
-            try:
-                self.canvas.after.remove(self._undead_static_group)
-            except Exception:
-                pass
-
-        if not self._undead_shield_data:
-            return
-
-        import math
-        import random as _rnd
-        from kivy.graphics import InstructionGroup, Ellipse as GlEllipse, Line as GlLine
-
-        # --- Статичный щит (рисуется один раз) ---
-        static = InstructionGroup()
-        shield_r = 52
-        for _sd in self._undead_shield_data:
-            cx, cy = _sd[0], _sd[1]
-            _is_cap = _sd[2] if len(_sd) > 2 else False
-            # Внешнее свечение
-            static.add(Color(0.2, 0.0, 0.3, 0.1))
-            static.add(GlEllipse(
-                pos=(cx - shield_r - 6, cy - shield_r - 6),
-                size=(shield_r * 2 + 12, shield_r * 2 + 12)
-            ))
-            # Основной купол
-            static.add(Color(0.06, 0.0, 0.1, 0.15))
-            static.add(GlEllipse(
-                pos=(cx - shield_r, cy - shield_r),
-                size=(shield_r * 2, shield_r * 2)
-            ))
-            # Кольцо
-            static.add(Color(0.3, 0.0, 0.45, 0.3))
-            static.add(GlLine(
-                ellipse=(cx - shield_r, cy - shield_r, shield_r * 2, shield_r * 2),
-                width=1.5
-            ))
-            # Столица: двойной щит + красное кольцо
-            if _is_cap:
-                _cap_r = shield_r + 10
-                static.add(Color(0.5, 0.0, 0.0, 0.15))
-                static.add(GlEllipse(
-                    pos=(cx - _cap_r, cy - _cap_r),
-                    size=(_cap_r * 2, _cap_r * 2)
-                ))
-                static.add(Color(0.7, 0.1, 0.1, 0.4))
-                static.add(GlLine(
-                    ellipse=(cx - _cap_r, cy - _cap_r, _cap_r * 2, _cap_r * 2),
-                    width=2.0
-                ))
-        self._undead_static_group = static
-        self.canvas.after.add(static)
-
-        # --- Молнии (анимируются) ---
-        # Кеш молний: для каждого города свой набор
-        self._lightning_per_city = [[] for _ in self._undead_shield_data]
-
-        def _gen_bolt(cx, cy):
-            """Генерирует одну реалистичную молнию с ветвлением."""
-            angle = _rnd.uniform(0, 2 * math.pi)
-            length = _rnd.uniform(35, 60)
-            # Основной ствол
-            segments = _rnd.randint(5, 8)
-            trunk = []
-            px, py = cx, cy
-            for s in range(segments):
-                t = (s + 1) / segments
-                # Основное направление + случайное отклонение (уменьшается к концу)
-                jitter = (1.0 - t * 0.4) * 6
-                nx = cx + math.cos(angle) * length * t + _rnd.uniform(-jitter, jitter)
-                ny = cy + math.sin(angle) * length * t + _rnd.uniform(-jitter, jitter)
-                trunk.append((px, py, nx, ny))
-                px, py = nx, ny
-
-            # Ветвления (1-2 штуки от случайных точек ствола)
-            branches = []
-            num_branches = _rnd.randint(1, 2)
-            for _ in range(num_branches):
-                if len(trunk) < 3:
-                    break
-                branch_idx = _rnd.randint(1, len(trunk) - 2)
-                bx, by = trunk[branch_idx][2], trunk[branch_idx][3]
-                b_angle = angle + _rnd.uniform(-0.8, 0.8)
-                b_len = length * _rnd.uniform(0.2, 0.4)
-                b_segs = _rnd.randint(2, 3)
-                bpx, bpy = bx, by
-                branch = []
-                for bs in range(b_segs):
-                    bt = (bs + 1) / b_segs
-                    bnx = bx + math.cos(b_angle) * b_len * bt + _rnd.uniform(-4, 4)
-                    bny = by + math.sin(b_angle) * b_len * bt + _rnd.uniform(-4, 4)
-                    branch.append((bpx, bpy, bnx, bny))
-                    bpx, bpy = bnx, bny
-                branches.append(branch)
-
-            return trunk, branches
-
-        def _update_lightning(dt):
-            # Удаляем старые молнии
-            if self._undead_shield_group:
-                try:
-                    self.canvas.after.remove(self._undead_shield_group)
-                except Exception:
-                    pass
-
-            group = InstructionGroup()
-
-            for _sd in self._undead_shield_data:
-                cx, cy = _sd[0], _sd[1]
-                _is_cap = _sd[2] if len(_sd) > 2 else False
-                # Перегенерируем 2-3 молнии (фиолетовые)
-                bolts = []
-                for _ in range(_rnd.randint(2, 3)):
-                    bolts.append(_gen_bolt(cx, cy))
-
-                for trunk, branches in bolts:
-                    trunk_pts = []
-                    for x1, y1, x2, y2 in trunk:
-                        trunk_pts.extend([x1, y1, x2, y2])
-
-                    # Свечение (тёмно-фиолетовое, широкое)
-                    group.add(Color(0.15, 0.0, 0.2, 0.35))
-                    group.add(GlLine(points=trunk_pts, width=3.0))
-                    # Основной разряд
-                    group.add(Color(0.02, 0.0, 0.05, 0.9))
-                    group.add(GlLine(points=trunk_pts, width=1.3))
-                    # Яркий центр
-                    group.add(Color(0.2, 0.0, 0.35, 0.5))
-                    group.add(GlLine(points=trunk_pts, width=0.7))
-
-                    # Ветвления (тоньше)
-                    for branch in branches:
-                        b_pts = []
-                        for x1, y1, x2, y2 in branch:
-                            b_pts.extend([x1, y1, x2, y2])
-                        group.add(Color(0.05, 0.0, 0.1, 0.6))
-                        group.add(GlLine(points=b_pts, width=1.0))
-                        group.add(Color(0.2, 0.0, 0.3, 0.3))
-                        group.add(GlLine(points=b_pts, width=0.5))
-
-                # Столица: дополнительные красные молнии
-                if _is_cap:
-                    for _ in range(_rnd.randint(2, 3)):
-                        _rt, _rb = _gen_bolt(cx, cy)
-                        _rpts = []
-                        for x1, y1, x2, y2 in _rt:
-                            _rpts.extend([x1, y1, x2, y2])
-                        group.add(Color(0.6, 0.05, 0.05, 0.4))
-                        group.add(GlLine(points=_rpts, width=2.5))
-                        group.add(Color(0.8, 0.1, 0.1, 0.7))
-                        group.add(GlLine(points=_rpts, width=1.2))
-                        group.add(Color(1.0, 0.2, 0.15, 0.4))
-                        group.add(GlLine(points=_rpts, width=0.6))
-                        for _brn in _rb:
-                            _bpts = []
-                            for x1, y1, x2, y2 in _brn:
-                                _bpts.extend([x1, y1, x2, y2])
-                            group.add(Color(0.7, 0.1, 0.1, 0.5))
-                            group.add(GlLine(points=_bpts, width=0.8))
-
-            self._undead_shield_group = group
-            self.canvas.after.add(group)
-
-        # Молнии обновляются 3 раза в секунду
-        self._undead_anim_event = Clock.schedule_interval(_update_lightning, 0.3)
-
-    def _start_plague_animation(self):
-        """
-        Анимация чумы — отдельный слой поверх карты.
-        Работает ТОЛЬКО при активной инвазии нежити.
-        Туман — на городах нежити и заражённых городах.
-        Черепа — ТОЛЬКО на городах с потерями (losses > 0).
-        """
-        # Очистка предыдущей анимации
-        if self._plague_anim_event:
-            self._plague_anim_event.cancel()
-            self._plague_anim_event = None
-        if self._plague_group:
-            try:
-                self.canvas.after.remove(self._plague_group)
-            except Exception:
-                pass
-            self._plague_group = None
-        for w in self._plague_labels:
-            try:
-                self.remove_widget(w)
-            except Exception:
-                pass
-        self._plague_labels = []
-        self._plague_particles = []
-
-        # Проверяем — инвазия активна?
+    def _sync_map_atmosphere(self):
+        """Обновляет данные эффектов; между изменениями работает один общий таймер."""
+        from map_atmosphere import MapAtmosphere
+        if self._map_atmosphere is None:
+            self._map_atmosphere = MapAtmosphere()
+        layer = self._map_atmosphere
+        layer.configure(self.map_pos, self.map_scale,
+                        (self.base_map_width, self.base_map_height))
+        if layer.parent is None:
+            self.add_widget(layer)
+        layer.set_storms(self._undead_shield_data)
+        cursor = self.conn.cursor()
         try:
-            from undead_invasion import is_invasion_active
-            if not is_invasion_active(self.conn):
-                return
-        except Exception:
-            return
-
-        # Загружаем данные чумы из БД
+            cursor.execute('SELECT current_season FROM season WHERE id = 1')
+            row = cursor.fetchone()
+            layer.set_season(row[0] if row else None)
+        except sqlite3.Error:
+            layer.set_season(None)
         try:
-            cursor = self.conn.cursor()
-            cursor.execute("SELECT city_name, losses, coord_x, coord_y FROM plague_effects")
-            plague_data = cursor.fetchall()
-        except Exception:
-            return
-
-        if not plague_data:
-            return
-
-        import math
-        import random as _rnd
-        from kivy.graphics import InstructionGroup, Ellipse as _Ell
-        from kivy.uix.image import Image as _Img
-        from kivy.animation import Animation as _Anim
-        from kivy.uix.widget import Widget as _W
-
-        # Отдельный виджет-слой для чумы (не загрязняет canvas карты)
-        plague_layer = _W(size_hint=(1, 1))
-        self.add_widget(plague_layer)
-        self._plague_labels.append(plague_layer)
-
-        # Экранные координаты
-        plague_cities = []
-        for city_name, losses, cx, cy in plague_data:
-            sx = cx * self.map_scale + self.map_pos[0]
-            sy = cy * self.map_scale + self.map_pos[1]
-            plague_cities.append((city_name, losses, sx, sy))
-
-        # Частицы тумана — 14 на город, крупные, плавные
-        for city_name, losses, sx, sy in plague_cities:
-            for _ in range(14):
-                angle = _rnd.uniform(0, 6.28)
-                dist = _rnd.uniform(5, 50)
-                self._plague_particles.append({
-                    'cx': sx, 'cy': sy,
-                    'x': sx + math.cos(angle) * dist,
-                    'y': sy + math.sin(angle) * dist,
-                    'speed': _rnd.uniform(0.15, 0.35),
-                    'angle': angle,
-                    'size': _rnd.uniform(22, 50),
-                    'alpha': _rnd.uniform(0.06, 0.16),
-                    'phase': _rnd.uniform(0, 6.28),
-                })
-
-            # Черепа — ТОЛЬКО на городах с потерями
-            if losses > 0:
-                skull = _Img(
-                    source='files/army/death/death.png',
-                    size_hint=(None, None),
-                    size=(dp(22), dp(22)),
-                    pos=(sx - dp(11), sy + dp(28)),
-                    opacity=0.85,
-                    allow_stretch=True,
-                    keep_ratio=True,
-                )
-                self.add_widget(skull)
-                self._plague_labels.append(skull)
-                _Anim(
-                    y=skull.y + dp(30),
-                    opacity=0,
-                    duration=3.5,
-                    t='out_quad'
-                ).start(skull)
-
-        # Плавная анимация тумана на отдельном слое
-        def _update_plague(dt):
-            plague_layer.canvas.clear()
-            with plague_layer.canvas:
-                for p in self._plague_particles:
-                    p['phase'] += dt * 0.8
-                    p['angle'] += dt * p['speed'] * 0.3
-
-                    # Плавное круговое движение вокруг центра
-                    orbit_r = 30 + 15 * math.sin(p['phase'] * 0.5)
-                    p['x'] = p['cx'] + math.cos(p['angle']) * orbit_r
-                    p['y'] = p['cy'] + math.sin(p['angle']) * orbit_r
-
-                    # Плавная пульсация прозрачности
-                    alpha = p['alpha'] * (0.5 + 0.5 * math.sin(p['phase'] * 0.6))
-                    s = p['size'] + 4 * math.sin(p['phase'] * 0.4)
-
-                    Color(0.10, 0.50, 0.06, max(0, alpha))
-                    _Ell(pos=(p['x'] - s / 2, p['y'] - s / 2), size=(s, s))
-
-        self._plague_anim_event = Clock.schedule_interval(_update_plague, 0.05)
+            cursor.execute('SELECT invasion_started FROM undead_invasion WHERE id = 1')
+            row = cursor.fetchone()
+            active = bool(row and row[0] == 1)
+            effects, sources = [], []
+            if active:
+                cursor.execute('SELECT city_name, losses, coord_x, coord_y FROM plague_effects ORDER BY city_name')
+                effects = [tuple(row) for row in cursor.fetchall()]
+                cursor.execute('SELECT name, coordinates, faction FROM cities ORDER BY name')
+                eligible_names = set()
+                for name, coords, faction in cursor.fetchall():
+                    if faction not in (None, 'Нейтрал'):
+                        eligible_names.add(name)
+                    if faction != 'Нежить':
+                        continue
+                    try:
+                        x, y = ast.literal_eval(coords)
+                        sources.append((name, x, y))
+                    except (ValueError, TypeError, SyntaxError):
+                        continue
+                effects = [effect for effect in effects if effect[0] in eligible_names]
+            layer.set_plague(effects, sources, active=active)
+        except sqlite3.Error:
+            layer.set_plague([], [], active=False)
+        finally:
+            cursor.close()
 
     def animate_city_capture(self, city_data):
         """Анимация вспышки при захвате города."""
@@ -1695,51 +1451,56 @@ class MapWidget(Widget):
         y = (Window.height - scaled_height) / 2
         return [x, y]
 
+    def _get_city_label_texture(self, display_name):
+        texture = self._city_label_cache.get(display_name)
+        if texture is None:
+            label = CoreLabel(text=display_name, font_size=25, color=(1, 1, 1, 1))
+            label.refresh()
+            texture = label.texture
+            if len(self._city_label_cache) >= 128:
+                self._city_label_cache.clear()
+            self._city_label_cache[display_name] = texture
+        return texture
+
     def draw_roads(self):
-        """Рисует явные дороги из таблицы roads для более ясной географии карты."""
-        self.canvas.after.clear()
-
+        """Рисует грунтовые тракты под зданиями и подписями, сохраняя игровой граф."""
+        from map_roads import build_road_paths, draw_road_layer
+        cursor = self.conn.cursor()
         try:
-            cursor = self.conn.cursor()
-            # Загружаем города с их координатами
-            cursor.execute("SELECT id, coordinates FROM cities")
-            cities_data = cursor.fetchall()
-            cities_coords = {city_id: ast.literal_eval(coords) for city_id, coords in cities_data}
-            
-            # Загружаем явные дороги из таблицы roads
-            cursor.execute("SELECT city1, city2 FROM roads")
-            roads_data = cursor.fetchall()
-        except sqlite3.Error as e:
-            print(f"Ошибка при загрузке дорог: {e}")
+            cursor.execute('SELECT id, name, faction, coordinates FROM cities ORDER BY id')
+            rows = cursor.fetchall()
+            cursor.execute('SELECT city1, city2 FROM roads ORDER BY id')
+            roads = tuple(tuple(row) for row in cursor.fetchall())
+        except sqlite3.Error as error:
+            print(f'Ошибка при загрузке дорог: {error}')
             return
-
-        if not roads_data:
-            print("[WARN] Таблица roads пуста, дороги не рисуются")
-            return
-
-        with self.canvas.after:
-            # Основные дороги - серый цвет, толщина 2
-            Color(0.4, 0.4, 0.4, 0.8)
-            
-            for city1_id, city2_id in roads_data:
-                if city1_id not in cities_coords or city2_id not in cities_coords:
-                    continue
-                    
-                coords1 = cities_coords[city1_id]
-                coords2 = cities_coords[city2_id]
-                
-                drawn_x1 = coords1[0] * self.map_scale + self.map_pos[0]
-                drawn_y1 = coords1[1] * self.map_scale + self.map_pos[1]
-                drawn_x2 = coords2[0] * self.map_scale + self.map_pos[0]
-                drawn_y2 = coords2[1] * self.map_scale + self.map_pos[1]
-                
-                # Рисуем линию дороги с тенью для глубины
-                Color(0.2, 0.2, 0.2, 0.4)  # Тень
-                Line(points=[drawn_x1 + 1, drawn_y1 + 1, drawn_x2 + 1, drawn_y2 + 1], width=3)
-                
-                # Основная линия дороги
-                Color(0.55, 0.52, 0.45, 1)  # Песочно-бежевый цвет дороги
-                Line(points=[drawn_x1, drawn_y1, drawn_x2, drawn_y2], width=2)
+        finally:
+            cursor.close()
+        cities, labels = {}, {}
+        for city_id, name, faction, raw_coords in rows:
+            try:
+                x, y = ast.literal_eval(raw_coords)
+            except (ValueError, TypeError, SyntaxError):
+                continue
+            x, y = x * self.map_scale + self.map_pos[0], y * self.map_scale + self.map_pos[1]
+            cities[city_id] = (x, y)
+            width, height = self._get_city_label_texture(f'{name}({faction})').size
+            left = x + (40 - width) / 2
+            labels[city_id] = (left - 5, y - height - 10, left + width + 5, y - 1)
+        inset = 30 * self.map_scale
+        bounds = (self.map_pos[0] + inset, self.map_pos[1] + inset,
+                  self.map_pos[0] + self.base_map_width * self.map_scale - inset,
+                  self.map_pos[1] + self.base_map_height * self.map_scale - inset)
+        key = (tuple(cities.items()), roads, tuple(labels.items()), bounds, self.map_scale)
+        if key != self._road_geometry_key:
+            self._road_geometry = build_road_paths(cities, roads, labels, bounds, self.map_scale)
+            self._road_geometry_key = key
+        if self._road_group is not None:
+            # Do not clear canvas.after: other map effects may own instructions there.
+            if self._road_group in self.canvas.children:
+                self.canvas.remove(self._road_group)
+        self._road_group = draw_road_layer(self._road_geometry, self.map_scale)
+        self.canvas.add(self._road_group)
 
     def calculate_manhattan_distance(self, source_coords, destination_coords):
         """Вычисляет манхэттенское расстояние между точками"""
@@ -4863,281 +4624,6 @@ from kivy.graphics.context_instructions import PushMatrix, PopMatrix
 import random
 import math
 
-
-class SeasonalOverlay(FloatLayout):
-    """Оверлей для сезонных анимаций"""
-
-    SEASON_NAMES = ['Зима', 'Весна', 'Лето', 'Осень']
-    SEASON_ICONS = {
-        'Зима': 'files/status/icons/icon_for_animate/season 1.png',
-        'Весна': 'files/status/icons/icon_for_animate/season 2.png',
-        'Лето': None,  # Генерируем лучи
-        'Осень': 'files/status/icons/icon_for_animate/season 4.png'
-    }
-
-    def __init__(self, conn, **kwargs):
-        super(SeasonalOverlay, self).__init__(**kwargs)
-        self.conn = conn
-        self.current_season = None
-        self.particles = []
-        self.sun_rays = []
-        self.animation_event = None
-        self.season_update_event = None
-
-        # Настройки частиц
-        self.max_particles = {
-            'Зима': 30,  # Редкий снег
-            'Весна': 25,  # Листья слева направо
-            'Лето': 0,  # Лучи света
-            'Осень': 40  # Падающие листья
-        }
-
-        # Инициализация
-        self.load_current_season()
-        self.start_season_animation()
-
-    def load_current_season(self):
-        """Загружает текущий сезон из БД"""
-        season_data = self.get_current_season_from_db(self.conn)
-        if season_data:
-            old_season = self.current_season
-            self.current_season = season_data['name']
-
-            if old_season != self.current_season:
-                print(f"[SEASON] Смена сезона: {old_season} → {self.current_season}")
-                self.recreate_particles()
-        else:
-            # ← Если сезон не определён — отключаем анимацию
-            print("[SEASON] Сезон не определён в БД — анимация отключена")
-            self.current_season = None
-            self.clear_season_animation()
-
-    def clear_season_animation(self):
-        """Очищает все частицы и лучи"""
-        self.particles.clear()
-        self.sun_rays.clear()
-        self.canvas.after.clear()
-
-    def recreate_particles(self):
-        """Пересоздаёт частицы для текущего сезона"""
-        self.particles.clear()
-        self.sun_rays.clear()
-
-        # ← Если сезона нет — ничего не создаём
-        if not self.current_season:
-            self.canvas.after.clear()
-            return
-
-        if self.current_season == 'Лето':
-            self.create_sun_rays()
-        else:
-            self.create_season_particles()
-
-    def update_animation(self, dt):
-        """Обновляет анимацию каждый кадр"""
-        self.canvas.after.clear()
-
-        # ← Если сезона нет — пропускаем отрисовку
-        if not self.current_season:
-            return
-
-        if self.current_season == 'Лето':
-            self.update_sun_rays()
-        else:
-            self.update_particles()
-
-    def get_current_season_from_db(self, conn):
-        """Получает текущий сезон из БД"""
-        try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT current_season, season_index FROM season WHERE id = 1")
-            result = cursor.fetchone()
-            if result:
-                return {'name': result[0], 'index': result[1]}
-            return None
-        except sqlite3.Error as e:
-            print(f"[ERROR] Ошибка при получении сезона из БД: {e}")
-            return None
-
-    def start_season_animation(self):
-        """Запускает анимацию сезона"""
-        self.recreate_particles()
-        # Обновление каждые 0.03 секунды (30 FPS)
-        self.animation_event = Clock.schedule_interval(self.update_animation, 0.03)
-        # Проверка смены сезона каждые 5 секунд
-        self.season_update_event = Clock.schedule_interval(
-            lambda dt: self.load_current_season(), 5.0
-        )
-
-    def stop_season_animation(self):
-        """Останавливает анимацию"""
-        if self.animation_event:
-            Clock.unschedule(self.animation_event)
-            self.animation_event = None
-        if self.season_update_event:
-            Clock.unschedule(self.season_update_event)
-            self.season_update_event = None
-
-    def create_season_particles(self):
-        """Создаёт частицы для Зимы/Весны/Осени"""
-        max_count = self.max_particles.get(self.current_season, 20)
-
-        for i in range(max_count):
-            particle = self.create_particle(i)
-            self.particles.append(particle)
-
-    def create_particle(self, index):
-        """Создаёт одну частицу"""
-        if self.current_season == 'Зима':
-            return {
-                'x': random.uniform(0, Window.width),
-                'y': random.uniform(0, Window.height),
-                'speed_y': random.uniform(-20, -5),  # Падает вниз
-                'speed_x': random.uniform(-5, 5),  # Лёгкий ветер
-                'size': random.uniform(23, 36),
-                'opacity': random.uniform(0.4, 0.8),
-                'rotation': 0,
-                'rotation_speed': random.uniform(-10, 10),
-                'image': self.SEASON_ICONS['Зима']
-            }
-
-        elif self.current_season == 'Весна':
-            return {
-                'x': random.uniform(-50, 0),  # Начинают слева
-                'y': random.uniform(0, Window.height),
-                'speed_x': random.uniform(30, 60),  # Летят вправо
-                'speed_y': random.uniform(-10, 10),
-                'size': random.uniform(25, 35),
-                'opacity': random.uniform(0.5, 0.9),
-                'rotation': random.uniform(0, 360),
-                'rotation_speed': random.uniform(-30, 30),
-                'image': self.SEASON_ICONS['Весна']
-            }
-
-        elif self.current_season == 'Осень':
-            return {
-                'x': random.uniform(0, Window.width),
-                'y': random.uniform(Window.height, Window.height + 50),  # Начинают сверху
-                'speed_y': random.uniform(-40, -20),  # Быстрее падают
-                'speed_x': random.uniform(-15, 15),  # Сильный ветер
-                'size': random.uniform(30, 35),
-                'opacity': random.uniform(0.6, 0.95),
-                'rotation': random.uniform(0, 360),
-                'rotation_speed': random.uniform(-50, 50),
-                'image': self.SEASON_ICONS['Осень']
-            }
-
-        return {}
-
-    def create_sun_rays(self):
-        """Создаёт лучи света для Лета — много тонких лучей"""
-        num_rays = 80  # Огромное количество
-        center_x = Window.width  # Правый край
-        center_y = Window.height  # Верхний край
-
-        for i in range(num_rays):
-            # Базовый угол в диапазоне 180-270 градусов (правый верхний квадрант)
-            base_angle = random.uniform(190, 260)  # Чуть уже чем 180-270 для запаса
-            length = random.uniform(300, 600)
-            width = random.uniform(1, 3)  # Очень тонкие
-
-            self.sun_rays.append({
-                'center_x': center_x,
-                'center_y': center_y,
-                'base_angle': base_angle,  # Базовый угол
-                'current_angle': base_angle,  # Текущий угол
-                'length': length,
-                'width': width,
-                'opacity': random.uniform(0.08, 0.20),
-                'oscillation_speed': random.uniform(0.09, 0.2),  # Скорость колебания
-                'oscillation_amplitude': random.uniform(15, 35),  # Амплитуда качания (градусы)
-                'pulse_phase': random.uniform(0, math.pi * 2),
-                'oscillation_phase': random.uniform(0, math.pi * 2)  # Фаза колебания
-            })
-
-    def update_sun_rays(self):
-        """Обновляет и рисует солнечные лучи с колебанием туда-обратно"""
-        time = Clock.get_time()
-
-        with self.canvas.after:
-            for ray in self.sun_rays:
-                # Пульсация яркости
-                pulse = math.sin(time * 2 + ray['pulse_phase']) * 0.1 + 0.2
-                ray['opacity'] = pulse
-
-                # Колебание угла туда-обратно (синусоида)
-                # Лучи качаются в пределах base_angle ± amplitude
-                oscillation = math.sin(time * ray['oscillation_speed'] + ray['oscillation_phase'])
-                ray['current_angle'] = ray['base_angle'] + (oscillation * ray['oscillation_amplitude'])
-
-                # Ограничиваем угол в пределах 180-270 градусов (чтобы не уходили за экран)
-                ray['current_angle'] = max(180, min(270, ray['current_angle']))
-
-                # Вычисление конца луча
-                rad = math.radians(ray['current_angle'])
-                end_x = ray['center_x'] + math.cos(rad) * ray['length']
-                end_y = ray['center_y'] + math.sin(rad) * ray['length']
-
-                # Отрисовка луча
-                Color(1, 0.9, 0.3, ray['opacity'])  # Золотистый цвет
-
-                PushMatrix()
-                Rotate(angle=ray['current_angle'], origin=(ray['center_x'], ray['center_y']))
-                Rectangle(
-                    pos=(ray['center_x'], ray['center_y'] - ray['width'] / 2),
-                    size=(ray['length'], ray['width'])
-                )
-                PopMatrix()
-
-    def update_particles(self):
-        """Обновляет и рисует частицы"""
-        with self.canvas.after:
-            for particle in self.particles:
-                # Обновление позиции
-                particle['x'] += particle.get('speed_x', 0) * 0.03
-                particle['y'] += particle.get('speed_y', 0) * 0.03
-                particle['rotation'] += particle.get('rotation_speed', 0) * 0.03
-
-                # Респаун частиц
-                self.respawn_particle(particle)
-
-                # Отрисовка
-                Color(1, 1, 1, particle['opacity'])
-
-                # Загрузка текстуры
-                texture = CoreImage(particle['image']).texture
-
-                PushMatrix()
-                Rotate(angle=particle['rotation'], origin=(particle['x'], particle['y']))
-                Rectangle(
-                    texture=texture,
-                    pos=(particle['x'] - particle['size'] / 2,
-                         particle['y'] - particle['size'] / 2),
-                    size=(particle['size'], particle['size'])
-                )
-                PopMatrix()
-
-    def respawn_particle(self, particle):
-        """Возвращает частицу в начало пути при выходе за границы"""
-        if self.current_season == 'Зима':
-            if particle['y'] < -10:
-                particle['y'] = Window.height + 10
-                particle['x'] = random.uniform(0, Window.width)
-
-        elif self.current_season == 'Весна':
-            if particle['x'] > Window.width + 50:
-                particle['x'] = -50
-                particle['y'] = random.uniform(0, Window.height)
-
-        elif self.current_season == 'Осень':
-            if particle['y'] < -50:
-                particle['y'] = Window.height + 50
-                particle['x'] = random.uniform(0, Window.width)
-
-    def on_parent(self, instance, parent):
-        """Очистка при удалении"""
-        if parent is None:
-            self.stop_season_animation()
 
 class Lerdon(MDApp):
     def __init__(self, **kwargs):

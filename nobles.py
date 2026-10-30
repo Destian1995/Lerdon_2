@@ -10,6 +10,7 @@ from kivy.uix.widget import Widget
 from kivy.graphics import Color, RoundedRectangle, Rectangle, Line
 from kivy.clock import Clock
 import json
+from utils.coup_rules import coup_probabilities
 
 # --- КОНФИГУРАЦИЯ СТИЛЕЙ (THEME) ---
 class UIStyles:
@@ -743,11 +744,16 @@ def show_secret_service_popup(conn, on_result_callback, cash_player, refresh_mai
         ORDER BY name ASC
         """)
         all_active_nobles = cursor.fetchall()
+        disloyal_count = sum(1 for row in all_active_nobles
+                             if row[2] is not None and row[2] < 30)
         nobles_data = []
         for row in all_active_nobles:
+            attempt_chance, success_chance = coup_probabilities(row[2], disloyal_count)
             noble_dict = {
                 'id': row[0], 'name': row[1], 'loyalty': row[2],
-                'status': row[3], 'ideology': row[4], 'attendance_history': row[5]
+                'status': row[3], 'ideology': row[4], 'attendance_history': row[5],
+                'coup_attempt_chance': attempt_chance,
+                'coup_success_chance': success_chance,
             }
             if events_count >= 3:
                 noble_dict['show_loyalty'] = True
@@ -803,6 +809,15 @@ def show_secret_service_popup(conn, on_result_callback, cash_player, refresh_mai
     )
     cost_info.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
     main_layout.add_widget(cost_info)
+
+    risk_info = Label(
+        text="Риск попытки при текущей лояльности; успех — шанс захватить власть.",
+        font_size=sp(11) if not _is_mobile else sp(9),
+        color=(0.65, 0.65, 0.7, 1), size_hint_y=None, height=dp(22),
+        halign='center'
+    )
+    risk_info.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+    main_layout.add_widget(risk_info)
 
     # Разделитель
     sep = Widget(size_hint_y=None, height=dp(1))
@@ -1021,24 +1036,16 @@ class SecretServiceCard(BoxLayout):
         else:
             parts.append("[color=aaaaaa]Лояльность: ?[/color]")
 
-        if self.noble_data['show_views']:
-            try:
-                noble_traits = get_noble_traits(self.noble_data['ideology'])
-                ideology_to_text = {
-                    'Борьба': "Борьба", 'Смирение': "Смирение",
-                    'Любит Эльфы': "Эльфы", 'Любит Элины': "Элины",
-                    'Любит Север': "Люди", 'Любит Вампиры': "Вампиры",
-                    'Любит Адепты': "Адепты",
-                }
-                if noble_traits['type'] == 'greed':
-                    views = "Коррумпированный"
-                else:
-                    views = ideology_to_text.get(noble_traits['value'], noble_traits['value'])
-                parts.append(f"[color=cccccc]{views}[/color]")
-            except:
-                parts.append("[color=aaaaaa]Взгляды: ?[/color]")
+        if self.noble_data['show_loyalty'] and self.noble_data['loyalty'] is not None:
+            attempt = self.noble_data['coup_attempt_chance']
+            success = self.noble_data['coup_success_chance']
+            color = 'ff5555' if attempt > 0 else '66cc88'
+            risk = f"Попытка переворота: {attempt:.0%}"
+            if attempt > 0:
+                risk += f" · успех: {success:.0%}"
+            parts.append(f"[color={color}]{risk}[/color]")
         else:
-            parts.append("[color=aaaaaa]Взгляды: скрыто[/color]")
+            parts.append("[color=aaaaaa]Риск переворота: скрыто[/color]")
 
         return "  |  ".join(parts)
 

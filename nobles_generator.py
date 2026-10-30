@@ -1,6 +1,7 @@
 # nobles_generator.py
 import random
 import json
+from utils.coup_rules import coup_probabilities
 
 from kivy.core.window import Window
 from kivy.metrics import dp, sp
@@ -364,13 +365,13 @@ def check_coup_attempts(conn):
     all_nobles = cursor.fetchall()
 
     disloyal_nobles = [(id, name) for id, loyalty, name in all_nobles if loyalty < 30]
-    very_disloyal_nobles = [(id, name) for id, loyalty, name in all_nobles if loyalty < 15]
 
     coup_occurred = False
 
     if disloyal_nobles:
-        if len(disloyal_nobles) >= 2 or len(very_disloyal_nobles) >= 1:
-            success_chance = 0.5 if len(disloyal_nobles) >= 2 else 0.3
+        _, success_chance = coup_probabilities(
+            min(loyalty for _, loyalty, _ in all_nobles), len(disloyal_nobles))
+        if success_chance > 0:
 
             if random.random() < success_chance:
                 coup_occurred = True

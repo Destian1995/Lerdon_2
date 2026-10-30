@@ -1,0 +1,123 @@
+{
+  "date": "2026-10-30",
+  "scope": "50 PNG files directly in files/pict/artifacts; subdirectories unchanged",
+  "tool": "built-in image_gen",
+  "transparent_background": true,
+  "references": [
+    "assets/artifacts-original-reference.jpg",
+    "files/pict/artifacts/custom/0maber.png",
+    "files/pict/artifacts/custom/4aвап.png"
+  ],
+  "shared_prompt": "Use case: stylized-concept. Asset type: ONE standalone RPG equipment inventory icon for a dark fantasy strategy game. Reference image 1 is the contact sheet of ORIGINAL items: find the cell labelled TARGET_FILENAME and preserve that item's basic identity, silhouette and characteristic colors. Reference images 2 and 3 are FINISHED art-quality examples only; do not copy their subjects into other items. Subject: SUBJECT_DESCRIPTION. Render as premium detailed hand-painted realistic game art, physically convincing crafted materials, sculpted dimensional metal/leather/fabric, crisp edges, broad readable silhouette and controlled fine engraving. One isolated item only, no character or mannequin, centered square canvas, complete item inside frame with at least 7% safe transparent padding. Long weapons diagonal from lower left to upper right, other items upright or three-quarter. Genuine transparent background and clean alpha, no scenery, no pedestal, no frame, no icon border, no lettering, no watermark, no checkerboard, no black background, no broad outer glow, no floating particles. Matching cohesive icon family, legible at 48-96 pixels. Output just the ONE named item, never a sheet.",
+  "generated": [
+    {
+      "filename": "amulet_hlad.png",
+      "subject": "Frost amulet: round concentric engraved silver medallion with a large faceted pale lime-green crystal and silver hanging loop. Cold magical frost etched into silver, preserve green central jewel."
+    },
+    {
+      "filename": "amulet_ravnovesia.png",
+      "subject": "Balance amulet: blue-and-ivory yin-yang circular pendant, polished blue lapis and ivory enamel in fine antique silver setting, two contrasting dots, a restrained thin cord. Exact recognizable yin-yang balance symbol."
+    },
+    {
+      "filename": "amulet_vechnoy_vesny.png",
+      "subject": "Eternal spring amulet: bright fresh green circular pendant with lime-green center stone and small circular central opening motif, gold and emerald leaf filigree with three pale green beads on a short cord. Living nature aesthetic."
+    },
+    {
+      "filename": "bronya_mertvetca.png",
+      "subject": "Dead man's armor: empty wearable dark teal and blackened iron cuirass with layered angular pauldrons, frost-worn metal, cold spectral blue recessed details. No body, no head, no arms, just torso armor icon."
+    },
+    {
+      "filename": "korona_solnca.png",
+      "subject": "Sun crown: radiant solid gold royal crown with five broad high triangular points, red central oval ruby and small clear blue inset gems around the band; restrained sun-ray engraved ornaments, warm gold highlights."
+    },
+    {
+      "filename": "koltso_bogatstva.png",
+      "subject": "Ring of wealth: one substantial golden ring in three-quarter view, large bright faceted emerald-green gemstone, intricate fine wealth-themed gold scrollwork. Centered single wearable finger ring, not a necklace."
+    },
+    {
+      "filename": "koltso_dushi.png",
+      "subject": "Soul ring: one elegant dark silver ring with a large deep violet faceted amethyst, teal-green patina detail in silver band, tiny subtle violet light inside gem. Three-quarter view, single ring."
+    },
+    {
+      "filename": "koltso_plameni.png",
+      "subject": "Flame ring: single dark blackened steel ring with thin crimson inlay, bright golden-yellow faceted topaz in flame-shaped antique gold prongs, restrained warm ember detail inside gemstone, no actual external flames."
+    },
+    {
+      "filename": "koltso_silu.png",
+      "subject": "Ring of strength: substantial antique gold finger ring, bright angular ruby-red gemstone in strong gold setting, engraved geometric band, single ring in three-quarter view."
+    },
+    {
+      "filename": "mech_paladina.png",
+      "subject": "Paladin sword: noble broad straight silver longsword with strong gold crossguard and dark leather wrapped grip, restrained holy engraved runes, a small pale blue jewel. Entire blade and hilt visible diagonally, no scabbard."
+    },
+    {
+      "filename": "mech_salazara.png",
+      "subject": "Salazar sword: long elegant bright silver straight sword with a fine gold curved crossguard and ruby-red pommel and guard jewels, rich burgundy leather grip. Entire slender blade and hilt visible diagonally, no scabbard."
+    },
+    {
+      "filename": "plash_tenei.png",
+      "subject": "Cloak of shadows: empty hanging deep grey cloak, dark forest-green upper collar and inner lining, single round antique gold clasp, folded heavy fabric, hood subtly implied. No person, no head, no armor or mannequin."
+    },
+    {
+      "filename": "plash_vechnoy_nochi.png",
+      "subject": "Cloak of eternal night: empty flowing near-black cloak with rich deep violet lining and dark emerald-green shoulder collar, tiny gold clasp. Soft realistic folds, restrained night motif woven in fabric, no person or mannequin."
+    },
+    {
+      "filename": "sapogi_elfiyskoy_lovkosti.png",
+      "subject": "Boots of elven agility: one tall elegant forest-green soft leather boot, supple pointed toe, long fine golden curved vine piping, subtly leaf-shaped cuff, graceful practical elven footwear. Entire single boot visible three-quarter side view."
+    },
+    {
+      "filename": "sapogi_iskatelya.png",
+      "subject": "Seeker's boots: one sturdy tall slate-blue adventurer leather boot, angular reinforced panels and dark sole, weathered stitching, practical hiking boot shape with protective shin. Entire single boot visible three-quarter side view."
+    },
+    {
+      "filename": "sapogi_vek.png",
+      "subject": "Ancient boots: one tall worn charcoal-grey leather boot with a softly folded cuff and restrained antique gold sole-edge piping, ages-old but well maintained craftsmanship, entire single boot visible."
+    },
+    {
+      "filename": "shlem_haosa.png",
+      "subject": "Chaos helmet: fearsome empty dark iron ancient war helmet with curved protective cheek guards and a tall swept spiked burgundy-and-bone crest, green-black patinated steel, strong readable ancient warrior silhouette. No face, no body."
+    },
+    {
+      "filename": "shlem_mudretsa.png",
+      "subject": "Sage's helmet: empty silver ancient Greek helmet, rounded polished steel dome, protective nose and cheek guards, swept narrow purple horsehair crest, engraved wisdom ornaments. Keep this a metal HELMET, not a wizard hat. No face or body."
+    },
+    {
+      "filename": "shlem_strazha.png",
+      "subject": "Guardian helmet: empty sturdy silver Roman-style legionary helmet, bright red broad horsehair crest, gold rivets and brown leather cheek straps. Strong protective metal silhouette. No face, head, or body."
+    }
+  ],
+  "reused_from_custom": {
+    "amulet_zimy.png": "4aвап.png",
+    "amulet_sutogo.png": "4sва.png",
+    "artefakt_voiny.png": "4aекгн.png",
+    "arbalet.png": "0azвап.png",
+    "bronya_aresa.png": "3bпоа.png",
+    "bronya_svutogo.png": "3bапоы.png",
+    "gauss.png": "0vauss.png",
+    "klinok_zabveniya.png": "0mlinok_zabveniya.png",
+    "kopie_ozis.png": "0kopie_ozis.png",
+    "korona_raspisa.png": "1k.png",
+    "luk_luny.png": "0luk_luny.png",
+    "luk_moroznoga_utra.png": "0lлдр.png",
+    "mantiya_vladyki.png": "3mantiya_vladyki.png",
+    "mushket_markova.png": "0vushket_markova.png",
+    "nizintoviy_zhilet.png": "3gnizintoviy_zhilet.png",
+    "plash_gharu.png": "3mplash_gharu.png",
+    "plash_nekromanta.png": "3mplash_nekromanta.png",
+    "posoh_diadara.png": "0posoh_diadara.png",
+    "saber.png": "0maber.png",
+    "sapogi_strannika.png": "2sapogi_strannika.png",
+    "sapogi_torgovtsa.png": "2sapogi_torgovtsa.png",
+    "sapogi_udg.png": "2sapogi_udg.png",
+    "shlem_gladiatora.png": "1hlem_gladiatora.png",
+    "shlem_titana.png": "1hlem_mitana.png",
+    "shlp_nekros.png": "1shlp_nekros.png",
+    "skipitr_ksifa.png": "0pskipitr_ksifa.png",
+    "trost_mudretsa.png": "0ptrost_mudretsa.png",
+    "venok_mirozdania.png": "1vппра.png",
+    "vintovka_greynjger.png": "0vintovka_greynjger.png",
+    "koltchuga_titanov.png": "3bkoltchuga_titanov.png",
+    "koltchuga_palomnika.png": "3bkoltchuga_palomnika.png"
+  }
+}

@@ -3179,7 +3179,7 @@ class GameScreen(Screen):
             print(f"Ошибка при сбросе флагов check_attack: {e}")
 
     def update_army_rating(self, dt=None):
-        """Обновляет рейтинг армии и отрисовывает звёзды над городами."""
+        """Обновляет рейтинг армии и военные знаки над городами."""
         self.update_city_military_status()
         self.draw_army_stars_on_map()
 
@@ -3195,7 +3195,7 @@ class GameScreen(Screen):
 
     def draw_army_stars_on_map(self):
         """
-        Рисует звёздочки над иконками городов и иконки идеологии/кристаллов.
+        Рисует щит с делениями силы, знак героя и иконки идеологии/кристаллов.
         Использует кэширование: не перерисовывает если данные не изменились.
         """
         # Пропускаем перерисовку если данные не изменились
@@ -3205,14 +3205,16 @@ class GameScreen(Screen):
             return
         self._prev_star_levels = dict(self.city_star_levels)
 
-        star_img_path = 'files/status/army_in_city/star.png'
-        red_star_img_path = 'files/status/army_in_city/red_star.png'
+        garrison_icon_path = 'files/status/army_in_city/garrison_shield.png'
+        hero_icon_path = 'files/status/army_in_city/hero_helm.png'
         crystal_icon_path = 'files/status/city_bonus/crystal.png'
         player_choise_icon_path = 'files/status/choise.png'
 
         # Параметры отрисовки
-        STAR_SIZE = 25
-        SPACING = 5
+        GARRISON_ICON_SIZE = 28
+        HERO_ICON_SIZE = 32
+        BADGE_WIDTH = 68
+        BADGE_HEIGHT = 28
         CITY_ICON_SIZE = 77
         # Размер иконки идеологии (предположим квадратная)
         IDEOLOGY_ICON_SIZE = 55
@@ -3328,33 +3330,39 @@ class GameScreen(Screen):
                         Color(0.3, 0.3, 0.3, _smoke_rnd.uniform(0.15, 0.35))
                         Ellipse(pos=(_sx - _ss/2, _sy), size=(_ss, _ss * 0.7))
 
-                # --- Отрисовка красной звезды (если есть герой) ---
+                # Герой отмечается отдельно, даже при нулевом уровне гарнизона.
+                badge_y = icon_y + CITY_ICON_SIZE + 2
                 if has_hero:
-                    red_star_y = icon_center_y + 20 + STAR_SIZE + SPACING  # чуть выше обычных звезд
+                    Color(1, 1, 1, 1)
                     Rectangle(
-                        source=red_star_img_path,
-                        pos=(icon_center_x - STAR_SIZE / 2, red_star_y),  # Центрируем по иконке города
-                        size=(STAR_SIZE, STAR_SIZE)
+                        source=hero_icon_path,
+                        pos=(icon_center_x - HERO_ICON_SIZE / 2, badge_y + BADGE_HEIGHT + 2),
+                        size=(HERO_ICON_SIZE, HERO_ICON_SIZE)
                     )
 
-                # --- Отрисовка обычных звезд силы ---
+                # Щит и три деления: доля гарнизона в текущем потреблении фракции.
                 if star_level <= 0:
                     continue
-                # Общая ширина всех звёздочек
-                total_width = STAR_SIZE * star_level + SPACING * (star_level - 1)
-                # Смещаем так, чтобы центр звёзд совпадал с центром иконки
-                start_x = icon_center_x - total_width / 2
-                start_y = icon_center_y + 20  # чуть выше центра иконки
-
-                # Рисуем каждую звезду
-                for i in range(star_level):
-                    x_i = start_x + i * (STAR_SIZE + SPACING)
-                    y_i = start_y
-                    Rectangle(
-                        source=star_img_path,
-                        pos=(x_i, y_i),
-                        size=(STAR_SIZE, STAR_SIZE)
-                    )
+                badge_x = icon_center_x - BADGE_WIDTH / 2
+                Color(0.035, 0.055, 0.085, 0.94)
+                RoundedRectangle(pos=(badge_x, badge_y),
+                                 size=(BADGE_WIDTH, BADGE_HEIGHT), radius=[7])
+                Color(0.66, 0.59, 0.40, 0.95)
+                Line(rounded_rectangle=(badge_x, badge_y, BADGE_WIDTH, BADGE_HEIGHT, 7),
+                     width=1)
+                Color(1, 1, 1, 1)
+                Rectangle(source=garrison_icon_path,
+                          pos=(badge_x + 1, badge_y),
+                          size=(GARRISON_ICON_SIZE, GARRISON_ICON_SIZE))
+                for i in range(3):
+                    active = i < star_level
+                    pip_x = badge_x + 32 + i * 10
+                    pip_height = 8 + i * 4
+                    pip_color = ((0.96, 0.76, 0.35, 1) if active
+                                 else (0.24, 0.29, 0.35, 1))
+                    Color(*pip_color)
+                    RoundedRectangle(pos=(pip_x, badge_y + 6),
+                                     size=(7, pip_height), radius=[2])
 
     def update_city_military_status(self):
         """Обновляет военный статус городов, звёзды, иконки идеологии, дым."""
@@ -3425,20 +3433,29 @@ class GameScreen(Screen):
         except sqlite3.Error:
             pass
 
-        # Батч-загрузка силы армий по городам (одним запросом)
-        _city_strengths = {}
-        _faction_totals = {}
+        # Потребление по городам и фракциям одним запросом.
+        # Учитываем содержание так же, как calculate_and_deduct_consumption:
+        # все войска в своих городах плюс свои войска в чужих, кроме мятежников.
+        _city_consumption = {}
+        _faction_consumption = {}
         try:
             cursor.execute("""
-                SELECT g.city_name, u.faction, COALESCE(SUM(g.unit_count * (u.attack + u.defense + u.durability)), 0)
+                SELECT g.city_name, u.faction, c.faction,
+                       COALESCE(SUM(g.unit_count * u.consumption), 0)
                 FROM garrisons g JOIN units u ON g.unit_name = u.unit_name
-                GROUP BY g.city_name, u.faction
+                LEFT JOIN cities c ON c.name = g.city_name
+                GROUP BY g.city_name, u.faction, c.faction
             """)
-            for _cn, _uf, _str in cursor.fetchall():
-                _city_strengths[(_cn, _uf)] = _str
-                _faction_totals[_uf] = _faction_totals.get(_uf, 0) + _str
-        except Exception:
-            pass
+            for _cn, _unit_faction, _owner, _consumption in cursor.fetchall():
+                _city_consumption[_cn] = _city_consumption.get(_cn, 0) + _consumption
+                if _owner is not None:
+                    _faction_consumption[_owner] = (
+                        _faction_consumption.get(_owner, 0) + _consumption)
+                if _unit_faction != _owner and _owner != 'Мятежники':
+                    _faction_consumption[_unit_faction] = (
+                        _faction_consumption.get(_unit_faction, 0) + _consumption)
+        except sqlite3.Error as e:
+            print(f"Ошибка при получении потребления гарнизонов: {e}")
 
         # Батч-загрузка дипломатии (одним запросом)
         _diplomacy_cache = {}
@@ -3452,7 +3469,7 @@ class GameScreen(Screen):
 
         new_dict = {}
         for faction, cities_list in factions_cities.items():
-            total_strength = _faction_totals.get(faction, 0)
+            total_consumption = _faction_consumption.get(faction, 0)
             for city_name, coords_str, kf_crystal_val, city_faction in cities_list:
                 try:
                     coords = eval(coords_str)
@@ -3463,17 +3480,9 @@ class GameScreen(Screen):
 
                 has_hero = city_name in cities_with_heroes
 
-                # --- Расчет силы армии в городе (из кеша) ---
-                city_strength = _city_strengths.get((city_name, faction), 0)
-                star_level = 0
-                if total_strength > 0 and city_strength > 0:
-                    percent = (city_strength / total_strength) * 100
-                    if percent < 35:
-                        star_level = 1
-                    elif percent < 65:
-                        star_level = 2
-                    else:
-                        star_level = 3
+                # Доля текущего потребления гарнизона в потреблении армии фракции.
+                city_consumption = _city_consumption.get(city_name, 0)
+                star_level = self.calculate_star_level(total_consumption, city_consumption)
 
                 # --- Определение иконки идеологии (из кеша дипломатии) ---
                 ideology_icon_path = None
@@ -3579,21 +3588,15 @@ class GameScreen(Screen):
             print(f"Ошибка при подсчёте мощи города {city_name}: {e}")
             return 0
 
-    def calculate_star_level(self, total_strength, city_strength):
-        """Возвращает уровень (количество звездочек) на основе процентного соотношения мощи."""
-        if total_strength == 0 or city_strength == 0:
-            return 0  # Нет войск — нет звёздочек
-
-        percent = (city_strength / total_strength) * 100
-
-        if percent < 45:
+    def calculate_star_level(self, total_consumption, city_consumption):
+        """Деления шкалы по доле гарнизона в текущем потреблении фракции."""
+        if total_consumption <= 0 or city_consumption <= 0:
+            return 0
+        if city_consumption <= total_consumption * 0.30:
             return 1
-        elif 45 <= percent < 85:
+        if city_consumption <= total_consumption * 0.70:
             return 2
-        elif 85 <= percent <= 100:
-            return 3
-        else:
-            return 3  # На случай, если процент > 100 из-за ошибок округления
+        return 3
 
     def initialize_turn_check_move(self):
         """

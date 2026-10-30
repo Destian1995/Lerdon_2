@@ -25,7 +25,13 @@
       "Bash(cp c:/Users/lerdo/IdeaProjects/Lerdon_2/game_process.py \"C:/Users/lerdo/Desktop/VirtMach/APK/project/game_process.py\")",
       "Bash(vagrant ssh -c \":*)",
       "Bash(cp c:/Users/lerdo/IdeaProjects/Lerdon_2/main.py \"C:/Users/lerdo/Desktop/VirtMach/APK/project/main.py\")",
-      "Bash(cp c:/Users/lerdo/IdeaProjects/Lerdon_2/buildozer.spec \"C:/Users/lerdo/Desktop/VirtMach/APK/project/buildozer.spec\")"
+      "Bash(cp c:/Users/lerdo/IdeaProjects/Lerdon_2/buildozer.spec \"C:/Users/lerdo/Desktop/VirtMach/APK/project/buildozer.spec\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK''; vagrant ssh -c '':*)",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK''; vagrant ssh -c ''unzip -l /home/vagrant/Lerdon/bin/lerdonlegends-6.5.5-test-signed.apk 2>/dev/null | grep map/generate'' 2>&1\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK''; vagrant ssh -c ''unzip -l /home/vagrant/Lerdon/bin/lerdonlegends-6.5.5-test-signed.apk 2>/dev/null | grep generate'' 2>&1\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK''; vagrant ssh -c ''unzip -l /home/vagrant/Lerdon/bin/lerdonlegends-6.5.5-test-signed.apk 2>/dev/null | grep map_ | head -10'' 2>&1\")",
+      "Bash(powershell.exe -Command \":*)",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\lerdo\\\\Desktop\\\\VirtMach\\\\APK''; vagrant ssh -c ''ps aux | grep git'' 2>&1\")"
     ]
   }
 }
