@@ -19,6 +19,7 @@ from kivy.core.image import Image as CoreImage
 from kivy.core.text import Label as CoreLabel
 from kivy.graphics import Color, Rectangle, Line, Mesh
 from kivy.uix.widget import Widget
+from map_terrain import load_terrain
 
 
 def render():
@@ -36,6 +37,7 @@ def render():
     host.map_pos, host.map_scale = (0, 0), 1
     host.base_map_width, host.base_map_height = 1200, 800
     host.current_player_kingdom = 'Север'
+    host._map_terrain = load_terrain('files/map/generate/map_1.png')
     host._city_label_cache = {}
     host._territory_geometry_key = host._territory_geometry = None
     host._player_pulse_event = None
@@ -44,7 +46,7 @@ def render():
     host._road_geometry_key, host._road_group = None, None
     with host.canvas:
         Color(1, 1, 1, 1)
-        Rectangle(texture=CoreImage('files/map/generate/map_6.png').texture,
+        Rectangle(texture=CoreImage('files/map/generate/map_1.png').texture,
                   pos=(0, 0), size=(1200, 800))
     host.draw_territories()
     started = time.perf_counter()

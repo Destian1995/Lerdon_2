@@ -1,7 +1,7 @@
 # ai_models/ui/chat_widgets.py
 import os
 
-from kivy.core.image import Image
+from kivy.uix.image import Image
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
@@ -117,7 +117,7 @@ class ChatHeader(BoxLayout):
             source='files/pict/question.png',
             size_hint=(None, None),
             size=(dp(40), dp(40)),
-            allow_stretch=True
+            allow_stretch=True, keep_ratio=True, mipmap=True
         )
 
         # Информация
@@ -147,6 +147,7 @@ class ChatHeader(BoxLayout):
 
         self.add_widget(self.icon)
         self.add_widget(self.info_box)
+        self.update_info(faction, relation_data)
 
     def update_info(self, faction, relation_data):
         """Обновляет информацию в шапке"""
@@ -154,8 +155,10 @@ class ChatHeader(BoxLayout):
 
         # Обновляем иконку
         icon_path = f"files/pict/factions/{translation_dict.get(faction, faction.lower())}.png"
-        if os.path.exists(icon_path):
-            self.icon.source = icon_path
+        portrait_path = f"files/sov/{translation_dict.get(faction, faction.lower())}.jpg"
+        self.icon.source = (icon_path if os.path.exists(icon_path) else
+                            portrait_path if os.path.exists(portrait_path) else
+                            'files/pict/question.png')
 
         # Обновляем заголовок
         self.title.text = f"Переписка с {faction}"

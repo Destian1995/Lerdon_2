@@ -67,7 +67,7 @@ class RoadLayerTests(unittest.TestCase):
                 CREATE TABLE cities(id INTEGER, name TEXT, faction TEXT, coordinates TEXT);
                 CREATE TABLE roads(id INTEGER, city1 INTEGER, city2 INTEGER);
                 INSERT INTO cities VALUES(1, 'A', 'Север', '[100, 300]');
-                INSERT INTO cities VALUES(2, 'B', 'Эльфы', '[550, 300]');
+                INSERT INTO cities VALUES(2, 'B', 'Эльфы', '[350, 300]');
                 INSERT INTO roads VALUES(1, 1, 2);
             ''')
             host.map_pos, host.map_scale = (0, 0), 1
@@ -77,6 +77,7 @@ class RoadLayerTests(unittest.TestCase):
             with host.canvas.after:
                 sentinel = Rectangle(pos=(0, 0), size=(1, 1))
             host.draw_roads()
+            self.assertEqual(host._road_geometry.connections, 1)
             old_geometry, old_group = host._road_geometry, host._road_group
             count = len(host.canvas.children)
             host.draw_roads()
@@ -85,6 +86,9 @@ class RoadLayerTests(unittest.TestCase):
             self.assertIn(host._road_group, host.canvas.children)
             self.assertEqual(len(host.canvas.children), count)
             self.assertIn(sentinel, host.canvas.after.children)
+            host.conn.execute("UPDATE cities SET coordinates='[550, 300]' WHERE id=2")
+            host.draw_roads()
+            self.assertEqual(host._road_geometry.connections, 0)
         finally:
             host.conn.close()
 

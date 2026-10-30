@@ -1,0 +1,488 @@
+{
+  "files/pict/close.png": {
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "code": [
+      "army.py:766"
+    ],
+    "preload": [
+      "preload_cache.py:63"
+    ],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/down.png": {
+    "size": [
+      64,
+      64
+    ],
+    "mode": "RGBA",
+    "code": [],
+    "preload": [
+      "preload_cache.py:64"
+    ],
+    "legacy": [],
+    "database": [],
+    "status": "preload_only"
+  },
+  "files/pict/down_learn.png": {
+    "size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "code": [],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "unused"
+  },
+  "files/pict/friends/economic_crowns.png": {
+    "size": [
+      64,
+      64
+    ],
+    "mode": "RGBA",
+    "code": [],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "unused"
+  },
+  "files/pict/friends/economic_materials.png": {
+    "size": [
+      64,
+      64
+    ],
+    "mode": "RGBA",
+    "code": [],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "unused"
+  },
+  "files/pict/friends/economic_workers.png": {
+    "size": [
+      64,
+      64
+    ],
+    "mode": "RGBA",
+    "code": [],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "unused"
+  },
+  "files/pict/friends/military_attack.png": {
+    "size": [
+      64,
+      64
+    ],
+    "mode": "RGBA",
+    "code": [],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "unused"
+  },
+  "files/pict/friends/military_defense.png": {
+    "size": [
+      64,
+      64
+    ],
+    "mode": "RGBA",
+    "code": [],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "unused"
+  },
+  "files/pict/hero/default_image.png": {
+    "size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "code": [
+      "heroes.py:143",
+      "heroes.py:147",
+      "heroes.py:1030"
+    ],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/hero_type/shield.png": {
+    "size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "code": [
+      "ui.py:1577",
+      "ui.py:1583"
+    ],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/hero_type/sword-shield.png": {
+    "size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "code": [
+      "ui.py:1585"
+    ],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/hero_type/sword.png": {
+    "size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "code": [
+      "ui.py:1575",
+      "ui.py:1581"
+    ],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/hire/class.png": {
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "code": [
+      "army.py:502",
+      "ui.py:1884"
+    ],
+    "preload": [
+      "preload_cache.py:59"
+    ],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/hire/consumption.png": {
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "code": [
+      "army.py:503"
+    ],
+    "preload": [
+      "preload_cache.py:60"
+    ],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/hire/health.png": {
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "code": [
+      "army.py:501",
+      "ui.py:1883"
+    ],
+    "preload": [
+      "preload_cache.py:59"
+    ],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/hire/moral.png": {
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "code": [
+      "ui.py:1875"
+    ],
+    "preload": [
+      "preload_cache.py:62"
+    ],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/hire/shield.png": {
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "code": [
+      "army.py:500",
+      "ui.py:1871",
+      "ui.py:1882"
+    ],
+    "preload": [
+      "preload_cache.py:58"
+    ],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/hire/strong.png": {
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "code": [
+      "ui.py:1873",
+      "ui.py:1878"
+    ],
+    "preload": [
+      "preload_cache.py:60"
+    ],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/hire/sword.png": {
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "code": [
+      "army.py:499",
+      "ui.py:1870",
+      "ui.py:1881"
+    ],
+    "preload": [
+      "preload_cache.py:58"
+    ],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/hire/type.png": {
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "code": [
+      "ui.py:1872"
+    ],
+    "preload": [
+      "preload_cache.py:61"
+    ],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/hire/weak.png": {
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "code": [
+      "ui.py:1874"
+    ],
+    "preload": [
+      "preload_cache.py:61"
+    ],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/menu/bonus_icon.png": {
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "code": [
+      "main.py:2088",
+      "main.py:2318"
+    ],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/menu/full.png": {
+    "size": [
+      64,
+      64
+    ],
+    "mode": "RGBA",
+    "code": [],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "unused"
+  },
+  "files/pict/menu/grey.png": {
+    "size": [
+      64,
+      64
+    ],
+    "mode": "RGBA",
+    "code": [],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "unused"
+  },
+  "files/pict/menu/raiting/broom.png": {
+    "size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "code": [],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "unused"
+  },
+  "files/pict/menu/raiting/trophy.png": {
+    "size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "code": [],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "unused"
+  },
+  "files/pict/menu/raiting/undo.png": {
+    "size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "code": [],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "unused"
+  },
+  "files/pict/question.png": {
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "code": [
+      "ai_models/ui/chat_widgets.py:117",
+      "ai_models/ui/chat_widgets.py:161"
+    ],
+    "preload": [
+      "preload_cache.py:65"
+    ],
+    "legacy": [
+      "old/sov.py:309",
+      "old/sov.py:495"
+    ],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/right.png": {
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "code": [
+      "army.py:722"
+    ],
+    "preload": [
+      "preload_cache.py:63"
+    ],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/right_learn.png": {
+    "size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "code": [
+      "game_process.py:3832",
+      "game_process.py:3846",
+      "game_process.py:3879",
+      "game_process.py:3893",
+      "game_process.py:3915",
+      "game_process.py:3935"
+    ],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/sov/back.png": {
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "code": [
+      "ai_models/diplomacy_chat.py:2172",
+      "ai_models/diplomacy_chat.py:2173"
+    ],
+    "preload": [],
+    "legacy": [],
+    "database": [],
+    "status": "active"
+  },
+  "files/pict/sov/letter.png": {
+    "size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "code": [],
+    "preload": [],
+    "legacy": [
+      "old/sov.py:164"
+    ],
+    "database": [],
+    "status": "legacy_only"
+  },
+  "files/pict/up.png": {
+    "size": [
+      64,
+      64
+    ],
+    "mode": "RGBA",
+    "code": [],
+    "preload": [
+      "preload_cache.py:64"
+    ],
+    "legacy": [],
+    "database": [],
+    "status": "preload_only"
+  }
+}

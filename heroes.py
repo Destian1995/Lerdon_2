@@ -2,7 +2,7 @@ import os
 from kivy.graphics import PopMatrix, PushMatrix
 from kivy.uix.checkbox import CheckBox
 from kivy.uix.spinner import SpinnerOption
-from kivy.metrics import dp
+from kivy.metrics import dp, sp
 
 from db_lerdon_connect import *
 from seasons import SeasonManager
@@ -1023,10 +1023,25 @@ def open_artifacts_popup(faction, season_manager):
             hero_image_widget = Image(
                 source=hero_image_path,
                 size_hint=(None, None),
-                size=hero_image_size
+                size=hero_image_size, mipmap=True
             )
             hero_image_widget.pos_hint = {'center_x': 0.5, 'center_y': 0.55}
             right_panel.add_widget(hero_image_widget)
+            if hero_image_path.replace('\\', '/').endswith('files/pict/hero/default_image.png'):
+                # Keep the empty-hero state explicit without baking text into art.
+                empty_hero_label = Label(
+                    text='Герой 3 класса\nне нанят',
+                    size_hint=(None, None), font_size=sp(15), bold=True,
+                    halign='center', valign='middle', color=(0.88, 0.91, 0.96, 1))
+
+                def _position_empty_hero_label(image, value):
+                    empty_hero_label.size = (image.width, dp(48))
+                    empty_hero_label.pos = (image.x, image.y + dp(4))
+                    empty_hero_label.text_size = empty_hero_label.size
+
+                hero_image_widget.bind(pos=_position_empty_hero_label, size=_position_empty_hero_label)
+                _position_empty_hero_label(hero_image_widget, None)
+                hero_image_widget.add_widget(empty_hero_label)
 
             slot_types = ['0', '1', '2', '3', '4']
             for st in slot_types:

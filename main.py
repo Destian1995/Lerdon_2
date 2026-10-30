@@ -772,8 +772,10 @@ class MapWidget(Widget):
         self.map_scale = self.calculate_scale()
         self.map_pos = self.calculate_centered_position()
 
-        generate_map_and_cities(self.conn)
         self.random_map_source = self.get_random_map_source()
+        from map_terrain import load_terrain
+        self._map_terrain = load_terrain(self.random_map_source)
+        generate_map_and_cities(self.conn, terrain=self._map_terrain, sprite_scale=self.map_scale)
 
         self.initialize_map()
         self._map_snapshot = self._read_map_snapshot()
@@ -1464,7 +1466,8 @@ class MapWidget(Widget):
 
     def draw_roads(self):
         """Рисует грунтовые тракты под зданиями и подписями, сохраняя игровой граф."""
-        from map_roads import build_road_paths, draw_road_layer
+        from map_roads import build_transport_network, draw_transport_layer
+        from map_terrain import TerrainView
         cursor = self.conn.cursor()
         try:
             cursor.execute('SELECT id, name, faction, coordinates FROM cities ORDER BY id')
@@ -1491,15 +1494,17 @@ class MapWidget(Widget):
         bounds = (self.map_pos[0] + inset, self.map_pos[1] + inset,
                   self.map_pos[0] + self.base_map_width * self.map_scale - inset,
                   self.map_pos[1] + self.base_map_height * self.map_scale - inset)
-        key = (tuple(cities.items()), roads, tuple(labels.items()), bounds, self.map_scale)
+        terrain_data = getattr(self, '_map_terrain', None)
+        terrain = TerrainView(terrain_data, self.map_pos, self.map_scale) if terrain_data else None
+        key = (tuple(cities.items()), roads, tuple(labels.items()), bounds, self.map_scale, id(terrain_data))
         if key != self._road_geometry_key:
-            self._road_geometry = build_road_paths(cities, roads, labels, bounds, self.map_scale)
+            self._road_geometry = build_transport_network(cities, roads, labels, bounds, self.map_scale, terrain)
             self._road_geometry_key = key
         if self._road_group is not None:
             # Do not clear canvas.after: other map effects may own instructions there.
             if self._road_group in self.canvas.children:
                 self.canvas.remove(self._road_group)
-        self._road_group = draw_road_layer(self._road_geometry, self.map_scale)
+        self._road_group = draw_transport_layer(self._road_geometry, self.map_scale)
         self.canvas.add(self._road_group)
 
     def calculate_manhattan_distance(self, source_coords, destination_coords):
@@ -2083,7 +2088,7 @@ class KingdomSelectionWidget(MDFloatLayout):
             source='files/pict/menu/bonus_icon.png',
             size_hint=(None, None),
             size=(dp(18) if is_android else dp(22), dp(18) if is_android else dp(22)),
-            allow_stretch=True, keep_ratio=True
+            allow_stretch=True, keep_ratio=True, mipmap=True
         )
         self.ideology_bonus_label = MDLabel(
             text="Бонус не выбран",
@@ -2310,9 +2315,7 @@ class KingdomSelectionWidget(MDFloatLayout):
             # Обновляем текст, цвет и иконку
             self.ideology_bonus_label.text = "Идеология будет выбрана случайно"
             self.ideology_bonus_label.color = (0.8, 0.8, 0.8, 1)
-            # Устанавливаем иконку по умолчанию или оставляем текущей
-            # self.ideology_bonus_icon.source = 'files/pict/menu/bonus_icon.png' # Пример иконки по умолчанию
-            # Если не хотите менять иконку для 'Случайная', просто не изменяйте self.ideology_bonus_icon.source
+            self.ideology_bonus_icon.source = 'files/pict/menu/bonus_icon.png'
         elif text == 'Смирение':
             self.selected_ideology = 'Смирение'
             # Обновляем текст, цвет и иконку

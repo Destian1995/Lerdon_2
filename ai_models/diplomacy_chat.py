@@ -2170,7 +2170,8 @@ class EnhancedDiplomacyChat():
             size_hint=(None, None),
             size=(dp(40), dp(40)),
             background_normal='files/pict/sov/back.png',
-            background_color=(0.3, 0.3, 0.5, 1),
+            background_down='files/pict/sov/back.png',
+            background_color=(1, 1, 1, 1),
             border=(0, 0, 0, 0),
             on_press=lambda x: self.advisor.return_to_main_tab()
         )

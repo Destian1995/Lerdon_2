@@ -1,0 +1,328 @@
+{
+  "scope": "19 interface icons used by current screens; existing artifact artwork and unused/legacy icons retained",
+  "entries": [
+    {
+      "key": "hire/sword.png",
+      "subject": "Attack stat: two broad short SILVER SWORDS crossed diagonally, clearly separated dark navy shadow lines, simple warm gold crossguards, compact symmetric silhouette. Not axes, no shield.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Attack stat: two broad short SILVER SWORDS crossed diagonally, clearly separated dark navy shadow lines, simple warm gold crossguards, compact symmetric silhouette. Not axes, no shield.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-31770079-3629-4dec-b073-5ff1962d5e3c.png",
+      "output": "files/pict/hire/sword.png",
+      "size": 128,
+      "sha256": "f8b3c169c399803a844f177d86e1ce99693a7a874a37a3f74d6ffa86a44371f0",
+      "bytes": 24390,
+      "alpha_bbox": [
+        8,
+        7,
+        120,
+        120
+      ]
+    },
+    {
+      "key": "hire/shield.png",
+      "subject": "Defense stat: ONE broad pointed heater SHIELD, bright silver steel rim, dark midnight-blue enamel face, a single simple raised vertical silver ridge. Compact strong silhouette; no tiny heraldry and no sword.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Defense stat: ONE broad pointed heater SHIELD, bright silver steel rim, dark midnight-blue enamel face, a single simple raised vertical silver ridge. Compact strong silhouette; no tiny heraldry and no sword.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-9aed96f1-b223-4717-82e4-4ef7029076fc.png",
+      "output": "files/pict/hire/shield.png",
+      "size": 128,
+      "sha256": "0b429af13048456a35278b8ba680c28f555380a09c5ed4cbeee0cee125de1856",
+      "bytes": 19151,
+      "alpha_bbox": [
+        19,
+        7,
+        108,
+        120
+      ]
+    },
+    {
+      "key": "hire/consumption.png",
+      "subject": "Crystal upkeep stat: ONE large faceted luminous CYAN CRYSTAL with three broad clearly modeled faces and a dark blue back edge. One small simple antique gold downward chevron alongside its upper-right corner conveys spending. The crystal dominates the silhouette; no meat, no food, no coins, no text.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Crystal upkeep stat: ONE large faceted luminous CYAN CRYSTAL with three broad clearly modeled faces and a dark blue back edge. One small simple antique gold downward chevron alongside its upper-right corner conveys spending. The crystal dominates the silhouette; no meat, no food, no coins, no text.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-11cefa49-483c-436c-8a33-b7ab2011d5f8.png",
+      "output": "files/pict/hire/consumption.png",
+      "size": 128,
+      "sha256": "ae9aec49d2fa08736542c8d2fbf119d559786424fc91c486b3fd377f84fef14d",
+      "bytes": 16167,
+      "alpha_bbox": [
+        19,
+        7,
+        108,
+        120
+      ]
+    },
+    {
+      "key": "hire/health.png",
+      "subject": "Durability and health stat: ONE bold sculpted ruby-red HEART, full symmetric broad heart silhouette, warm red enamel, thin bright silver bevel and tiny restrained gold highlight. Looks like a fantasy equipment UI symbol, not an anatomical heart. No cross or shield.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Durability and health stat: ONE bold sculpted ruby-red HEART, full symmetric broad heart silhouette, warm red enamel, thin bright silver bevel and tiny restrained gold highlight. Looks like a fantasy equipment UI symbol, not an anatomical heart. No cross or shield.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-d12b5a19-9fde-42b3-add4-5b95e921365b.png",
+      "output": "files/pict/hire/health.png",
+      "size": 128,
+      "sha256": "29897699eeafbcae0a92c056c92df491a72e07df74c9d3c5cdb2b2af0dc19acf",
+      "bytes": 23691,
+      "alpha_bbox": [
+        7,
+        11,
+        120,
+        116
+      ]
+    },
+    {
+      "key": "hire/class.png",
+      "subject": "Unit class / rank stat: ONE compact heraldic GOLD STAR medal with five thick broad points, a simple raised central gold diamond, small deep navy recesses and a rich bright gold bevel. No ribbon, no number, no crown.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Unit class / rank stat: ONE compact heraldic GOLD STAR medal with five thick broad points, a simple raised central gold diamond, small deep navy recesses and a rich bright gold bevel. No ribbon, no number, no crown.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-8e2fbd66-76bb-4caa-a147-37af65ce0bde.png",
+      "output": "files/pict/hire/class.png",
+      "size": 128,
+      "sha256": "4c5a4e22ff56ec3ca8e972f601d292d2623a4aeabd58f15b5321eb9f5943aa2f",
+      "bytes": 20798,
+      "alpha_bbox": [
+        7,
+        10,
+        120,
+        117
+      ]
+    },
+    {
+      "key": "hire/moral.png",
+      "subject": "Troop morale stat: ONE small upright CRIMSON BATTLE STANDARD with two broad fabric folds, a short thick antique-gold pole and spear finial, one simple bright gold stripe on the cloth. Strong broad silhouette. No letters, faces or skulls; no background.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Troop morale stat: ONE small upright CRIMSON BATTLE STANDARD with two broad fabric folds, a short thick antique-gold pole and spear finial, one simple bright gold stripe on the cloth. Strong broad silhouette. No letters, faces or skulls; no background.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-41acbcca-6d84-4a12-ba20-9f4fe3050e23.png",
+      "output": "files/pict/hire/moral.png",
+      "size": 128,
+      "sha256": "920efc19559ea905688c6f4787b2a6306a3120352af9008bedde51c91b9a632d",
+      "bytes": 17065,
+      "alpha_bbox": [
+        12,
+        7,
+        116,
+        120
+      ]
+    },
+    {
+      "key": "hire/strong.png",
+      "subject": "Combat advantage / strong against stat: ONE closed armored SILVER GAUNTLET FIST raised vertically, broad simple knuckles, dark steel shadow grooves, a small green enamel wrist cuff. Recognizable strong clenched fist at 22px. No arm/body, no crossed weapons.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Combat advantage / strong against stat: ONE closed armored SILVER GAUNTLET FIST raised vertically, broad simple knuckles, dark steel shadow grooves, a small green enamel wrist cuff. Recognizable strong clenched fist at 22px. No arm/body, no crossed weapons.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-4441698d-4b5f-4b92-bb1f-0e0094e5bfb1.png",
+      "output": "files/pict/hire/strong.png",
+      "size": 128,
+      "sha256": "4dca3eabbc3ac109b12ff829a8cc5e076cd1bbe72e77ed1d929331d08cf748b8",
+      "bytes": 21902,
+      "alpha_bbox": [
+        22,
+        7,
+        105,
+        120
+      ]
+    },
+    {
+      "key": "hire/weak.png",
+      "subject": "Combat vulnerability / weak against stat: ONE broad broken SILVER SHIELD with a single large diagonal dark crack through its face and a small ember-red inset. Clearly readable cracked shield silhouette. No tiny debris cloud or scenery.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Combat vulnerability / weak against stat: ONE broad broken SILVER SHIELD with a single large diagonal dark crack through its face and a small ember-red inset. Clearly readable cracked shield silhouette. No tiny debris cloud or scenery.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-c2ac4f65-7268-4e31-ae40-4385d2212027.png",
+      "output": "files/pict/hire/weak.png",
+      "size": 128,
+      "sha256": "97faca5b4a98b8f7f497b33b5aad1603f7fb517bec707e550bbd902e658b6367",
+      "bytes": 21402,
+      "alpha_bbox": [
+        20,
+        7,
+        108,
+        120
+      ]
+    },
+    {
+      "key": "hire/type.png",
+      "subject": "Troop type stat: ONE frontal SILVER INFANTRY HELMET with a simple dark T-shaped visor, broad cheek plates and small antique-gold brow ridge. Bold neutral helmet silhouette without plume. No face, torso or weapons.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Troop type stat: ONE frontal SILVER INFANTRY HELMET with a simple dark T-shaped visor, broad cheek plates and small antique-gold brow ridge. Bold neutral helmet silhouette without plume. No face, torso or weapons.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-39fbf151-e0e7-4833-954b-4efb9a081501.png",
+      "output": "files/pict/hire/type.png",
+      "size": 128,
+      "sha256": "122e97b9258186cbc469eab898509fce6a71150660a6ba0884e70eef3b208dae",
+      "bytes": 20972,
+      "alpha_bbox": [
+        21,
+        7,
+        107,
+        120
+      ]
+    },
+    {
+      "key": "hero_type/sword.png",
+      "subject": "Offensive hero specialization, readable at 40px: two crossed broad SILVER SWORDS with warm gold guards and restrained crimson-red enamel grips. A strong aggressive heraldic silhouette, slightly richer relief than a stat icon. No shield or background plaque.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Offensive hero specialization, readable at 40px: two crossed broad SILVER SWORDS with warm gold guards and restrained crimson-red enamel grips. A strong aggressive heraldic silhouette, slightly richer relief than a stat icon. No shield or background plaque.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-fb08327d-1db3-490a-bb5f-ed84ada1a71e.png",
+      "output": "files/pict/hero_type/sword.png",
+      "size": 256,
+      "sha256": "c914f99564f5173bc9f37cb04505fa1fa4cf4763f0d3564c0e2c2280ddb75af4",
+      "bytes": 68367,
+      "alpha_bbox": [
+        17,
+        15,
+        238,
+        240
+      ]
+    },
+    {
+      "key": "hero_type/shield.png",
+      "subject": "Defensive hero specialization, readable at 40px: ONE broad sculpted SILVER SHIELD, rich deep EMERALD GREEN enamel face and a single simple raised gold central boss, bright silver perimeter. No sword, no lettering or busy heraldry.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Defensive hero specialization, readable at 40px: ONE broad sculpted SILVER SHIELD, rich deep EMERALD GREEN enamel face and a single simple raised gold central boss, bright silver perimeter. No sword, no lettering or busy heraldry.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-bd06e21d-8948-4799-ab5c-87899fa31653.png",
+      "output": "files/pict/hero_type/shield.png",
+      "size": 256,
+      "sha256": "eda856f659af3fbdff2a94a0ff16d41bb2c9e91e4bb114f949e3ce835c332d2a",
+      "bytes": 69309,
+      "alpha_bbox": [
+        40,
+        15,
+        216,
+        240
+      ]
+    },
+    {
+      "key": "hero_type/sword-shield.png",
+      "subject": "Balanced hero specialization, readable at 40px: ONE broad midnight-blue enamel SHIELD with bright silver rim and one thick SILVER SWORD placed diagonally across its face, antique-gold guard. Both sword and shield must be unmistakable. No extra crossed swords.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Balanced hero specialization, readable at 40px: ONE broad midnight-blue enamel SHIELD with bright silver rim and one thick SILVER SWORD placed diagonally across its face, antique-gold guard. Both sword and shield must be unmistakable. No extra crossed swords.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-de4add75-b781-4f2d-a56f-d5030841988c.png",
+      "output": "files/pict/hero_type/sword-shield.png",
+      "size": 256,
+      "sha256": "07e95f5c539d1c9d9c839d11a63cf608d6a907cbf920cf5f42b20f648b013016",
+      "bytes": 79700,
+      "alpha_bbox": [
+        28,
+        15,
+        227,
+        240
+      ]
+    },
+    {
+      "key": "close.png",
+      "subject": "Close window control: ONE clear symmetric X made from two thick crossed beveled CRIMSON ENAMEL bars with a narrow bright antique-gold metal edge. It is an interface X, not crossed swords, not arrows. Clean broad diagonal strokes, ample space between tips. Readable at 32px.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Close window control: ONE clear symmetric X made from two thick crossed beveled CRIMSON ENAMEL bars with a narrow bright antique-gold metal edge. It is an interface X, not crossed swords, not arrows. Clean broad diagonal strokes, ample space between tips. Readable at 32px.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-23fb4611-60b5-4449-b39d-c535245d9251.png",
+      "output": "files/pict/close.png",
+      "size": 128,
+      "sha256": "270e1f2c092d90ba7e6ebda4b72d9f9a3d085148828d04d8997d0f253d0dd80d",
+      "bytes": 24095,
+      "alpha_bbox": [
+        8,
+        7,
+        120,
+        120
+      ]
+    },
+    {
+      "key": "right.png",
+      "subject": "Next recruitment card control, readable at 60px: ONE thick solid RIGHT-POINTING triangular arrowhead sculpted from antique-gold metal with warm light front face and dark bronze bevel. Very clear simple next/play triangle, no stem, no circle, no secondary symbols.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Next recruitment card control, readable at 60px: ONE thick solid RIGHT-POINTING triangular arrowhead sculpted from antique-gold metal with warm light front face and dark bronze bevel. Very clear simple next/play triangle, no stem, no circle, no secondary symbols.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-56bf6e58-45db-47fe-b9dd-b3d2cf36e2a6.png",
+      "output": "files/pict/right.png",
+      "size": 128,
+      "sha256": "188093416a473bae8ecf20aa5eec73c221fa5619394f7692b39d64200ee54aa9",
+      "bytes": 16876,
+      "alpha_bbox": [
+        17,
+        7,
+        111,
+        120
+      ]
+    },
+    {
+      "key": "right_learn.png",
+      "subject": "Tutorial pointer: ONE broad RIGHT-POINTING arrow with a short thick stem and large triangular head, pale warm GOLD enamel front, dark bronze dimensional bevel. Extra clear horizontal pointing silhouette readable at 50px. No circle, no cursor hand or text.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Tutorial pointer: ONE broad RIGHT-POINTING arrow with a short thick stem and large triangular head, pale warm GOLD enamel front, dark bronze dimensional bevel. Extra clear horizontal pointing silhouette readable at 50px. No circle, no cursor hand or text.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-e36383d8-3350-445f-96c3-fd94abf71a5a.png",
+      "output": "files/pict/right_learn.png",
+      "size": 256,
+      "sha256": "979c95c1297a0e5dc3b0d8f580e1706726d46706f62dc5eaed4c2a7679598f5a",
+      "bytes": 55258,
+      "alpha_bbox": [
+        15,
+        27,
+        240,
+        229
+      ]
+    },
+    {
+      "key": "sov/back.png",
+      "subject": "Back to advisor conversation control, readable at 40px: ONE thick LEFT-POINTING CHEVRON made from antique-gold beveled metal. It is a single back navigation chevron with a clearly open right side. No circle, no letter, no shield, no double chevron.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Back to advisor conversation control, readable at 40px: ONE thick LEFT-POINTING CHEVRON made from antique-gold beveled metal. It is a single back navigation chevron with a clearly open right side. No circle, no letter, no shield, no double chevron.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-5519d6bc-0377-463c-a369-43a980b9182b.png",
+      "output": "files/pict/sov/back.png",
+      "size": 128,
+      "sha256": "cc7a8ee8a665e9678cd44cb104962e35147128acedbb1db42b6b041190dfcd55",
+      "bytes": 12941,
+      "alpha_bbox": [
+        25,
+        7,
+        103,
+        120
+      ]
+    },
+    {
+      "key": "question.png",
+      "subject": "Unknown faction / information placeholder, readable at 40px: ONE large thick upright sculpted QUESTION MARK with a clearly separated round dot, bright aged silver metal front and restrained antique-gold bevel, dark recessed sides. Strong legible question-mark symbol, no circle, no tile, no other letters.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Unknown faction / information placeholder, readable at 40px: ONE large thick upright sculpted QUESTION MARK with a clearly separated round dot, bright aged silver metal front and restrained antique-gold bevel, dark recessed sides. Strong legible question-mark symbol, no circle, no tile, no other letters.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-385a043d-5aef-48ac-8078-8cd053f62d19.png",
+      "output": "files/pict/question.png",
+      "size": 128,
+      "sha256": "9bc1975ebb5791ab99cd583b44ff8c7696a1df2f96f6004fab6c7eeb985f45c7",
+      "bytes": 16511,
+      "alpha_bbox": [
+        24,
+        7,
+        104,
+        120
+      ]
+    },
+    {
+      "key": "menu/bonus_icon.png",
+      "subject": "Ideology bonus / blessing placeholder, readable at 18-22px: ONE small ornate but very SIMPLE GOLD SUNBURST blessing medallion with four broad main rays, a single luminous warm amber central gem and deep gold recesses. A positive bonus symbol distinct from a question mark. No letters, no question mark, no coins or gift box.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Ideology bonus / blessing placeholder, readable at 18-22px: ONE small ornate but very SIMPLE GOLD SUNBURST blessing medallion with four broad main rays, a single luminous warm amber central gem and deep gold recesses. A positive bonus symbol distinct from a question mark. No letters, no question mark, no coins or gift box.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-826d0546-6124-4882-a83c-b85ce5359739.png",
+      "output": "files/pict/menu/bonus_icon.png",
+      "size": 128,
+      "sha256": "7386f51c99a110a31840ecea556f4c9752e4728535f5a4150b07a1c6824da084",
+      "bytes": 18994,
+      "alpha_bbox": [
+        8,
+        7,
+        120,
+        120
+      ]
+    },
+    {
+      "key": "hero/default_image.png",
+      "subject": "Hero not recruited placeholder image, displayed at around 300px: ONE dim ghostlike empty medieval HELMET AND SHOULDER ARMOR silhouette, frontal compact bust with dark navy steel and a few muted aged-silver edges. The visor is an empty dark void, no human face; low-saturation neutral placeholder, dignified fantasy armory quality. No bright eye glow, no actual person, no hands, no weapons, no scenery, no frame, NO TEXT. A separate interface label will explain that no hero is hired. Transparent outside the bust, generous margin.",
+      "tool": "image_gen (built-in)",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone raster UI icon for a hand-painted fantasy strategy game. Primary requirement: a clean instantly readable bold silhouette at only 22 pixels. Premium sculpted painterly metal and enamel, restrained tactile dimensional shading, bright silver-steel bevels and small warm antique-gold accents. Consistent soft upper-left lighting, dark navy recesses, strong light/dark material separation. Centered object fills about 86% of square canvas with generous clean transparent margin. Keep forms broad and simple; minimal large details, no tiny engraving. Genuinely transparent alpha background. No scenery, no ground, no cast shadow outside the object, no enclosing tile/frame/badge/circle unless specifically requested as part of the object, no labels or words, no watermark. Exactly one finished icon, not a sheet or multiple variants. Input reference image: rendering STYLE only (metal shading, material quality and broad readable forms), not its shield subject. Do not copy its silhouette. Hero not recruited placeholder image, displayed at around 300px: ONE dim ghostlike empty medieval HELMET AND SHOULDER ARMOR silhouette, frontal compact bust with dark navy steel and a few muted aged-silver edges. The visor is an empty dark void, no human face; low-saturation neutral placeholder, dignified fantasy armory quality. No bright eye glow, no actual person, no hands, no weapons, no scenery, no frame, NO TEXT. A separate interface label will explain that no hero is hired. Transparent outside the bust, generous margin.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-5fe550cc-fa27-4489-8866-2fa76850dc8a.png",
+      "output": "files/pict/hero/default_image.png",
+      "size": 512,
+      "sha256": "2403e263dbb7c2967524834d979d8d26fcdc6aafb87d640a301ef6725399353f",
+      "bytes": 257855,
+      "alpha_bbox": [
+        30,
+        33,
+        481,
+        479
+      ]
+    }
+  ]
+}

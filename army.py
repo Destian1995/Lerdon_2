@@ -507,7 +507,7 @@ def start_army_mode(faction, game_area, class_faction, conn):
         for label, icon, key in stats_icons:
             row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(26), spacing=dp(6))
             row.add_widget(Image(source=icon, size_hint=(None, None), size=(dp(22), dp(22)),
-                                 allow_stretch=True, keep_ratio=True))
+                                 allow_stretch=True, keep_ratio=True, mipmap=True))
             val = unit_info['stats'].get(key, 0)
             if key in ('Урон', 'Защита', 'Живучесть', 'Потребление Кристаллов'):
                 val = format_number(val)

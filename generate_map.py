@@ -1,5 +1,6 @@
 
 from lerdon_libraries import *
+from utils.movement_rules import MAX_MOVE_DISTANCE as MANHATTAN_MOVE_LIMIT
 
 # Список доступных карт
 MAP_IMAGES_DIR = "files/map/generate"
@@ -39,7 +40,6 @@ ALL_CITIES = FACTION_CITIES + TOTAL_CITIES
 MAX_NEIGHBOURS = 4  # Максимум 4 соседа для лучшей связности
 MIN_DISTANCE_PX = 120   # Минимальное евклидово расстояние между городами
 MAX_DISTANCE_PX = 300   # Максимальное евклидово расстояние для рассмотрения связей
-MANHATTAN_MOVE_LIMIT = 280  # Максимальное Manhattan расстояние для движения
 MAP_SIZE = (1200, 800)
 MARGIN = 100            # Отступ от краев карты
 MAX_ROADS_PER_CITY = 5  # Максимум явных дорог между городами (для визуализации)
@@ -107,18 +107,28 @@ def select_faction_cities(positions):
         f"Не удалось найти 5 городов, удовлетворяющих условию минимального расстояния {min_required_distance}px"
     )
 
-def generate_all_cities():
+def generate_all_cities(terrain=None, sprite_scale=1):
     """Генерирует города с гарантией связности и возможности выбрать 5 фракционных с расстоянием > 200px"""
-    while True:
+    for generation_attempt in range(100):
         cities = []
         used_positions = set()
         first_point = generate_city_coords()
+        if terrain is not None:
+            for _ in range(1000):
+                if terrain.city_allowed(*first_point, sprite_scale=sprite_scale):
+                    break
+                first_point = generate_city_coords()
+            else:
+                raise RuntimeError('На выбранной карте не найдена суша для первого города')
         cities.append(first_point)
         used_positions.add(first_point)
         attempts = 0
         while len(cities) < TOTAL_CITIES and attempts < 1000:
             base_point = random.choice(cities)
             new_point = generate_city_coords(base_point)
+            if terrain is not None and not terrain.city_allowed(*new_point, sprite_scale=sprite_scale):
+                attempts += 1
+                continue
             if new_point in used_positions:
                 attempts += 1
                 continue
@@ -146,6 +156,7 @@ def generate_all_cities():
                 print(f"[WARN] Не удалось подобрать фракционные города: {e}. Перегенерация карты...")
         else:
             print("[WARN] Не удалось сгенерировать все города, пробуем заново...")
+    raise RuntimeError('Не удалось разместить 26 связанных городов на суше выбранной карты')
 
 
 def build_city_graph(cities):
@@ -154,15 +165,17 @@ def build_city_graph(cities):
     Дороги соответствуют правилам движения (280 Manhattan).
     Граф структурирован так, чтобы создавать естественные маршруты.
     """
-    graph = {i: [] for i in range(TOTAL_CITIES)}
+    from utils.movement_rules import cities_in_range
+    city_count = len(cities)
+    graph = {i: [] for i in range(city_count)}
     positions = [city["position"] for city in cities]
 
     # Список всех пар городов, которые находятся на расстоянии <= MANHATTAN_MOVE_LIMIT
     edges = []
-    for i in range(TOTAL_CITIES):
-        for j in range(i + 1, TOTAL_CITIES):
+    for i in range(city_count):
+        for j in range(i + 1, city_count):
             manhattan_dist = abs(positions[i][0] - positions[j][0]) + abs(positions[i][1] - positions[j][1])
-            if manhattan_dist <= MANHATTAN_MOVE_LIMIT:
+            if cities_in_range(positions[i], positions[j]):
                 # Приоритет: чем ближе по Manhattan, тем выше приоритет
                 edges.append((manhattan_dist, i, j))
 
@@ -173,7 +186,7 @@ def build_city_graph(cities):
     faction_indices = [i for i, city in enumerate(cities) if city["type"] == "faction"]
 
     # Строим минимальное связное дерево (MST) для гарантии связности
-    parent = list(range(TOTAL_CITIES))
+    parent = list(range(city_count))
     def find(u):
         while parent[u] != u:
             parent[u] = parent[parent[u]]
@@ -211,7 +224,7 @@ def build_city_graph(cities):
 
     # Добавляем промежуточные дороги для естественности и разнообразия маршрутов
     # Каждый город должен иметь минимум 2 и максимум MAX_NEIGHBOURS соседей
-    for i in range(TOTAL_CITIES):
+    for i in range(city_count):
         current_neighbors = set(graph[i])
         needed = max(0, 2 - len(current_neighbors))
         if needed > 0:
@@ -256,7 +269,7 @@ def build_city_graph(cities):
                     graph[neutral_idx].append(faction_idx)
 
     # Ограничиваем максимальное число соседей, но сохраняем рёбра MST (для связности)
-    for i in range(TOTAL_CITIES):
+    for i in range(city_count):
         if len(graph[i]) > MAX_NEIGHBOURS:
             neighbors_with_dist = []
             for neighbor_idx in graph[i]:
@@ -362,6 +375,7 @@ def assign_factions_to_cities(positions):
 
 def save_to_database(conn, cities, graph):
     """Сохраняет данные о городах и дорогах в базу данных"""
+    from utils.movement_rules import cities_in_range
     cursor = conn.cursor()
     cursor.execute("DELETE FROM cities")
     cursor.execute("DELETE FROM roads")
@@ -389,6 +403,8 @@ def save_to_database(conn, cities, graph):
     added_roads = set()
     for city_namex, neighbors in graph.items():
         for neighbor_idx in neighbors:
+            if not cities_in_range(cities[city_namex]['position'], cities[neighbor_idx]['position']):
+                continue
             if (city_namex, neighbor_idx) in added_roads or (neighbor_idx, city_namex) in added_roads:
                 continue
             added_roads.add((city_namex, neighbor_idx))
@@ -444,7 +460,7 @@ def manhattan(a, b):
 def is_connected(positions):
     """
     Проверяет, что граф, где ребро между i и j есть если
-    manhattan(positions[i], positions[j]) <= MANHATTAN_THRESHOLD,
+    manhattan(positions[i], positions[j]) <= MANHATTAN_MOVE_LIMIT,
     связен (от любой вершины достижимы все).
     """
     n = len(positions)
@@ -455,19 +471,19 @@ def is_connected(positions):
     while queue:
         u = queue.popleft()
         for v in range(n):
-            if not visited[v] and manhattan(positions[u], positions[v]) <= MANHATTAN_THRESHOLD:
+            if not visited[v] and manhattan(positions[u], positions[v]) <= MANHATTAN_MOVE_LIMIT:
                 visited[v] = True
                 queue.append(v)
 
     return all(visited)
 
 
-def generate_map_and_cities(conn):
+def generate_map_and_cities(conn, terrain=None, sprite_scale=1):
     """Основная функция: генерация связного набора городов → остальное."""
 
     # Шаг 1: Генерация координат городов с гарантией связности по манхэттену
     print("[INFO] Генерация координат городов с гарантией связности...")
-    positions = generate_all_cities()
+    positions = generate_all_cities(terrain=terrain, sprite_scale=sprite_scale)
 
     # Шаг 2: Назначаем фракции и остальные параметры
     cities = assign_factions_to_cities(positions)

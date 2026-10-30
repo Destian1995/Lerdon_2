@@ -1710,7 +1710,7 @@ class FortressInfoPopup(Popup):
                             source=specialization_icon_path,
                             size_hint=(None, None), size=(dp(40), dp(40)),
                             pos_hint={'center_y': 0.5},
-                            allow_stretch=True, keep_ratio=True
+                            allow_stretch=True, keep_ratio=True, mipmap=True
                         ))
 
                 # Обработчик нажатия — показать статы и изображение юнита
@@ -1889,7 +1889,7 @@ class FortressInfoPopup(Popup):
         for label, icon, val in stats_icons:
             row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(28), spacing=dp(6))
             row.add_widget(Image(source=icon, size_hint=(None, None), size=(dp(22), dp(22)),
-                                 allow_stretch=True, keep_ratio=True))
+                                 allow_stretch=True, keep_ratio=True, mipmap=True))
             stat_lbl = Label(
                 text=f'[color=#CCCCCC]{label}:[/color] [b]{val}[/b]',
                 markup=True, font_size=sp(13) if _is_mobile else sp(14),

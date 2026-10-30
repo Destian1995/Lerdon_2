@@ -66,7 +66,7 @@ LEADER_RELATIONS_PENALTY = 30
 # === Захват нейтралов ===
 EXPANSION_START_TURN = 1             # с turn=1 (2-й ход) можно захватывать
 EXPANSION_END_TURN = 25
-MAX_MOVE_DISTANCE = 280               # тот же радиус перемещения, что у игрока
+from utils.movement_rules import MAX_MOVE_DISTANCE
 NEUTRAL_SEARCH_RADIUS = MAX_MOVE_DISTANCE
 NEUTRAL_ATTACKER_COUNT = 1
 
@@ -1015,7 +1015,7 @@ def _find_closest_own_city_in_range(self, target_city_name, max_distance=MAX_MOV
             except Exception:
                 continue
             dist = abs(ox - tx) + abs(oy - ty)
-            if dist < max_distance and dist < best_dist:
+            if 0 < dist <= max_distance and dist < best_dist:
                 best_dist = dist
                 best_city = name
 
