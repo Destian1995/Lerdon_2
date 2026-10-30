@@ -94432,10 +94432,8 @@ Listing '/home/vagrant/Lerdon/.buildozer/android/platform/build-x86_arm64-v8a_ar
 # Copy /home/vagrant/Lerdon/files/buildings/giperion.png
 # Copy /home/vagrant/Lerdon/files/buildings/eteria.png
 # Copy /home/vagrant/Lerdon/files/buildings/celestia.png
-# Copy /home/vagrant/Lerdon/files/buildings/fabric.jpg
 # Copy /home/vagrant/Lerdon/files/buildings/arkadia.png
 # Copy /home/vagrant/Lerdon/files/buildings/default.png
-# Copy /home/vagrant/Lerdon/files/buildings/medic.jpg
 # Copy /home/vagrant/Lerdon/files/buildings/halidon.png
 # Create directory /home/vagrant/Lerdon/.buildozer/android/app/files/status
 # Copy /home/vagrant/Lerdon/files/status/economy.png
