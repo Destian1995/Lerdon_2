@@ -2358,6 +2358,8 @@ def open_trade_popup(game_instance):
     sell_btn.bind(on_release=on_press_wrapper('sell'))
 
     popup.open()
+    from tutorial import notify_event
+    notify_event('market_opened')
 
 
 def handle_trade(game_instance, action, quantity, trade_popup):
@@ -2537,6 +2539,8 @@ def open_tax_popup(faction):
         faction.current_tax_rate = f"{tax_rate}%"
         faction.set_taxes(tax_rate)
         faction.apply_tax_effect(tax_rate)
+        from tutorial import notify_event
+        notify_event('tax_set')
         tax_status.text = "Налоги установлены"
         tax_status.color = (0.4, 0.85, 0.5, 1)
         tax_popup.dismiss()

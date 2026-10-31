@@ -24,7 +24,7 @@ def settle():
 
 def frontend_classes():
     tree = ast.parse((ROOT / 'main.py').read_text(encoding='utf-8'))
-    names = {'MenuWidget', 'KingdomSelectionWidget', 'TutorialFactionScreen', 'AuthorScreen',
+    names = {'LoadingScreen', 'MenuWidget', 'KingdomSelectionWidget', 'TutorialFactionScreen', 'AuthorScreen',
              'ModernButton', 'RoundedButton', 'GameButton', 'FactionButton', 'DossierScreen', 'Lor'}
     nodes = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name in names]
     namespace = dict(fixture_globals, MDFloatLayout=FloatLayout, Spinner=Spinner,
@@ -64,7 +64,7 @@ class FrontendTests(unittest.TestCase):
         menu = self.show('MenuWidget')
         self.assertEqual(len(menu.buttons), 6)
         self.assertTrue(all(isinstance(b, StrategyButton) and b.height >= 48 for b in menu.buttons))
-        self.assertTrue(any(isinstance(w, Label) and w.text == 'v6.7.0' for w in menu.walk()))
+        self.assertTrue(any(isinstance(w, Label) and w.text == 'v6.7.4' for w in menu.walk()))
         self.assertIsNone(menu._particle_event)
         self.assertEqual(menu.button_container.cols, 2)
         Window.size = (360, 640)
@@ -87,6 +87,34 @@ class FrontendTests(unittest.TestCase):
             setup.disable_all_buttons(True)
             self.assertTrue(setup.ideology_spinner.disabled)
             self.assertTrue(setup.start_game_button.disabled)
+
+    def test_loading_text_and_meter_remain_stable_through_progress_and_resize(self):
+        # Use the actual loading widget without running startup against any database.
+        from frontend_ui import Meter
+        cls = self.classes['LoadingScreen']
+        with patch.object(cls, 'start_loading'):
+            loading = self.show('LoadingScreen')
+            loading.tip_label.text = loading.TIPS[0]
+            for size in ((1280, 576), (640, 360), (360, 640), (640, 360)):
+                Window.size = size
+                settle()
+                page = loading._front_page
+                geometry = (tuple(page.flow.size), page.column.height, loading.tip_label.height)
+                self.assertLess(loading.tip_label.height, dp(120))
+                self.assertIsNone(loading.tip_label.text_size[1])
+                self.assertIsInstance(loading.pb_container, Meter)
+                instructions = tuple(loading.pb_container.canvas.children)
+                for percent in (20, 60, 75, 99):
+                    loading.current_progress = percent
+                    loading.percent_label.text = f'{percent}%'
+                    loading._draw_progress()
+                    settle()
+                    self.assertEqual(geometry, (tuple(page.flow.size), page.column.height, loading.tip_label.height))
+                    self.assertEqual(instructions, tuple(loading.pb_container.canvas.children))
+                    self.assertAlmostEqual(loading.pb_container.fill.size[0],
+                                           loading.pb_container.width * percent / 100, delta=0.01)
+            menu = self.show('MenuWidget')
+            self.assertEqual(tuple(page.flow.size), tuple(menu._front_page.flow.size))
 
     def test_tutorial_and_author_share_components(self):
         tutorial = self.show('TutorialFactionScreen')

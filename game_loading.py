@@ -31,27 +31,28 @@ class GameLoadingPanel(ModalView):
         self.card.bind(pos=self._layout_card, size=self._layout_card)
         self.bind(size=self._resize_card)
         self.card.add_widget(Label(text='Загрузка карты', bold=True, font_size=sp(24),
-                                   color=(0.96, 0.85, 0.59, 1)))
+                                   color=(0.96, 0.85, 0.59, 1),
+                                   size_hint_y=None, height=dp(36)))
         self.status = Label(text='Подготавливаем мир…', font_size=sp(16),
-                            halign='center', valign='middle')
+                            halign='center', valign='middle',
+                            size_hint_y=None, height=dp(56))
         self.status.bind(size=lambda widget, size: setattr(widget, 'text_size', size))
         self.card.add_widget(self.status)
         self.progress = ProgressBar(max=max(1, len(self.steps)), value=0,
                                     size_hint_y=None, height=dp(12))
         self.card.add_widget(self.progress)
         self.hint = Label(text='Это может занять несколько секунд', font_size=sp(12),
-                          color=(0.65, 0.71, 0.8, 1))
+                          color=(0.65, 0.71, 0.8, 1),
+                          size_hint_y=None, height=dp(36))
         self.card.add_widget(self.hint)
         from responsive_ui import WindowFlow
-        self.flow = WindowFlow(self.card, size_hint=(0.95, 0.95))
+        self.flow = WindowFlow(self.card, size_hint=(None, None))
         self.add_widget(self.flow)
         self._resize_card()
 
     def _resize_card(self, *args):
-        self.flow.width = max(1, min(dp(460), self.width - dp(16)))
-        self.flow.size_hint_x = None
-        self.flow.size_hint_y = None
-        self.flow.height = max(dp(80), min(dp(230), self.height - dp(16)))
+        self.flow.size = (max(1, min(dp(460), self.width - dp(16))),
+                          max(1, min(dp(230), self.height - dp(16))))
 
     def _layout_card(self, *args):
         self._background.pos = self.card.pos

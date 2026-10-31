@@ -13,7 +13,7 @@ from results_game import ResultsGame
 from seasons import SeasonManager
 from nobles_generator import generate_initial_nobles
 from nobles_generator import process_nobles_turn
-from ui_components import TutorialHint, DiplomacyMailbox, show_message
+from ui_components import DiplomacyMailbox, show_message
 
 
 from utils.helpers import parse_formatted_number
@@ -1534,7 +1534,7 @@ class GameScreen(Screen):
 
         # Запускаем обучение с небольшой задержкой (после полной отрисовки интерфейса)
         if self.tutorial_enabled:
-            Clock.schedule_once(lambda dt: self.start_tutorial(), 1.2)
+            self._tutorial_start_event = Clock.schedule_once(lambda dt: self.start_tutorial(), 1.2)
 
     def deactivate_all_tabs(self):
         """Деактивирует все кнопки вкладок"""
@@ -1705,6 +1705,8 @@ class GameScreen(Screen):
             reconcile_city_rebuilding(self.conn)
             self.conn.commit()
             print(f"Ход {self.turn_counter} завершён")
+            from tutorial import notify_event
+            notify_event('turn_finished')
         finally:
             self.end_turn_button.disabled = False
             if hasattr(self, '_turn_overlay') and self._turn_overlay:
@@ -2157,6 +2159,10 @@ class GameScreen(Screen):
     def cleanup(self):
         """Очистка ресурсов: таймеры, привязки, анимации."""
         print("Очистка GameScreen...")
+        if getattr(self, '_tutorial_start_event', None):
+            self._tutorial_start_event.cancel()
+        if self.tutorial_enabled:
+            self.skip_tutorial()
         if hasattr(self, '_hud_fit'):
             Window.unbind(on_resize=self._hud_fit)
         # 1. Отменить мигание кнопки советника
@@ -3022,6 +3028,8 @@ class GameScreen(Screen):
             self.game_state_manager.faction,
             self.conn
         )
+        from tutorial import notify_event
+        notify_event('army_opened')
 
     def switch_to_politics(self, instance):
         self.activate_tab('politics')
@@ -3033,6 +3041,8 @@ class GameScreen(Screen):
             self.conn,
             root_overlay=self.root_overlay
         )
+        from tutorial import notify_event
+        notify_event('politics_opened')
 
     def show_advisor(self, instance, preselect_faction=None):
         self.activate_tab('advisor')
@@ -3041,6 +3051,8 @@ class GameScreen(Screen):
                                    preselect_faction=preselect_faction)
         self.game_area.add_widget(advisor_view)
         self.mark_messages_as_read()
+        from tutorial import notify_event
+        notify_event('advisor_opened')
 
     def clear_game_area(self):
         """Очистка центральной области и economy-кнопок из root_overlay."""
@@ -3731,195 +3743,75 @@ class GameScreen(Screen):
                     cur.close()
 
     def start_tutorial(self):
-        """Запуск системы обучения (вызывается после полной инициализации UI)"""
-        if not self.tutorial_enabled:
+        """Start once, only while the game screen is attached."""
+        if not self.tutorial_enabled or not self.parent or getattr(self, 'tutorial_progress', None):
             return
-
-        print("Запуск системы обучения...")
+        from tutorial import TutorialProgress, set_event_handler
+        from tutorial_ui import TutorialPanel
+        self.tutorial_progress = TutorialProgress(self.player_ideology)
+        set_event_handler(self._tutorial_event)
+        self.current_hint = TutorialPanel(
+            self.tutorial_progress, self._tutorial_next, self._tutorial_back,
+            self.skip_tutorial, self._tutorial_open_section)
+        self.root_overlay.add_widget(self.current_hint)
         self.current_tutorial_step = 1
-        self.show_tutorial_step_1()
+
+    def _tutorial_event(self, event):
+        progress = getattr(self, 'tutorial_progress', None)
+        if not self.tutorial_enabled or not progress or not self.parent:
+            return
+        progress.record(event)
+        if getattr(self, 'current_hint', None):
+            self.current_hint.refresh()
+
+    def _tutorial_next(self):
+        progress = self.tutorial_progress
+        if not progress.next():
+            return
+        if not progress.active:
+            self.complete_tutorial()
+            return
+        self.current_tutorial_step = progress.index + 1
+        self.current_hint.refresh()
+
+    def _tutorial_back(self):
+        self.tutorial_progress.back()
+        self.current_tutorial_step = self.tutorial_progress.index + 1
+        self.current_hint.refresh()
+
+    def _tutorial_open_section(self):
+        section = self.tutorial_progress.lesson.section
+        actions = {'economy': self.switch_to_economy, 'army': self.switch_to_army,
+                   'politics': self.switch_to_politics, 'advisor': self.show_advisor}
+        if section == 'map':
+            self.clear_game_area()
+            self.deactivate_all_tabs()
+        elif section in actions:
+            actions[section](None)
+        if not self.current_hint.collapsed:
+            self.current_hint.toggle()
 
     def _dismiss_hint(self):
-        """Убирает текущую подсказку"""
-        if hasattr(self, 'current_hint') and self.current_hint:
-            if self.current_hint.parent:
-                self.current_hint.parent.remove_widget(self.current_hint)
-            self.current_hint = None
-
-    def _is_borba_ideology(self):
-        """Проверяет, играет ли игрок с идеологией Борьба"""
-        return getattr(self, 'player_ideology', None) == 'Борьба'
-
-    def show_tutorial_step_1(self):
-        """Шаг 1: Нажмите Экономика — настройте Развитие и Налоги"""
-        self.current_tutorial_step = 1
-        if self._is_borba_ideology():
-            msg = (
-                "[b]Шаг 1: Экономика[/b]\n\n"
-                "Ваша идеология — [b]Борьба[/b] (+550% кристаллов).\n"
-                "Основа дохода — [b]продажа кристаллов[/b] на Рынке!\n\n"
-                "Нажмите сюда и выполните:\n"
-                "1. [b]Развитие[/b] — выберите уклон в фабрики\n"
-                "2. [b]Налоги[/b] — ставка налога менее важна"
-            )
-        else:
-            msg = (
-                "[b]Шаг 1: Экономика[/b]\n\n"
-                "Ваша идеология — [b]Смирение[/b] (+700% налогов).\n"
-                "Основа дохода — [b]налоги[/b]!\n\n"
-                "Нажмите сюда и выполните:\n"
-                "1. [b]Развитие[/b] — выберите стратегию строительства\n"
-                "2. [b]Налоги[/b] — установите ставку налога"
-            )
-        hint = TutorialHint(
-            target_widget=self.btn_economy,
-            arrow_source='files/pict/right_learn.png',
-            message=msg,
-            arrow_direction='right',
-            on_next=lambda: self._advance_to_step(2),
-            on_skip=self.skip_tutorial
-        )
-        self.root_overlay.add_widget(hint)
-        self.current_hint = hint
-
-    def show_tutorial_step_2(self):
-        """Шаг 2: Завершите ход"""
-        self.current_tutorial_step = 2
-        hint = TutorialHint(
-            target_widget=self.end_turn_button,
-            arrow_source='files/pict/right_learn.png',
-            message=(
-                "[b]Шаг 2: Завершите ход[/b]\n\n"
-                "Нажмите кнопку завершения хода.\n"
-                "Ваши здания начнут строиться,\n"
-                "а казна пополнится от налогов."
-            ),
-            arrow_direction='right',
-            on_next=lambda: self._advance_to_step(3),
-            on_skip=self.skip_tutorial
-        )
-        self.root_overlay.add_widget(hint)
-        self.current_hint = hint
-
-    def show_tutorial_step_3(self):
-        """Шаг 3: Продайте кристаллы на рынке"""
-        self.current_tutorial_step = 3
-        if self._is_borba_ideology():
-            msg = (
-                "[b]Шаг 3: Рынок — ваш главный источник дохода![/b]\n\n"
-                "Откройте Экономику и нажмите [b]Рынок[/b].\n"
-                "С идеологией Борьба кристаллов будет много —\n"
-                "[b]продавайте их каждый ход[/b], это ваши основные кроны!"
-            )
-        else:
-            msg = (
-                "[b]Шаг 3: Рынок[/b]\n\n"
-                "Снова откройте Экономику и нажмите [b]Рынок[/b].\n"
-                "Продайте кристаллы, чтобы получить кроны\n"
-                "для найма армии."
-            )
-        hint = TutorialHint(
-            target_widget=self.btn_economy,
-            arrow_source='files/pict/right_learn.png',
-            message=msg,
-            arrow_direction='right',
-            on_next=lambda: self._advance_to_step(4),
-            on_skip=self.skip_tutorial
-        )
-        self.root_overlay.add_widget(hint)
-        self.current_hint = hint
-
-    def show_tutorial_step_4(self):
-        """Шаг 4: Наймите армию"""
-        self.current_tutorial_step = 4
-        hint = TutorialHint(
-            target_widget=self.btn_army,
-            arrow_source='files/pict/right_learn.png',
-            message=(
-                "[b]Шаг 4: Армия[/b]\n\n"
-                "Нажмите сюда и наймите юнитов.\n"
-                "Классы юнитов:\n"
-                "1 — обычные бойцы (основа армии)\n"
-                "2 — слабые герои, усиливают юнитов 1 класса\n"
-                "3 — герои с артефактами, сильно усиливают армию\n"
-                "4 — могучие герои, сильны сами по себе"
-            ),
-            arrow_direction='right',
-            on_next=lambda: self._advance_to_step(5),
-            on_skip=self.skip_tutorial
-        )
-        self.root_overlay.add_widget(hint)
-        self.current_hint = hint
-
-    def show_tutorial_step_5(self):
-        """Шаг 5: Политика и дипломатия"""
-        self.current_tutorial_step = 5
-        hint = TutorialHint(
-            target_widget=self.btn_politics,
-            arrow_source='files/pict/right_learn.png',
-            message=(
-                "[b]Шаг 5: Политика[/b]\n\n"
-                "Здесь можно:\n"
-                "• Следить за Советом — не допускайте бунта!\n"
-                "• Проводить диверсии против врагов\n"
-                "• Смотреть силу армий всех фракций"
-            ),
-            arrow_direction='right',
-            on_next=lambda: self._advance_to_step(6),
-            on_skip=self.skip_tutorial
-        )
-        self.root_overlay.add_widget(hint)
-        self.current_hint = hint
-
-    def show_tutorial_step_6(self):
-        """Шаг 6: Дипломатия"""
-        self.current_tutorial_step = 6
-        hint = TutorialHint(
-            target_widget=self.btn_advisor,
-            arrow_source='files/pict/right_learn.png',
-            message=(
-                "[b]Шаг 6: Дипломатия[/b]\n\n"
-                "Переговоры с другими фракциями:\n"
-                "• Обмен ресурсами и заключение союзов\n"
-                "• Планирование совместных атак\n"
-                "• Объявление войны или мира\n\n"
-                "Будьте вежливы — грубость ведёт к войне!"
-            ),
-            arrow_direction='right',
-            on_next=lambda: self.complete_tutorial(),
-            on_skip=self.skip_tutorial
-        )
-        self.root_overlay.add_widget(hint)
-        self.current_hint = hint
-
-    def _advance_to_step(self, step):
-        """Переход к следующему шагу обучения"""
-        self._dismiss_hint()
-        step_methods = {
-            2: self.show_tutorial_step_2,
-            3: self.show_tutorial_step_3,
-            4: self.show_tutorial_step_4,
-            5: self.show_tutorial_step_5,
-            6: self.show_tutorial_step_6,
-        }
-        method = step_methods.get(step)
-        if method:
-            Clock.schedule_once(lambda dt: method(), 0.5)
+        hint = getattr(self, 'current_hint', None)
+        if hint and hint.parent:
+            hint.parent.remove_widget(hint)
+        self.current_hint = None
 
     def complete_tutorial(self):
-        """Завершение обучения"""
-        self._dismiss_hint()
-        self.tutorial_enabled = False
-        self.current_tutorial_step = 0
-        print("Обучение завершено!")
-        show_message("Обучение завершено!", "Теперь вы готовы к управлению! Удачи, Ваше Величество!")
+        self.skip_tutorial()
+        show_message('Обучение завершено',
+                     'Вы освоили основной цикл игры. Проверяйте доход и снабжение, '
+                     'защищайте города и читайте сообщения после каждого хода.')
 
     def skip_tutorial(self):
-        """Пропустить обучение полностью"""
+        from tutorial import set_event_handler
         self._dismiss_hint()
+        progress = getattr(self, 'tutorial_progress', None)
+        if progress:
+            progress.stop()
+        set_event_handler(None)
         self.tutorial_enabled = False
         self.current_tutorial_step = 0
-        print("Обучение пропущено")
 
     def check_recent_incoming_messages(self, conn):
         """

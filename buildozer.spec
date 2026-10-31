@@ -4,7 +4,7 @@
 # Основные параметры приложения
 # ---------------------------------
 
-version = 6.7.0
+version = 6.7.4
 title = Легенды Лэрдона
 package.name = lerdonlegends
 package.domain = com.lerdonlegends
@@ -13,7 +13,7 @@ source.dir = .
 source.include_exts = py,png,jpg,ttf,mp3,mp4,db,sqlite3,json,txt
 source.include_patterns = assets/*, files/*, ai_models/*, utils/*, *.py, game_data.db
 source.exclude_dirs = old, .git, __pycache__, .idea, .claude, .buildozer, bin, tests, tools, .release
-source.exclude_patterns = buildozer.spec, *.log, *.pyc, lerdon.db, assets/frontend-*, assets/responsive-*, assets/unified-*, assets/strategy-*, assets/battle-*, assets/*review*, assets/*manifest*
+source.exclude_patterns = buildozer.spec, *.log, *.pyc, lerdon.db, assets/frontend-*, assets/responsive-*, assets/unified-*, assets/strategy-*, assets/battle-*, assets/tutorial-guide-*, assets/*review*, assets/*manifest*
 icon.filename = %(source.dir)s/assets/icon.png
 presplash.filename = %(source.dir)s/assets/splash.png
 description = Стратегическая игра Lerdon с элементами экономики и политики.
@@ -53,7 +53,7 @@ p4a.bootstrap = sdl2
 
 android.release = True
 android.release_artifact = apk
-android.numeric_version = 60700
+android.numeric_version = 60704
 
 # ---------------------------------
 # Прочее

@@ -19,7 +19,7 @@ from strategy_ui import INK, SURFACE, GOLD, TEXT, MUTED, FACTIONS, StrategyButto
 from responsive_ui import WindowFlow
 from ui_motion import enter
 
-VERSION = '6.7.0'
+VERSION = '6.7.4'
 FACTION_ART = {'Север': 'people', 'Эльфы': 'elfs', 'Вампиры': 'vampire', 'Адепты': 'adepts', 'Элины': 'elins'}
 
 
@@ -63,6 +63,7 @@ class Meter(Widget):
             Color(*GOLD)
             self.fill = RoundedRectangle(radius=[dp(4)])
         self.bind(pos=self.draw, size=self.draw, value=self.draw)
+        self.draw()
 
     def draw(self, *args):
         self.back.pos, self.back.size = self.pos, self.size
@@ -138,7 +139,7 @@ class FrontPage(FloatLayout):
     def __init__(self, owner, title, subtitle='', art='files/menu/choise/vampire.jpg', paged=False, **kwargs):
         super().__init__(**kwargs)
         self.paged = paged
-        self.art = Image(source=art, allow_stretch=True, keep_ratio=False)
+        self.art = Image(source=art, fit_mode='cover')
         self.add_widget(self.art)
         shade = Widget()
         with shade.canvas:
@@ -175,13 +176,16 @@ class FrontPage(FloatLayout):
         enter(self.column)
 
     def fit(self, *args):
-        width = self.width * 0.92 if self.paged else self.width - dp(24)
+        width = self.width - dp(24)
         self.flow.size = (max(1, min(dp(1100), width)), max(1, self.height - dp(24)))
         self.flow.center = self.center
         if self.paged:
             compact = self.height < dp(420)
         else:
             compact = False
+            short = self.height < dp(420)
+            self.column.padding = dp(12 if short else 16)
+            self.column.spacing = dp(8 if short else 12)
         for label in self.header.children:
             label.size_hint_y = None
             hidden = self.paged and compact and label in (self.subtitle_label, self.brand_label)
@@ -211,6 +215,11 @@ def build_main_menu(owner):
         owner.buttons.append(button)
         layout.add_widget(button)
     owner.button_container = layout
+    def fit_buttons(*args):
+        for button in owner.buttons:
+            button.height = dp(48 if page.height < dp(420) else 64)
+    page.bind(size=fit_buttons)
+    fit_buttons()
     page.column.add_widget(layout)
     page.column.add_widget(text_label('СТРАТЕГИЯ  ·  КОРОЛЕВСТВА  ·  ГЕРОИ', 11, MUTED,
                                       size_hint_y=None, height=dp(28)))
@@ -353,9 +362,10 @@ def restyle_loading(owner):
         label.size_hint = (1, None)
         label.height = dp(52)
         label.color = TEXT if label is owner.label else GOLD if label is owner.percent_label else MUTED
+        label.halign = 'center'
         page.column.add_widget(label)
     owner.pb_container = Meter(size_hint_y=None, height=dp(12))
-    page.column.add_widget(owner.pb_container)
+    page.column.add_widget(owner.pb_container, index=1)
 
 
 def build_rating(owner):

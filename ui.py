@@ -93,6 +93,12 @@ class FortressInfoPopup(Popup):
         self.auto_dismiss = False
 
         self.create_ui()
+        self.bind(on_open=self._tutorial_city_opened)
+
+    def _tutorial_city_opened(self, *args):
+        if self.city_faction == self.player_fraction:
+            from tutorial import notify_event
+            notify_event('owned_city_opened')
 
     def create_ui(self):
         from strategy_ui import build_city_window

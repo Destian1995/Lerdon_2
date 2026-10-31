@@ -350,14 +350,6 @@ class LoadingScreen(FloatLayout):
         )
         self.add_widget(self.subtitle)
 
-        # === Прогресс-бар с glow ===
-        self.pb_container = FloatLayout(
-            size_hint=(0.6, None), height=dp(8),
-            pos_hint={'center_x': 0.5, 'center_y': 0.28}
-        )
-        self.pb_container.bind(pos=self._draw_progress, size=self._draw_progress)
-        self.add_widget(self.pb_container)
-
         # === Текст прогресса ===
         self.label = Label(
             markup=True,
@@ -393,12 +385,13 @@ class LoadingScreen(FloatLayout):
             size_hint=(0.8, None), height=dp(30),
             halign='center',
         )
-        self.tip_label.bind(size=self.tip_label.setter('text_size'))
         self.add_widget(self.tip_label)
 
         # === Прогресс ===
         self.current_progress = 0
         self.target_progress = 0
+        self._progress_event = Clock.create_trigger(self.smooth_progress_update, 0.016)
+        self._completion_scheduled = False
 
         # === Шаги загрузки ===
         self._step_messages = [
@@ -480,44 +473,8 @@ class LoadingScreen(FloatLayout):
         self.canvas.after.add(group)
 
     def _draw_progress(self, *args):
-        """Рисует стильный прогресс-бар с glow."""
-        self.pb_container.canvas.clear()
-        cx, cy = self.pb_container.pos
-        cw, ch = self.pb_container.size
-        fill_w = max(0, (self.current_progress / 100.0) * cw)
-
-        t = self.current_progress / 100.0
-        # Цвет: от тёмно-синего к золотому
-        r = 0.2 + t * 0.65
-        g = 0.3 + t * 0.48
-        b = 0.8 - t * 0.35
-
-        with self.pb_container.canvas:
-            # Фоновый трек
-            Color(0.15, 0.17, 0.25, 0.6)
-            RoundedRectangle(pos=(cx, cy), size=(cw, ch), radius=[dp(4)])
-
-            # Glow под баром
-            if fill_w > dp(4):
-                Color(r, g, b, 0.25)
-                RoundedRectangle(
-                    pos=(cx - dp(2), cy - dp(3)),
-                    size=(fill_w + dp(4), ch + dp(6)),
-                    radius=[dp(6)]
-                )
-
-            # Заполнение
-            if fill_w > dp(2):
-                Color(r, g, b, 0.9)
-                RoundedRectangle(pos=(cx, cy), size=(fill_w, ch), radius=[dp(4)])
-
-                # Блик сверху
-                Color(1, 1, 1, 0.15)
-                RoundedRectangle(
-                    pos=(cx + dp(2), cy + ch * 0.55),
-                    size=(max(dp(2), fill_w - dp(4)), ch * 0.3),
-                    radius=[dp(2)]
-                )
+        """Update the shared meter without deleting its canvas instructions."""
+        self.pb_container.value = self.current_progress / 100.0
 
     # === Логика загрузки ===
     def start_loading(self, dt):
@@ -537,14 +494,15 @@ class LoadingScreen(FloatLayout):
             percent = int(self.current_progress)
             self.percent_label.text = f"{percent}%"
             self._draw_progress()
-            Clock.schedule_once(self.smooth_progress_update, 0.016)
+            self._progress_event()
         else:
             self.current_progress = self.target_progress
             percent = int(self.current_progress)
             self.percent_label.text = f"{percent}%"
             self._draw_progress()
 
-            if self.target_progress >= 100:
+            if self.target_progress >= 100 and not self._completion_scheduled:
+                self._completion_scheduled = True
                 self.label.text = "[color=#FFD700][b]Готово![/b][/color]"
                 self.percent_label.text = "100%"
                 # Анимация завершения
@@ -600,6 +558,7 @@ class LoadingScreen(FloatLayout):
         self.bg_rect.size = self.size
 
     def switch_to_menu(self, dt):
+        self._progress_event.cancel()
         # Останавливаем частицы
         if self._particle_event:
             self._particle_event.cancel()
@@ -607,8 +566,6 @@ class LoadingScreen(FloatLayout):
             self._particle_update_event.cancel()
         Animation.cancel_all(self.title_label)
 
-        self.bg_rect.source = 'files/menu/main_fon.jpg'
-        self.bg_rect.texture = CoreImage('files/menu/main_fon.jpg').texture
         self.clear_widgets()
         self.canvas.after.clear()
         self.opacity = 1
