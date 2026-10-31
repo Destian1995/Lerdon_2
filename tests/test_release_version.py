@@ -1,4 +1,7 @@
 from pathlib import Path
+import io
+import subprocess
+import tarfile
 import tempfile
 import unittest
 
@@ -37,6 +40,13 @@ class ReleaseVersionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             with self.assertRaisesRegex(ValueError, 'exceed'):
                 validate(self.fixture(folder), previous_code=102170001)
+
+    def test_windows_source_archive_preserves_linux_shell_line_endings(self):
+        root = Path(__file__).resolve().parents[1]
+        data = subprocess.check_output(['git', 'archive', '--worktree-attributes', 'HEAD', 'build.sh'], cwd=root)
+        with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+            script = archive.extractfile('build.sh').read()
+        self.assertNotIn(b'\r', script)
 
 
 if __name__ == '__main__':
