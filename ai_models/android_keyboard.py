@@ -13,21 +13,11 @@ class AndroidKeyboardHelper:
         self.keyboard_shown = False
         self._disposed = False
         self._scroll_event = None
+        self._previous_mode = Window.softinput_mode
 
         # Биндим события клавиатуры (только на Android)
         if platform == 'android':
-            from jnius import autoclass
-            from android import mActivity
-
-            # Получаем контекст Android
-            Context = autoclass('android.content.Context')
-            self.input_method_manager = mActivity.getSystemService(
-                Context.INPUT_METHOD_SERVICE
-            )
-
-            # Назначаем обработчики
-            Window.bind(on_keyboard=self._on_keyboard)
-            Window.bind(on_keyboard_height=self._on_keyboard_height)
+            Window.bind(keyboard_height=self._on_keyboard_height)
 
     def _on_keyboard(self, window, keyboard_height, keyboard_width, *args, **kwargs):
         """Обработчик появления/скрытия клавиатуры"""
@@ -43,9 +33,11 @@ class AndroidKeyboardHelper:
     def _on_keyboard_height(self, window, height, *args, **kwargs):
         """Обработчик изменения высоты клавиатуры"""
         # Используем только первые 2 аргумента
-        if height > 0:
-            self.keyboard_height = height
-            self.adjust_for_keyboard(True, height)
+        if self._disposed:
+            return
+        self.keyboard_height = max(0, height)
+        self.keyboard_shown = height > 0
+        self.adjust_for_keyboard(height > 0, height)
 
     def adjust_for_keyboard(self, shown, height):
         """Адаптирует интерфейс под клавиатуру"""
@@ -93,8 +85,9 @@ class AndroidKeyboardHelper:
         if self._scroll_event:
             self._scroll_event.cancel()
             self._scroll_event = None
-        Window.unbind(on_keyboard=self._on_keyboard, on_keyboard_height=self._on_keyboard_height)
-        Window.softinput_mode = ''
+        Window.unbind(keyboard_height=self._on_keyboard_height)
+        if Window.softinput_mode != self._previous_mode:
+            Window.softinput_mode = self._previous_mode
 
     def is_keyboard_shown(self):
         """Проверяет, показана ли клавиатура"""

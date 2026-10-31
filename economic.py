@@ -2155,9 +2155,9 @@ def open_trade_popup(game_instance):
 
     # Карточка-заголовок с ценой
     price_card = BoxLayout(
-        orientation='horizontal',
+        orientation='vertical',
         size_hint=(1, None),
-        height=dp(54),
+        height=dp(92),
         spacing=dp(10),
         padding=[dp(14), dp(8), dp(14), dp(8)]
     )
@@ -2195,7 +2195,7 @@ def open_trade_popup(game_instance):
         height=dp(26)
     )
     ratio_label.bind(size=ratio_label.setter('text_size'))
-    trade_layout.add_widget(ratio_label)
+    price_card.add_widget(ratio_label)
 
     # === ЧЕКБОКС "ПРОДАТЬ ВСЁ" ===
     sell_all_layout = BoxLayout(

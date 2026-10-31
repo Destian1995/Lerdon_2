@@ -3,12 +3,14 @@ from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.metrics import dp, sp
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.gridlayout import GridLayout
 from kivy.uix.carousel import Carousel
 from kivy.uix.image import AsyncImage, Image
 from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.slider import Slider
+from slider_ui import StrategySlider
 from kivy.uix.textinput import TextInput
 from kivy.uix.widget import Widget
 
@@ -98,11 +100,12 @@ class RecruitmentSession(Widget):
         self.navigation.opacity = 0 if compact else 1
         self.navigation.disabled = compact
         for card in self.cards.values():
+            card.stat_grid.cols = 2 if compact else 1
             slider = card.quantity_slider
             if slider is not None:
-                slider.height = dp(26) if height >= dp(480) else 0
-                slider.opacity = 1 if height >= dp(480) else 0
-                slider.disabled = height < dp(480)
+                slider.height = dp(48)
+                slider.opacity = 1
+                slider.disabled = slider.max <= slider.min
             for row, caption, value in card.stat_rows:
                 row.height = dp(22 if compact else 36)
                 caption.font_size = sp(11 if compact else 14)
@@ -135,7 +138,9 @@ class RecruitmentSession(Widget):
         body.add_widget(AsyncImage(source=info['image'], size_hint_x=0.42,
                                   allow_stretch=True, keep_ratio=True, mipmap=True))
         scroll = ScrollView(do_scroll_x=False, size_hint_x=0.58, bar_width=dp(2))
-        stats = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(2))
+        stats = GridLayout(cols=2, size_hint_y=None, spacing=dp(2))
+        card.stat_grid = stats
+        scroll._responsive_min_height = dp(60)
         stats.bind(minimum_height=stats.setter('height'))
         card.stat_rows = []
         for caption, icon, key in (
@@ -160,8 +165,8 @@ class RecruitmentSession(Widget):
         hire = StrategyButton(text='НАНЯТЬ' if unit_class == 1 else 'НАНЯТЬ ГЕРОЯ',
                               primary=True, accent=self.accent)
         if unit_class == 1:
-            slider = Slider(min=1, max=max(1, self.maximum(info)), value=1, step=1,
-                            size_hint_y=None, height=dp(26), value_track=True, value_track_color=GOLD)
+            slider = StrategySlider(min=1, max=max(1, self.maximum(info)), value=1, step=1,
+                                    size_hint_y=None, height=dp(48))
             card.quantity_slider = slider
             card.add_widget(slider)
             quantity = TextInput(text='1', multiline=False, input_filter='int',

@@ -46,56 +46,56 @@
   "windows": [
     {
       "file": "ai_models/advisor_view.py",
-      "line": 108,
+      "line": 109,
       "scope": "AdvisorView.open_ai_chat_directly",
       "factory": "Popup",
       "title": "Дипломатия"
     },
     {
       "file": "ai_models/diplomacy_chat.py",
-      "line": 2147,
+      "line": 2152,
       "scope": "EnhancedDiplomacyChat.show_relation_tooltip",
       "factory": "Popup",
       "title": ""
     },
     {
       "file": "ai_models/diplomacy_chat.py",
-      "line": 6078,
+      "line": 6087,
       "scope": "EnhancedDiplomacyChat.create_diplomacy_interface._show_trade_submenu._open_trade_popup",
       "factory": "_TPop",
       "title": ""
     },
     {
       "file": "ai_models/diplomacy_chat.py",
-      "line": 6201,
+      "line": 6210,
       "scope": "EnhancedDiplomacyChat.create_diplomacy_interface._show_rebel_artifacts",
       "factory": "_RPop",
       "title": ""
     },
     {
       "file": "ai_models/diplomacy_chat.py",
-      "line": 6344,
+      "line": 6353,
       "scope": "EnhancedDiplomacyChat.create_diplomacy_interface._show_rebel_troops._open_slider",
       "factory": "_RPop",
       "title": ""
     },
     {
       "file": "ai_models/diplomacy_chat.py",
-      "line": 6503,
+      "line": 6512,
       "scope": "EnhancedDiplomacyChat.create_diplomacy_interface._show_rebel_attack",
       "factory": "_RAPop",
       "title": ""
     },
     {
       "file": "ai_models/diplomacy_chat.py",
-      "line": 6713,
+      "line": 6722,
       "scope": "EnhancedDiplomacyChat.create_diplomacy_interface._show_improve_relations",
       "factory": "_IRPop",
       "title": ""
     },
     {
       "file": "ai_models/diplomacy_chat.py",
-      "line": 6812,
+      "line": 6821,
       "scope": "EnhancedDiplomacyChat.create_diplomacy_interface._show_rebel_transfer_city",
       "factory": "_TPop",
       "title": ""
@@ -438,7 +438,7 @@
     },
     {
       "file": "recruitment_ui.py",
-      "line": 74,
+      "line": 76,
       "scope": "RecruitmentSession.__init__",
       "factory": "Popup",
       "title": ""
@@ -452,7 +452,7 @@
     },
     {
       "file": "strategy_ui.py",
-      "line": 386,
+      "line": 389,
       "scope": "show_city_lore",
       "factory": "Popup",
       "title": "<dynamic>"

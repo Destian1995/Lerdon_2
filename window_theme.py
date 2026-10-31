@@ -170,8 +170,8 @@ def theme_tree(root, observe=True):
             widget.selection_color = (0.76, 0.60, 0.34, 0.35)
             frame(widget, (0.34, 0.42, 0.51, 1))
         elif isinstance(widget, Slider):
-            widget.value_track = True
-            widget.value_track_color = GOLD
+            from slider_ui import style_slider
+            style_slider(widget)
         elif isinstance(widget, ScrollView):
             widget.bar_color = GOLD
             widget.bar_inactive_color = (0.35, 0.42, 0.50, 0.25)

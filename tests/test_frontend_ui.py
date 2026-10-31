@@ -10,6 +10,7 @@ from strategy_ui_fixture import __dict__ as fixture_globals
 from kivy.base import EventLoop
 from kivy.uix.spinner import Spinner
 from kivy.animation import Animation
+from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from frontend_ui import MenuButton, FactionChoice
 from strategy_ui import StrategyButton
 from window_theme import install_window_theme, theme_tree
@@ -24,9 +25,10 @@ def settle():
 def frontend_classes():
     tree = ast.parse((ROOT / 'main.py').read_text(encoding='utf-8'))
     names = {'MenuWidget', 'KingdomSelectionWidget', 'TutorialFactionScreen', 'AuthorScreen',
-             'ModernButton', 'RoundedButton', 'GameButton', 'FactionButton'}
+             'ModernButton', 'RoundedButton', 'GameButton', 'FactionButton', 'DossierScreen', 'Lor'}
     nodes = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name in names]
     namespace = dict(fixture_globals, MDFloatLayout=FloatLayout, Spinner=Spinner,
+                     TabbedPanel=TabbedPanel, TabbedPanelItem=TabbedPanelItem,
                      MenuButton=MenuButton, FactionChoice=FactionChoice, StrategyButton=StrategyButton)
     exec(compile(ast.Module(body=nodes, type_ignores=[]), 'main.py', 'exec'), namespace)
     return namespace
@@ -124,7 +126,7 @@ class FrontendTests(unittest.TestCase):
     def test_advisor_dismiss_removes_owner_once_without_reopening(self):
         tree = ast.parse((ROOT / 'ai_models/advisor_view.py').read_text(encoding='utf-8'))
         cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'AdvisorView')
-        methods = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in ('_dispose', 'on_parent')]
+        methods = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in ('_dispose', '_remove_owner', 'on_parent')]
         ns = dict(fixture_globals)
         exec(compile(ast.Module(body=methods, type_ignores=[]), 'advisor_view.py', 'exec'), ns)
         owner_type = type('AdvisorFixture', (FloatLayout,), {n.name: ns[n.name] for n in methods})
@@ -136,6 +138,7 @@ class FrontendTests(unittest.TestCase):
         host.add_widget(owner)
         owner._dispose()
         owner._dispose()
+        settle()
         self.assertEqual(calls, ['dispose'])
         self.assertIsNone(owner.parent)
         self.assertEqual(host.children, [])

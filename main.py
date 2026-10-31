@@ -2303,23 +2303,8 @@ class DossierScreen(Screen):
     # -------------------------
 
     def build_ui(self):
-        params = self._get_orientation_params()
-
-        root = BoxLayout(
-            orientation='vertical',
-            spacing=self._get_spacing(6, params['is_landscape'])
-        )
-
-        root.add_widget(self._create_title_bar(params))
-        root.add_widget(self._create_tabs_panel(params))
-        root.add_widget(self._create_bottom_panel(params))
-
-        from frontend_ui import finish_legacy_page
-        finish_legacy_page(self, root)
-
-    # -------------------------
-    # TITLE BAR
-    # -------------------------
+        from frontend_ui import build_rating
+        build_rating(self)
 
     def _create_title_bar(self, params):
         is_landscape = params['is_landscape']
@@ -2886,10 +2871,7 @@ class DossierScreen(Screen):
         self._reload_tabs()
 
     def _reload_tabs(self):
-        """Перезагружает вкладки с адаптивными параметрами"""
-        params = self._get_orientation_params()
-        self.tabs.clear_widgets()
-        self._load_dossier_data_to_tabs(self.tabs, params)
+        self.refresh_rating()
 
     def go_back(self, instance):
         """Возврат в главное меню"""
@@ -2902,9 +2884,8 @@ class DossierScreen(Screen):
     # -------------------------
 
     def on_window_resize(self, window, width, height):
-        """Вызывается при изменении размера окна"""
-        # Обновляем UI при изменении ориентации с небольшой задержкой
-        Clock.schedule_once(self._refresh_ui, 0.1)
+        if self.parent and hasattr(self, '_front_page'):
+            self._front_page.fit()
 
     def _refresh_ui(self, dt):
         """Обновляет UI с небольшой задержкой"""

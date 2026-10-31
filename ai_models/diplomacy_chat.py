@@ -12,7 +12,8 @@ from kivy.utils import platform as kivy_platform
 from kivy.uix.textinput import TextInput
 from kivy.uix.spinner import Spinner
 from kivy.graphics import Color, Rectangle, RoundedRectangle, Line
-from kivy.core.window import Window, Animation
+from kivy.core.window import Window
+from kivy.animation import Animation
 from kivy.metrics import dp, sp
 from kivy.clock import Clock
 from datetime import datetime
@@ -752,6 +753,8 @@ class EnhancedDiplomacyChat():
         Clock.schedule_once(lambda dt: self.scroll_chat_to_bottom_android(), 0.05)
 
     def scroll_chat_to_bottom_android(self):
+        if getattr(self, '_disposed', False):
+            return
         """Прокручивает чат вниз (оптимизированная для Android версия)"""
         if self.chat_scroll and hasattr(self.chat_scroll, 'scroll_y'):
             try:
@@ -859,6 +862,8 @@ class EnhancedDiplomacyChat():
             Clock.schedule_once(lambda dt: self.scroll_chat_to_bottom(), 0)
 
     def scroll_chat_to_bottom(self):
+        if getattr(self, '_disposed', False):
+            return
         """Прокручивает чат вниз - с плавной анимацией (десктоп)"""
         if self.chat_scroll and hasattr(self.chat_scroll, 'scroll_y'):
             try:
@@ -5825,12 +5830,16 @@ class EnhancedDiplomacyChat():
                     prev._active = False
                     prev._bg_color_instr.rgba = (0.12, 0.14, 0.18, 1)
                     prev.color = (0.9, 0.9, 0.95, 1)  # Вернуть белый текст
+                    if hasattr(prev, '_strategy_frame'):
+                        prev._strategy_frame.outer_color.rgba = (0.76, 0.60, 0.34, 0.7)
                 self._active_faction_btn = instance
                 instance._active = True
                 # Тёмный текст для светлых фракций (Элины, Адепты)
                 _light_factions = {'Элины', 'Адепты', 'Эльфы', 'Север'}
-                instance.color = (0.1, 0.1, 0.1, 1) if fname in _light_factions else (0.9, 0.9, 0.95, 1)
+                instance.color = (0.94, 0.94, 0.91, 1)
                 instance._bg_color_instr.rgba = instance._accent
+                if hasattr(instance, '_strategy_frame'):
+                    instance._strategy_frame.outer_color.rgba = instance._accent
                 self.selected_faction = fname
                 self.on_faction_selected_android(self.faction_spinner, fname)
                 _show_main_buttons()

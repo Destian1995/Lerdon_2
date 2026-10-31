@@ -9,6 +9,7 @@ from kivy.uix.image import Image
 from kivy.uix.popup import Popup
 from kivy.core.window import Window
 from kivy.metrics import dp, sp
+from kivy.clock import Clock
 from kivy.graphics import Color, RoundedRectangle
 from kivy.uix.behaviors import ButtonBehavior
 import os
@@ -122,7 +123,7 @@ class AdvisorView(FloatLayout):
         close_button = Button(
             text="X",
             size_hint=(None, None),
-            size=(dp(40), dp(40)),
+            size=(dp(48), dp(48)),
             pos_hint={'right': 0.98, 'top': 0.98},
             background_color=(0, 0, 0, 0),
             color=(1, 1, 1, 1),
@@ -135,9 +136,18 @@ class AdvisorView(FloatLayout):
         close_button.bind(
             pos=lambda i, v: setattr(i._br, 'pos', v),
             size=lambda i, v: setattr(i._br, 'size', v),
-            on_press=self.close_window
+            on_release=self.close_window
         )
-        main_container.add_widget(close_button)
+        from strategy_ui import text_label, GOLD
+        from window_theme import prepare_custom_popup, theme_tree
+        header = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(8))
+        header.add_widget(text_label('Дипломатия', 18, GOLD, bold=True))
+        header.add_widget(close_button)
+        main_container.padding = dp(10)
+        main_container.spacing = dp(8)
+        main_container.add_widget(header, index=len(main_container.children))
+        prepare_custom_popup(self.popup)
+        theme_tree(main_container)
 
         self.popup.open()
 
@@ -159,8 +169,14 @@ class AdvisorView(FloatLayout):
             return
         self._closed = True
         chat = getattr(self, 'diplomacy_chat', None)
-        if chat is not None and hasattr(chat, 'dispose'):
-            chat.dispose()
+        try:
+            if chat is not None and hasattr(chat, 'dispose'):
+                chat.dispose()
+        finally:
+            # Remove the owner after Popup finishes dispatching its dismissal.
+            Clock.schedule_once(self._remove_owner, 0)
+
+    def _remove_owner(self, *args):
         if self.parent:
             self.parent.remove_widget(self)
 

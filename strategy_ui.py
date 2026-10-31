@@ -109,7 +109,10 @@ class StrategyButton(Button):
 
 def text_label(text, size=14, color=TEXT, **kwargs):
     label = Label(text=text, font_size=sp(size), color=color, halign='left', valign='middle', **kwargs)
-    label.bind(size=lambda widget, value: setattr(widget, 'text_size', value))
+    def resize(widget, value):
+        widget.text_size = value
+    label._strategy_text_sizer = resize
+    label.bind(size=resize)
     return label
 
 
