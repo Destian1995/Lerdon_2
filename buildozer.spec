@@ -4,7 +4,7 @@
 # Основные параметры приложения
 # ---------------------------------
 
-version = 7.0.3
+version = 7.0.4
 title = Легенды Лэрдона
 package.name = lerdonlegends
 package.domain = com.lerdonlegends
@@ -55,7 +55,7 @@ android.release = True
 android.release_artifact = apk
 # Keep the legacy p4a prefix (10 + min API 21). Version 6.5.1 used 102160501.
 # A short code such as 70000 is LOWER and cannot update the existing store app.
-android.numeric_version = 102170003
+android.numeric_version = 102170004
 
 # ---------------------------------
 # Прочее

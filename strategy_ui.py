@@ -331,6 +331,7 @@ def decorate_hud(screen, **panels):
         frame(panel, FACTIONS.get(screen.selected_faction, GOLD) if name == 'faction' else GOLD)
         theme_tree(panel)
     for button in screen.tab_buttons.values():
+        frame(button, (0.32, 0.40, 0.48, 1))
         button.mipmap = True
     screen.season_icon.mipmap = True
     screen.faction_label.color = TEXT

@@ -92,13 +92,17 @@ class PortraitFrameTests(unittest.TestCase):
         style_portrait_image(widget, enabled=False)
         self.assertFalse(widget._portrait_frame.visible)
 
-    def test_actual_game_menu_icons_have_no_image_or_button_frames(self):
+    def test_game_tabs_restore_selection_frames_without_portrait_frames(self):
         from strategy_ui_fixture import hud_fixture, cleanup_hud
         hud = hud_fixture()
         try:
             for button in hud.tab_buttons.values():
                 self.assertFalse(hasattr(button, '_portrait_frame'))
-                self.assertFalse(hasattr(button, '_strategy_frame'))
+                self.assertTrue(hasattr(button, '_strategy_frame'))
+                button.set_active(True)
+                self.assertEqual(tuple(button._strategy_frame.outer_color.rgba), (0.90, 0.72, 0.36, 1))
+                button.set_active(False)
+                self.assertEqual(tuple(button._strategy_frame.outer_color.rgba), (0.32, 0.40, 0.48, 0.5))
         finally:
             cleanup_hud(hud)
 
