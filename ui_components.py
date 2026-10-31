@@ -837,148 +837,14 @@ class DiplomacyMessagePopup(FloatLayout):
     Кнопки: Принять / Отклонить / Написать ответ.
     """
 
-    def __init__(self, faction_name, message, message_type='info',
-                 on_respond=None, **kwargs):
+    def __init__(self, faction_name, message, message_type='info', on_respond=None, **kwargs):
         super().__init__(**kwargs)
-        self.faction_name = faction_name
-        self.message = message
-        self.on_respond = on_respond
+        self.faction_name, self.message, self.on_respond = faction_name, message, on_respond
         self.size_hint = (1, 1)
-
-        faction_data = FACTION_COLORS.get(faction_name)
-        accent = faction_data['primary'] if faction_data else (0.4, 0.4, 0.5, 1)
-
-        # Затемнение фона
-        with self.canvas.before:
-            Color(0, 0, 0, 0.6)
-            self._overlay = Rectangle(pos=(0, 0), size=Window.size)
-
-        # Карточка сообщения
-        card_w = min(dp(500), Window.width - dp(40))
-        card_h = dp(340)
-        card_x = Window.width / 2 - card_w / 2
-        card_y = Window.height / 2 - card_h / 2
-
-        self.card = FloatLayout(
-            size_hint=(None, None),
-            size=(card_w, card_h),
-            pos=(card_x, card_y),
-        )
-
-        with self.card.canvas.before:
-            # Тень
-            Color(0, 0, 0, 0.4)
-            RoundedRectangle(pos=(card_x + dp(4), card_y - dp(4)),
-                             size=(card_w, card_h), radius=[dp(16)])
-            # Фон
-            Color(0.11, 0.13, 0.19, 0.97)
-            self._card_bg = RoundedRectangle(pos=(card_x, card_y),
-                                             size=(card_w, card_h), radius=[dp(16)])
-            # Акцент сверху
-            Color(*accent[:3], 1)
-            RoundedRectangle(pos=(card_x, card_y + card_h - dp(4)),
-                             size=(card_w, dp(4)), radius=[dp(16), dp(16), 0, 0])
-
-        # Заголовок: иконка + имя фракции
-        icon_path = FACTION_ICON_MAP.get(faction_name, '')
-        header = BoxLayout(
-            orientation='horizontal', spacing=dp(10),
-            size_hint=(None, None), size=(card_w - dp(32), dp(44)),
-            pos=(card_x + dp(16), card_y + card_h - dp(56)),
-        )
-        if icon_path:
-            header.add_widget(Image(
-                source=icon_path, size_hint=(None, None),
-                size=(dp(40), dp(40)), allow_stretch=True, keep_ratio=True,
-            ))
-        header.add_widget(Label(
-            text=f'[b]{faction_name}[/b]', markup=True,
-            font_size=sp(18), color=(1, 1, 1, 1),
-            halign='left', valign='middle',
-            size_hint=(1, None), height=dp(40),
-        ))
-
-        # Текст сообщения
-        # Убираем теги типа [ТОРГОВЛЯ] из отображения
-        clean_msg = message
-        for tag in ['[СОЮЗ]', '[ТОРГОВЛЯ]', '[УГРОЗА]', '[ПРЕДУПРЕЖДЕНИЕ]',
-                     '[ПОЩАДА]', '[УМОЛЯЮ]', '[ПОМОЩЬ]', '[ПРОСЬБА]', '[ДРУЖБА]']:
-            clean_msg = clean_msg.replace(tag, '').strip()
-
-        msg_label = Label(
-            text=clean_msg,
-            font_size=sp(14),
-            color=(0.9, 0.9, 0.9, 1),
-            halign='left', valign='top',
-            size_hint=(None, None),
-            size=(card_w - dp(32), dp(160)),
-            pos=(card_x + dp(16), card_y + dp(70)),
-            text_size=(card_w - dp(40), dp(160)),
-        )
-
-        # Кнопки — зависят от типа сообщения
-        btn_row = BoxLayout(
-            orientation='horizontal', spacing=dp(10),
-            size_hint=(None, None), size=(card_w - dp(32), dp(44)),
-            pos=(card_x + dp(16), card_y + dp(14)),
-        )
-
-        # Типы с предложениями (торговля, союз, пощада, помощь) — Принять/Отклонить/Ответить
-        actionable_types = ('trade', 'alliance', 'mercy', 'help')
-        if message_type in actionable_types:
-            btn_accept = Button(
-                text='Принять', font_size=sp(14), bold=True,
-                background_normal='', background_color=(0.2, 0.6, 0.3, 1),
-                color=(1, 1, 1, 1), size_hint=(1, 1),
-            )
-            btn_accept.bind(on_release=lambda *a: self._respond('да'))
-
-            btn_decline = Button(
-                text='Отклонить', font_size=sp(14), bold=True,
-                background_normal='', background_color=(0.6, 0.2, 0.2, 1),
-                color=(1, 1, 1, 1), size_hint=(1, 1),
-            )
-            btn_decline.bind(on_release=lambda *a: self._respond('нет'))
-
-            btn_reply = Button(
-                text='Ответить...', font_size=sp(14), bold=True,
-                background_normal='', background_color=(0.25, 0.35, 0.55, 1),
-                color=(1, 1, 1, 1), size_hint=(1, 1),
-            )
-            btn_reply.bind(on_release=lambda *a: self._open_chat())
-
-            btn_row.add_widget(btn_accept)
-            btn_row.add_widget(btn_decline)
-            btn_row.add_widget(btn_reply)
-        else:
-            # Информационные/предупреждения (info, warning, дружба) — Ясно/Ответить
-            btn_ok = Button(
-                text='Ясно', font_size=sp(14), bold=True,
-                background_normal='', background_color=(0.3, 0.4, 0.55, 1),
-                color=(1, 1, 1, 1), size_hint=(1, 1),
-            )
-            btn_ok.bind(on_release=lambda *a: self.close())
-
-            btn_reply = Button(
-                text='Ответить...', font_size=sp(14), bold=True,
-                background_normal='', background_color=(0.25, 0.35, 0.55, 1),
-                color=(1, 1, 1, 1), size_hint=(1, 1),
-            )
-            btn_reply.bind(on_release=lambda *a: self._open_chat())
-
-            btn_row.add_widget(btn_ok)
-            btn_row.add_widget(btn_reply)
-
-        self.card.add_widget(header)
-        self.card.add_widget(msg_label)
-        self.card.add_widget(btn_row)
-        self.add_widget(self.card)
-
-        # Анимация
+        from message_ui import build_diplomacy_message
+        build_diplomacy_message(self, faction_name, message, message_type)
         self.opacity = 0
-        self.card.y = card_y + dp(60)
         Animation(opacity=1, duration=0.2).start(self)
-        Animation(y=card_y, duration=0.35, t='out_back').start(self.card)
 
     def _respond(self, answer):
         """Отправляет ответ (да/нет) через callback."""
@@ -1031,7 +897,7 @@ def show_message(title, message):
     popup_height = text_height + dp(130)
 
     # Контейнер
-    content = FloatLayout(size_hint=(1, 1))
+    content = BoxLayout(orientation='vertical', spacing=dp(10), padding=dp(8))
 
     # Фон с градиентом
     with content.canvas.before:
@@ -1080,7 +946,7 @@ def show_message(title, message):
 
     _is_mobile = platform in ('android', 'ios')
     popup = Popup(
-        title='',
+        title=title,
         separator_height=0,
         content=content,
         size_hint=(0.88 if _is_mobile else 0.55, None),

@@ -3031,28 +3031,8 @@ def start_economy_mode(faction, game_area, db_conn, season_manager, root_overlay
     economy_layout.pos = (left_start, dp(4))
 
     def create_styled_button(text, on_press_callback):
-        button = Button(
-            text=text,
-            size_hint=(1, 1),
-            background_color=(0, 0, 0, 0),
-            color=(0.85, 0.90, 1, 1),
-            font_size=sp(12) if is_android else sp(14),
-            bold=True
-        )
-        with button.canvas.before:
-            Color(0.12, 0.16, 0.28, 0.95)
-            button.rect = RoundedRectangle(pos=button.pos, size=button.size, radius=[dp(8)])
-            # Тонкая рамка
-            Color(0.25, 0.40, 0.65, 0.5)
-            button._border_rr = RoundedRectangle(pos=button.pos, size=button.size, radius=[dp(8)])
-
-        def update_rect(instance, value):
-            instance.rect.pos = instance.pos
-            instance.rect.size = instance.size
-            instance._border_rr.pos = (instance.x - dp(1), instance.y - dp(1))
-            instance._border_rr.size = (instance.width + dp(2), instance.height + dp(2))
-
-        button.bind(pos=update_rect, size=update_rect)
+        from strategy_ui import StrategyButton
+        button = StrategyButton(text=text, font_size=sp(14))
         button.bind(on_release=on_press_callback)
         return button
 
@@ -3063,6 +3043,10 @@ def start_economy_mode(faction, game_area, db_conn, season_manager, root_overlay
     economy_layout.add_widget(create_styled_button("Налоги", lambda x: open_tax_popup(faction)))
 
     economy_layout._is_economy_bar = True
+    from window_theme import theme_tree
+    theme_tree(economy_layout)
+    from responsive_ui import make_action_dock
+    make_action_dock(economy_layout)
     # Добавляем в root_overlay (весь экран) чтобы не перекрывалось боковой панелью
     target = root_overlay if root_overlay is not None else game_area
     target.add_widget(economy_layout)

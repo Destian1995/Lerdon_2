@@ -73,7 +73,9 @@ class MapAtmosphere(Widget):
         self._weather_group = InstructionGroup()
         self._plague_group = InstructionGroup()
         self._storm_group = InstructionGroup()
-        for group in (self._weather_group, self._plague_group, self._storm_group):
+        from map_city_effects import CityEffects
+        self.city_effects = CityEffects(self)
+        for group in (self._weather_group, self._plague_group, self._storm_group, self.city_effects.group):
             self.canvas.add(group)
         with self.canvas:
             StencilUnUse()
@@ -408,6 +410,7 @@ class MapAtmosphere(Widget):
         self._update_weather(dt)
         self._update_storms(dt)
         self._update_plague()
+        self.city_effects.update(dt)
 
     def start(self):
         if self._event is None:

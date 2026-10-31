@@ -56,7 +56,7 @@ class RecruitmentWindowTests(unittest.TestCase):
         economy = SimpleNamespace(get_resource_now=lambda resource: 1000)
         namespace['start_army_mode']('Север', self.area, economy, self.conn)
         self.root = self.area.children[0]
-        self.carousel = next(w for w in self.root.walk() if isinstance(w, Carousel))
+        self.carousel = self.root.carousel
 
     def tearDown(self):
         self.area.clear_widgets()
@@ -84,9 +84,9 @@ class RecruitmentWindowTests(unittest.TestCase):
         time.sleep(0.12)
         Clock.tick()
         self.assertEqual(self.built_count(), 1)
-        arrow = next(w for w in self.root.walk()
-                     if isinstance(w, Image) and w.source == 'files/pict/right.png')
-        self.assertFalse(any(arrow.uid in anim._widgets for anim in Animation._instances))
+        self.assertTrue(self.root.released)
+        self.assertIsNone(self.root.warmup_event)
+        self.assertIsNone(self.root.popup.parent)
 
     def test_recruit_quantity_belongs_to_its_own_card(self):
         self.carousel.index = 1
@@ -101,6 +101,22 @@ class RecruitmentWindowTests(unittest.TestCase):
             button.dispatch('on_release')
             self.assertEqual(self.hires[-1][0], name)
             self.assertEqual(self.hires[-1][2].text, quantity)
+
+    def test_insufficient_resources_disable_hiring(self):
+        self.root.army_hire.class_faction.get_resource_now = lambda resource: 0
+        card = self.carousel.slides[0]
+        quantity = next(w for w in card.walk() if isinstance(w, TextInput))
+        quantity.text = '2'
+        hire = next(w for w in card.walk() if isinstance(w, Button) and w.text == 'НАНЯТЬ')
+        self.assertTrue(hire.disabled)
+
+    def test_close_dismisses_once_and_releases_the_owner(self):
+        calls = []
+        self.root.popup.bind(on_dismiss=lambda *args: calls.append('dismiss'))
+        self.root.close_button.dispatch('on_release')
+        self.assertEqual(calls, ['dismiss'])
+        self.assertIsNone(self.root.parent)
+        self.assertTrue(self.root.released)
 
 
 if __name__ == '__main__':

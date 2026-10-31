@@ -32,6 +32,12 @@ if original_asset_path is None:
 
 # Путь, куда будем копировать базу для фактической работы:
 copied_db = os.path.join(storage_dir, 'game_data.db')
+if platform == 'android':
+    from release_state import reset_android_release
+    if reset_android_release(storage_dir, original_asset_path):
+        from kivy.cache import Cache
+        Cache.remove('kv.image')
+        Cache.remove('kv.texture')
 
 # ==========================
 # 3. Копируем базу при первом запуске или при обновлении

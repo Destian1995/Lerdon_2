@@ -930,6 +930,9 @@ def early_expansion(self):
             try:
                 self.cursor.execute("UPDATE cities SET faction = ? WHERE name = ?", (self.faction, target_city))
                 self.cursor.execute("UPDATE buildings SET faction = ? WHERE city_name = ?", (self.faction, target_city))
+                if not result.get('rounds', 0):
+                    from city_war import record_capture
+                    record_capture(self.db_connection, target_city, self.faction)
                 self.db_connection.commit()
                 print(f"[AI] {self.faction} захватил нейтральный город {target_city}!")
             except Exception as e:

@@ -480,6 +480,9 @@ def is_connected(positions):
 
 def generate_map_and_cities(conn, terrain=None, sprite_scale=1):
     """Основная функция: генерация связного набора городов → остальное."""
+    from city_war import ensure_city_war_schema
+    ensure_city_war_schema(conn)
+    conn.execute('DELETE FROM city_war_state')
 
     # Шаг 1: Генерация координат городов с гарантией связности по манхэттену
     print("[INFO] Генерация координат городов с гарантией связности...")

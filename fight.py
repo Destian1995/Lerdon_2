@@ -299,7 +299,7 @@ def is_unit_combat_ready(unit, army=None):
 
 def battle_chain(attacker, defender, city, user_faction, conn,
                  atk_hero_bonus=(0, 0, 0), def_hero_bonus=(0, 0, 0),
-                 atk_fraction='', def_fraction=''):
+                 atk_fraction='', def_fraction='', event_log=None):
     """Одна стычка: симметричные пропорциональные потери."""
     if attacker['unit_count'] <= 0 or defender['unit_count'] <= 0:
         return attacker, defender
@@ -403,10 +403,14 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     # Рандом + крит
     atk_roll = random.uniform(RANDOM_MIN, RANDOM_MAX)
     def_roll = random.uniform(RANDOM_MIN, RANDOM_MAX)
-    if random.random() * 100 < get_crit_chance(attacker):
+    atk_critical = random.random() * 100 < get_crit_chance(attacker)
+    if atk_critical:
         atk_roll *= CRIT_MULTIPLIER
-    if random.random() * 100 < get_crit_chance(defender):
+    def_critical = random.random() * 100 < get_crit_chance(defender)
+    if def_critical:
         def_roll *= CRIT_MULTIPLIER
+    if event_log is not None:
+        event_log.append((atk_critical, def_critical))
     atk_attack *= atk_roll
     def_attack *= def_roll
 
@@ -492,6 +496,10 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     # Обогащение из БД
     _enrich_with_db_stats(atk_army, conn)
     _enrich_with_db_stats(def_army, conn)
+    # Snapshot only the armies participating in this battle, before losses/buffs.
+    from city_war import army_strength as city_battle_strength
+    initial_attacker_strength = city_battle_strength(atk_army)
+    initial_defender_strength = city_battle_strength(def_army)
 
     # === Система опыта: миграция + загрузка + бонусы ===
     try:
@@ -786,6 +794,8 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     round_num = 0
     while round_num < MAX_ROUNDS:
         round_num += 1
+        round_criticals = {'A': 0, 'D': 0}
+        round_heroes = []
 
         atk_alive = [u for u in atk_army if is_unit_combat_ready(u, atk_army)]
         def_alive = [u for u in def_army if is_unit_combat_ready(u, def_army)]
@@ -820,15 +830,21 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                 break
 
             target = max(targets, key=lambda u: _get_stat(u, 'Урон', 0))
+            critical_events = []
 
             if side == 'A':
                 battle_chain(unit, target, defending_city, user_faction, conn,
                              atk_hero_bonus=atk_hero_bonus, def_hero_bonus=def_hero_bonus,
-                             atk_fraction=attacking_fraction, def_fraction=defending_fraction)
+                             atk_fraction=attacking_fraction, def_fraction=defending_fraction,
+                             event_log=critical_events)
             else:
                 battle_chain(unit, target, defending_city, user_faction, conn,
                              atk_hero_bonus=def_hero_bonus, def_hero_bonus=atk_hero_bonus,
-                             atk_fraction=defending_fraction, def_fraction=attacking_fraction)
+                             atk_fraction=defending_fraction, def_fraction=attacking_fraction,
+                             event_log=critical_events)
+            for own_critical, enemy_critical in critical_events:
+                round_criticals[side] += int(own_critical)
+                round_criticals['D' if side == 'A' else 'A'] += int(enemy_critical)
 
         # Проверка на вступление героев при потерях ≥85%
         for side in ['atk', 'def']:
@@ -845,6 +861,7 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             if hero3 is not None and not hero3.get('hero_engaged', False):
                 if total_initial == 0 or losses_percent >= 85:
                     hero3['hero_engaged'] = True
+                    round_heroes.append({'side': side, 'unit_name': hero3['unit_name']})
                     hero3['unit_count'] = 1
                     stats = hero3.get('units_stats', {})
                     if 'Урон' in stats:
@@ -861,6 +878,7 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                                or hero3.get('unit_count', 0) <= 0)
                 if class3_done and (total_initial == 0 or losses_percent >= 85):
                     hero4['hero_engaged'] = True
+                    round_heroes.append({'side': side, 'unit_name': hero4['unit_name']})
                     hero4['unit_count'] = 1
                     stats = hero4.get('units_stats', {})
                     if 'Урон' in stats:
@@ -885,7 +903,10 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             'atk_total': atk_total,
             'def_total': def_total,
             'atk_max': atk_max,
-            'def_max': def_max
+            'def_max': def_max,
+            'atk_crits': round_criticals['A'],
+            'def_crits': round_criticals['D'],
+            'heroes': round_heroes,
         })
 
     # Подсчёт потерь
@@ -1036,21 +1057,11 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     except Exception as e:
         print(f"[ERROR] update_results_table: {e}")
 
-    # Записываем битву для дыма на карте
+    # Persistent smoke/damage for player battles and AI battles alike.
     try:
-        _cur = conn.cursor()
-        _cur.execute("""
-            CREATE TABLE IF NOT EXISTS battle_smoke (
-                city_name TEXT PRIMARY KEY,
-                turn INTEGER
-            )
-        """)
-        # Получаем текущий ход
-        _cur.execute("SELECT turn FROM turn LIMIT 1")
-        _t_row = _cur.fetchone()
-        _cur_turn = _t_row[0] if _t_row else 0
-        _cur.execute("INSERT OR REPLACE INTO battle_smoke (city_name, turn) VALUES (?, ?)",
-                     (defending_city, _cur_turn))
+        from city_war import record_battle
+        record_battle(conn, defending_city, initial_attacker_strength,
+                      initial_defender_strength, defending_fraction)
         conn.commit()
     except Exception as e:
         print(f"[SMOKE] Ошибка записи: {e}")
@@ -1137,7 +1148,8 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                                            user_faction=_user_faction, conn=_conn,
                                            attacking_fraction=_attacking_fraction,
                                            defending_fraction=_defending_fraction,
-                                           bonus_messages=_bonus_msgs)
+                                           bonus_messages=_bonus_msgs,
+                                           battle_rounds=_battle_rounds_copy)
 
                     show_battle_animation(_battle_rounds_copy, _attacking_fraction,
                                           _defending_fraction, winner, _user_faction,
@@ -1232,6 +1244,8 @@ def update_results_table(db_connection, faction, units_destroyed, enemy_losses):
 def generate_battle_report(attacking_army, defending_army, winner,
                            attacking_fraction, defending_fraction, user_faction, city):
     """Генерирует отчет о бое."""
+    from battle_presentation import side_name
+    winner = side_name(winner)
     attacking_result = None
     defending_result = None
     report_data = []
@@ -1242,9 +1256,9 @@ def generate_battle_report(attacking_army, defending_army, winner,
             final_count = unit['unit_count']
             healed = unit.get('healed_count', 0)
             # losses = чистые потери (после исцеления)
-            losses = abs(initial_count - final_count)
+            losses = max(0, initial_count - final_count)
             # total_killed = потери до исцеления
-            total_killed = losses + healed
+            total_killed = max(0, unit.get('killed_count', losses + healed))
             report_data.append({
                 'unit_name': unit['unit_name'],
                 'initial_count': initial_count,
@@ -1253,7 +1267,12 @@ def generate_battle_report(attacking_army, defending_army, winner,
                 'healed': healed,
                 'side': side,
                 'result': result,
-                'city': city
+                'city': city,
+                'unit_image': unit.get('unit_image', ''),
+                'unit_class': get_unit_class(unit),
+                'net_losses': max(0, total_killed - healed),
+                'reinforcements': max(0, final_count - initial_count + max(0, total_killed - healed)),
+                'winner': winner,
             })
 
     if user_faction:
@@ -1274,762 +1293,29 @@ def generate_battle_report(attacking_army, defending_army, winner,
 
 
 def show_battle_report(report_data, is_user_involved=False, user_faction=None, conn=None,
-                       attacking_fraction=None, defending_fraction=None, bonus_messages=None):
-    """Финальный отчёт о бою — адаптивный вертикальный layout."""
+                       attacking_fraction=None, defending_fraction=None, bonus_messages=None, battle_rounds=None):
+    """Present the immutable after-action data through the shared battle UI."""
     if not report_data:
-        return
-
-    from kivy.metrics import dp, sp
-    from kivy.uix.label import Label
-    from kivy.uix.popup import Popup
-    from kivy.uix.boxlayout import BoxLayout
-    from kivy.uix.button import Button
-    from kivy.uix.scrollview import ScrollView
-    from kivy.graphics import Color, Rectangle, RoundedRectangle
-    from kivy.core.window import Window
-    from kivy.animation import Animation
-
-    _FC = {
-        'Север': '#4085EB', 'Эльфы': '#38C252', 'Вампиры': '#C71A28',
-        'Адепты': '#8A7FD4', 'Элины': '#F28014', 'Нежить': '#33BF99',
-    }
-    is_small = Window.height < dp(600)
-    _fs = sp(13) if is_small else sp(14)
-    _fs_title = sp(16) if is_small else sp(18)
-    row_h = dp(24) if is_small else dp(28)
-
-    # Определяем результат
-    result_text, result_color = "", (1, 1, 1, 1)
-    player_side = None
-    for it in report_data:
-        if it.get("result"):
-            result_text = it["result"].upper()
-            result_color = (0.2, 1, 0.35, 1) if "ПОБЕД" in result_text else (1, 0.35, 0.2, 1)
-            player_side = it.get('side')
-            break
-
-    city_name = report_data[0].get('city', '—') if report_data else '—'
-    attacking_units = [it for it in report_data if it.get('side') == 'attacking']
-    defending_units = [it for it in report_data if it.get('side') == 'defending']
-
-    # Определяем порядок: сначала враг, потом игрок
-    if player_side == 'attacking':
-        sections = [
-            (defending_fraction or 'Защитник', defending_units, 'ИИ'),
-            (attacking_fraction or 'Атакующий', attacking_units, 'Вы'),
-        ]
-    else:
-        sections = [
-            (attacking_fraction or 'Атакующий', attacking_units, 'ИИ'),
-            (defending_fraction or 'Защитник', defending_units, 'Вы'),
-        ]
-
-    def _status(u):
-        init, fin = u.get('initial_count', 0), u.get('final_count', 0)
-        losses = u.get('losses', 0)
-        healed = u.get('healed', 0)
-        if init == 1 and fin == 1:
-            return "[color=#4CAF50]Выжил[/color]"
-        elif init == 1 and fin == 0:
-            return "[color=#FF5733]Погиб[/color]"
-        elif losses <= 0:
-            return f"[color=#4CAF50]Без потерь[/color]  ост. {fin}"
-        heal_txt = f" [color=#4CAF50]/+{healed}[/color]" if healed > 1 else ""
-        return f"[color=#FF5733]-{losses}[/color]{heal_txt}  [color={'#4CAF50' if fin > 0 else '#FF5733'}]ост. {fin}[/color]"
-
-    # === Основной контейнер (ScrollView) ===
-    scroll_content = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(6),
-                                padding=[dp(12), dp(8), dp(12), dp(8)])
-    scroll_content.bind(minimum_height=scroll_content.setter('height'))
-
-    # Заголовок: ПОБЕДА / ПОРАЖЕНИЕ — Город
-    header = Label(
-        text=f"[b]{result_text}[/b]  —  [color=#FFD700]{city_name}[/color]",
-        markup=True, font_size=sp(20) if not is_small else sp(17),
-        color=result_color, halign='center', valign='middle',
-        size_hint_y=None, height=dp(40) if not is_small else dp(34)
-    )
-    header.bind(size=header.setter('text_size'))
-    scroll_content.add_widget(header)
-
-    # Секции: для каждой стороны
-    for faction_name, units, role in sections:
-        col = _FC.get(faction_name, '#AAAAAA')
-
-        # Заголовок секции
-        sec_header = Label(
-            text=f"[b][color={col}]{faction_name}[/color][/b]  [color=#888888]({role})[/color]",
-            markup=True, font_size=_fs_title, halign='left', valign='middle',
-            size_hint_y=None, height=dp(30) if not is_small else dp(26)
-        )
-        sec_header.bind(size=sec_header.setter('text_size'))
-        scroll_content.add_widget(sec_header)
-
-        # Строки юнитов
-        for u in units:
-            row = BoxLayout(orientation='horizontal', size_hint_y=None, height=row_h, spacing=dp(4))
-
-            name_lbl = Label(
-                text=f"[b]{u.get('unit_name', '—')}[/b]", markup=True,
-                font_size=_fs, halign='left', valign='middle',
-                size_hint_x=0.4
-            )
-            name_lbl.bind(size=name_lbl.setter('text_size'))
-
-            status_lbl = Label(
-                text=_status(u), markup=True,
-                font_size=_fs, halign='right', valign='middle',
-                size_hint_x=0.6
-            )
-            status_lbl.bind(size=status_lbl.setter('text_size'))
-
-            row.add_widget(name_lbl)
-            row.add_widget(status_lbl)
-
-            # Подложка строки с чередованием
-            with row.canvas.before:
-                Color(0.15, 0.16, 0.24, 0.4)
-                _r = RoundedRectangle(pos=row.pos, size=row.size, radius=[dp(4)])
-            row.bind(pos=lambda inst, v, r=_r: setattr(r, 'pos', v),
-                     size=lambda inst, v, r=_r: setattr(r, 'size', v))
-
-            scroll_content.add_widget(row)
-
-        # Разделитель между секциями
-        if role == 'ИИ':
-            sep = BoxLayout(size_hint_y=None, height=dp(1))
-            with sep.canvas:
-                Color(0.3, 0.35, 0.5, 0.4)
-                _sr = Rectangle(pos=sep.pos, size=sep.size)
-            sep.bind(pos=lambda i, v, r=_sr: setattr(r, 'pos', v),
-                     size=lambda i, v, r=_sr: setattr(r, 'size', v))
-            scroll_content.add_widget(sep)
-
-    # Бонусные сообщения (Вампиризм, Исцеление)
-    if bonus_messages:
-        bonus_sep = BoxLayout(size_hint_y=None, height=dp(1))
-        with bonus_sep.canvas:
-            Color(0.4, 0.6, 0.3, 0.5)
-            _bsr = Rectangle(pos=bonus_sep.pos, size=bonus_sep.size)
-        bonus_sep.bind(pos=lambda i, v, r=_bsr: setattr(r, 'pos', v),
-                       size=lambda i, v, r=_bsr: setattr(r, 'size', v))
-        scroll_content.add_widget(bonus_sep)
-
-        for msg in bonus_messages:
-            bonus_lbl = Label(
-                text=msg, markup=True,
-                font_size=_fs_title, halign='center', valign='middle',
-                size_hint_y=None, height=dp(26) if is_small else dp(30)
-            )
-            bonus_lbl.bind(size=bonus_lbl.setter('text_size'))
-            scroll_content.add_widget(bonus_lbl)
-
-    scroll = ScrollView(do_scroll_x=False, bar_width=dp(3),
-                         bar_color=(0.4, 0.5, 0.8, 0.4))
-    scroll.add_widget(scroll_content)
-
-    # Кнопка закрытия
-    close_btn = Button(
-        text="Закрыть", size_hint_y=None, height=dp(42),
-        font_size=sp(15), bold=True,
-        background_color=(0.18, 0.50, 0.88, 1), color=(1, 1, 1, 1),
-        background_normal=''
-    )
-
-    # Главный layout
-    main = BoxLayout(orientation='vertical', spacing=dp(6),
-                      padding=[dp(6), dp(6), dp(6), dp(6)])
-    with main.canvas.before:
-        Color(0.09, 0.09, 0.14, 1)
-        main._bg = Rectangle(pos=main.pos, size=main.size)
-    main.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-              size=lambda i, v: setattr(i._bg, 'size', v))
-    main.add_widget(scroll)
-    main.add_widget(close_btn)
-
-    popup = Popup(title="", content=main,
-                  size_hint=(0.92 if is_small else 0.65, 0.85 if is_small else 0.75),
-                  background_color=(0.06, 0.06, 0.10, 1),
-                  separator_height=0, auto_dismiss=True)
-    close_btn.bind(on_release=lambda inst: popup.dismiss())
-
-    # Плавное появление
-    main.opacity = 0
-    from kivy.clock import Clock as _Clock
-    _Clock.schedule_once(
-        lambda dt: Animation(opacity=1, duration=0.3, t='out_cubic').start(main), 0.05
-    )
-
-    # Обновление досье
-    if is_user_involved and user_faction and report_data:
-        is_victory = any(it.get('result') in ("Победа", "VICTORY") for it in report_data)
-        try:
-            update_dossier_battle_stats(conn, user_faction, is_victory)
-        except Exception as e:
-            print(f"[Ошибка] Не удалось обновить досье: {e}")
-
+        return None
+    from battle_ui import BattleReport
+    popup = BattleReport(report_data, user_faction, attacking_fraction, defending_fraction, bonus_messages, battle_rounds)
+    if is_user_involved and user_faction and conn is not None:
+        is_victory = any(item.get('result') in ('\u041f\u043e\u0431\u0435\u0434\u0430', 'VICTORY') for item in report_data)
+        update_dossier_battle_stats(conn, user_faction, is_victory)
     popup.open()
+    return popup
 
 
 def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction, winner,
                           user_faction, attacking_city, defending_city, callback=None,
                           atk_hero_image=None, def_hero_image=None):
-    """
-    Боевая анимация v3 — с картинками героев/фракций по диагонали:
-      • Картинка атакующего (герой или фракция) — слева вверху
-      • Шкала HP атакующего — под его картинкой
-      • Картинка защитника — справа внизу
-      • Шкала HP защитника — под его картинкой
-      • Диагональный разделитель между ними
-      • На финальном экране — картинка победителя
-    """
-    from kivy.clock import Clock
-    from kivy.uix.popup import Popup
-    from kivy.uix.boxlayout import BoxLayout
-    from kivy.uix.floatlayout import FloatLayout
-    from kivy.uix.label import Label
-    from kivy.uix.button import Button
-    from kivy.uix.widget import Widget
-    from kivy.uix.image import Image as KivyImage
-    from kivy.graphics import Color, RoundedRectangle, Rectangle, Line
-    from kivy.metrics import dp, sp
-    from kivy.animation import Animation
-    from kivy.properties import NumericProperty
-    from kivy.utils import platform
-    import random as _rnd
-
-    # ── Картинки фракций (запасной вариант) ──────────────────────────────
-    _FACTION_IMG = {
-        'Север':   'files/sov/people.jpg',
-        'Эльфы':   'files/sov/elfs.jpg',
-        'Вампиры': 'files/sov/vampire.jpg',
-        'Адепты':  'files/sov/adept.jpg',
-        'Элины':   'files/sov/poly.jpg',
-    }
-
-    def _resolve_image(hero_img, faction):
-        """Возвращает путь к картинке: герой → фракция → пусто."""
-        if hero_img and os.path.exists(hero_img):
-            return hero_img
-        fi = _FACTION_IMG.get(faction, '')
-        if fi and os.path.exists(fi):
-            return fi
-        return ''
-
-    atk_img_path = _resolve_image(atk_hero_image, attacking_fraction)
-    def_img_path = _resolve_image(def_hero_image, defending_fraction)
-
-    # ── Фракционные цвета ────────────────────────────────────────────────
-    _FC = {
-        'Север':   (0.25, 0.52, 0.92, 1),
-        'Эльфы':   (0.22, 0.76, 0.32, 1),
-        'Вампиры': (0.40, 0.10, 0.50, 1),
-        'Адепты':  (0.85, 0.45, 0.10, 1),
-        'Элины':   (0.95, 0.90, 0.15, 1),
-    }
-    atk_c = _FC.get(attacking_fraction, (0.25, 0.72, 0.30, 1))
-    def_c = _FC.get(defending_fraction, (0.72, 0.18, 0.18, 1))
-
-    def _to_hex(rgba):
-        return '#{:02X}{:02X}{:02X}'.format(
-            int(rgba[0] * 255), int(rgba[1] * 255), int(rgba[2] * 255))
-
-    atk_hex = _to_hex(atk_c)
-    def_hex = _to_hex(def_c)
-
-    # ── Виджет анимированной HP-полосы ──────────────────────────────────
-    class BattleBar(Widget):
-        ratio = NumericProperty(1.0)
-
-        def __init__(self, **kwargs):
-            super().__init__(**kwargs)
-            self.bind(ratio=self._draw, pos=self._draw, size=self._draw)
-
-        @staticmethod
-        def _hp_color(r):
-            r = max(0.0, min(1.0, r))
-            if r >= 0.55:
-                t = (r - 0.55) / 0.45
-                return (0.15 + (1 - t) * 0.72, 0.58 + t * 0.28, 0.04, 1)
-            elif r >= 0.25:
-                t = (r - 0.25) / 0.30
-                return (0.94, 0.12 + t * 0.52, 0.02, 1)
-            else:
-                return (0.88, 0.08, 0.04, 1)
-
-        def _draw(self, *args):
-            self.canvas.clear()
-            if self.width <= 0 or self.height <= 0:
-                return
-            with self.canvas:
-                Color(0.09, 0.09, 0.15, 1)
-                RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(14)])
-                fw = self.width * max(0.0, min(1.0, self.ratio))
-                if fw > dp(6):
-                    Color(*self._hp_color(self.ratio))
-                    RoundedRectangle(pos=self.pos, size=(fw, self.height), radius=[dp(14)])
-                    # Блик
-                    Color(1, 1, 1, 0.14)
-                    RoundedRectangle(
-                        pos=(self.x + dp(4), self.y + self.height * 0.60),
-                        size=(max(dp(4), fw - dp(8)), self.height * 0.28),
-                        radius=[dp(8)]
-                    )
-
-        def animate_to(self, new_ratio, duration=0.44):
-            Animation.cancel_all(self, 'ratio')
-            Animation(ratio=max(0.0, new_ratio), duration=duration, t='out_cubic').start(self)
-
-    # ── Подготовка раундов ───────────────────────────────────────────────
-    if len(battle_rounds) > 14:
-        step = max(1, len(battle_rounds) // 12)
-        selected = battle_rounds[::step]
-        if selected[-1] is not battle_rounds[-1]:
-            selected.append(battle_rounds[-1])
-    else:
-        selected = list(battle_rounds)
-
-    # ── Встречные HP-шкалы (Враг ←→ Игрок) ────────────────────────────
-    class DualBattleBar(Widget):
-        """Две встречные шкалы: атакующий слева→, защитник ←справа, сходятся к центру."""
-        atk_ratio = NumericProperty(1.0)
-        def_ratio = NumericProperty(1.0)
-
-        def __init__(self, atk_color, def_color, **kwargs):
-            super().__init__(**kwargs)
-            self._atk_c = atk_color
-            self._def_c = def_color
-            self._particles = []
-            self.bind(atk_ratio=self._draw, def_ratio=self._draw,
-                      pos=self._draw, size=self._draw)
-
-        def _draw(self, *args):
-            self.canvas.clear()
-            if self.width <= 0 or self.height <= 0:
-                return
-            cx = self.x + self.width / 2
-            half = self.width / 2 - dp(2)
-            h = self.height
-            with self.canvas:
-                # Фон
-                Color(0.06, 0.06, 0.12, 1)
-                RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(10)])
-                # Центральная линия
-                Color(0.9, 0.75, 0.2, 0.6)
-                Rectangle(pos=(cx - dp(1), self.y + dp(2)), size=(dp(2), h - dp(4)))
-                # Атакующий ←── (растёт справа налево от центра)
-                aw = half * max(0, min(1, self.atk_ratio))
-                if aw > dp(3):
-                    Color(*self._atk_c[:3], 0.85)
-                    RoundedRectangle(pos=(cx - aw, self.y), size=(aw, h), radius=[dp(10), dp(0), dp(0), dp(10)])
-                    Color(1, 1, 1, 0.12)
-                    RoundedRectangle(pos=(cx - aw + dp(2), self.y + h * 0.6),
-                                     size=(max(dp(2), aw - dp(4)), h * 0.25), radius=[dp(6)])
-                # Защитник ──→ (растёт слева направо от центра)
-                dw = half * max(0, min(1, self.def_ratio))
-                if dw > dp(3):
-                    Color(*self._def_c[:3], 0.85)
-                    RoundedRectangle(pos=(cx, self.y), size=(dw, h), radius=[dp(0), dp(10), dp(10), dp(0)])
-                    Color(1, 1, 1, 0.12)
-                    RoundedRectangle(pos=(cx + dp(2), self.y + h * 0.6),
-                                     size=(max(dp(2), dw - dp(4)), h * 0.25), radius=[dp(6)])
-
-        def animate_to(self, new_atk, new_def, duration=0.44):
-            Animation.cancel_all(self, 'atk_ratio', 'def_ratio')
-            Animation(atk_ratio=max(0, new_atk), def_ratio=max(0, new_def),
-                      duration=duration, t='out_cubic').start(self)
-
-    # ── Виджет искр/частиц удара ─────────────────────────────────────────
-    class HitParticles(Widget):
-        def __init__(self, **kwargs):
-            super().__init__(**kwargs)
-            self._parts = []
-            self._evt = None
-
-        def burst(self, x, y, color, count=8):
-            """Выброс частиц из точки удара."""
-            for _ in range(count):
-                self._parts.append({
-                    'x': x, 'y': y,
-                    'vx': _rnd.uniform(-dp(60), dp(60)),
-                    'vy': _rnd.uniform(dp(20), dp(80)),
-                    'life': _rnd.uniform(0.3, 0.7),
-                    'max_life': 0.7,
-                    'size': _rnd.uniform(dp(2), dp(5)),
-                    'color': color,
-                })
-            if not self._evt:
-                self._evt = Clock.schedule_interval(self._update, 1/30)
-
-        def _update(self, dt):
-            alive = []
-            for p in self._parts:
-                p['x'] += p['vx'] * dt
-                p['y'] += p['vy'] * dt
-                p['vy'] -= dp(120) * dt  # Гравитация
-                p['life'] -= dt
-                if p['life'] > 0:
-                    alive.append(p)
-            self._parts = alive
-            self.canvas.after.clear()
-            with self.canvas.after:
-                for p in self._parts:
-                    a = max(0, p['life'] / p['max_life'])
-                    Color(*p['color'][:3], a * 0.9)
-                    Rectangle(pos=(p['x'], p['y']), size=(p['size'], p['size']))
-            if not alive and self._evt:
-                self._evt.cancel()
-                self._evt = None
-
-    # ── Root layout ──────────────────────────────────────────────────────
-    is_mobile = platform in ('android', 'ios')
-    _sp4 = dp(3) if is_mobile else dp(6)
-
-    root = BoxLayout(orientation='vertical', spacing=_sp4,
-                     padding=[dp(10), dp(6), dp(10), dp(6)])
-
-    with root.canvas.before:
-        Color(0.05, 0.05, 0.09, 1)
-        root._bg = RoundedRectangle(pos=root.pos, size=root.size, radius=[dp(14)])
-    root.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-              size=lambda i, v: setattr(i._bg, 'size', v))
-
-    popup = Popup(
-        title='', content=root,
-        size_hint=(0.98 if is_mobile else 0.92, 0.95 if is_mobile else 0.86),
-        background_color=(0.03, 0.03, 0.07, 1),
-        separator_height=0,
-    )
-
-    # Заголовок + пропустить
-    top_row = BoxLayout(size_hint_y=None, height=dp(26))
-    top_row.add_widget(Label(
-        text='[b][color=#FFD700]СРАЖЕНИЕ[/color][/b]',
-        markup=True, font_size=sp(15) if is_mobile else sp(18)
-    ))
-    skip_btn = Button(
-        text='Пропустить', size_hint=(None, None), size=(dp(90), dp(24)),
-        font_size=sp(9), bold=True,
-        background_color=(0.40, 0.06, 0.06, 1), color=(1, 1, 1, 1)
-    )
-    top_row.add_widget(skip_btn)
-    root.add_widget(top_row)
-
-    # Города
-    root.add_widget(Label(
-        text=f'[color=#666666]{attacking_city}  >>  {defending_city}[/color]',
-        markup=True, font_size=sp(10), size_hint_y=None, height=dp(14)
-    ))
-
-    # ── Диагональная зона боя: [ATK вверху-слева] \ [DEF внизу-справа] ──
-    # battle_area растягивается на всё доступное вертикальное пространство
-    _bar_h = dp(18) if is_mobile else dp(24)
-    _fsize = sp(9) if is_mobile else sp(11)
-    _cnt_h = dp(11) if is_mobile else dp(14)
-    _lbl_h = dp(14) if is_mobile else dp(16)
-    # каждый блок занимает 42% ширины → не пересекаются, центр свободен
-    _block_w_hint = 0.42
-
-    battle_area = FloatLayout(size_hint=(1, 1))
-
-    # -- ATK блок (левый верхний угол, 42% ширины, полная высота) --
-    atk_box = BoxLayout(
-        orientation='vertical', spacing=dp(2), padding=[0, dp(2), 0, 0],
-        size_hint=(_block_w_hint, 1),
-        pos_hint={'x': 0, 'top': 1}
-    )
-    atk_portrait = (
-        KivyImage(source=atk_img_path, size_hint=(1, 1),
-                  allow_stretch=True, keep_ratio=True)
-        if atk_img_path else Widget(size_hint=(1, 1))
-    )
-    atk_name_lbl = Label(
-        text=f'[b][color={atk_hex}]{attacking_fraction}[/color][/b]',
-        markup=True, font_size=_fsize, size_hint=(1, None), height=_lbl_h,
-        halign='left'
-    )
-    atk_name_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    atk_bar = BattleBar(size_hint=(1, None), height=_bar_h)
-    atk_cnt = Label(
-        text='', markup=True,
-        font_size=sp(7) if is_mobile else sp(9),
-        color=(0.75, 0.75, 0.8, 1),
-        size_hint=(1, None), height=_cnt_h, halign='left'
-    )
-    atk_cnt.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    atk_box.add_widget(atk_portrait)
-    atk_box.add_widget(atk_name_lbl)
-    atk_box.add_widget(atk_bar)
-    atk_box.add_widget(atk_cnt)
-
-    # -- DEF блок (правый нижний угол, 42% ширины, полная высота) --
-    def_box = BoxLayout(
-        orientation='vertical', spacing=dp(2), padding=[0, 0, 0, dp(2)],
-        size_hint=(_block_w_hint, 1),
-        pos_hint={'right': 1, 'y': 0}
-    )
-    def_portrait = (
-        KivyImage(source=def_img_path, size_hint=(1, 1),
-                  allow_stretch=True, keep_ratio=True)
-        if def_img_path else Widget(size_hint=(1, 1))
-    )
-    def_name_lbl = Label(
-        text=f'[b][color={def_hex}]{defending_fraction}[/color][/b]',
-        markup=True, font_size=_fsize, size_hint=(1, None), height=_lbl_h,
-        halign='right'
-    )
-    def_name_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    def_bar = BattleBar(size_hint=(1, None), height=_bar_h)
-    def_cnt = Label(
-        text='', markup=True,
-        font_size=sp(7) if is_mobile else sp(9),
-        color=(0.75, 0.75, 0.8, 1),
-        size_hint=(1, None), height=_cnt_h, halign='right'
-    )
-    def_cnt.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    def_box.add_widget(def_portrait)
-    def_box.add_widget(def_name_lbl)
-    def_box.add_widget(def_bar)
-    def_box.add_widget(def_cnt)
-
-    # -- VS по центру --
-    vs_lbl = Label(
-        text='[b][color=#E67E22]VS[/color][/b]',
-        markup=True,
-        font_size=sp(14) if is_mobile else sp(18),
-        size_hint=(None, None), size=(dp(40), dp(40)),
-        pos_hint={'center_x': 0.5, 'center_y': 0.5}
-    )
-
-    battle_area.add_widget(atk_box)
-    battle_area.add_widget(def_box)
-    battle_area.add_widget(vs_lbl)
-
-    root.add_widget(battle_area)
-
-    # Пульсация VS
-    def _pulse_vs(dt):
-        anim = (Animation(opacity=0.4, duration=0.6, t='out_sine') +
-                Animation(opacity=1.0, duration=0.6, t='out_sine'))
-        anim.repeat = True
-        anim.start(vs_lbl)
-    Clock.schedule_once(_pulse_vs, 0.5)
-
-    # Частицы (скрытый placeholder высотой 1px для совместимости с burst)
-    hit_fx = HitParticles(size_hint=(1, None), height=dp(1), opacity=1)
-    root.add_widget(hit_fx)
-
-    # Раунд
-    round_lbl = Label(
-        text='Подготовка к бою...', font_size=sp(10), bold=True,
-        color=(0.85, 0.85, 0.85, 1), size_hint_y=None, height=dp(16)
-    )
-    root.add_widget(round_lbl)
-
-    # Лента событий
-    _ev_h = dp(44) if is_mobile else dp(60)
-    events_box = BoxLayout(orientation='vertical', spacing=dp(1),
-                           size_hint_y=None, height=_ev_h,
-                           padding=[dp(6), dp(2)])
-    with events_box.canvas.before:
-        Color(0.07, 0.07, 0.12, 1)
-        events_box._bg = RoundedRectangle(pos=events_box.pos, size=events_box.size, radius=[dp(8)])
-    events_box.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-                    size=lambda i, v: setattr(i._bg, 'size', v))
-    root.add_widget(events_box)
-
-    event_labels = []
-    for _ in range(3):
-        el = Label(text='', font_size=sp(8) if is_mobile else sp(10),
-                   halign='left', valign='middle',
-                   markup=True, size_hint_y=None, height=dp(13) if is_mobile else dp(18))
-        el.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-        events_box.add_widget(el)
-        event_labels.append(el)
-
-    event_log = []
-
-    def _push_event(text):
-        event_log.append(text)
-        start = max(0, len(event_log) - 3)
-        for i, lbl in enumerate(event_labels):
-            idx = start + i
-            lbl.text = event_log[idx] if idx < len(event_log) else ''
-
-    # ── Состояние анимации ───────────────────────────────────────────────
-    state = {'idx': 0, 'evt': None, 'done': False,
-             'prev_atk': None, 'prev_def': None}
-
-    def _finish():
-        if state['done']:
-            return
-        state['done'] = True
-        if state['evt']:
-            state['evt'].cancel()
-        popup.dismiss()
-        if callback:
-            Clock.schedule_once(lambda dt: callback(), 0.08)
-
-    def _show_winner():
-        """Финальный экран победителя внутри popup."""
-        if state['done']:
-            return
-
-        is_my_victory = (
-            (winner == 'attacker' and user_faction == attacking_fraction) or
-            (winner == 'defender' and user_faction == defending_fraction)
-        )
-        winner_name = attacking_fraction if winner == 'attacker' else defending_fraction
-        w_hex = atk_hex if winner == 'attacker' else def_hex
-
-        if is_my_victory:
-            header = '[b][color=#FFD700][ ПОБЕДА! ][/color][/b]'
-            sub = (f'[color={atk_hex}]{attacking_fraction}[/color] захватила '
-                   f'[b]{defending_city}[/b]!'
-                   if winner == 'attacker' else
-                   f'[color={def_hex}]{defending_fraction}[/color] отстояла '
-                   f'[b]{defending_city}[/b]!')
-        elif winner == 'attacker':
-            header = '[b][color=#CC3333][ ПОРАЖЕНИЕ ][/color][/b]'
-            sub = (f'[color={atk_hex}]{attacking_fraction}[/color] захватила '
-                   f'[b]{defending_city}[/b]')
-        else:
-            header = '[b][color=#FFD700][ ОБОРОНА УСТОЯЛА! ][/color][/b]'
-            sub = (f'[color={def_hex}]{defending_fraction}[/color] защитила '
-                   f'[b]{defending_city}[/b]!')
-
-        root.clear_widgets()
-        root.padding = [dp(16), dp(20), dp(16), dp(20)]
-        root.spacing = dp(10)
-
-        h_lbl = Label(text=header, markup=True, font_size=sp(24),
-                      size_hint_y=None, height=dp(48), opacity=0)
-        root.add_widget(h_lbl)
-        Animation(opacity=1, duration=0.70, t='out_cubic').start(h_lbl)
-
-        s_lbl = Label(text=sub, markup=True, font_size=sp(14),
-                      size_hint_y=None, height=dp(30), opacity=0)
-        root.add_widget(s_lbl)
-        Clock.schedule_once(
-            lambda dt: Animation(opacity=1, duration=0.50, t='out_cubic').start(s_lbl), 0.5
-        )
-
-        # Картинка победителя
-        winner_img_path = (atk_img_path if winner == 'attacker' else def_img_path)
-        if winner_img_path:
-            _win_img_h = dp(160) if is_mobile else dp(200)
-            win_img = KivyImage(
-                source=winner_img_path,
-                size_hint_y=None, height=_win_img_h,
-                allow_stretch=True, keep_ratio=True,
-                opacity=0
-            )
-            root.add_widget(win_img)
-            Clock.schedule_once(
-                lambda dt: Animation(opacity=1, duration=0.60, t='out_cubic').start(win_img), 0.3
-            )
-        else:
-            root.add_widget(Label())  # spacer
-
-        cont_btn = Button(
-            text='Продолжить',
-            size_hint=(None, None), size=(dp(190), dp(42)),
-            font_size=sp(14), bold=True,
-            background_color=(0.16, 0.52, 0.92, 1), color=(1, 1, 1, 1),
-            pos_hint={'center_x': 0.5},
-            opacity=0
-        )
-        Clock.schedule_once(
-            lambda dt: Animation(opacity=1, duration=0.45).start(cont_btn), 0.9
-        )
-
-        def _on_cont(inst):
-            state['done'] = True
-            popup.dismiss()
-            if callback:
-                Clock.schedule_once(lambda dt: callback(), 0.08)
-
-        cont_btn.bind(on_press=_on_cont)
-        btn_row = BoxLayout(size_hint_y=None, height=dp(52))
-        btn_row.add_widget(Label())
-        btn_row.add_widget(cont_btn)
-        btn_row.add_widget(Label())
-        root.add_widget(btn_row)
-
-    def _tick(dt):
-        idx = state['idx']
-        if idx >= len(selected):
-            if state['evt']:
-                state['evt'].cancel()
-                state['evt'] = None
-            Clock.schedule_once(lambda dt: _show_winner(), 0.15)
-            return False
-
-        rd = selected[idx]
-        total = len(battle_rounds)
-
-        atk_ratio = rd['atk_total'] / rd['atk_max'] if rd['atk_max'] > 0 else 0.0
-        def_ratio = rd['def_total'] / rd['def_max'] if rd['def_max'] > 0 else 0.0
-
-        atk_bar.animate_to(atk_ratio)
-        def_bar.animate_to(def_ratio)
-
-        atk_cnt.text = f'{rd["atk_total"]:,} / {rd["atk_max"]:,}'.replace(',', ' ')
-        def_cnt.text = f'{rd["def_total"]:,} / {rd["def_max"]:,}'.replace(',', ' ')
-        round_lbl.text = f'Раунд {rd["round"]} / {total}'
-
-        # Генерируем событие раунда
-        p_atk = state['prev_atk']
-        p_def = state['prev_def']
-        if p_atk is not None:
-            a_loss = max(0, p_atk - rd['atk_total'])
-            d_loss = max(0, p_def - rd['def_total'])
-            is_crit = _rnd.random() < 0.20 and (a_loss + d_loss) > 0
-
-            if is_crit and d_loss > 0:
-                _push_event(
-                    f'[color=#FFD700]!! КРИТИЧЕСКИЙ УДАР! {attacking_fraction}'
-                    f'  -{d_loss} у врага[/color]'
-                )
-                _shake = Animation(x=root.x + dp(4), duration=0.04) + Animation(x=root.x - dp(4), duration=0.04) + Animation(x=root.x, duration=0.04)
-                _shake.start(root)
-                hit_fx.burst(hit_fx.center_x, hit_fx.center_y, def_c, 12)
-            elif is_crit and a_loss > 0:
-                _push_event(
-                    f'[color=#FF8844]!! КРИТИЧЕСКИЙ УДАР! {defending_fraction}'
-                    f'  -{a_loss} у атакующих[/color]'
-                )
-                _shake = Animation(x=root.x + dp(4), duration=0.04) + Animation(x=root.x - dp(4), duration=0.04) + Animation(x=root.x, duration=0.04)
-                _shake.start(root)
-                hit_fx.burst(hit_fx.center_x, hit_fx.center_y, atk_c, 12)
-            elif d_loss > a_loss and d_loss > 0:
-                _push_event(
-                    f'[color=#88FF99]Раунд {rd["round"]}: {attacking_fraction}'
-                    f' наступает  -{d_loss} врагов[/color]'
-                )
-                hit_fx.burst(hit_fx.center_x, hit_fx.center_y, def_c, 5)
-            elif a_loss > d_loss and a_loss > 0:
-                _push_event(
-                    f'[color=#FF8888]Раунд {rd["round"]}: {defending_fraction}'
-                    f' держится  -{a_loss} атакующих[/color]'
-                )
-                hit_fx.burst(hit_fx.center_x, hit_fx.center_y, atk_c, 5)
-            elif a_loss > 0 or d_loss > 0:
-                _push_event(
-                    f'[color=#AAAAAA]Раунд {rd["round"]}: обе стороны несут потери[/color]'
-                )
-
-        state['prev_atk'] = rd['atk_total']
-        state['prev_def'] = rd['def_total']
-        state['idx'] += 1
-
-    skip_btn.bind(on_press=lambda *_: _finish())
+    """Replay real rounds; skip/dismiss opens the report exactly once."""
+    from battle_ui import BattleViewer
+    popup = BattleViewer(battle_rounds, attacking_fraction, defending_fraction, winner,
+                         user_faction, attacking_city, defending_city, callback,
+                         atk_hero_image, def_hero_image)
     popup.open()
-
-    def _start(dt):
-        state['evt'] = Clock.schedule_interval(_tick, 0.60)
-
-    Clock.schedule_once(_start, 0.30)
+    return popup
 
 
 def update_garrisons_after_battle(winner, attacking_city, defending_city,

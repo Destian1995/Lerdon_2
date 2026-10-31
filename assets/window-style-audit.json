@@ -1,0 +1,531 @@
+{
+  "total_factories": 69,
+  "popup_theme": "window_theme.install_window_theme → Popup.open",
+  "responsive_layout": "responsive_ui.WindowFlow for legacy and custom Popup content",
+  "layout_rules": [
+    "text-aware minimum heights",
+    "48dp action height",
+    "stacked action rows",
+    "scrollable overflow",
+    "viewport limits and rotation"
+  ],
+  "non_modal": [
+    "economic.start_economy_mode",
+    "politic.start_politic_mode",
+    "game_process.GameScreen.game_area",
+    "ui_components.DiplomacyMessagePopup"
+  ],
+  "custom_chrome": [
+    "strategy_ui.build_city_window",
+    "recruitment_ui.RecruitmentSession",
+    "battle_ui.BattleViewer",
+    "battle_ui.BattleReport"
+  ],
+  "by_file": {
+    "ai_models/advisor_view.py": 1,
+    "ai_models/diplomacy_chat.py": 7,
+    "army.py": 2,
+    "create_artifacts.py": 1,
+    "diversion.py": 10,
+    "economic.py": 6,
+    "event_manager.py": 1,
+    "fight.py": 3,
+    "game_process.py": 5,
+    "heroes.py": 3,
+    "main.py": 1,
+    "nobles.py": 10,
+    "nobles_generator.py": 2,
+    "politic.py": 4,
+    "recruitment_ui.py": 1,
+    "results_ui.py": 1,
+    "strategy_ui.py": 1,
+    "troop_ui.py": 1,
+    "ui.py": 8,
+    "ui_components.py": 1
+  },
+  "windows": [
+    {
+      "file": "ai_models/advisor_view.py",
+      "line": 108,
+      "scope": "AdvisorView.open_ai_chat_directly",
+      "factory": "Popup",
+      "title": "Дипломатия"
+    },
+    {
+      "file": "ai_models/diplomacy_chat.py",
+      "line": 2147,
+      "scope": "EnhancedDiplomacyChat.show_relation_tooltip",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "ai_models/diplomacy_chat.py",
+      "line": 6078,
+      "scope": "EnhancedDiplomacyChat.create_diplomacy_interface._show_trade_submenu._open_trade_popup",
+      "factory": "_TPop",
+      "title": ""
+    },
+    {
+      "file": "ai_models/diplomacy_chat.py",
+      "line": 6201,
+      "scope": "EnhancedDiplomacyChat.create_diplomacy_interface._show_rebel_artifacts",
+      "factory": "_RPop",
+      "title": ""
+    },
+    {
+      "file": "ai_models/diplomacy_chat.py",
+      "line": 6344,
+      "scope": "EnhancedDiplomacyChat.create_diplomacy_interface._show_rebel_troops._open_slider",
+      "factory": "_RPop",
+      "title": ""
+    },
+    {
+      "file": "ai_models/diplomacy_chat.py",
+      "line": 6503,
+      "scope": "EnhancedDiplomacyChat.create_diplomacy_interface._show_rebel_attack",
+      "factory": "_RAPop",
+      "title": ""
+    },
+    {
+      "file": "ai_models/diplomacy_chat.py",
+      "line": 6713,
+      "scope": "EnhancedDiplomacyChat.create_diplomacy_interface._show_improve_relations",
+      "factory": "_IRPop",
+      "title": ""
+    },
+    {
+      "file": "ai_models/diplomacy_chat.py",
+      "line": 6812,
+      "scope": "EnhancedDiplomacyChat.create_diplomacy_interface._show_rebel_transfer_city",
+      "factory": "_TPop",
+      "title": ""
+    },
+    {
+      "file": "army.py",
+      "line": 382,
+      "scope": "ArmyCash.show_message",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "army.py",
+      "line": 486,
+      "scope": "show_army_message",
+      "factory": "Popup",
+      "title": "<dynamic>"
+    },
+    {
+      "file": "create_artifacts.py",
+      "line": 45,
+      "scope": "workshop",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "diversion.py",
+      "line": 102,
+      "scope": "show_diversion_window",
+      "factory": "ThemedPopup",
+      "title": "Нет целей"
+    },
+    {
+      "file": "diversion.py",
+      "line": 247,
+      "scope": "show_diversion_window",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "diversion.py",
+      "line": 367,
+      "scope": "show_operations_window._make_op_handler._h",
+      "factory": "_MPopup",
+      "title": ""
+    },
+    {
+      "file": "diversion.py",
+      "line": 401,
+      "scope": "show_operations_window",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "diversion.py",
+      "line": 448,
+      "scope": "show_rebellion_cost_selection",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "diversion.py",
+      "line": 595,
+      "scope": "show_rebellion_cost_selection",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "diversion.py",
+      "line": 642,
+      "scope": "show_confirmation_popup",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "diversion.py",
+      "line": 662,
+      "scope": "show_confirmation_popup",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "diversion.py",
+      "line": 731,
+      "scope": "show_confirmation_popup",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "diversion.py",
+      "line": 1040,
+      "scope": "show_result_popup",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "economic.py",
+      "line": 614,
+      "scope": "Faction.show_popup",
+      "factory": "Popup",
+      "title": "<dynamic>"
+    },
+    {
+      "file": "economic.py",
+      "line": 1921,
+      "scope": "open_build_popup",
+      "factory": "Popup",
+      "title": "Состояние государства"
+    },
+    {
+      "file": "economic.py",
+      "line": 2337,
+      "scope": "open_trade_popup",
+      "factory": "Popup",
+      "title": "Рынок Кристаллов"
+    },
+    {
+      "file": "economic.py",
+      "line": 2550,
+      "scope": "open_tax_popup",
+      "factory": "Popup",
+      "title": "Управление налогами"
+    },
+    {
+      "file": "economic.py",
+      "line": 2583,
+      "scope": "open_auto_build_popup",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "economic.py",
+      "line": 2799,
+      "scope": "open_development_popup",
+      "factory": "Popup",
+      "title": "Развитие"
+    },
+    {
+      "file": "event_manager.py",
+      "line": 285,
+      "scope": "EventManager.show_event_active_popup",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "fight.py",
+      "line": 1301,
+      "scope": "show_battle_report",
+      "factory": "BattleReport",
+      "title": "<dynamic>"
+    },
+    {
+      "file": "fight.py",
+      "line": 1314,
+      "scope": "show_battle_animation",
+      "factory": "BattleViewer",
+      "title": "<dynamic>"
+    },
+    {
+      "file": "fight.py",
+      "line": 1625,
+      "scope": "_show_sword_offer",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "game_process.py",
+      "line": 388,
+      "scope": "ResourceBox.update_resources.show_tooltip",
+      "factory": "Popup",
+      "title": "<dynamic>"
+    },
+    {
+      "file": "game_process.py",
+      "line": 2506,
+      "scope": "GameScreen.on_season_pressed",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "game_process.py",
+      "line": 2574,
+      "scope": "GameScreen.confirm_exit",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "game_process.py",
+      "line": 2652,
+      "scope": "GameScreen.show_war_declaration_popup",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "game_process.py",
+      "line": 2751,
+      "scope": "GameScreen._show_invasion_notification",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "heroes.py",
+      "line": 807,
+      "scope": "open_artifacts_popup.make_buy_handler.on_buy",
+      "factory": "Popup",
+      "title": "Подтверждение замены"
+    },
+    {
+      "file": "heroes.py",
+      "line": 1119,
+      "scope": "open_artifacts_popup._make_slot_click._on_slot_click",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "heroes.py",
+      "line": 1298,
+      "scope": "open_artifacts_popup",
+      "factory": "Popup",
+      "title": "Лавка артефактов"
+    },
+    {
+      "file": "main.py",
+      "line": 1374,
+      "scope": "MapWidget.check_fortress_click",
+      "factory": "FortressInfoPopup",
+      "title": "<dynamic>"
+    },
+    {
+      "file": "nobles.py",
+      "line": 375,
+      "scope": "show_nobles_window",
+      "factory": "Popup",
+      "title": "Королевский совет"
+    },
+    {
+      "file": "nobles.py",
+      "line": 454,
+      "scope": "show_deal_popup",
+      "factory": "Popup",
+      "title": "Предложение"
+    },
+    {
+      "file": "nobles.py",
+      "line": 519,
+      "scope": "show_insufficient_funds_popup",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "nobles.py",
+      "line": 564,
+      "scope": "show_result_popup",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "nobles.py",
+      "line": 624,
+      "scope": "show_event_result_popup",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "nobles.py",
+      "line": 853,
+      "scope": "show_secret_service_popup",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "nobles.py",
+      "line": 928,
+      "scope": "show_insufficient_funds_popup",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "nobles.py",
+      "line": 1061,
+      "scope": "SecretServiceCard._handle_elimination",
+      "factory": "Popup",
+      "title": "Подтверждение"
+    },
+    {
+      "file": "nobles.py",
+      "line": 1154,
+      "scope": "show_toast_notification",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "nobles.py",
+      "line": 1303,
+      "scope": "show_event_popup",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "nobles_generator.py",
+      "line": 528,
+      "scope": "show_coup_attempt_popup",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "nobles_generator.py",
+      "line": 851,
+      "scope": "show_secret_service_result_popup",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "politic.py",
+      "line": 335,
+      "scope": "DiplomacyManager.show_diplomatic_relations",
+      "factory": "Popup",
+      "title": "<dynamic>"
+    },
+    {
+      "file": "politic.py",
+      "line": 500,
+      "scope": "DiplomacyManager._show_all_relations_popup",
+      "factory": "Popup",
+      "title": "Отношения между фракциями"
+    },
+    {
+      "file": "politic.py",
+      "line": 1095,
+      "scope": "show_ratings_popup",
+      "factory": "Popup",
+      "title": "Силы армий"
+    },
+    {
+      "file": "politic.py",
+      "line": 1394,
+      "scope": "show_faction_bonuses_popup",
+      "factory": "Popup",
+      "title": "<dynamic>"
+    },
+    {
+      "file": "recruitment_ui.py",
+      "line": 74,
+      "scope": "RecruitmentSession.__init__",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "results_ui.py",
+      "line": 32,
+      "scope": "show_campaign_results",
+      "factory": "Popup",
+      "title": "<dynamic>"
+    },
+    {
+      "file": "strategy_ui.py",
+      "line": 386,
+      "scope": "show_city_lore",
+      "factory": "Popup",
+      "title": "<dynamic>"
+    },
+    {
+      "file": "troop_ui.py",
+      "line": 64,
+      "scope": "show_troop_selection",
+      "factory": "Popup",
+      "title": "Перемещение войск"
+    },
+    {
+      "file": "ui.py",
+      "line": 34,
+      "scope": "_show_dark_error_popup",
+      "factory": "Popup",
+      "title": "<dynamic>"
+    },
+    {
+      "file": "ui.py",
+      "line": 299,
+      "scope": "FortressInfoPopup._open_build_menu",
+      "factory": "_Popup",
+      "title": ""
+    },
+    {
+      "file": "ui.py",
+      "line": 401,
+      "scope": "FortressInfoPopup._show_ally_transfer_choice",
+      "factory": "_ATPop",
+      "title": ""
+    },
+    {
+      "file": "ui.py",
+      "line": 636,
+      "scope": "FortressInfoPopup.create_troop_group",
+      "factory": "Popup",
+      "title": "<dynamic>"
+    },
+    {
+      "file": "ui.py",
+      "line": 1411,
+      "scope": "FortressInfoPopup._show_unit_stats_popup",
+      "factory": "Popup",
+      "title": "<dynamic>"
+    },
+    {
+      "file": "ui.py",
+      "line": 1426,
+      "scope": "FortressInfoPopup.show_warning_popup",
+      "factory": "Popup",
+      "title": "Внимание!"
+    },
+    {
+      "file": "ui.py",
+      "line": 1513,
+      "scope": "FortressInfoPopup.place_army",
+      "factory": "Popup",
+      "title": "Разместить армию"
+    },
+    {
+      "file": "ui.py",
+      "line": 1767,
+      "scope": "FortressInfoPopup.add_to_garrison_with_slider",
+      "factory": "Popup",
+      "title": ""
+    },
+    {
+      "file": "ui_components.py",
+      "line": 948,
+      "scope": "show_message",
+      "factory": "Popup",
+      "title": "<dynamic>"
+    }
+  ]
+}

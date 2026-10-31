@@ -95,354 +95,27 @@ class FortressInfoPopup(Popup):
         self.create_ui()
 
     def create_ui(self):
-        """
-        Переработанный UI окна города — тёмная тема, карточки, фракционные акценты.
-        """
-        from kivy.core.window import Window
-        from kivy.animation import Animation as _Anim
-
-        is_android = platform == 'android'
-        sp_base = 13 if is_android else 12
-        btn_h = dp(44) if is_android else dp(38)
-        pad = dp(10)
-        spc = dp(8)
-
-        # ── Фракционный акцент ────────────────────────────────────────
-        _FC = {
-            'Север':   (0.25, 0.52, 0.92, 1),
-            'Эльфы':   (0.22, 0.76, 0.32, 1),
-            'Вампиры': (0.40, 0.10, 0.50, 1),
-            'Адепты':  (0.85, 0.45, 0.10, 1),
-            'Элины':   (0.95, 0.90, 0.15, 1),
-        }
-        acc = _FC.get(self.player_fraction, (0.25, 0.52, 0.92, 1))
-
-        def _make_btn(text, color, on_rel=None):
-            """Кнопка с фоном и эффектом нажатия."""
-            btn = Button(
-                text=text, size_hint_y=None, height=btn_h,
-                background_color=(0, 0, 0, 0), color=(1, 1, 1, 1),
-                font_size=sp(sp_base), bold=True
-            )
-            darker = (color[0] * 0.65, color[1] * 0.65, color[2] * 0.65, 1)
-            with btn.canvas.before:
-                btn._bc = Color(*color)
-                btn._br = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(10)])
-            btn.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
-                     size=lambda i, v: setattr(i._br, 'size', v))
-
-            def _down(touch):
-                if btn.collide_point(*touch.pos):
-                    btn._bc.rgba = darker
-                return Button.on_touch_down(btn, touch)
-
-            def _up(touch):
-                btn._bc.rgba = color
-                return Button.on_touch_up(btn, touch)
-
-            btn.on_touch_down = _down
-            btn.on_touch_up = _up
-            if on_rel:
-                btn.bind(on_release=on_rel)
-            return btn
-
-        def _section_header(title):
-            """Заголовок секции с акцентной полосой и подчёркиванием."""
-            box = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(32), spacing=dp(3))
-            row = BoxLayout(size_hint_y=None, height=dp(26), spacing=dp(6))
-            # Вертикальная акцентная полоса
-            bar = Widget(size_hint=(None, 1), width=dp(4))
-            with bar.canvas:
-                Color(*acc)
-                bar._r = RoundedRectangle(pos=bar.pos, size=bar.size, radius=[dp(2)])
-            bar.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
-                     size=lambda i, v: setattr(i._r, 'size', v))
-            lbl = Label(
-                text=f'[b]{title}[/b]', markup=True,
-                font_size=sp(sp_base + 2), color=(0.90, 0.92, 0.98, 1),
-                halign='left', valign='middle'
-            )
-            lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-            row.add_widget(bar)
-            row.add_widget(lbl)
-            box.add_widget(row)
-            # Тонкая линия-подчёркивание
-            line = Widget(size_hint_y=None, height=dp(1))
-            with line.canvas:
-                Color(*acc[:3], 0.3)
-                line._r = RoundedRectangle(pos=line.pos, size=line.size)
-            line.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
-                      size=lambda i, v: setattr(i._r, 'size', v))
-            box.add_widget(line)
-            return box
-
-        def _styled_panel(widget):
-            """Оборачивает виджет в стилизованную панель с фоном и тонкой рамкой."""
-            widget.padding = [dp(6), dp(6)]
-            with widget.canvas.before:
-                Color(0.09, 0.09, 0.14, 1)
-                widget._bg = RoundedRectangle(pos=widget.pos, size=widget.size, radius=[dp(8)])
-                Color(*acc[:3], 0.18)
-                widget._border = Line(
-                    rounded_rectangle=(*widget.pos, *widget.size, dp(8)),
-                    width=1.1
-                )
-            widget.bind(
-                pos=lambda i, v: (setattr(i._bg, 'pos', v),
-                                  setattr(i._border, 'rounded_rectangle', (*v, *i.size, dp(8)))),
-                size=lambda i, v: (setattr(i._bg, 'size', v),
-                                   setattr(i._border, 'rounded_rectangle', (*i.pos, *v, dp(8))))
-            )
-            return widget
-
-        # ── Root layout ───────────────────────────────────────────────
-        root = BoxLayout(orientation='vertical', padding=pad, spacing=spc)
-        with root.canvas.before:
-            Color(0.06, 0.07, 0.11, 1)
-            root._bg = RoundedRectangle(pos=root.pos, size=root.size, radius=[dp(8)])
-        root.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-                  size=lambda i, v: setattr(i._bg, 'size', v))
-
-        # ── Две колонки ───────────────────────────────────────────────
-        cols = GridLayout(cols=2, spacing=spc, size_hint_y=0.78)
-
-        # Левая: Гарнизон
-        left = _styled_panel(BoxLayout(orientation='vertical', spacing=spc))
-        left.add_widget(_section_header('Гарнизон'))
-        self.attacking_units_list = ScrollView(size_hint=(1, 1))
-        self.attacking_units_box = BoxLayout(
-            orientation='vertical', size_hint_y=None, spacing=dp(6), padding=[0, dp(4)]
-        )
-        self.attacking_units_box.bind(minimum_height=self.attacking_units_box.setter('height'))
-        self.attacking_units_list.add_widget(self.attacking_units_box)
-        left.add_widget(self.attacking_units_list)
-        cols.add_widget(left)
-
-        # Правая: Здания или картинка нежити
-        right = _styled_panel(BoxLayout(orientation='vertical', spacing=spc))
-
-        # Проверяем, город нежити ли это
-        self.cursor.execute("SELECT COALESCE(is_undead, 0) FROM cities WHERE name = ?", (self.city_name,))
-        _undead_row = self.cursor.fetchone()
-        self._is_undead_city = bool(_undead_row and _undead_row[0])
-
-        if self._is_undead_city:
-            right.add_widget(_section_header('Проклятые земли'))
-            _undead_images = {
-                'Некрополь': 'files/city/death/nekropolis.png',
-                'Горгум': 'files/city/death/gorgum.png',
-                'Морготар': 'files/city/death/morgotar.png',
-            }
-            _undead_lore = {
-                'Некрополь': 'Древнейший город мёртвых. Здесь покоятся останки тысяч воинов '
-                             'павших в Первой войне. Когда Низар пробудился, земля разверзлась '
-                             'и мёртвые восстали из своих могил. Теперь это сердце армии нежити — '
-                             'бесконечный источник призраков и ужаса.',
-                'Горгум': 'Заброшенная крепость на краю болот. Веками здесь слышали стоны из-под земли, '
-                          'но никто не решался копать. Когда началась инвазия, болота вскипели '
-                          'и из них поднялись легионы зомби. Горгум стал оплотом разложения — '
-                          'чума распространяется от его стен.',
-                'Морготар': 'Проклятая башня на перекрёстке древних дорог. Говорят, именно здесь '
-                            'Низар заключил пакт с бездной. Стены Морготара покрыты рунами смерти, '
-                            'а воздух пропитан воем банши. Каждую ночь из башни '
-                            'вылетают новые тени, пополняя армию мёртвых.',
-            }
-            _img_src = _undead_images.get(self.city_name, 'files/city/death/city.png')
-            _lore_text = _undead_lore.get(self.city_name, 'Проклятое место, где обитает нежить.')
-            _city_name = self.city_name
-
-            death_img = Image(
-                source=_img_src,
-                size_hint=(1, 1),
-                allow_stretch=True,
-                keep_ratio=True,
-            )
-
-            def _show_undead_lore(instance, touch, _src=_img_src, _lore=_lore_text, _name=_city_name):
-                if not instance.collide_point(*touch.pos):
-                    return False
-                _is_m = platform in ('android', 'ios')
-                _content = BoxLayout(orientation='vertical', padding=[dp(10), dp(8)], spacing=dp(8))
-                with _content.canvas.before:
-                    from kivy.graphics import Color as _LC, RoundedRectangle as _LRR
-                    _LC(0.06, 0.07, 0.11, 1)
-                    _content._bg = _LRR(pos=_content.pos, size=_content.size, radius=[dp(12)])
-                _content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-                              size=lambda i, v: setattr(i._bg, 'size', v))
-                _lore_img = Image(source=_src, size_hint=(1, 0.5), allow_stretch=True, keep_ratio=True)
-                _content.add_widget(_lore_img)
-                _lore_lbl = Label(
-                    text=_lore, font_size=sp(12) if not _is_m else sp(10),
-                    halign='center', valign='top', color=(0.8, 0.75, 0.65, 1),
-                    size_hint_y=0.4
-                )
-                _lore_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], s[1])))
-                _content.add_widget(_lore_lbl)
-                _close = Button(text="Закрыть", size_hint_y=None, height=dp(36),
-                                font_size=sp(13), bold=True,
-                                background_normal='', background_color=(0.15, 0.15, 0.22, 0.95),
-                                color=(0.9, 0.9, 0.9, 1))
-                _content.add_widget(_close)
-                _lp = Popup(title=_name, content=_content,
-                            size_hint=(0.8 if not _is_m else 0.95, 0.7),
-                            background_color=(0.04, 0.05, 0.09, 0.98),
-                            separator_color=(0.3, 0.15, 0.15, 0.6),
-                            title_color=(0.85, 0.25, 0.25, 1),
-                            title_size=sp(17), title_align='center')
-                _close.bind(on_release=lambda *a: _lp.dismiss())
-                _lp.open()
-                return True
-
-            death_img.bind(on_touch_down=_show_undead_lore)
-            right.add_widget(death_img)
-        else:
-            right.add_widget(_section_header('Здания'))
-            self.buildings_list = ScrollView(size_hint=(1, 1))
-            self.buildings_box = BoxLayout(
-                orientation='vertical', size_hint_y=None, spacing=dp(6), padding=[0, dp(4)]
-            )
-            self.buildings_box.bind(minimum_height=self.buildings_box.setter('height'))
-            self.buildings_list.add_widget(self.buildings_box)
-            right.add_widget(self.buildings_list)
-        cols.add_widget(right)
-
-        root.add_widget(cols)
-
-        # ── Разделитель перед кнопками ────────────────────────────────
-        sep = Widget(size_hint_y=None, height=dp(1))
-        with sep.canvas:
-            Color(*acc[:3], 0.3)
-            sep._r = RoundedRectangle(pos=sep.pos, size=sep.size)
-        sep.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
-                 size=lambda i, v: setattr(i._r, 'size', v))
-        root.add_widget(sep)
-
-        # ── Кнопки действий ───────────────────────────────────────────
-        btn_row = BoxLayout(size_hint_y=None, height=btn_h, spacing=spc)
-        btn_row.add_widget(_make_btn(
-            'Ввести войска', (0.18, 0.62, 0.22, 1),
-            on_rel=lambda btn: self.load_troops_by_type("Любые", None)
-        ))
-        # "Разместить армию" и "Построить" — только для своих городов
-        if self.ai_fraction == self.player_fraction and not self._is_undead_city:
-            btn_row.add_widget(_make_btn(
-                'Разместить армию', (0.16, 0.46, 0.82, 1),
-                on_rel=self.place_army
-            ))
-            btn_row.add_widget(_make_btn(
-                'Построить', (0.55, 0.35, 0.12, 1),
-                on_rel=lambda btn: self._open_build_menu()
-            ))
-        root.add_widget(btn_row)
-
-        root.add_widget(_make_btn(
-            'Закрыть', (0.62, 0.14, 0.14, 1),
-            on_rel=self.dismiss
-        ))
-
-        self.content = root
-        self.garrison_widgets = {}
-
-        # Анимация появления
-        root.opacity = 0
-        from kivy.clock import Clock as _Clk
-        _Clk.schedule_once(
-            lambda dt: _Anim(opacity=1, duration=0.30, t='out_cubic').start(root), 0.05
-        )
-
-        self.get_garrison()
-        self.load_buildings()
+        from strategy_ui import build_city_window
+        build_city_window(self)
 
     def load_buildings(self):
-        """Загружает здания в интерфейс — стилизованные карточки."""
+        from strategy_ui import building_row, text_label, MUTED
         if self._is_undead_city:
-            return  # У городов нежити нет зданий
+            return
         self.buildings_box.clear_widgets()
         buildings = self.get_buildings()
-
         if not buildings:
-            lbl = Label(
-                text='[color=#FF6666]Зданий нет[/color]', markup=True,
-                size_hint_y=None, height=dp(40), font_size=sp(13),
-                halign='center', valign='middle'
-            )
-            lbl.bind(size=lbl.setter('text_size'))
-            self.buildings_box.add_widget(lbl)
-            return
-
-        # Иконки для типов зданий (если файлы есть — иначе просто буква)
-        BUILDING_COLORS = {
-            'Ферма':       (0.25, 0.70, 0.28, 1),
-            'Казарма':     (0.75, 0.22, 0.22, 1),
-            'Рынок':       (0.85, 0.65, 0.10, 1),
-            'Стена':       (0.45, 0.45, 0.55, 1),
-            'Библиотека':  (0.35, 0.30, 0.75, 1),
-            'Кузница':     (0.60, 0.38, 0.12, 1),
-            'Вышка':       (0.20, 0.55, 0.75, 1),
-            'Больница':    (0.80, 0.22, 0.35, 1),
-            'Фабрика':     (0.50, 0.50, 0.12, 1),
-        }
-
-        for building_str in buildings:
-            # Разбираем строку "Тип: N"
-            parts = building_str.split(':', 1)
-            b_name = parts[0].strip()
-            b_count = parts[1].strip() if len(parts) > 1 else '?'
-
-            card = BoxLayout(
-                orientation='horizontal', size_hint_y=None, height=dp(38),
-                spacing=dp(6), padding=[dp(6), dp(3), dp(6), dp(3)]
-            )
-            # Фон карточки
-            card_color = BUILDING_COLORS.get(b_name, (0.22, 0.25, 0.32, 1))
-            darker = (card_color[0] * 0.55, card_color[1] * 0.55, card_color[2] * 0.55, 1)
-            with card.canvas.before:
-                Color(*darker)
-                card._bg = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(8)])
-                Color(card_color[0] * 0.9, card_color[1] * 0.9, card_color[2] * 0.9, 0.35)
-                card._border = Line(
-                    rounded_rectangle=(*card.pos, *card.size, dp(8)),
-                    width=1.0
-                )
-            card.bind(
-                pos=lambda i, v: (setattr(i._bg, 'pos', v),
-                                  setattr(i._border, 'rounded_rectangle', (*v, *i.size, dp(8)))),
-                size=lambda i, v: (setattr(i._bg, 'size', v),
-                                   setattr(i._border, 'rounded_rectangle', (*i.pos, *v, dp(8))))
-            )
-
-            # Цветная метка-тип слева
-            badge = Label(
-                text=b_name[0], font_size=sp(13), bold=True,
-                size_hint=(None, None), size=(dp(28), dp(28)),
-                color=(1, 1, 1, 1)
-            )
-            with badge.canvas.before:
-                Color(*card_color)
-                badge._r = RoundedRectangle(pos=badge.pos, size=badge.size, radius=[dp(6)])
-            badge.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
-                       size=lambda i, v: setattr(i._r, 'size', v))
-            card.add_widget(badge)
-
-            # Название здания
-            name_lbl = Label(
-                text=b_name, font_size=sp(12), color=(0.92, 0.92, 0.92, 1),
-                halign='left', valign='middle'
-            )
-            name_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-            card.add_widget(name_lbl)
-
-            # Количество — справа
-            count_lbl = Label(
-                text=f'[b]{b_count}[/b]', markup=True,
-                font_size=sp(13), color=(0.95, 0.85, 0.35, 1),
-                size_hint=(None, 1), width=dp(40), halign='right', valign='middle'
-            )
-            count_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-            card.add_widget(count_lbl)
-
-            self.buildings_box.add_widget(card)
-
+            self.buildings_box.add_widget(text_label(
+                'Зданий пока нет',
+                14, MUTED, size_hint_y=None, height=dp(56)))
+        for item in buildings:
+            name, _, count = item.partition(':')
+            self.buildings_box.add_widget(building_row(name.strip(), count.strip()))
+        row = self.conn.execute(
+            'SELECT COALESCE(SUM(count),0) FROM buildings WHERE city_name=? AND faction=?',
+            (self.city_name, self.city_faction)).fetchone()
+        if hasattr(self, 'city_building_count'):
+            self.city_building_count.text = 'Застройка  %s / 25' % row[0]
 
     # ── Система строительства ────────────────────────────────────
     BUILDING_CATALOG = {
@@ -511,6 +184,15 @@ class FortressInfoPopup(Popup):
         )
         header.bind(size=header.setter('text_size'))
         content.add_widget(header)
+
+        from city_war import city_recovery_message
+        recovery_message = city_recovery_message(self.conn, self.city_name)
+        if recovery_message:
+            recovery_label = Label(text=recovery_message, font_size=sp(12),
+                                   color=(1, 0.68, 0.36, 1), size_hint_y=None,
+                                   height=dp(52), halign='center', valign='middle')
+            recovery_label.bind(size=recovery_label.setter('text_size'))
+            content.add_widget(recovery_label)
 
         scroll = ScrollView(size_hint_y=1)
         bld_list = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(5))
@@ -621,6 +303,8 @@ class FortressInfoPopup(Popup):
             background_color=(0, 0, 0, 0),
         )
         build_popup[0] = popup
+        from strategy_ui import frame
+        frame(content)
         close_btn.bind(on_release=lambda x: popup.dismiss())
         content.add_widget(close_btn)
         popup.open()
@@ -652,6 +336,9 @@ class FortressInfoPopup(Popup):
                 )
             self.conn.commit()
             print(f"[BUILD] Построено {building_type} в {self.city_name} за {cost} крон")
+            from city_war import reconcile_city_rebuilding
+            reconcile_city_rebuilding(self.conn)
+            self.conn.commit()
         except Exception as e:
             print(f"[BUILD] Ошибка: {e}")
             self.conn.rollback()
@@ -891,219 +578,8 @@ class FortressInfoPopup(Popup):
             print(f"Ошибка при загрузке войск: {e}")
 
     def show_troops_selection(self, troops_data):
-        """
-        Отображает окно с выбором войск.
-        :param troops_data: Список войск, полученный из базы данных.
-        """
-        self.current_troops_data = troops_data
-        _is_mobile = platform in ('android', 'ios')
-        popup = Popup(
-            title="Выберите войска для перемещения",
-            size_hint=(0.97 if _is_mobile else 0.9, 0.95 if _is_mobile else 0.9),
-            background_color=(0.07, 0.08, 0.13, 1),
-            separator_color=(0.25, 0.52, 0.92, 0.5),
-            title_color=(1, 1, 1, 1),
-            title_size=sp(16) if _is_mobile else sp(18),
-            title_align='center'
-        )
-        self.current_popup = popup  # Сохраняем ссылку на текущее окно
-
-        _row_h = dp(54) if _is_mobile else dp(90)
-        _hdr_h = dp(36) if _is_mobile else dp(60)
-        _img_h = dp(44) if _is_mobile else dp(60)
-        _btn_h = dp(48) if _is_mobile else dp(80)
-        _fsize = sp(12) if _is_mobile else sp(15)
-        _hdr_fsize = sp(13) if _is_mobile else sp(18)
-
-        main_layout = BoxLayout(orientation='vertical', padding=dp(8) if _is_mobile else dp(10), spacing=dp(6) if _is_mobile else dp(10))
-        with main_layout.canvas.before:
-            main_layout._bgc = Color(0.07, 0.08, 0.13, 1)
-            main_layout._bgr = Rectangle(pos=main_layout.pos, size=main_layout.size)
-        main_layout.bind(pos=lambda i, v: setattr(i._bgr, 'pos', v),
-                         size=lambda i, v: setattr(i._bgr, 'size', v))
-
-        # Создаем таблицу для отображения войск
-        self.table_layout = GridLayout(cols=5, spacing=dp(10), size_hint_y=None)
-        self.table_layout.bind(minimum_height=self.table_layout.setter('height'))
-
-        headers = ["Город", "Юнит", "Количество", "Изображение", "Действие"]
-        for header in headers:
-            label = Label(
-                text=header,
-                font_size=_hdr_fsize,
-                bold=True,
-                size_hint_y=None,
-                height=_hdr_h,
-                color=(0.55, 0.75, 1.0, 1)
-            )
-            self.table_layout.add_widget(label)
-
-        # Предзагрузка уникальных изображений в кеш
-        _unique_imgs = {img for _, _, _, img in troops_data if img}
-        for _src in _unique_imgs:
-            try:
-                from kivy.core.image import Image as CoreImage
-                CoreImage(_src)
-            except Exception:
-                pass
-
-        _row_idx = 0
-        for city_name, unit_name, unit_count, unit_image in troops_data:
-            _row_idx += 1
-
-            city_lbl = Label(text=city_name, font_size=_fsize, size_hint_y=None,
-                             height=_row_h, color=(0.85, 0.88, 0.95, 1))
-            unit_lbl = Label(text=unit_name, font_size=_fsize, size_hint_y=None,
-                             height=_row_h, color=(1, 0.92, 0.70, 1), bold=True)
-            count_lbl = Label(text=str(unit_count), font_size=_fsize, size_hint_y=None,
-                              height=_row_h, color=(0.5, 0.85, 0.5, 1), bold=True)
-
-            img_box = BoxLayout(size_hint_y=None, height=_img_h)
-            img_box.add_widget(AsyncImage(source=unit_image, size=(_img_h, _img_h), size_hint=(None, None)))
-
-            btn_add = Button(
-                text="Добавить", font_size=_fsize, bold=True,
-                size_hint_y=None, height=_btn_h,
-                background_normal='', background_color=(0.12, 0.16, 0.28, 0.95),
-                color=(1, 1, 1, 1)
-            )
-            btn_add.bind(
-                on_release=lambda btn, data=(city_name, unit_name, unit_count, unit_image):
-                self.create_troop_group(data, btn, city_lbl, unit_lbl, count_lbl, img_box, btn_add)
-            )
-
-            for w in (city_lbl, unit_lbl, count_lbl, img_box, btn_add):
-                self.table_layout.add_widget(w)
-
-            unique_id = f"{city_name}_{unit_name}"
-            self.table_widgets[unique_id] = {
-                "city_label": city_lbl,
-                "unit_label": unit_lbl,
-                "count_label": count_lbl,
-                "image_container": img_box,
-                "action_button": btn_add
-            }
-
-        scroll_view = ScrollView(size_hint=(1, 1))
-        scroll_view.add_widget(self.table_layout)
-        main_layout.add_widget(scroll_view)
-
-        # Кнопка «Создать группу» — синяя
-        btn_add_all = Button(
-            text="Создать группу (1-3 класс)",
-            size_hint=(1, None),
-            height=dp(44),
-            font_size=sp(16),
-            bold=True,
-            background_color=(0, 0, 0, 0),
-            color=(1, 1, 1, 1)
-        )
-        with btn_add_all.canvas.before:
-            btn_add_all._bc = Color(0.12, 0.30, 0.65, 0.95)
-            btn_add_all._br = RoundedRectangle(pos=btn_add_all.pos, size=btn_add_all.size, radius=[dp(8)])
-        btn_add_all.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
-                         size=lambda i, v: setattr(i._br, 'size', v))
-
-        def add_all(btn):
-            # Создаем копию списка для итерации, так как мы будем его модифицировать
-            troops_to_process = list(self.current_troops_data)
-
-            for city, unit, count, img in troops_to_process:
-                # Проверяем класс юнита перед добавлением
-                cursor = self.conn.cursor()
-                cursor.execute("""
-                    SELECT unit_class FROM units WHERE unit_name = ?
-                """, (unit,))
-                unit_class_result = cursor.fetchone()
-
-                if unit_class_result:
-                    unit_class = unit_class_result[0]
-                    # Добавляем только юнитов классов 1, 2 и 3
-                    if str(unit_class) in ['1', '2', '3']:
-                        self.selected_group.append({
-                            "city_name": city,
-                            "unit_name": unit,
-                            "unit_count": count,
-                            "unit_image": img
-                        })
-                        self.selected_units_set.add((city, unit))
-
-                        uid = f"{city}_{unit}"
-                        if uid in self.table_widgets:
-                            widgets = self.table_widgets.pop(uid)
-                            for key in ("city_label", "unit_label", "count_label", "image_container", "action_button"):
-                                self.table_layout.remove_widget(widgets[key])
-
-                        # Удаляем из текущих данных
-                        self.current_troops_data = [
-                            d for d in self.current_troops_data
-                            if not (d[0] == city and d[1] == unit)
-                        ]
-
-            # Если были добавлены юниты, активируем кнопку отправки
-            if self.selected_group:
-                self.send_group_button.disabled = False
-
-        btn_add_all.bind(on_release=add_all)
-
-        # Кнопки «Отправить группу в город» и «Закрыть»
-        self.send_group_button = Button(
-            text="Отправить группу в город",
-            size_hint=(1, None),
-            height=dp(44),
-            font_size=sp(16),
-            bold=True,
-            background_color=(0, 0, 0, 0),
-            color=(1, 1, 1, 1),
-            disabled=True
-        )
-        with self.send_group_button.canvas.before:
-            self.send_group_button._bc = Color(0.18, 0.62, 0.22, 1)
-            self.send_group_button._br = RoundedRectangle(pos=self.send_group_button.pos, size=self.send_group_button.size, radius=[dp(12)])
-        self.send_group_button.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
-                                    size=lambda i, v: setattr(i._br, 'size', v))
-
-        close_button = Button(
-            text="Закрыть",
-            size_hint=(1, None),
-            height=dp(44),
-            font_size=sp(16),
-            bold=True,
-            background_color=(0, 0, 0, 0),
-            color=(1, 1, 1, 1)
-        )
-        with close_button.canvas.before:
-            close_button._bc = Color(0.55, 0.14, 0.14, 1)
-            close_button._br = RoundedRectangle(pos=close_button.pos, size=close_button.size, radius=[dp(12)])
-        close_button.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
-                          size=lambda i, v: setattr(i._br, 'size', v))
-
-        self.send_group_button.bind(on_release=self.move_selected_group_to_city)
-        close_button.bind(on_release=popup.dismiss)
-
-        # Все три кнопки вместе: «Создать группу» сверху, «Отправить» и «Закрыть» рядом снизу
-        bottom_row = BoxLayout(
-            orientation='horizontal',
-            size_hint_y=None,
-            height=dp(44),
-            spacing=dp(10)
-        )
-        bottom_row.add_widget(self.send_group_button)
-        bottom_row.add_widget(close_button)
-
-        buttons_layout = BoxLayout(
-            orientation='vertical',
-            size_hint_y=None,
-            height=dp(100),
-            spacing=dp(8)
-        )
-        buttons_layout.add_widget(btn_add_all)
-        buttons_layout.add_widget(bottom_row)
-
-        main_layout.add_widget(buttons_layout)
-
-        popup.content = main_layout
-        popup.open()
+        from troop_ui import show_troop_selection
+        return show_troop_selection(self, troops_data)
 
     def create_troop_group(self, troop_data, button, city_label, unit_label, count_label, image_container,
                            action_button):
@@ -1468,10 +944,10 @@ class FortressInfoPopup(Popup):
 
             # Цвета по классу юнита
             CLASS_COLORS = {
-                '1': (0.22, 0.28, 0.38, 1),   # Серо-синий
-                '2': (0.28, 0.22, 0.38, 1),   # Серо-фиолетовый
-                '3': (0.38, 0.26, 0.12, 1),   # Золотистый
-                '4': (0.38, 0.10, 0.10, 1),   # Тёмно-красный (легенда)
+                '1': (0.09, 0.12, 0.17, 1),
+                '2': (0.12, 0.09, 0.17, 1),
+                '3': (0.17, 0.13, 0.08, 1),
+                '4': (0.18, 0.075, 0.075, 1),
             }
 
             # Вычисляем бонус героев (класс 2-3) для юнитов класса 1
@@ -1617,10 +1093,13 @@ class FortressInfoPopup(Popup):
 
                 # Изображение юнита
                 img_src = unit_image if unit_image and os.path.exists(unit_image) else ''
-                img_size = dp(72) if unit_class == '1' else dp(82)
+                from strategy_ui import frame
+                frame(card, (0.36, 0.43, 0.51, 1) if unit_class == '1' else (0.76, 0.60, 0.34, 1))
+                img_size = dp(56) if unit_class == '1' else dp(64)
                 unit_img = Image(
                     source=img_src, size_hint=(None, None),
                     size=(img_size, img_size),
+                    pos_hint={'center_y': 0.5},
                     allow_stretch=True, keep_ratio=True, mipmap=True
                 )
                 card.add_widget(unit_img)
@@ -1739,7 +1218,8 @@ class FortressInfoPopup(Popup):
                         return True
                     return False
 
-                card.bind(on_touch_down=_on_card_touch)
+                from strategy_ui import bind_row_tap
+                bind_row_tap(card, _on_card_touch)
 
                 self.attacking_units_box.add_widget(card)
 
@@ -3052,6 +2532,9 @@ class FortressInfoPopup(Popup):
                     SET faction = ? 
                     WHERE city_name = ?
                 """, (new_owner, city_name))
+
+                from city_war import record_capture
+                record_capture(self.conn, city_name, new_owner)
 
             show_popup_message("Успех", f"Город {city_name} захвачен!")
             self.update_garrison()

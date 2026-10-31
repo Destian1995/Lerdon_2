@@ -60,6 +60,8 @@ class ClickableImage(ButtonBehavior, Image):
 class AdvisorView(FloatLayout):
     def __init__(self, faction, conn, game_screen_instance=None, preselect_faction=None, **kwargs):
         super(AdvisorView, self).__init__(**kwargs)
+        self._strategy_no_theme = True
+        self._closed = False
 
         self.faction = faction
         self.db_connection = conn
@@ -114,6 +116,7 @@ class AdvisorView(FloatLayout):
             background=background,
             auto_dismiss=False
         )
+        self.popup.bind(on_dismiss=self._dispose)
 
         # Кнопка закрытия
         close_button = Button(
@@ -150,3 +153,18 @@ class AdvisorView(FloatLayout):
             self.popup.dismiss()
         else:
             print("Ошибка: Попап не найден.")
+
+    def _dispose(self, *args):
+        if self._closed:
+            return
+        self._closed = True
+        chat = getattr(self, 'diplomacy_chat', None)
+        if chat is not None and hasattr(chat, 'dispose'):
+            chat.dispose()
+        if self.parent:
+            self.parent.remove_widget(self)
+
+    def on_parent(self, widget, parent):
+        # Dismissal can occur before the owner is added to game_area.
+        if parent is not None and getattr(self, '_closed', False):
+            parent.remove_widget(self)

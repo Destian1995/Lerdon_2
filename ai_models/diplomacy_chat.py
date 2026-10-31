@@ -572,7 +572,7 @@ class EnhancedDiplomacyChat():
 
     def _on_textinput_focus_android(self, instance, value):
         """Обработка фокуса для Android — сжимаем окно при клавиатуре"""
-        if kivy_platform != 'android':
+        if getattr(self, '_disposed', False) or kivy_platform != 'android':
             return
 
         from kivy.core.window import Window
@@ -586,7 +586,7 @@ class EnhancedDiplomacyChat():
 
     def _adjust_for_keyboard_android(self):
         """Адаптирует интерфейс при появлении клавиатуры на Android"""
-        if not hasattr(self, 'chat_scroll'):
+        if getattr(self, '_disposed', False) or not hasattr(self, 'chat_scroll'):
             return
 
         try:
@@ -594,6 +594,16 @@ class EnhancedDiplomacyChat():
                 Animation(scroll_y=0, duration=0.15).start(self.chat_scroll)
         except:
             pass
+
+    def dispose(self):
+        if getattr(self, '_disposed', False):
+            return
+        self._disposed = True
+        if self.message_input:
+            self.message_input.focus = False
+        self.keyboard_helper.dispose()
+        if self.chat_scroll:
+            Animation.cancel_all(self.chat_scroll)
 
     def on_faction_selected_android(self, spinner, text):
         """Обработчик выбора фракции для Android"""

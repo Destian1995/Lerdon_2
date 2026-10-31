@@ -510,6 +510,7 @@ def open_artifacts_popup(faction, season_manager):
 
     # --- Корневой layout ---
     popup_layout = BoxLayout(orientation='horizontal', padding=padding_val, spacing=spacing_val)
+    popup_layout._responsive_stack_below = dp(760)
     with popup_layout.canvas.before:
         Color(*COLOR_BG)
         popup_layout._bg = Rectangle(pos=popup_layout.pos, size=popup_layout.size)
@@ -976,6 +977,7 @@ def open_artifacts_popup(faction, season_manager):
     #  ПРАВАЯ ПАНЕЛЬ: герой + слоты + статы
     # ==================================================================
     right_panel = FloatLayout(size_hint=(0.48, 1))
+    right_panel._responsive_min_height = dp(620)
     with right_panel.canvas.before:
         Color(*COLOR_PANEL_BG)
         right_panel._bg = RoundedRectangle(pos=right_panel.pos, size=right_panel.size,
@@ -1173,57 +1175,44 @@ def open_artifacts_popup(faction, season_manager):
 
     # --- Позиционирование слотов вокруг героя ---
     def position_slots(dt):
+        panel_x, panel_y = right_panel.pos
+        panel_width, panel_height = right_panel.size
+        hero_stats_container.pos = (panel_x + dp(12), right_panel.top - hero_stats_container.height - dp(12))
         if not hero_image_widget:
             return
-        if not right_panel or right_panel.width == 0:
-            Clock.schedule_once(position_slots, 0.1)
-            return
+        hero_image_widget.pos_hint = {}
+        hero_image_widget.pos = (right_panel.center_x - hero_image_widget.width / 2,
+                                 hero_stats_container.y - hero_image_widget.height - dp(12))
+        columns = 3 if panel_width >= dp(360) else 2
+        cell_width = (panel_width - dp(24)) / columns
+        slot_width = min(slot_size[0], max(dp(48), cell_width - dp(16)))
+        name_height = max(dp(28), sp(13) * 2)
+        row_height = slot_size[1] + name_height + dp(16)
+        first_top = hero_image_widget.y - dp(20)
+        for index, slot_type in enumerate(('0', '1', '2', '3', '4')):
+            col, row = index % columns, index // columns
+            left = panel_x + dp(12) + cell_width * col
+            top = first_top - row * row_height
+            widget = equipment_slots.get(slot_type)
+            label = slot_name_labels.get(slot_type)
+            if widget:
+                widget.size = (slot_width, slot_size[1])
+                widget.pos = (left + (cell_width - slot_width) / 2, top - slot_size[1])
+            if label:
+                label.size = (cell_width - dp(8), name_height)
+                label.pos = (left + dp(4), top - slot_size[1] - name_height - dp(4))
+                label.text_size = label.size
+                label.shorten = True
+                if label.parent is None:
+                    right_panel.add_widget(label)
+        rows = (len(equipment_slots) + columns - 1) // columns
+        right_panel._responsive_min_height = max(dp(480),
+            hero_stats_container.height + hero_image_widget.height + rows * row_height + dp(68))
+        right_panel.size_hint_min_y = right_panel._responsive_min_height
 
-        panel_x = right_panel.x
-        panel_y = right_panel.y
-        panel_width = right_panel.width
-        panel_height = right_panel.height
+    slot_layout_trigger = Clock.create_trigger(position_slots, -1)
+    right_panel.bind(pos=slot_layout_trigger, size=slot_layout_trigger)
 
-        center_x = panel_x + panel_width / 2
-        center_y = panel_y + panel_height * 0.55
-
-        hero_width, hero_height = hero_image_size
-        slot_w, slot_h = slot_size
-        half_hero_w = hero_width / 2
-        half_hero_h = hero_height / 2
-
-        slot_positions = {
-            '0': (center_x - half_hero_w - slot_w - offset, center_y - slot_h / 2),
-            '3': (center_x + half_hero_w + offset, center_y - slot_h / 2),
-            '1': (center_x - slot_w / 2, center_y + half_hero_h + offset),
-            '2': (center_x - slot_w / 2, center_y - half_hero_h - slot_h - offset),
-            '4': (center_x + half_hero_w + offset, center_y + half_hero_h + offset),
-        }
-
-        # Позиционируем характеристики героя вверху-слева правой панели
-        hero_stats_container.pos = (
-            panel_x + dp(8),
-            panel_y + panel_height - hero_stats_container.height - dp(8)
-        )
-
-        for slot_type, pos in slot_positions.items():
-            if slot_type in slot_name_labels:
-                nlbl = slot_name_labels[slot_type]
-                nlbl.pos = (pos[0] - dp(5), pos[1] - (dp(16) if is_android else dp(20)))
-                if nlbl.parent is None:
-                    right_panel.add_widget(nlbl)
-            if slot_type in equipment_slots:
-                widget = equipment_slots[slot_type]
-                widget.pos = pos
-
-                artifact_entry = hero_equipment.get(slot_type)
-                if isinstance(artifact_entry, dict) and artifact_entry.get('id'):
-                    pos_x, pos_y = pos
-                    hero_equipment[slot_type]['pos_x'] = pos_x
-                    hero_equipment[slot_type]['pos_y'] = pos_y
-                    save_hero_equipment_to_db(faction, slot_type, artifact_entry['id'], season_manager, pos_x, pos_y)
-
-    # --- Обновление визуала слота ---
     def update_equipment_slot_visual(slot_type, artifact_data):
         slot_widget = equipment_slots.get(slot_type)
         name_label = slot_name_labels.get(slot_type)

@@ -1,0 +1,126 @@
+{
+  "tool": "built-in image_gen",
+  "style": "Painted gold, blue steel, navy; transparent RGBA; small mobile strategy icons",
+  "size": 128,
+  "assets": [
+    {
+      "path": "files/status/resource_box/coin.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-14f5dee6-6d7a-4ce6-8e1b-678f843e4cae.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. A small compact stack of three rich golden crown coins, one front coin embossed with a simple crown, warm gold, currency."
+    },
+    {
+      "path": "files/status/resource_box/population.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-745598df-7764-42db-8743-ebc6298bb6c9.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. Three stylized medieval civilian bust silhouettes in deep blue tunics and warm pale gold heads, central larger and two smaller behind, population, no detailed faces."
+    },
+    {
+      "path": "files/status/resource_box/crystal.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-cd0f2823-35af-4be7-a12c-af949f6516dc.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. Three bright cyan faceted crystal shards, one large central gem and two small shards, luminous blue interior, thin gold highlights, crystal resource."
+    },
+    {
+      "path": "files/status/resource_box/workers.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-2d3171a1-8420-4cb2-86f3-ea3e3f278342.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. A sturdy medieval work hammer crossed with a leather work glove, copper handle and gold steel head, labor workforce."
+    },
+    {
+      "path": "files/status/resource_box/consumption.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-2dfc776a-2d39-479a-a01e-168bacc91a40.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. One cyan crystal shard with a short clear curved amber downward arrow beside it, consumption of crystals by the army, keep crystal and arrow separately readable, NO food."
+    },
+    {
+      "path": "files/status/icons/snowflake.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-4a78c9b8-3729-4c6e-b31d-cd8da6ff4e9d.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. One symmetrical six-point snowflake carved from pale ice and blue silver, crisp broad branches, bright white core, winter."
+    },
+    {
+      "path": "files/status/resource_box/army_limit.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-19014ef2-8888-46a7-b11e-b2cd6ad6661d.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. A cyan crystal held inside a sturdy gold and steel battlement-shaped cradle, a clear horizontal gold capacity bar underneath, army supply capacity, distinct from plain crystal resource."
+    },
+    {
+      "path": "files/status/icons/green_leaf.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-04ab0f10-188a-46d3-bc88-5d86ed5d2032.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. A single fresh vivid green spring leaf with a small curled stem, gold edged veins, natural shape, spring."
+    },
+    {
+      "path": "files/status/icons/sun.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-3ed30418-f17e-44c3-bb83-72201c33bd84.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. A radiant warm golden sun disk surrounded by eight sculpted triangular rays, polished amber center, no face, summer."
+    },
+    {
+      "path": "files/status/icons/yellow_leaf.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-dc60257e-c14f-4c5e-b389-db99eb1169a9.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. One amber and russet autumn maple leaf with a curled copper stem, gold edged veins, autumn."
+    },
+    {
+      "path": "files/status/economy.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-75d0aa7a-d3c1-4276-85ee-c5964b623fa0.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. A compact medieval treasury emblem: open account ledger with three golden coins in front, gold and blue steel materials, economy navigation."
+    },
+    {
+      "path": "files/status/politic.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-51e9570a-9835-4f0a-a75e-dbe387915bdd.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. A noble medieval council hall facade with three large pillars, blue steel roof and golden crown over the central arch, politics navigation."
+    },
+    {
+      "path": "files/status/army_in_city/garrison_shield.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-d0f5586a-4895-41f8-a490-f5d1395fb66f.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. A compact tall dark blue heraldic shield with antique gold rim and one simple silver longsword embossed vertically in the center, garrison strength map badge."
+    },
+    {
+      "path": "files/status/army.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-3a007f62-2904-4a55-b800-404eeb4e70f6.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. A broad heraldic blue steel shield with strong antique gold rim and a vertical silver sword on its face, army navigation."
+    },
+    {
+      "path": "files/status/army_in_city/hero_helm.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-e4e20d80-db8c-4864-ba70-1a582b06b3a9.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. A majestic front-facing golden medieval knight helm with deep shadow visor and one crimson crest plume, hero map badge, broad simple forms."
+    },
+    {
+      "path": "files/status/icons/building.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-d5d0d9ca-523c-4e58-a580-1db13bcf310b.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. A compact medieval stone watchtower with red tiled roof and a small golden construction hammer laid diagonally in front, construction/buildings icon."
+    },
+    {
+      "path": "files/status/ideology/un_def.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-5bbab606-18b1-448b-aca9-9ea6c012961b.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. Two symmetrical upward curved laurel branches forming an open wreath, neutral pale silver leaves with gold edges. Harmony/submission ideology relationship badge, silver must dominate. Empty transparent center, no medallion."
+    },
+    {
+      "path": "files/status/ideology/fist_green.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-744cb2d5-ba33-4733-b2d8-bb54bb1e7b14.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. One armored clenched gauntlet fist raised vertically, allied jade green enamel plates with golden joints and small interlocking knot cuff. Struggle ideology relationship badge. Bold readable fist silhouette, fingers pointing up."
+    },
+    {
+      "path": "files/status/ideology/fist_def.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-3471b7ba-9f48-47a1-a5f9-f891ae4f8acd.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. One armored clenched gauntlet fist raised vertically, neutral blue silver steel with gold edges. Struggle ideology relationship badge. Bold readable fist silhouette, fingers pointing up."
+    },
+    {
+      "path": "files/status/ideology/fist_red.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-fc8a8a4c-e8ea-46ca-8e92-bb1aa4ad9732.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. One armored clenched gauntlet fist raised vertically, hostile crimson red enamel plates with gold joints and angular ruby cuff. Struggle ideology relationship badge. Bold readable fist silhouette, fingers pointing up."
+    },
+    {
+      "path": "files/status/ideology/un_green.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-bba07447-d5b0-45fb-9bc6-7ef159e34cfd.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. Two symmetrical upward curved laurel branches forming an open wreath, allied vivid jade green leaves and polished gold stem, small intertwined golden knot at the base. Harmony/submission ideology relationship badge, green must dominate. Empty transparent center, no medallion."
+    },
+    {
+      "path": "files/status/ideology/un_red.png",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a18cef-2ee7-7b83-8d33-2c70e669ca96\\exec-3b6a2a2f-c943-4b93-b617-26605f73f29b.png",
+      "prompt": "Use case: stylized-concept. Asset type: production mobile fantasy strategy UI icon, readable at 24-48 pixels. Single isolated chunky recognizable emblem, rich hand-painted 3D carved materials, antique gold edge highlights and cool blue steel shadows, coherent premium medieval strategy art direction. Large simple silhouette and restrained surface detail, strong contrast, upper-left lighting, centered composition 10 percent transparent margin. Real transparent RGBA background, no backdrop, no square tile, no UI frame, no text, no letters, no watermark, no photoreal hands/faces. Two symmetrical upward curved laurel branches forming an open wreath, hostile crimson ruby leaves and dark gold stem, tiny angular ruby at the base. Harmony/submission ideology relationship badge, red must dominate. Empty transparent center, no medallion."
+    }
+  ],
+  "aliases": {
+    "files/status/army_tab.png": "files/status/army.png",
+    "files/status/economy_tab.png": "files/status/economy.png",
+    "files/status/politic_tab.png": "files/status/politic.png",
+    "files/status/city_bonus/crystal.png": "files/status/resource_box/crystal.png",
+    "files/status/icons/icon_for_animate/season 1.png": "files/status/icons/snowflake.png",
+    "files/status/icons/icon_for_animate/season 2.png": "files/status/icons/green_leaf.png",
+    "files/status/icons/icon_for_animate/season 4.png": "files/status/icons/yellow_leaf.png"
+  }
+}

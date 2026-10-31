@@ -4,22 +4,22 @@ from kivy.utils import get_color_from_hex
 
 # ─── Цветовая палитра (базовые цвета) ────────────────────────────
 PRIMARY_COLORS = {
-    'primary': '#2E3440',      # Темно-синий (Nord)
-    'secondary': '#4C566A',    # Серый
-    'accent': '#88C0D0',       # Светло-голубой
+    'primary': '#111824',
+    'secondary': '#17212F',
+    'accent': '#C29957',
     'success': '#A3BE8C',      # Зеленый
     'warning': '#EBCB8B',      # Желтый
     'error': '#BF616A',        # Красный
-    'background': '#ECEFF4',   # Светло-серый фон
-    'surface': '#FFFFFF',      # Белый для карточек
+    'background': '#090D14',
+    'surface': '#111620',
 }
 
 # ─── Семантические цвета (для UI-элементов) ──────────────────────
 SEMANTIC_COLORS = {
     # Фоны
-    'bg_dark': '#121212',
-    'bg_card': '#1E1E1E',
-    'bg_input': '#2A2A2A',
+    'bg_dark': '#090D14',
+    'bg_card': '#111620',
+    'bg_input': '#17212F',
     'bg_overlay': '#000000B0',
 
     # Текст
@@ -29,10 +29,10 @@ SEMANTIC_COLORS = {
     'text_disabled': '#666666',
 
     # Действия
-    'action_primary': '#4CAF50',
+    'action_primary': '#C29957',
     'action_danger': '#E53E3E',
-    'action_info': '#2196F3',
-    'action_gold': '#FFD700',
+    'action_info': '#8FA3B8',
+    'action_gold': '#C29957',
 
     # Статусы
     'status_war': '#FF4444',
@@ -42,12 +42,12 @@ SEMANTIC_COLORS = {
 
     # Границы
     'border_light': '#333333',
-    'border_accent': '#BB86FC',
+    'border_accent': '#C29957',
     'border_muted': '#444444',
 
     # Accent / highlight
-    'highlight': '#BB86FC',
-    'highlight_secondary': '#03DAC6',
+    'highlight': '#C29957',
+    'highlight_secondary': '#8FA3B8',
 }
 
 # ─── Темы (светлая/темная) ────────────────────────────────────────
@@ -109,8 +109,8 @@ SIZES = {
     'icon_md': dp(36),
     'icon_lg': dp(48),
     'card_radius': dp(12),
-    'button_radius': dp(24),
-    'input_height': dp(44),
+    'button_radius': dp(9),
+    'input_height': dp(48),
     'toolbar_height': dp(56),
     'tab_height': dp(48),
 }
@@ -165,10 +165,10 @@ FACTION_COLORS = {
 # ─── Константы анимаций ───────────────────────────────────────────
 ANIMATION = {
     'fast':       0.15,
-    'normal':     0.30,
-    'slow':       0.55,
+    'normal':     0.22,
+    'slow':       0.35,
     'very_slow':  1.10,
-    'bounce':     'out_elastic',
+    'bounce':     'out_quad',
     'smooth':     'out_cubic',
     'ease_in':    'in_quad',
     'ease_out':   'out_quad',

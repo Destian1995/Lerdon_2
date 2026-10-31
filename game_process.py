@@ -236,7 +236,7 @@ class ResourceBox(BoxLayout):
 
         # фон с закруглёнными углами
         with self.canvas.before:
-            Color(0.11, 0.15, 0.21, 0.9)
+            Color(0.045, 0.065, 0.10, 0.97)
             self._bg_rect = RoundedRectangle(radius=[6,])
 
         self.bind(pos=self._update_bg, size=self._update_bg)
@@ -252,7 +252,7 @@ class ResourceBox(BoxLayout):
 
         # Периодическое обновление ресурсов (каждые 2 сек)
         from kivy.clock import Clock as _ResClock
-        _ResClock.schedule_interval(lambda dt: self.update_resources(), 2.0)
+        self._refresh_event = _ResClock.schedule_interval(lambda dt: self.update_resources(), 2.0)
 
     def _update_bg(self, *args):
         self._bg_rect.pos = self.pos
@@ -261,6 +261,8 @@ class ResourceBox(BoxLayout):
     def update_resources(self, delta=None):
         if delta is None:
             delta = {}
+        else:
+            delta = dict(delta)
 
         # Извлекаем сезонную информацию (не ресурс)
         _season_info = delta.pop('_season_info', None)
@@ -270,10 +272,13 @@ class ResourceBox(BoxLayout):
             Clock.unschedule(self.scheduled_animate_event)
             self.scheduled_animate_event = None
 
+        resources = self.resource_manager.get_resources()
+        render_key = (tuple((name, str(value)) for name, value in resources.items()), self.width, Window.height, _season_info)
+        if render_key == getattr(self, '_render_key', None) and not delta:
+            return
+        self._render_key = render_key
         self.clear_widgets()
         self._label_values.clear()
-
-        resources = self.resource_manager.get_resources()
 
         # Показываем сезонный эффект если есть
         if _season_info:
@@ -398,100 +403,45 @@ class ResourceBox(BoxLayout):
             popup.open()
 
         # --- Рендеринг строк ---
+        from strategy_ui import text_label, MUTED, TEXT
         items = list(resources.items())
-        for idx, (res_name, formatted) in enumerate(items):
-            # Разделитель сверху
-            line = Widget(size_hint=(1, None), height=dp(1))
-            with line.canvas:
-                Color(0.5, 0.5, 0.5, 1)
-                rect = Rectangle(pos=(self.x + self.padding[0], 0),
-                                 size=(self.width - (self.padding[0] + self.padding[2]), dp(1)))
-                line.bind(pos=lambda inst, val: setattr(rect, 'pos', (self.x + self.padding[0], val[1])),
-                          size=lambda inst, sz: setattr(rect, 'size',
-                                                        (self.width - (self.padding[0] + self.padding[2]), dp(1))))
+        row_h = dp(34)
+        self.padding = [dp(10), dp(8), dp(10), dp(8)]
+        limit = next((parsed.get(name) or 0 for name in resources
+                      if self.ICON_MAP.get(name, '').endswith('army_limit.png')), 0)
+        for name, formatted in items:
+            row = BoxLayout(size_hint_y=None, height=row_h, spacing=dp(9))
+            icon = Image(source=self.ICON_MAP.get(name, ''), size_hint=(None, 1),
+                         width=dp(28), allow_stretch=True, keep_ratio=True, mipmap=True)
+            row.add_widget(icon)
+            detail = BoxLayout(orientation='vertical')
+            detail.add_widget(text_label(name, 9, MUTED, size_hint_y=0.42))
+            num = parsed.get(name)
+            danger = num is not None and (num < 0 or
+                (self.ICON_MAP.get(name, '').endswith('consumption.png') and num > limit))
+            value = text_label(str(formatted), 15, (1, 0.43, 0.36, 1) if danger else TEXT,
+                               bold=True, size_hint_y=0.58)
+            detail.add_widget(value)
+            self._label_values[name] = value
+            row.add_widget(detail)
+            def touched(widget, touch, resource=name):
+                if widget.collide_point(*touch.pos):
+                    show_tooltip(resource)
+                    return True
+                return False
+            row.bind(on_touch_down=touched)
+            self.add_widget(row)
+            if name in delta:
+                self.animate_resource(name, delta[name])
+        self.height = len(items) * row_h + self.padding[1] + self.padding[3] + (dp(18) if _season_info else 0)
 
-            widgets.append(line)
-
-            # Строка с ресурсом
-            row = BoxLayout(orientation='horizontal', size_hint=(1, None), height=row_h, spacing=dp(4))
-
-            icon_path = self.ICON_MAP.get(res_name)
-            if icon_path:
-                img = Image(source=icon_path, size_hint=(None, None), size=(icon_size, icon_size), allow_stretch=True)
-            else:
-                img = Widget(size_hint=(None, None), size=(icon_size, icon_size))
-
-            lbl_colon = Label(
-                text=":",
-                font_size=sp(16),
-                color=(1, 1, 1, 1),
-                size_hint=(None, None),
-                size=(colon_w, row_h),
-                halign='center',
-                valign='middle'
-            )
-            lbl_colon.text_size = (colon_w, row_h)
-
-            num = parsed.get(res_name)
-            val_color = (1, 0, 0, 1) if (num is not None and num < 0) or (
-                    res_name == "Потребление" and num > parsed.get("Лимит Армии", 0)) else (1, 1, 1, 1)
-
-            lbl_val = Label(
-                text=str(formatted),
-                font_size=sp(16),
-                color=val_color,
-                size_hint=(None, None),
-                size=(val_w, row_h),
-                halign='left',
-                valign='middle'
-            )
-            lbl_val.text_size = (val_w, row_h)
-            self._label_values[res_name] = lbl_val
-
-            row.add_widget(img)
-            row.add_widget(Widget(size_hint=(None, None), size=(gap, row_h)))
-            row.add_widget(lbl_colon)
-            row.add_widget(Widget(size_hint=(None, None), size=(gap, row_h)))
-            row.add_widget(lbl_val)
-
-            # Если есть дельта — запускаем анимацию
-            if res_name in delta:
-                self.animate_resource(res_name, delta[res_name])
-
-            # Добавляем обработчик тапа по строке для показа подсказки
-            row.bind(
-                on_touch_down=lambda instance, touch, name=res_name: show_tooltip(name) if instance.collide_point(
-                    touch.x, touch.y) else False
-            )
-
-            widgets.append(row)
-
-        # Нижний разделитель
-        last_line = Widget(size_hint=(1, None), height=dp(1))
-        with last_line.canvas:
-            Color(0.5, 0.5, 0.5, 1)
-            rect = Rectangle(pos=(self.x + self.padding[0], 0),
-                             size=(self.width - (self.padding[0] + self.padding[2]), dp(1)))
-            last_line.bind(pos=lambda inst, val: setattr(rect, 'pos', (self.x + self.padding[0], val[1])),
-                           size=lambda inst, sz: setattr(rect, 'size',
-                                                         (self.width - (self.padding[0] + self.padding[2]), dp(1))))
-
-        widgets.append(last_line)
-
-        # Добавляем все виджеты
-        for w in widgets:
-            self.add_widget(w)
-
-        # Расчёт высоты
-        num_rows = len(items)
-        sep_h = dp(1)
-        rows_h = num_rows * row_h
-        lines_h = (num_rows + 1) * sep_h
-        total_h_raw = self.padding[1] + self.padding[3] + rows_h + lines_h
-        max_bottom_y = Window.height * 0.35
-        max_allowed_h = Window.height - max_bottom_y
-        final_h = min(total_h_raw, max_allowed_h)
-        self.height = final_h
+    def cleanup(self):
+        if getattr(self, '_refresh_event', None):
+            self._refresh_event.cancel()
+            self._refresh_event = None
+        if self.scheduled_animate_event:
+            self.scheduled_animate_event.cancel()
+            self.scheduled_animate_event = None
 
     def animate_resource(self, res_name, delta_data):
         label = self._label_values.get(res_name)
@@ -791,6 +741,7 @@ class TurnOverlay(FloatLayout):
 class TabImageButton(ImageButton):
     """Кнопка вкладки с поддержкой активного/неактивного состояния"""
     def __init__(self, normal_source, active_source=None, **kwargs):
+        kwargs.setdefault('mipmap', True)
         super().__init__(**kwargs)
         self.normal_source = normal_source
         self.active_source = active_source or self._generate_active_path(normal_source)
@@ -807,7 +758,13 @@ class TabImageButton(ImageButton):
 
     def set_active(self, active):
         self.is_active = active
-        self.source = self.active_source if active else self.normal_source
+        self.source = self.active_source if active and os.path.exists(self.active_source) else self.normal_source
+        if hasattr(self, '_strategy_frame'):
+            self._strategy_frame.outer_color.rgba = ((0.90, 0.72, 0.36, 1) if active
+                                                       else (0.32, 0.40, 0.48, 0.5))
+
+    def cleanup(self):
+        Animation.cancel_all(self)
 
 
 class GameScreen(Screen):
@@ -911,7 +868,6 @@ class GameScreen(Screen):
 
         # --- Сохраняем объекты таймеров ---
         self._prev_star_levels = None  # Кэш для отслеживания изменений карты
-        self._smoke_cities = set()  # Города с дымом от недавних битв
         # Немедленный первый вызов (после layout) + периодическое обновление
         Clock.schedule_once(lambda dt: self.update_cash(dt), 0)
         Clock.schedule_once(lambda dt: self.update_army_rating(dt), 0)
@@ -1317,7 +1273,7 @@ class GameScreen(Screen):
         def _upd_bg(instance, value):
             self.season_container.canvas.before.clear()
             with self.season_container.canvas.before:
-                Color(0.15, 0.2, 0.3, 0.9)
+                Color(0.045, 0.065, 0.10, 0.97)
                 self._season_bg = RoundedRectangle(pos=instance.pos, size=instance.size, radius=[10])
 
         self.season_container.bind(pos=_upd_bg, size=_upd_bg)
@@ -1358,13 +1314,13 @@ class GameScreen(Screen):
         )
 
         with end_turn_container.canvas.before:
-            Color(0.72, 0.14, 0.14, 0.95)
+            Color(0.30, 0.075, 0.065, 0.98)
             RoundedRectangle(pos=end_turn_container.pos, size=end_turn_container.size, radius=[dp(12)])
 
         def update_end_turn_rect(instance, value):
             instance.canvas.before.clear()
             with instance.canvas.before:
-                Color(0.72, 0.14, 0.14, 0.95)
+                Color(0.30, 0.075, 0.065, 0.98)
                 RoundedRectangle(pos=instance.pos, size=instance.size, radius=[dp(12)])
 
         end_turn_container.bind(pos=update_end_turn_rect, size=update_end_turn_rect)
@@ -1567,7 +1523,13 @@ class GameScreen(Screen):
 
         # --- Привязка к изменению размера окна ---
         Window.bind(on_resize=self.update_resource_box_position)
-        # Активируем стартовую вкладку
+        from strategy_ui import decorate_hud
+        decorate_hud(self, faction=fraction_container, modes=mode_panel_container,
+                     turn=turn_counter_container, exit=exit_container, season=self.season_container,
+                     end_turn=end_turn_container, resources=self.resource_box)
+        from window_theme import watch_game_area
+        watch_game_area(self.game_area)
+        # Active initial tab
         self.activate_tab('advisor')
 
         # Запускаем обучение с небольшой задержкой (после полной отрисовки интерфейса)
@@ -1604,6 +1566,9 @@ class GameScreen(Screen):
         self.turn_label.text = f"Текущий ход: {self.turn_counter}"
         self.save_turn(self.selected_faction, self.turn_counter)
         self.save_turn_history(self.selected_faction, self.turn_counter)
+        from city_war import reconcile_city_rebuilding
+        reconcile_city_rebuilding(self.conn)
+        self.conn.commit()
 
         if self.check_coup_and_trigger_defeat(self.conn):
             return
@@ -1736,6 +1701,9 @@ class GameScreen(Screen):
             except Exception:
                 pass
 
+            from city_war import reconcile_city_rebuilding
+            reconcile_city_rebuilding(self.conn)
+            self.conn.commit()
             print(f"Ход {self.turn_counter} завершён")
         finally:
             self.end_turn_button.disabled = False
@@ -2189,6 +2157,8 @@ class GameScreen(Screen):
     def cleanup(self):
         """Очистка ресурсов: таймеры, привязки, анимации."""
         print("Очистка GameScreen...")
+        if hasattr(self, '_hud_fit'):
+            Window.unbind(on_resize=self._hud_fit)
         # 1. Отменить мигание кнопки советника
         if hasattr(self, 'btn_advisor'):
             self.btn_advisor.cleanup()
@@ -3320,17 +3290,6 @@ class GameScreen(Screen):
                         )
 
 
-                # --- Дым над городами с недавними битвами ---
-                if city_name in self._smoke_cities:
-                    import random as _smoke_rnd
-                    for _si in range(3):
-                        _sx = icon_center_x + _smoke_rnd.uniform(-25, 25)
-                        _sy = icon_y + CITY_ICON_SIZE + _smoke_rnd.uniform(5, 30)
-                        _ss = _smoke_rnd.uniform(18, 35)
-                        Color(0.3, 0.3, 0.3, _smoke_rnd.uniform(0.15, 0.35))
-                        Ellipse(pos=(_sx - _ss/2, _sy), size=(_ss, _ss * 0.7))
-
-                # Герой отмечается отдельно, даже при нулевом уровне гарнизона.
                 badge_y = icon_y + CITY_ICON_SIZE + 2
                 if has_hero:
                     Color(1, 1, 1, 1)
@@ -3365,22 +3324,7 @@ class GameScreen(Screen):
                                      size=(7, pip_height), radius=[2])
 
     def update_city_military_status(self):
-        """Обновляет военный статус городов, звёзды, иконки идеологии, дым."""
-        # Загружаем города с недавними битвами (последние 2 хода) для дыма
-        self._smoke_cities = set()
-        try:
-            cursor = self.conn.cursor()
-            cursor.execute("CREATE TABLE IF NOT EXISTS battle_smoke (city_name TEXT PRIMARY KEY, turn INTEGER)")
-            cursor.execute("SELECT city_name, turn FROM battle_smoke")
-            for _sc, _st in cursor.fetchall():
-                if self.turn_counter - _st <= 2:
-                    self._smoke_cities.add(_sc)
-                else:
-                    cursor.execute("DELETE FROM battle_smoke WHERE city_name = ?", (_sc,))
-            self.conn.commit()
-        except Exception:
-            pass
-
+        """Обновляет военный статус городов и иконки идеологии."""
         cursor = self.conn.cursor()
         try:
             cursor.execute("""

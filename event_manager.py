@@ -217,7 +217,7 @@ class EventManager:
         """Отображение активного события — стилизованный popup с выбором."""
         from kivy.uix.floatlayout import FloatLayout
 
-        content = FloatLayout()
+        content = BoxLayout(orientation='vertical', spacing=dp(10), padding=dp(8))
 
         # Тёмный фон
         with content.canvas.before:
