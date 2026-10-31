@@ -230,8 +230,8 @@ class ResponsiveWindowsTests(unittest.TestCase):
         from kivy.uix.floatlayout import FloatLayout
         from kivy.uix.image import Image
         func = self.source_function('heroes.py', 'position_slots')
-        for width in (280, 600):
-            panel = FloatLayout(size=(width, 800), size_hint=(None, None))
+        for width, height in ((280, 240), (600, 400), (600, 800)):
+            panel = FloatLayout(size=(width, height), size_hint=(None, None))
             portrait = Image(size=(160, 160), size_hint=(None, None))
             slots = {str(i): Button(size_hint=(None, None)) for i in range(5)}
             labels = {str(i): Label(text='Длинное название артефакта', size_hint=(None, None)) for i in range(5)}
@@ -239,13 +239,12 @@ class ResponsiveWindowsTests(unittest.TestCase):
             func.__globals__.update(right_panel=panel, hero_stats_container=stats, hero_image_widget=portrait,
                                     slot_size=(80, 80), equipment_slots=slots, slot_name_labels=labels)
             func(0)
-            panel.height = panel._responsive_min_height
-            func(0)
             rectangles = [portrait, stats, *slots.values(), *labels.values()]
             for a in rectangles:
                 self.assertGreaterEqual(a.x, panel.x)
                 self.assertGreaterEqual(a.y, panel.y)
                 self.assertLessEqual(a.right, panel.right)
+                self.assertLessEqual(a.top, panel.top)
                 for b in rectangles:
                     if a is b:
                         continue
@@ -288,7 +287,8 @@ class ResponsiveWindowsTests(unittest.TestCase):
                 self.assertGreaterEqual(button.width, dp(44))
             card = session.cards[0]
             for row, _, _ in card.stat_rows:
-                self.assertLessEqual(row.height, dp(30))
+                self.assertGreaterEqual(row.height, dp(32))
+            self.assertLess(card.stat_grid.x, card.portrait.x)
         finally:
             session.release()
             Window.remove_widget(host)

@@ -15,6 +15,70 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.tabbedpanel import TabbedPanel
 
 
+class ActionDock(BoxLayout):
+    """Keep dialog actions visible while only the description/list scrolls."""
+    def __init__(self, groups, **kwargs):
+        super().__init__(orientation='vertical', size_hint_y=None, spacing=dp(6), **kwargs)
+        self.groups = groups
+        self.refresh = Clock.create_trigger(self._fit, -1)
+        for group in groups:
+            group.size_hint = (1, None)
+            self.add_widget(group)
+        self.bind(width=self.refresh, parent=self._parent_changed)
+        self.refresh()
+
+    def _parent_changed(self, *args):
+        self.refresh() if self.parent else self.refresh.cancel()
+
+    def _fit(self, *args):
+        total = 0
+        for group in self.groups:
+            buttons = list(reversed(group.children)) if isinstance(group, BoxLayout) else [group]
+            if not buttons:
+                group.height = 0
+                continue
+            stacked = len(buttons) > 1 and self.width < dp(130) * len(buttons)
+            if isinstance(group, BoxLayout):
+                group.orientation = 'vertical' if stacked else 'horizontal'
+                group.spacing = dp(6)
+            for button in buttons:
+                button.size_hint = (1, None) if stacked or group is button else (1, 1)
+                button.height = dp(48)
+                button.text_size = (max(1, self.width / (1 if stacked else len(buttons)) - dp(20)), dp(44))
+                button.halign, button.valign = 'center', 'middle'
+            padding = group.padding[1] + group.padding[3] if isinstance(group, BoxLayout) else 0
+            group.height = padding + dp(48) * (len(buttons) if stacked else 1) + dp(6) * (len(buttons) - 1 if stacked else 0)
+            total += group.height
+        self.height = total + self.spacing * max(0, len(self.groups) - 1)
+
+
+def detach_dialog_actions(content):
+    """Extract terminal action rows, retaining the original widgets/callbacks."""
+    from kivy.uix.spinner import Spinner
+    from kivy.uix.togglebutton import ToggleButton
+    def action(widget):
+        return (isinstance(widget, ButtonBehavior) and isinstance(widget, Label)
+                and not isinstance(widget, (Spinner, ToggleButton)))
+    def row(widget):
+        return (isinstance(widget, BoxLayout) and bool(widget.children)
+                and all(action(child) for child in widget.children))
+    body = content
+    while (isinstance(body, ScrollView) or isinstance(body, BoxLayout) and len(body.children) == 1):
+        if not body.children or action(body.children[0]):
+            break
+        body = body.children[0]
+    if not isinstance(body, BoxLayout) or body.orientation != 'vertical':
+        return []
+    groups = []
+    for child in list(body.children):  # Kivy stores the bottom item first.
+        if action(child) or row(child):
+            body.remove_widget(child)
+            groups.insert(0, child)
+        else:
+            break
+    return groups
+
+
 class WindowFlow(ScrollView):
     """Give a dialog enough natural height, scrolling instead of squeezing it.
 
@@ -172,6 +236,11 @@ class WindowFlow(ScrollView):
             return
         self._busy = True
         try:
+            if getattr(self.body, '_responsive_keep_geometry', False):
+                # Fixed responsive layouts must shrink again after rotation;
+                # their previous viewport height is not a content minimum.
+                self.body.height = self.height
+                return
             height = self.measure(self.body)
             self.body.height = max(self.height, height)
             # Removed cards should not be retained by the controller.
@@ -193,7 +262,14 @@ def fit_popup_to_window(popup):
     for axis, extent in enumerate(available):
         prop = 'width' if axis == 0 else 'height'
         hint = popup.size_hint[axis]
-        minimum = min(extent, dp(280 if axis == 0 else 240)) if interactive else 0
+        minimum = min(extent, dp(640 if axis == 0 else 240)) if interactive else 0
+        if axis == 1 and getattr(popup, '_window_flow', None):
+            flow = popup._window_flow
+            natural = flow.measure(flow.body)
+            wrapper = popup.content
+            chrome = sum(w.height for w in wrapper.children if w is not flow)
+            chrome += wrapper.padding[1] + wrapper.padding[3] + wrapper.spacing * max(0, len(wrapper.children) - 1)
+            minimum = min(extent, max(minimum, natural + chrome))
         if hint is None:
             setattr(popup, prop, max(minimum, min(getattr(popup, prop), extent)))
         else:

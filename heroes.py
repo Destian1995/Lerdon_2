@@ -510,7 +510,7 @@ def open_artifacts_popup(faction, season_manager):
 
     # --- Корневой layout ---
     popup_layout = BoxLayout(orientation='horizontal', padding=padding_val, spacing=spacing_val)
-    popup_layout._responsive_stack_below = dp(760)
+    popup_layout._responsive_keep_geometry = True
     with popup_layout.canvas.before:
         Color(*COLOR_BG)
         popup_layout._bg = Rectangle(pos=popup_layout.pos, size=popup_layout.size)
@@ -938,6 +938,44 @@ def open_artifacts_popup(faction, season_manager):
     cost_filter_layout.add_widget(cost_spinner)
     filters_container.add_widget(cost_filter_layout)
 
+    # Keep filters in two compact rows instead of three full-width controls.
+    filters_container.clear_widgets()
+    filter_row = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(6))
+    for spinner in (type_spinner, cost_spinner):
+        if spinner.parent:
+            spinner.parent.remove_widget(spinner)
+        spinner.size_hint = (1, 1)
+        spinner.font_size = sp(14)
+        spinner.bind(size=lambda w, v: setattr(w, 'text_size', (v[0] - dp(8), v[1])))
+        filter_row.add_widget(spinner)
+    filters_container.height = dp(94)
+    filters_container.add_widget(filter_row)
+    created_filter_layout.height = dp(38)
+    created_checkbox.size = (dp(36), dp(36))
+    created_label.font_size = sp(13)
+    filters_container.add_widget(created_filter_layout)
+
+    def fit_inventory_filters(*args):
+        short = popup_layout.height < dp(260) and popup_layout.width > popup_layout.height
+        if short and created_filter_layout.parent is not filter_row:
+            filters_container.remove_widget(created_filter_layout)
+            filter_row.add_widget(created_filter_layout)
+        elif not short and created_filter_layout.parent is not filters_container:
+            filter_row.remove_widget(created_filter_layout)
+            filters_container.add_widget(created_filter_layout)
+        filters_container.height = dp(54 if short else 94)
+        created_filter_layout.size_hint = (None, 1) if short else (1, None)
+        created_filter_layout.width = dp(76) if short else filter_row.width
+        created_filter_layout.height = dp(38)
+        created_checkbox.size = (dp(32), dp(32)) if short else (dp(36), dp(36))
+        created_checkbox.pos_hint = {'center_y': .5}
+        created_label.text = 'Свои' if short else 'Только созданные'
+        created_label.width = dp(36) if short else dp(140)
+        created_label.font_size = sp(11 if short else 13)
+        art_header.height = 0 if short else dp(28)
+        art_header.opacity = 0 if short else 1
+    popup_layout.bind(size=fit_inventory_filters)
+
     # --- Характеристики героя (столбик вверху-слева правой панели) ---
     _hero_stats_lbl = Label(
         text="[color=aaaaaa]Герой не нанят[/color]",
@@ -977,7 +1015,7 @@ def open_artifacts_popup(faction, season_manager):
     #  ПРАВАЯ ПАНЕЛЬ: герой + слоты + статы
     # ==================================================================
     right_panel = FloatLayout(size_hint=(0.48, 1))
-    right_panel._responsive_min_height = dp(620)
+    right_panel._responsive_keep_geometry = True
     with right_panel.canvas.before:
         Color(*COLOR_PANEL_BG)
         right_panel._bg = RoundedRectangle(pos=right_panel.pos, size=right_panel.size,
@@ -1175,40 +1213,9 @@ def open_artifacts_popup(faction, season_manager):
 
     # --- Позиционирование слотов вокруг героя ---
     def position_slots(dt):
-        panel_x, panel_y = right_panel.pos
-        panel_width, panel_height = right_panel.size
-        hero_stats_container.pos = (panel_x + dp(12), right_panel.top - hero_stats_container.height - dp(12))
-        if not hero_image_widget:
-            return
-        hero_image_widget.pos_hint = {}
-        hero_image_widget.pos = (right_panel.center_x - hero_image_widget.width / 2,
-                                 hero_stats_container.y - hero_image_widget.height - dp(12))
-        columns = 3 if panel_width >= dp(360) else 2
-        cell_width = (panel_width - dp(24)) / columns
-        slot_width = min(slot_size[0], max(dp(48), cell_width - dp(16)))
-        name_height = max(dp(28), sp(13) * 2)
-        row_height = slot_size[1] + name_height + dp(16)
-        first_top = hero_image_widget.y - dp(20)
-        for index, slot_type in enumerate(('0', '1', '2', '3', '4')):
-            col, row = index % columns, index // columns
-            left = panel_x + dp(12) + cell_width * col
-            top = first_top - row * row_height
-            widget = equipment_slots.get(slot_type)
-            label = slot_name_labels.get(slot_type)
-            if widget:
-                widget.size = (slot_width, slot_size[1])
-                widget.pos = (left + (cell_width - slot_width) / 2, top - slot_size[1])
-            if label:
-                label.size = (cell_width - dp(8), name_height)
-                label.pos = (left + dp(4), top - slot_size[1] - name_height - dp(4))
-                label.text_size = label.size
-                label.shorten = True
-                if label.parent is None:
-                    right_panel.add_widget(label)
-        rows = (len(equipment_slots) + columns - 1) // columns
-        right_panel._responsive_min_height = max(dp(480),
-            hero_stats_container.height + hero_image_widget.height + rows * row_height + dp(68))
-        right_panel.size_hint_min_y = right_panel._responsive_min_height
+        from equipment_ui import layout_equipment
+        layout_equipment(right_panel, hero_image_widget, hero_stats_container,
+                         equipment_slots, slot_name_labels)
 
     slot_layout_trigger = Clock.create_trigger(position_slots, -1)
     right_panel.bind(pos=slot_layout_trigger, size=slot_layout_trigger)
@@ -1294,6 +1301,9 @@ def open_artifacts_popup(faction, season_manager):
     # ==================================================================
     popup_layout.add_widget(left_panel)
     popup_layout.add_widget(right_panel)
+    from equipment_ui import configure_artifact_shop
+    configure_artifact_shop(popup_layout, left_panel, right_panel)
+    fit_inventory_filters()
 
     artifacts_popup = Popup(
         title="Лавка артефактов",
@@ -1305,6 +1315,14 @@ def open_artifacts_popup(faction, season_manager):
         title_color=COLOR_GOLD,
         title_size=font_size_large if is_android else '20sp'
     )
+
+    artifacts_popup.hero_panel = right_panel
+    artifacts_popup.hero_portrait = hero_image_widget
+    artifacts_popup.hero_stats = hero_stats_container
+    artifacts_popup.equipment_slots = equipment_slots
+    artifacts_popup.slot_labels = slot_name_labels
+    artifacts_popup.inventory_scroll = scroll_view
+    artifacts_popup.bind(on_dismiss=lambda *_: slot_layout_trigger.cancel())
 
     # Обновляем данные при открытии (без Clock.schedule_interval!)
     update_money_display()

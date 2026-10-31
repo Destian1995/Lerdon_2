@@ -2180,7 +2180,6 @@ def open_trade_popup(game_instance):
     )
     current_price_label.bind(size=current_price_label.setter('text_size'))
     price_card.add_widget(current_price_label)
-    trade_layout.add_widget(price_card)
 
     # === СООТНОШЕНИЕ СДЕЛКИ (компактная строка) ===
     deal_ratio = round(current_price / 100, 2)
@@ -2223,7 +2222,22 @@ def open_trade_popup(game_instance):
     sell_all_layout.add_widget(sell_all_checkbox)
     sell_all_layout.add_widget(sell_all_label)
     sell_all_layout.add_widget(Widget())  # Заполнитель
-    trade_layout.add_widget(sell_all_layout)
+    # Price and the optional full-sale switch share a row, leaving the slider
+    # and both transaction buttons visible on landscape phones.
+    top_row = BoxLayout(size_hint_y=None, height=dp(90), spacing=dp(12))
+    price_card.size_hint = (0.72, 1)
+    sell_all_layout.size_hint = (0.28, 1)
+    sell_all_label.size_hint_x = 1
+    sell_all_label.font_size = sp(16)
+    sell_all_label.text = 'Продать\nвсё'
+    sell_all_checkbox.size = (dp(40), dp(40))
+    sell_all_checkbox.pos_hint = {'center_y': .5}
+    sell_all_layout.remove_widget(sell_all_layout.children[0])  # unused spacer
+    top_row.add_widget(price_card)
+    top_row.add_widget(sell_all_layout)
+    trade_layout.add_widget(top_row)
+    trade_layout.padding = dp(8)
+    trade_layout.spacing = dp(8)
 
     # === СОЗДАНИЕ КНОПОК ===
     def _trade_btn(txt, clr):
@@ -2332,12 +2346,39 @@ def open_trade_popup(game_instance):
     button_layout.add_widget(sell_btn)
     trade_layout.add_widget(button_layout)
 
+    trade_layout.remove_widget(top_row)
+    trade_layout.remove_widget(slider_layout)
+    trade_body = BoxLayout(orientation='vertical', spacing=dp(8))
+    trade_body.add_widget(top_row)
+    trade_body.add_widget(slider_layout)
+    trade_layout.add_widget(trade_body, index=len(trade_layout.children))
+    def fit_trade(*args):
+        from kivy.core.window import Window
+        short = Window.height < dp(330) and Window.width >= dp(480)
+        trade_body.orientation = 'horizontal' if short else 'vertical'
+        top_row.orientation = 'vertical' if short else 'horizontal'
+        top_row.size_hint = (.5, 1) if short else (1, None)
+        top_row.height = dp(90)
+        top_row.spacing = dp(6 if short else 12)
+        price_card.size_hint = (1, 1) if short else (.72, 1)
+        price_card.padding = [dp(8), dp(4)] if short else [dp(14), dp(8)]
+        sell_all_layout.size_hint = (1, None) if short else (.28, 1)
+        sell_all_layout.height = dp(48)
+        sell_all_label.text = 'Продать всё' if short else 'Продать\nвсё'
+        ratio_label.opacity = 0 if short else 1
+        ratio_label.height = 0 if short else dp(26)
+        slider_layout.size_hint = (.5, 1) if short else (1, None)
+        slider_layout.height = dp(80)
+        trade_info_label.font_size = sp(15 if short else 18)
+    trade_layout.bind(size=fit_trade)
+    fit_trade()
+
     # === ПОПАП ===
     is_mobile = platform in ('android', 'ios')
     popup = Popup(
         title="Рынок Кристаллов",
         content=trade_layout,
-        size_hint=(0.98, 0.88) if is_mobile else (0.95, 0.72),
+        size_hint=(0.97, 0.96),
         background_color=(0.07, 0.08, 0.13, 1),
         separator_color=(0.25, 0.52, 0.92, 0.6),
         title_color=(0.65, 0.88, 1, 1),
@@ -2437,10 +2478,8 @@ def open_tax_popup(faction):
     outer_layout.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
                       size=lambda i, v: setattr(i._bg, 'size', v))
 
-    scroll = ScrollView(size_hint=(1, 1), do_scroll_x=False)
-    main_layout = BoxLayout(orientation='vertical', size_hint_y=None,
+    main_layout = BoxLayout(orientation='vertical',
                             padding=[dp(16), dp(12)], spacing=dp(10))
-    main_layout.bind(minimum_height=main_layout.setter('height'))
 
     # === Карточка с отображением налога ===
     card = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(70),
@@ -2548,13 +2587,30 @@ def open_tax_popup(faction):
     set_tax_button.bind(on_release=set_tax)
     main_layout.add_widget(set_tax_button)
 
-    scroll.add_widget(main_layout)
-    outer_layout.add_widget(scroll)
+    # Put the rate preview beside the status and slider on landscape screens.
+    # The Apply action remains a separate, pinned footer.
+    main_layout.remove_widget(set_tax_button)
+    main_layout.remove_widget(tax_status)
+    main_layout.remove_widget(slider_container)
+    tax_controls = BoxLayout(orientation='vertical', spacing=dp(6))
+    tax_controls.add_widget(tax_status)
+    tax_controls.add_widget(slider_container)
+    main_layout.add_widget(tax_controls)
+    def fit_tax(*args):
+        from kivy.core.window import Window
+        wide = Window.width >= dp(480)
+        main_layout.orientation = 'horizontal' if wide else 'vertical'
+        card.size_hint = (.52, 1) if wide else (1, None)
+        tax_controls.size_hint = (.48, 1) if wide else (1, 1)
+    main_layout.bind(size=fit_tax)
+    fit_tax()
+    outer_layout.add_widget(main_layout)
+    outer_layout.add_widget(set_tax_button)
 
     tax_popup = Popup(
         title="Управление налогами",
         content=outer_layout,
-        size_hint=popup_size_hint,
+        size_hint=(0.94, 0.96),
         background_color=(0.07, 0.08, 0.13, 1),
         separator_color=(0.25, 0.72, 0.35, 0.7),
         title_color=(0.65, 0.88, 1, 1),

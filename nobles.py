@@ -1220,7 +1220,7 @@ def show_event_popup(conn, player_faction, season_index, refresh_callback, cash_
     # Заголовок
     title_lbl = Label(
         text=f"[b]{event_type}[/b]",
-        font_size=sp(18) if not _is_mobile else sp(16),
+        font_size=sp(20),
         markup=True, halign='center', valign='middle',
         size_hint_y=None, height=dp(32),
         color=(0.7, 0.9, 1, 1)
@@ -1231,7 +1231,7 @@ def show_event_popup(conn, player_faction, season_index, refresh_callback, cash_
     # Сезон
     season_lbl = Label(
         text=f"[color=#AAAAAA]Сезон:[/color]  [b]{event_season}[/b]",
-        font_size=sp(13) if not _is_mobile else sp(11),
+        font_size=sp(16),
         markup=True, halign='center', valign='middle',
         size_hint_y=None, height=dp(22),
         color=(0.8, 0.8, 1, 1)
@@ -1247,7 +1247,7 @@ def show_event_popup(conn, player_faction, season_index, refresh_callback, cash_
 
     cost_lbl = Label(
         text=cost_text,
-        font_size=sp(13) if not _is_mobile else sp(11),
+        font_size=sp(16),
         markup=True, halign='center', valign='middle',
         size_hint_y=None, height=dp(75) if bribe_cost > 0 else dp(50),
         color=(0.9, 0.9, 0.9, 1)
@@ -1262,7 +1262,7 @@ def show_event_popup(conn, player_faction, season_index, refresh_callback, cash_
         hint_text += f"\n[color=#FFAA55]Договор с: {names}[/color]"
     hint_lbl = Label(
         text=hint_text,
-        font_size=sp(11) if not _is_mobile else sp(9),
+        font_size=sp(14),
         markup=True, halign='center', valign='middle',
         size_hint_y=None, height=dp(35) if greedy_nobles else dp(22),
         color=(0.6, 0.8, 0.6, 1)
@@ -1278,7 +1278,7 @@ def show_event_popup(conn, player_faction, season_index, refresh_callback, cash_
 
     confirm_btn = Button(
         text="Провести", bold=True,
-        font_size=sp(14) if not _is_mobile else sp(12),
+        font_size=sp(16),
         background_normal='', background_color=(0, 0, 0, 0),
         color=(1, 1, 1, 1)
     )
@@ -1290,7 +1290,7 @@ def show_event_popup(conn, player_faction, season_index, refresh_callback, cash_
 
     cancel_btn = Button(
         text="Отмена", bold=True,
-        font_size=sp(14) if not _is_mobile else sp(12),
+        font_size=sp(16),
         background_normal='', background_color=(0, 0, 0, 0),
         color=(0.8, 0.8, 0.8, 1)
     )
@@ -1303,7 +1303,7 @@ def show_event_popup(conn, player_faction, season_index, refresh_callback, cash_
     popup = Popup(
         title="",
         content=content,
-        size_hint=(0.75 if not _is_mobile else 0.9, 0.55 if not _is_mobile else 0.5),
+        size_hint=(0.94, 0.94),
         pos_hint={'center_x': 0.5, 'center_y': 0.5},
         auto_dismiss=False,
         background_color=(0.04, 0.05, 0.09, 0.98),

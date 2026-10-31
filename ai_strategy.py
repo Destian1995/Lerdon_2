@@ -24,6 +24,7 @@ ai_strategy.py — улучшения ИИ v6 (патч-модуль)
 
 import random
 import sqlite3
+import math
 
 
 # ============================================================
@@ -229,9 +230,7 @@ def manage_buildings_v2(self):
                 self.build_in_city("Фабрика", GUARANTEED_FACTORIES)
                 self.save_all_data()
                 return
-            else:
-                print(f"[AI] {self.faction} (ход {self.turn+1}): не хватает крон на минимум зданий ({crowns} < {min_cost}).")
-                return
+            # A partial start is better than waiting forever for the whole set.
 
         # === Динамическая логика ===
         stage = situation['stage']
@@ -245,7 +244,9 @@ def manage_buildings_v2(self):
             pct = BUDGET_BUILDINGS_LATE
 
         building_budget = int(crowns * pct)
-        if building_budget < 20:
+        if crowns >= 10:
+            building_budget = max(10, building_budget)
+        if building_budget < 10:
             return
 
         max_hospitals = 12
@@ -299,7 +300,8 @@ def hire_units_v2(self, new_garrison, crowns, works, available_consumption):
             if cost_money <= 0 or cost_time <= 0 or consumption <= 0:
                 continue
 
-            budget_for_this = min(crowns, crowns_per_type_cap)
+            # The diversity cap must not prevent buying even one affordable unit.
+            budget_for_this = min(crowns, max(crowns_per_type_cap, cost_money))
 
             max_affordable = min(
                 budget_for_this // cost_money,
@@ -334,31 +336,42 @@ def hire_units_v2(self, new_garrison, crowns, works, available_consumption):
 # 3. АВАРИЙНАЯ ПРОДАЖА КРИСТАЛЛОВ (новинка v6)
 # ============================================================
 
+def crystal_reserve(self):
+    """Leave a turn of army/population supply instead of selling the last stock."""
+    return max(100, math.ceil(max(0, getattr(self, 'total_consumption', 0))
+                              + max(0, getattr(self, 'food_peoples', 0))))
+
+
+def recovery_cash_target(self):
+    costs = [data.get('cost', {}).get('money', 0) for data in getattr(self, 'army', {}).values()
+             if str(data.get('stats', {}).get('Класс', '')).split()[0:1] == ['1']
+             and data.get('cost', {}).get('money', 0) > 0]
+    return max(30, min(costs, default=20) + 30)
+
+
 def emergency_sell_crystals(self):
     """
-    ВЫЖИВАНИЕ: если у ИИ 0 крон и есть кристаллы — продаём ВСЕГДА,
-    игнорируя цену. Лучше получить мало крон, чем 0.
-
-    Вызывается ДО ensure_scout, чтобы у ИИ были деньги на разведчика.
+    Покрывает ближайшую стройку и найм продажей излишка кристаллов.
+    Сохраняет запас снабжения; не требует достижения «хорошей» цены.
     """
     try:
         crowns = self.resources.get('Кроны', 0)
         crystals = self.resources.get('Кристаллы', 0)
 
-        # Условия аварийной продажи:
-        # 1. Крон <= 50 (мало денег)
-        # 2. Кристаллов > CRYSTAL_EMERGENCY_THRESHOLD (есть что продать)
-        if crowns > 50:
+        # The threshold follows an affordable soldier plus starter buildings.
+        target = recovery_cash_target(self)
+        if crowns >= target:
             return False  # денег хватает, аварийная продажа не нужна
-        if crystals <= CRYSTAL_EMERGENCY_THRESHOLD:
+        available = max(0, int(crystals - crystal_reserve(self)))
+        if available <= 0:
             return False  # нечего продавать
 
         price = getattr(self, 'raw_material_price', 0) or 0
         if price <= 0:
             return False
 
-        # Продаём 95% кристаллов независимо от цены
-        amount_to_sell = int(crystals * 0.95)
+        # Sell only the amount needed to cover the shortfall.
+        amount_to_sell = min(available, max(1, math.ceil((target - crowns) / price)))
         earned_crowns = int(amount_to_sell * price)
         self.resources['Кристаллы'] -= amount_to_sell
         self.resources['Кроны'] += earned_crowns
@@ -798,7 +811,9 @@ def sell_resources_v2(self):
             print(f"[AI] {self.faction}: цена кристаллов низкая ({price:.1f}), копим.")
             return False
 
-        amount_to_sell = int(crystals * 0.95)
+        amount_to_sell = min(int(crystals * 0.95), max(0, int(crystals - crystal_reserve(self))))
+        if amount_to_sell <= 0:
+            return False
         earned_crowns = int(amount_to_sell * price)
         self.resources['Кристаллы'] -= amount_to_sell
         self.resources['Кроны'] += earned_crowns
@@ -1119,6 +1134,13 @@ def make_turn_v2(self):
                 print(f"[UNDEAD] Ошибка переобъявления войны: {e}")
             self._undead_attack_nearest_cities()
         else:
+            # The controller may be recreated for an existing campaign. Load the
+            # complete owned-city snapshot before any save/build can replace it.
+            self.cities = self.load_cities()
+            self.update_buildings_for_current_cities()
+            self.garrison = self.load_garrison()
+            self.army_limit = self.calculate_army_limit()
+            self.calculate_current_consumption()
             self.update_resources()
             self.process_queries()
 
@@ -1132,6 +1154,8 @@ def make_turn_v2(self):
             self.apply_political_system_bonus()
             self.update_relations_based_on_political_system()
             self.update_buildings_from_db()
+            emergency_sell_crystals(self)
+            self.sell_resources()
 
             # ===== РАСПИСАНИЕ =====
             if self.turn == TURN_BUILD_ONLY:

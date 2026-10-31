@@ -238,6 +238,9 @@ def theme_popup(popup):
         popup.overlay_color = (0.01, 0.02, 0.04, 0.78)
         popup._anim_duration = 0.18
         if getattr(popup, '_strategy_custom_chrome', False):
+            if getattr(popup.content, '_strategy_fixed_layout', False):
+                theme_tree(popup.content)
+                return
             # Keep the custom header; apply the same overflow rules to its body.
             from responsive_ui import WindowFlow
             if not isinstance(popup.content, WindowFlow):
@@ -271,10 +274,14 @@ def theme_popup(popup):
             if content.parent:
                 content.parent.remove_widget(content)
             content.size_hint = (1, 1)
-            from responsive_ui import WindowFlow
+            from responsive_ui import WindowFlow, ActionDock, detach_dialog_actions
+            groups = detach_dialog_actions(content)
             flow = WindowFlow(content)
             popup._window_flow = flow
             wrapper.add_widget(flow)
+            if groups:
+                popup._window_action_dock = ActionDock(groups)
+                wrapper.add_widget(popup._window_action_dock)
             popup.content = wrapper
             popup._window_theme_original_content = content
         theme_tree(popup.content)

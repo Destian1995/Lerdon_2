@@ -1259,6 +1259,7 @@ class FortressInfoPopup(Popup):
             orientation='vertical', spacing=dp(6),
             padding=[dp(4), dp(4), dp(4), dp(4)]
         )
+        content._responsive_keep_geometry = True
         with content.canvas.before:
             Color(0.06, 0.07, 0.11, 1)
             content._bg = Rectangle(pos=content.pos, size=content.size)
@@ -1272,7 +1273,7 @@ class FortressInfoPopup(Popup):
 
         # === Левая часть: характеристики (заполняет всю высоту) ===
         stats_box = BoxLayout(
-            orientation='vertical', size_hint_x=0.35,
+            orientation='vertical', size_hint_x=0.55,
             spacing=dp(6), padding=[dp(8), dp(8)],
         )
         # Формат: (base+hero) × count = total (для юнитов класса 1)
@@ -1373,58 +1374,48 @@ class FortressInfoPopup(Popup):
         # Распорка сверху чтобы статы были по центру
         stats_box.add_widget(Widget(size_hint_y=1))
         for label, icon, val in stats_icons:
-            row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(28), spacing=dp(6))
-            row.add_widget(Image(source=icon, size_hint=(None, None), size=(dp(22), dp(22)),
+            row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(32), spacing=dp(6))
+            row.add_widget(Image(source=icon, size_hint=(None, None), size=(dp(28), dp(28)),
                                  allow_stretch=True, keep_ratio=True, mipmap=True))
             stat_lbl = Label(
                 text=f'[color=#CCCCCC]{label}:[/color] [b]{val}[/b]',
-                markup=True, font_size=sp(13) if _is_mobile else sp(14),
+                markup=True, font_size=sp(16),
                 color=(0.9, 0.9, 0.9, 1),
                 halign='left', valign='middle',
             )
             stat_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
+            stat_lbl.bind(texture_size=lambda w, value, row=row: setattr(row, 'height', max(dp(32), value[1] + dp(6))))
             row.add_widget(stat_lbl)
             stats_box.add_widget(row)
         # Распорка снизу
         stats_box.add_widget(Widget(size_hint_y=1))
-        body.add_widget(stats_box)
+        stats_box.size_hint = (1, None)
+        stats_box.bind(minimum_height=stats_box.setter('height'))
+        stats_scroll = ScrollView(do_scroll_x=False, size_hint_x=.55)
+        stats_scroll.add_widget(stats_box)
+        body.add_widget(stats_scroll)
 
         # === Правая часть: изображение (заполняет область, сохраняя пропорции) ===
         if unit_image and os.path.exists(unit_image):
             img = Image(
                 source=unit_image,
                 allow_stretch=True, keep_ratio=True,
-                size_hint_x=0.65,
+                size_hint_x=0.45,
             )
             body.add_widget(img)
 
         content.add_widget(body)
 
-        # Кнопка закрыть
-        close_btn = Button(
-            text="Закрыть", size_hint_y=None, height=dp(40),
-            font_size=sp(14), bold=True,
-            background_normal='', background_color=(0, 0, 0, 0),
-            color=(1, 1, 1, 1)
-        )
-        with close_btn.canvas.before:
-            Color(0.12, 0.16, 0.28, 0.95)
-            close_btn._rr = RoundedRectangle(pos=close_btn.pos, size=close_btn.size, radius=[dp(8)])
-        close_btn.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
-                       size=lambda i, v: setattr(i._rr, 'size', v))
-        content.add_widget(close_btn)
-
         popup = Popup(
             title=title,
             content=content,
-            size_hint=(0.75 if _is_mobile else 0.45, 0.85 if _is_mobile else 0.75),
+            size_hint=(0.96, 0.96),
             background_color=(0.04, 0.05, 0.09, 0.98),
             separator_color=(0.3, 0.55, 0.9, 0.4),
             title_color=(0.95, 0.90, 0.70, 1),
             title_size=sp(16) if _is_mobile else sp(18),
             title_align='center'
         )
-        close_btn.bind(on_release=popup.dismiss)
         popup.open()
 
     def show_warning_popup(self):

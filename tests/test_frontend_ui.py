@@ -64,7 +64,7 @@ class FrontendTests(unittest.TestCase):
         menu = self.show('MenuWidget')
         self.assertEqual(len(menu.buttons), 6)
         self.assertTrue(all(isinstance(b, StrategyButton) and b.height >= 48 for b in menu.buttons))
-        self.assertTrue(any(isinstance(w, Label) and w.text == 'v6.7.4' for w in menu.walk()))
+        self.assertTrue(any(isinstance(w, Label) and w.text == 'v7.0.0' for w in menu.walk()))
         self.assertIsNone(menu._particle_event)
         self.assertEqual(menu.button_container.cols, 2)
         Window.size = (360, 640)

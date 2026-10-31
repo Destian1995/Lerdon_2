@@ -31,7 +31,8 @@ class RecruitmentSession(Widget):
         self.warmup_event = None
         self.released = False
         self.accent = FACTIONS.get(faction, GOLD)
-        root = surface(BoxLayout(orientation='vertical', padding=dp(12), spacing=dp(8)), INK, self.accent)
+        root = surface(BoxLayout(orientation='vertical', padding=dp(8), spacing=dp(8)), INK, self.accent)
+        root._strategy_fixed_layout = True
         header = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(10))
         header.add_widget(Image(source='files/status/army.png', size_hint=(None, 1), width=dp(40), mipmap=True))
         heading = BoxLayout(orientation='vertical')
@@ -90,8 +91,8 @@ class RecruitmentSession(Widget):
 
     def fit(self, *args):
         width, height = args[1:3] if len(args) >= 3 else Window.size
-        self.popup.size = (max(1, min(dp(1000), width - dp(16))),
-                           max(1, min(dp(700), height - dp(16))))
+        self.popup.size = (max(1, min(dp(1240), width - dp(12))),
+                           max(1, min(dp(820), height - dp(12))))
         compact = height < dp(480)
         self.header_nav.width = dp(104) if compact else 0
         self.header_nav.opacity = 1 if compact else 0
@@ -100,16 +101,26 @@ class RecruitmentSession(Widget):
         self.navigation.opacity = 0 if compact else 1
         self.navigation.disabled = compact
         for card in self.cards.values():
-            card.stat_grid.cols = 2 if compact else 1
+            card.stat_grid.cols = 2 if height < dp(330) else 1
             slider = card.quantity_slider
             if slider is not None:
+                # Inline quantity selection leaves room for the portrait and
+                # readable stats even on a short phone screen.
+                inline = width >= dp(520)
+                destination = card.controls if inline else card
+                if slider.parent is not destination:
+                    slider.parent.remove_widget(slider)
+                    destination.add_widget(slider, index=1)
+                slider.size_hint = (1, 1) if inline else (1, None)
                 slider.height = dp(48)
                 slider.opacity = 1
                 slider.disabled = slider.max <= slider.min
             for row, caption, value in card.stat_rows:
-                row.height = dp(22 if compact else 36)
-                caption.font_size = sp(11 if compact else 14)
-                value.font_size = sp(14 if compact else 18)
+                row.height = dp(32 if compact else 48)
+                caption.font_size = sp(15 if compact else 18)
+                value.font_size = sp(20 if compact else 24)
+            for icon in card.stat_icons:
+                icon.width = dp(30 if compact else 38)
         from window_theme import center_after_resize
         center_after_resize(self.popup)
 
@@ -128,27 +139,26 @@ class RecruitmentSession(Widget):
                        self.accent if unit_class == 1 else GOLD)
         card.quantity_slider = None
         title = BoxLayout(size_hint_y=None, height=dp(30), spacing=dp(8))
-        title.add_widget(text_label(name, 17, bold=True))
+        title.add_widget(text_label(name, 21, bold=True))
         rank = text_label({1: 'Рекрут', 2: 'Герой', 3: 'Чемпион', 4: 'Легенда'}.get(unit_class, 'Воин'),
                           11, GOLD, size_hint_x=None, width=dp(84))
         rank.halign = 'right'
         title.add_widget(rank)
         card.add_widget(title)
         body = BoxLayout(spacing=dp(10))
-        body.add_widget(AsyncImage(source=info['image'], size_hint_x=0.42,
-                                  allow_stretch=True, keep_ratio=True, mipmap=True))
-        scroll = ScrollView(do_scroll_x=False, size_hint_x=0.58, bar_width=dp(2))
-        stats = GridLayout(cols=2, size_hint_y=None, spacing=dp(2))
+        stats = GridLayout(cols=1, size_hint_x=0.56, spacing=dp(2))
         card.stat_grid = stats
-        scroll._responsive_min_height = dp(60)
-        stats.bind(minimum_height=stats.setter('height'))
         card.stat_rows = []
+        card.stat_icons = []
         for caption, icon, key in (
                 ('Урон', 'sword', 'Урон'), ('Защита', 'shield', 'Защита'),
                 ('Живучесть', 'health', 'Живучесть'), ('Расход', 'consumption', 'Потребление Кристаллов')):
             row = BoxLayout(size_hint_y=None, height=dp(22), spacing=dp(6))
-            row.add_widget(Image(source=f'files/pict/hire/{icon}.png', size_hint_x=None, width=dp(22), mipmap=True))
+            icon_widget = Image(source=f'files/pict/hire/{icon}.png', size_hint_x=None, width=dp(32), mipmap=True)
+            row.add_widget(icon_widget)
+            card.stat_icons.append(icon_widget)
             caption_label = text_label(caption, 11, MUTED)
+            caption_label.shorten = True
             row.add_widget(caption_label)
             value = text_label(format_number(info['stats'].get(key, 0)), 13, TEXT,
                                bold=True, size_hint_x=0.65)
@@ -156,12 +166,14 @@ class RecruitmentSession(Widget):
             row.add_widget(value)
             stats.add_widget(row)
             card.stat_rows.append((row, caption_label, value))
-        scroll.add_widget(stats)
-        body.add_widget(scroll)
+        body.add_widget(stats)
+        card.portrait = AsyncImage(source=info['image'], size_hint_x=0.44, fit_mode='contain', mipmap=True)
+        body.add_widget(card.portrait)
         card.add_widget(body)
         price = text_label('', 13, GOLD, size_hint_y=None, height=dp(26))
         card.add_widget(price)
         controls = BoxLayout(size_hint_y=None, height=dp(52), spacing=dp(8))
+        card.controls = controls
         hire = StrategyButton(text='НАНЯТЬ' if unit_class == 1 else 'НАНЯТЬ ГЕРОЯ',
                               primary=True, accent=self.accent)
         if unit_class == 1:
@@ -214,8 +226,21 @@ class RecruitmentSession(Widget):
                 name, info['cost'], None, self.army_hire, info['image'], info['stats']))
         controls.add_widget(hire)
         card.add_widget(controls)
-        from responsive_ui import WindowFlow
-        self.slides[index].add_widget(WindowFlow(card))
+        # Let the portrait span the title, statistics and price, instead of
+        # confining it to the shrinking middle row on Android.
+        for widget in (title, body, price):
+            card.remove_widget(widget)
+        body.remove_widget(stats)
+        body.remove_widget(card.portrait)
+        details = BoxLayout(orientation='vertical', size_hint_x=.56, spacing=dp(4))
+        stats.size_hint_x = 1
+        for widget in (title, stats, price):
+            details.add_widget(widget)
+        display = BoxLayout(spacing=dp(12))
+        display.add_widget(details)
+        display.add_widget(card.portrait)
+        card.add_widget(display, index=len(card.children))
+        self.slides[index].add_widget(card)
         self.cards[index] = card
         self.built.add(index)
         self.fit()

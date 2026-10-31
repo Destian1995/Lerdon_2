@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-APP_VERSION="6.7.4"
+APP_VERSION="7.0.0"
 KEYSTORE="$HOME/signkey.keystore"
 ANDROID_BUILD_TOOLS="$HOME/.buildozer/android/platform/android-sdk/build-tools/36.0.0"
 DIST_DIR="$HOME/Lerdon_2/.buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists/lerdonlegends"

@@ -465,7 +465,9 @@ class AIController:
             return False
 
         # Загружаем актуальные данные о зданиях (в self.cities_buildings)
-        self.load_buildings()
+        if not self.buildings:
+            self.update_buildings_for_current_cities()
+        self.cities_buildings = {city: dict(data['Здания']) for city, data in self.buildings.items()}
 
         max_buildings_per_city = 24
         max_type_per_city = 12  # Лимит одного типа здания на город
@@ -689,7 +691,9 @@ class AIController:
         if any(new_garrison[target_city]):
             self.garrison.update(new_garrison)
             self.save_garrison()
-            self.calculate_and_deduct_consumption()
+            # Upkeep is charged by update_resources, once per turn. Recruiting
+            # updates the forecast; it must not charge the existing army again.
+            self.calculate_current_consumption()
             print(f"Гарнизон обновлён: {new_garrison}")
 
             # --- НОВЫЙ КОД: Экипировка героя ИИ после сохранения всех данных ---
@@ -1463,45 +1467,13 @@ class AIController:
             print(f"Ошибка при расчете текущего потребления: {e}")
 
     def calculate_and_deduct_consumption(self):
-        """
-        Метод для расчета потребления Кристаллы гарнизонами текущей фракции
-        и вычета суммарного потребления из self.raw_material.
-        """
-        try:
-            # Шаг 1: Выгрузка всех гарнизонов из таблицы garrisons
-            self.cursor.execute("""
-                SELECT city_name, unit_name, unit_count 
-                FROM garrisons
-            """)
-            garrisons = self.cursor.fetchall()
-
-            # Шаг 2: Для каждого гарнизона находим соответствующий юнит в таблице units
-            for garrison in garrisons:
-                city_name, unit_name, unit_count = garrison
-
-                # Проверяем, к какой фракции принадлежит юнит
-                self.cursor.execute("""
-                    SELECT consumption, faction 
-                    FROM units 
-                    WHERE unit_name = ?
-                """, (unit_name,))
-                unit_data = self.cursor.fetchone()
-
-                if unit_data:
-                    consumption, faction = unit_data
-
-                    # Учитываем только юниты текущей фракции
-                    if faction == self.faction:
-                        # Расчет потребления для данного типа юнита
-                        self.total_consumption = consumption * unit_count
-
-            # Шаг 3: Вычитание общего потребления из денег фракции
-            self.raw_material -= self.total_consumption
-            print(f"Общее потребление Кристаллы: {self.total_consumption}")
-            print(f"Остаток Кристаллы у фракции: {self.raw_material}")
-
-        except Exception as e:
-            print(f"Произошла ошибка: {e}")
+        """Charge the sum of all garrisons once and persist the same crystal stock."""
+        self.calculate_current_consumption()
+        stock = self.resources.get('Кристаллы', self.raw_material)
+        self.raw_material = max(0, stock - self.total_consumption)
+        self.resources['Кристаллы'] = self.raw_material
+        self.resources['Текущее потребление'] = self.total_consumption
+        print(f"[AI] {self.faction}: содержание {self.total_consumption}, запас {self.raw_material}")
 
     def calculate_tax_income(self):
         """
@@ -2932,7 +2904,8 @@ class AIController:
             for row in rows:
                 city_name, building_type, count = row
                 if city_name in updated_buildings:
-                    updated_buildings[city_name]["Здания"][building_type] += count
+                    records = updated_buildings[city_name]["Здания"]
+                    records[building_type] = records.get(building_type, 0) + count
 
             # Обновляем self.buildings
             self.buildings = updated_buildings
@@ -3477,7 +3450,7 @@ class AIController:
         """
         system = self.load_political_system()
         if system == "Смирение":
-            crowns_bonus = int(self.money_up * 1.85)
+            crowns_bonus = max(0, int(self.money_up * 1.85))
             self.resources['Кроны'] = int(self.resources.get('Кроны', 0)) + crowns_bonus
             print(f"Бонус от смирения: +{crowns_bonus} Крон")
         elif system == "Борьба":
