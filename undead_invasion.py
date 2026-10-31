@@ -198,6 +198,9 @@ def _create_undead_units(cursor):
             cursor.execute(insert_default_sql, unit_data)
         print(f"[UNDEAD] Юниты нежити созданы из констант (units_default была пуста)")
 
+    from undead_garrison import migrate_capital_archers
+    migrate_capital_archers(cursor.connection)
+
 
 def check_and_trigger_invasion(conn, current_turn, player_faction):
     """
@@ -295,6 +298,9 @@ def check_and_trigger_invasion(conn, current_turn, player_faction):
         INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
         VALUES (?, ?, 1, ?)
     """, (chosen_city_name, KING_OF_DEAD_NAME, 'files/army/death/king_.png'))
+
+    from undead_garrison import ensure_capital_archers
+    ensure_capital_archers(cursor, chosen_city_name)
 
     # Объявляем войну всем фракциям
     _declare_war_to_all(cursor)
@@ -454,7 +460,7 @@ def process_undead_turn(conn, current_turn):
     # Царь Мёртвых бессмертен — если погиб, возрождается
     _respawn_king_if_dead(cursor)
 
-    # Суперкрепость столицы: 10K призраков-стражей (не уходят, только защищают)
+    # Постоянная стража столицы: 250K лучников (не уходят, только защищают).
     _capital = None
     try:
         cursor.execute("SELECT capital_city FROM undead_invasion WHERE id = 1")
@@ -468,18 +474,8 @@ def process_undead_turn(conn, current_turn):
         cursor.execute("SELECT faction FROM cities WHERE name = ?", (_capital,))
         _cf = cursor.fetchone()
         if _cf and _cf[0] == UNDEAD_FACTION_NAME:
-            cursor.execute("SELECT unit_count FROM garrisons WHERE city_name = ? AND unit_name = ?",
-                           (_capital, UNDEAD_UNIT_NAME))
-            _ghost_row = cursor.fetchone()
-            _current_ghosts = _ghost_row[0] if _ghost_row else 0
-            if _current_ghosts < 250000:
-                _add = 250000 - _current_ghosts
-                cursor.execute("""
-                    INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
-                    VALUES (?, ?, ?, 'files/army/death/solder.png')
-                    ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
-                """, (_capital, UNDEAD_UNIT_NAME, _add, _add))
-                print(f"[UNDEAD] Стража столицы {_capital}: +{_add} призраков (до 250K)")
+            from undead_garrison import ensure_capital_archers
+            ensure_capital_archers(cursor, _capital)
             from unit_updates import ensure_morgana_guardian
             if ensure_morgana_guardian(cursor, _capital):
                 print(f"[UNDEAD] Моргана возрождена в столице {_capital}")

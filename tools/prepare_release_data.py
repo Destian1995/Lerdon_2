@@ -8,6 +8,7 @@ from contextlib import closing
 if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from unit_updates import migrate_morgana
+from undead_garrison import migrate_capital_archers
 
 
 def prepare(source, destination):
@@ -32,6 +33,7 @@ def prepare(source, destination):
                 clean.execute(f'INSERT INTO "{name}" SELECT * FROM "{default}"')
         clean.commit()
         migrate_morgana(clean)
+        migrate_capital_archers(clean)
         clean.commit()
         clean.execute('VACUUM')
         assert clean.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'

@@ -4851,7 +4851,7 @@ class AIController:
                 print(f"[UNDEAD] Нет войск в {from_city}")
                 return
 
-            # Проверяем: это столица нежити? Если да — оставляем 10K призраков
+            # Проверяем столицу: её лучники остаются на защите.
             _is_capital = False
             try:
                 self.cursor.execute("SELECT capital_city FROM undead_invasion WHERE id = 1")
@@ -4866,10 +4866,9 @@ class AIController:
                 uc = self.get_unit_class(unit_name)
                 if uc == 1:
                     take = int(unit_count * 0.7)
-                    # Столица: оставляем минимум 10K призраков
-                    if _is_capital and unit_name == 'Призрак':
-                        max_take = max(0, unit_count - 250000)
-                        take = min(take, max_take)
+                    # Лучники столицы не участвуют в вылазках.
+                    if _is_capital and unit_name == 'Лучник нежити':
+                        take = 0
                 else:
                     take = unit_count
                 if take <= 0:
@@ -4933,7 +4932,7 @@ class AIController:
                     (self.faction, '#33BF99', target_city)
                 )
 
-                # Перемещаем армию в захваченный город (оставляем 10K призраков в столице)
+                # Перемещаем армию, оставляя лучников в столице.
                 self.cursor.execute(
                     "SELECT unit_name, unit_count, unit_image FROM garrisons WHERE city_name = ?",
                     (from_city,)
@@ -4942,8 +4941,8 @@ class AIController:
                 self.cursor.execute("DELETE FROM garrisons WHERE city_name = ?", (from_city,))
                 for u_name, u_count, u_image in all_units:
                     _move_count = u_count
-                    if _is_capital and u_name == 'Призрак':
-                        _move_count = max(0, u_count - 250000)
+                    if _is_capital and u_name == 'Лучник нежити':
+                        _move_count = 0
                         _keep = u_count - _move_count
                         if _keep > 0:
                             self.cursor.execute("""
@@ -4993,7 +4992,7 @@ class AIController:
                     (self.faction, '#33BF99', target_city)
                 )
 
-                # Перемещаем армию (Царь + призраки) — оставляем 10K в столице
+                # Перемещаем армию (Царь + призраки), оставляя лучников в столице.
                 self.cursor.execute(
                     "SELECT unit_name, unit_count, unit_image FROM garrisons WHERE city_name = ?",
                     (from_city,)
@@ -5002,8 +5001,8 @@ class AIController:
                 self.cursor.execute("DELETE FROM garrisons WHERE city_name = ?", (from_city,))
                 for u_name, u_count, u_image in remaining_garrison:
                     _move_count = u_count
-                    if _is_capital and u_name == 'Призрак':
-                        _move_count = max(0, u_count - 250000)
+                    if _is_capital and u_name == 'Лучник нежити':
+                        _move_count = 0
                         _keep = u_count - _move_count
                         if _keep > 0:
                             self.cursor.execute("""

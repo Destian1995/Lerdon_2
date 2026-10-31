@@ -1,5 +1,6 @@
 from lerdon_libraries import *
 from unit_updates import canonical_unit_name, migrate_morgana
+from undead_garrison import ARCHER_NAME
 # ==========================
 # 1. Определяем путь к папке “файлов” (storage) на Android
 # ==========================
@@ -61,8 +62,8 @@ else:
         else:
             # Сравниваем unit_type из units_default — если отличается, обновляем
             try:
-                _src_types = {(canonical_unit_name(n), t) for n, t in _src.execute("SELECT unit_name, unit_type FROM units_default")}
-                _dst_types = {(canonical_unit_name(n), t) for n, t in _dst.execute("SELECT unit_name, unit_type FROM units_default")}
+                _src_types = {(canonical_unit_name(n), t) for n, t in _src.execute("SELECT unit_name, unit_type FROM units_default") if n != ARCHER_NAME}
+                _dst_types = {(canonical_unit_name(n), t) for n, t in _dst.execute("SELECT unit_name, unit_type FROM units_default") if n != ARCHER_NAME}
                 if _src_types != _dst_types:
                     # Обновляем только default-таблицы, не трогая прогресс игрока
                     _tables_to_refresh = [
@@ -125,6 +126,8 @@ _icon_migration_conn = sqlite3.connect(db_path)
 try:
     migrate_city_icon_paths(_icon_migration_conn)
     migrate_morgana(_icon_migration_conn)
+    from undead_garrison import migrate_capital_archers
+    migrate_capital_archers(_icon_migration_conn)
     _icon_migration_conn.commit()
 finally:
     _icon_migration_conn.close()

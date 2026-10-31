@@ -779,6 +779,8 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         except Exception:
             pass
 
+    # Общий список создаём до первого сообщения и сохраняем до отчёта.
+    _faction_bonus_messages = []
     # Добавляем сообщения о боевом духе
     for _spf in _spirit_factions:
         if _spf == user_faction:
@@ -915,12 +917,6 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             u['killed_count'] = u['initial_count'] - u['unit_count']
         else:
             u['killed_count'] = 0
-
-    # Список сообщений о фракционных бонусах для отчёта
-    _faction_bonus_messages = []
-
-    # Сообщения о боевом духе (заполняется позже, после расчёта _spirit_factions)
-    # — добавляются перед возвратом результата
 
     # Вампиры: Вампиризм — 5% убитых врагов воскресают (в свой сезон 8.75%)
     vamp_rate = 0.05 * _season_mult('Вампиры') if _season_mult('Вампиры') > 1 else 0.05
