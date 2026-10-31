@@ -19,7 +19,7 @@ from strategy_ui import INK, SURFACE, GOLD, TEXT, MUTED, FACTIONS, StrategyButto
 from responsive_ui import WindowFlow
 from ui_motion import enter
 
-VERSION = '7.0.2'
+VERSION = '7.0.3'
 FACTION_ART = {'Север': 'people', 'Эльфы': 'elfs', 'Вампиры': 'vampire', 'Адепты': 'adepts', 'Элины': 'elins'}
 
 

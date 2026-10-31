@@ -580,6 +580,8 @@ class TurnOverlay(FloatLayout):
             keep_ratio=True,
             opacity=0,
         )
+        from portrait_ui import style_portrait_image
+        style_portrait_image(self._faction_img, enabled=True)
         column.add_widget(self._faction_img)
 
         # Faction name label (fixed height, below image)

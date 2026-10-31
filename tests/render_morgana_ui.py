@@ -13,6 +13,7 @@ from kivy.uix.popup import Popup
 from strategy_ui import surface, text_label, INK
 from window_theme import install_window_theme
 from unit_updates import MORGANA_IMAGE
+from portrait_ui import style_portrait_image
 
 install_window_theme()
 folder = ROOT / '.release' / 'previews-7.0.2'
@@ -53,7 +54,9 @@ gallery = surface(BoxLayout(padding=dp(24), spacing=dp(24)), INK)
 for name, source in (('Моргана', MORGANA_IMAGE), ('Герой Севера', 'files/army/people/vlad.jpg'),
                      ('Советник', 'files/sov/adept.jpg'), ('Фракция', 'files/buildings/elfs.png')):
     cell = BoxLayout(orientation='vertical', spacing=dp(10))
-    cell.add_widget(Image(source=source, fit_mode='contain'))
+    portrait = Image(source=source, fit_mode='contain')
+    style_portrait_image(portrait, enabled=True)
+    cell.add_widget(portrait)
     cell.add_widget(text_label(name, 18, size_hint_y=None, height=dp(36)))
     gallery.add_widget(cell)
 Window.add_widget(gallery)

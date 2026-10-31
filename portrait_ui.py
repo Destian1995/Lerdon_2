@@ -1,7 +1,6 @@
-"""Event-driven portrait frames. Decoration never changes layout or input."""
+"""Opt-in frames for large portraits; map and menu icons stay undecorated."""
 from kivy.graphics import Color, InstructionGroup, Line
 from kivy.metrics import dp
-from kivy.uix.image import Image
 
 from strategy_ui import GOLD, FACTIONS
 
@@ -53,7 +52,8 @@ class PortraitFrame:
     def update(self, *args):
         widget = self.widget
         accent = portrait_accent(widget.source)
-        visible = accent is not None and widget.texture is not None and not getattr(widget, '_portrait_frame_disabled', False)
+        visible = (getattr(widget, '_portrait_frame_enabled', False) and accent is not None
+                   and widget.texture is not None and not getattr(widget, '_portrait_frame_disabled', False))
         self.visible = visible
         alpha = widget.color[3] if visible else 0
         self.accent.rgba = (*(accent or GOLD)[:3], alpha)
@@ -66,8 +66,11 @@ class PortraitFrame:
         width, height = widget.norm_image_size
         width, height = min(widget.width, width), min(widget.height, height)
         x, y = widget.center_x - width / 2, widget.center_y - height / 2
+        self.image_bounds = (x, y, width, height)
+        padding = dp(4)
+        x, y, width, height = x - padding, y - padding, width + 2 * padding, height + 2 * padding
         self.bounds = (x, y, width, height)
-        inset = min(dp(3), width / 12, height / 12)
+        inset = min(dp(1), width / 30, height / 30)
         radius = min(dp(8), width / 8, height / 8)
         self.outer.rounded_rectangle = (x + inset, y + inset, max(0, width - inset * 2),
                                         max(0, height - inset * 2), radius)
@@ -80,21 +83,18 @@ class PortraitFrame:
             line.points = (cx, cy + length * sy, cx, cy, cx + length * sx, cy)
 
 
-def style_portrait_image(widget, *args):
+def style_portrait_image(widget, *args, enabled=None):
+    if enabled is not None:
+        widget._portrait_frame_enabled = enabled
     decoration = getattr(widget, '_portrait_frame', None)
+    if not getattr(widget, '_portrait_frame_enabled', False):
+        if decoration:
+            decoration.update()
+        return
+    if not getattr(widget, '_portrait_source_bound', False):
+        widget.bind(source=style_portrait_image)
+        widget._portrait_source_bound = True
     if decoration is None and portrait_accent(widget.source) is not None:
         widget._portrait_frame = PortraitFrame(widget)
     elif decoration:
         decoration.update()
-
-
-def install_portrait_frames():
-    if getattr(Image.__init__, '_lerdon_portrait_frames', False):
-        return
-    original = Image.__init__
-    def initialize(widget, *args, **kwargs):
-        original(widget, *args, **kwargs)
-        widget.bind(source=style_portrait_image)
-        style_portrait_image(widget)
-    initialize._lerdon_portrait_frames = True
-    Image.__init__ = initialize

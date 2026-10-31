@@ -317,8 +317,6 @@ def theme_popup(popup):
 
 def install_window_theme():
     """Called once by lerdon_libraries; covers imported aliases/subclasses too."""
-    from portrait_ui import install_portrait_frames
-    install_portrait_frames()
     if getattr(Popup.open, '_lerdon_strategy_theme', False):
         return
     original = Popup.open

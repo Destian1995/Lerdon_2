@@ -168,6 +168,8 @@ class RecruitmentSession(Widget):
             card.stat_rows.append((row, caption_label, value))
         body.add_widget(stats)
         card.portrait = AsyncImage(source=info['image'], size_hint_x=0.44, fit_mode='contain', mipmap=True)
+        from portrait_ui import style_portrait_image
+        style_portrait_image(card.portrait, enabled=True)
         body.add_widget(card.portrait)
         card.add_widget(body)
         price = text_label('', 13, GOLD, size_hint_y=None, height=dp(26))

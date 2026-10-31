@@ -1402,6 +1402,8 @@ class FortressInfoPopup(Popup):
                 allow_stretch=True, keep_ratio=True,
                 size_hint_x=0.45,
             )
+            from portrait_ui import style_portrait_image
+            style_portrait_image(img, enabled=True)
             body.add_widget(img)
 
         content.add_widget(body)
