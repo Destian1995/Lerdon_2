@@ -1,4 +1,5 @@
 from lerdon_libraries import *
+from unit_updates import canonical_unit_name, migrate_morgana
 # ==========================
 # 1. Определяем путь к папке “файлов” (storage) на Android
 # ==========================
@@ -60,8 +61,8 @@ else:
         else:
             # Сравниваем unit_type из units_default — если отличается, обновляем
             try:
-                _src_types = set(_src.execute("SELECT unit_name, unit_type FROM units_default").fetchall())
-                _dst_types = set(_dst.execute("SELECT unit_name, unit_type FROM units_default").fetchall())
+                _src_types = {(canonical_unit_name(n), t) for n, t in _src.execute("SELECT unit_name, unit_type FROM units_default")}
+                _dst_types = {(canonical_unit_name(n), t) for n, t in _dst.execute("SELECT unit_name, unit_type FROM units_default")}
                 if _src_types != _dst_types:
                     # Обновляем только default-таблицы, не трогая прогресс игрока
                     _tables_to_refresh = [
@@ -123,5 +124,7 @@ def migrate_city_icon_paths(conn):
 _icon_migration_conn = sqlite3.connect(db_path)
 try:
     migrate_city_icon_paths(_icon_migration_conn)
+    migrate_morgana(_icon_migration_conn)
+    _icon_migration_conn.commit()
 finally:
     _icon_migration_conn.close()

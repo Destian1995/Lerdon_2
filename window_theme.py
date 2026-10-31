@@ -161,6 +161,9 @@ def theme_tree(root, observe=True):
     for widget in list(root.walk()):
         if isinstance(widget, ButtonBehavior) and hasattr(widget, 'text'):
             skin_button(widget)
+        elif isinstance(widget, Image):
+            from portrait_ui import style_portrait_image
+            style_portrait_image(widget)
         elif isinstance(widget, Label):
             _neutral_text(widget)
         elif isinstance(widget, TextInput):
@@ -314,6 +317,8 @@ def theme_popup(popup):
 
 def install_window_theme():
     """Called once by lerdon_libraries; covers imported aliases/subclasses too."""
+    from portrait_ui import install_portrait_frames
+    install_portrait_frames()
     if getattr(Popup.open, '_lerdon_strategy_theme', False):
         return
     original = Popup.open

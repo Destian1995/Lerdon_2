@@ -2482,8 +2482,10 @@ def open_tax_popup(faction):
                             padding=[dp(16), dp(12)], spacing=dp(10))
 
     # === Карточка с отображением налога ===
-    card = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(70),
-                     padding=dp(10), spacing=dp(4))
+    card = FloatLayout(size_hint_y=None, height=dp(104))
+    card._responsive_min_height = dp(104)
+    from strategy_ui import frame
+    frame(card)
     with card.canvas.before:
         Color(0.12, 0.15, 0.24, 1)
         card._bg = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(12)])
@@ -2497,6 +2499,7 @@ def open_tax_popup(faction):
         font_size=sp(22) if is_android else sp(20),
         bold=True,
         halign='center',
+        valign='middle',
         size_hint_y=None,
         height=dp(30)
     )
@@ -2512,6 +2515,14 @@ def open_tax_popup(faction):
     effect_label.bind(size=effect_label.setter('text_size'))
     card.add_widget(tax_label)
     card.add_widget(effect_label)
+    def center_tax_amount(*args):
+        tax_label.size_hint = effect_label.size_hint = (None, None)
+        tax_label.size = (max(1, card.width - dp(20)), max(dp(32), tax_label.font_size * 1.3))
+        tax_label.pos = (card.x + dp(10), card.center_y - tax_label.height / 2)
+        effect_label.size = (tax_label.width, dp(22))
+        effect_label.pos = (tax_label.x, tax_label.y - effect_label.height - dp(6))
+    card.bind(pos=center_tax_amount, size=center_tax_amount)
+    center_tax_amount()
     main_layout.add_widget(card)
 
     # === Статус налогов ===
@@ -2619,6 +2630,8 @@ def open_tax_popup(faction):
         auto_dismiss=True
     )
     tax_popup.open()
+    tax_popup.tax_card = card
+    tax_popup.tax_amount_label = tax_label
 
 
 def open_auto_build_popup(faction):

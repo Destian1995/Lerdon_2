@@ -143,6 +143,8 @@ def _create_undead_units(cursor):
     """Восстанавливает юнитов нежити в таблице units из units_default.
     Если в units_default нет данных — создаёт из констант как фоллбэк."""
 
+    from unit_updates import migrate_morgana
+    migrate_morgana(cursor.connection)
     # Проверяем, есть ли юниты нежити в units_default
     cursor.execute("SELECT COUNT(*) FROM units_default WHERE faction = ?", (UNDEAD_FACTION_NAME,))
     has_defaults = cursor.fetchone()[0] > 0
@@ -187,6 +189,9 @@ def _create_undead_units(cursor):
             (UNDEAD_FACTION_NAME, KING_OF_DEAD_NAME, 50000, 1,
              'files/army/death/king_.png', KING_OF_DEAD_ATTACK, KING_OF_DEAD_DEFENSE, KING_OF_DEAD_DURABILITY,
              '2', 100, 85, 'infantry', 100, 25, 25, 18),
+            (UNDEAD_FACTION_NAME, 'Моргана', 0, 0,
+             'files/army/death/morgana.png', 208, 800, 50,
+             '2', 0, 80, 'siege', 100, 0, 0, 10),
         ]
         for unit_data in all_units:
             cursor.execute(insert_sql, unit_data)
@@ -475,17 +480,9 @@ def process_undead_turn(conn, current_turn):
                     ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = unit_count + ?
                 """, (_capital, UNDEAD_UNIT_NAME, _add, _add))
                 print(f"[UNDEAD] Стража столицы {_capital}: +{_add} призраков (до 250K)")
-            # Наместник — всегда в столице (класс 2, 800 защиты, 8 атаки)
-            cursor.execute("SELECT unit_count FROM garrisons WHERE city_name = ? AND unit_name = 'Наместник'",
-                           (_capital,))
-            _gov = cursor.fetchone()
-            if not _gov or _gov[0] <= 0:
-                cursor.execute("""
-                    INSERT INTO garrisons (city_name, unit_name, unit_count, unit_image)
-                    VALUES (?, 'Наместник', 1, 'files/army/death/death.png')
-                    ON CONFLICT(city_name, unit_name) DO UPDATE SET unit_count = 1
-                """, (_capital,))
-                print(f"[UNDEAD] Наместник возрождён в столице {_capital}")
+            from unit_updates import ensure_morgana_guardian
+            if ensure_morgana_guardian(cursor, _capital):
+                print(f"[UNDEAD] Моргана возрождена в столице {_capital}")
 
     # Захватываем нейтральные города нежити (is_undead=1) — мор распространяется
     cursor.execute("SELECT id, name FROM cities WHERE is_undead = 1 AND faction = 'Нейтрал'")

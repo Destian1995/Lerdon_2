@@ -150,6 +150,21 @@ class DialogLayoutTests(unittest.TestCase):
         button.dispatch('on_release')
         self.assertEqual(calls[0][1:3], ('sell', 3))
 
+    def test_tax_amount_stays_in_card_center_at_phone_and_android_metrics(self):
+        for size, density in (((640, 360), 1), ((360, 640), 1), ((1280, 576), 2)):
+            Metrics.density, Metrics.fontscale = density, 1.2
+            Window.size = size
+            settle()
+            taxes()
+            popup = next(w for w in Window.children if isinstance(w, Popup))
+            try:
+                settle()
+                self.assertAlmostEqual(popup.tax_amount_label.center_x, popup.tax_card.center_x, delta=1)
+                self.assertAlmostEqual(popup.tax_amount_label.center_y, popup.tax_card.center_y, delta=1)
+                self.assertEqual(popup.tax_amount_label.valign, 'middle')
+            finally:
+                popup.dismiss(animation=False)
+
     def test_crafting_all_stages_keep_navigation_and_create_action_visible(self):
         Window.size = (640, 360)
         crafting()

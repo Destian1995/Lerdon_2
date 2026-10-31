@@ -3,7 +3,7 @@ set -e
 
 PROJECT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 cd -- "$PROJECT_DIR"
-APP_VERSION="7.0.1"
+APP_VERSION="7.0.2"
 KEYSTORE="$HOME/signkey.keystore"
 ANDROID_BUILD_TOOLS="$HOME/.buildozer/android/platform/android-sdk/build-tools/36.0.0"
 DIST_DIR="$PROJECT_DIR/.buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists/lerdonlegends"
