@@ -1,6 +1,5 @@
 from lerdon_libraries import *
 from db_lerdon_connect import *
-from utils.helpers import format_number
 
 def get_adaptive_font_size(min_size=15, max_size=20):
     """Адаптирует размер шрифта под ширину экрана с учетом Android"""
@@ -171,22 +170,20 @@ class EventManager:
         resource_type = effects.get("resource", None)
         kf = effects.get("kf", 1.0)
 
+        changes = []
         if resource_type:
             current_value = self.get_resource_amount(resource_type)
             if kf > 1.0:
                 # Увеличиваем ресурс по коэффициенту
                 new_value = int(current_value * kf)
                 self.economics.update_resource_now(resource_type, new_value)
-                full_description = f"{description} [b]{resource_type}[/b] увеличено до {format_number(new_value)}."
             else:
                 # Обнуляем ресурс, если kf <= 1.0
                 self.economics.update_resource_now(resource_type, 0)
-                full_description = f"{description} Мы потеряли: [b]{resource_type}[/b]"
-        else:
-            full_description = description
+            changes.append((resource_type, (new_value if kf > 1.0 else 0) - current_value))
 
         # Отображаем как бегущую строку
-        self.show_temporary_build(full_description, "sequences")
+        self.show_temporary_build(description, "sequences", changes)
         return True
 
     def zero_resource(self, resource_type):
@@ -202,16 +199,18 @@ class EventManager:
         и отображает бегущую строку для всех событий с event_type='passive' или 'sequences'.
         """
         # Применяем эффекты, если они есть
+        changes = []
         if "resource" in effects and "kf" in effects:
             resource = effects["resource"]
             kf = effects["kf"]
             current_value = self.get_resource_amount(resource)
             change = int(current_value * kf)
             self.update_resource(resource, change)
+            changes.append((resource, change))
             print(f"Событие {event_type}: {description}. {resource} изменен на {change}.")
 
         # Всегда отображаем бегущую строку
-        self.show_temporary_build(description, event_type or "passive")
+        self.show_temporary_build(description, event_type or "passive", changes)
 
     def show_event_active_popup(self, description, option_1, option_2, effects):
         """Отображение активного события — стилизованный popup с выбором."""
@@ -316,6 +315,7 @@ class EventManager:
         """
         Применение эффектов события через экономический модуль.
         """
+        changes = []
         if "resource_changes" in effects:
             for resource, change_data in effects["resource_changes"].items():
                 kf = change_data.get("kf", 1)
@@ -325,10 +325,15 @@ class EventManager:
 
                 # Передаем изменения в экономический модуль
                 self.economics.update_resource_now(resource, current_value + change)
+                changes.append((resource, change))
+        if changes:
+            self.show_temporary_build('Последствия вашего решения', 'choice', changes)
 
 
     def get_resource_amount(self, resource_type):
         """Получение текущего значения ресурса."""
+        from utils.resource_payments import ensure_resource_schema
+        ensure_resource_schema(self.db_connection)
         cursor = self.db_connection.cursor()
         cursor.execute("SELECT amount FROM resources WHERE faction = ? AND resource_type = ?", (self.player_faction, resource_type))
         result = cursor.fetchone()
@@ -336,11 +341,14 @@ class EventManager:
 
     def update_resource(self, resource_type, change):
         """Обновление ресурсов."""
+        from utils.resource_payments import ensure_resource_schema
+        ensure_resource_schema(self.db_connection)
         cursor = self.db_connection.cursor()
         cursor.execute("""
-            INSERT OR REPLACE INTO resources (faction, resource_type, amount)
-            VALUES (?, ?, COALESCE((SELECT amount FROM resources WHERE faction = ? AND resource_type = ?), 0) + ?)
-        """, (self.player_faction, resource_type, self.player_faction, resource_type, change))
+            INSERT INTO resources (faction, resource_type, amount)
+            VALUES (?, ?, ?)
+            ON CONFLICT(faction, resource_type) DO UPDATE SET amount=resources.amount+excluded.amount
+        """, (self.player_faction, resource_type, change))
         self.db_connection.commit()
 
     def update_karma(self, faction, karma_change):
@@ -460,23 +468,22 @@ class EventManager:
 
             # Формируем описание
             change = new_value - current_value
-            change_text = f"+{format_number(change)}" if change > 0 else format_number(change)
-            full_desc = f"{consequence['desc']} ({resource}: {change_text})"
 
             # Помечаем как сработавшее
             cursor.execute("UPDATE event_chains SET fired = 1 WHERE id = ?", (chain_id,))
             self.db_connection.commit()
 
             # Показываем как бегущую строку
-            self.show_temporary_build(full_desc, "sequences")
+            self.show_temporary_build(consequence['desc'], "sequences", [(resource, change)])
             print(f"[CHAIN] Последствие '{choice_type}': {consequence['desc']}")
             return True
         except Exception as e:
             print(f"[CHAIN] Ошибка проверки: {e}")
             return False
 
-    def show_temporary_build(self, description, event_type):
+    def show_temporary_build(self, description, event_type, changes=()):
         from event_ticker import EventQueue
-        if not hasattr(self, '_event_queue'):
-            self._event_queue = EventQueue(self.game_screen)
-        self._event_queue.push(description, event_type)
+        if not hasattr(self.game_screen, '_world_event_queue'):
+            self.game_screen._world_event_queue = EventQueue(self.game_screen)
+        self._event_queue = self.game_screen._world_event_queue
+        self._event_queue.push(description, event_type, changes)

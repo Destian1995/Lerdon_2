@@ -49,6 +49,8 @@ class Faction:
     def __init__(self, name, conn):
         self.faction = name
         self.conn = conn
+        from utils.resource_payments import ensure_resource_schema
+        ensure_resource_schema(conn)
         self.cursor = self.conn.cursor()
         self.resources = self.load_resources_from_db()  # Загрузка ресурсов
         self.buildings = self.load_buildings()  # Загрузка зданий
@@ -2093,8 +2095,9 @@ def open_trade_popup(game_instance):
         from kivy.graphics import Line, Ellipse, Mesh
         from kivy.core.text import Label as ChartLabel
         plot.canvas.clear()
-        left, bottom = plot.x + dp(10), plot.y + dp(22)
-        width, height = max(1, plot.width - dp(74)), max(1, plot.height - dp(32))
+        compact = plot.height < dp(60)
+        left, bottom = plot.x + dp(10), plot.y + dp(4 if compact else 22)
+        width, height = max(1, plot.width - dp(74)), max(1, plot.height - dp(8 if compact else 32))
         low, high = min(history), max(history)
         margin = max((high - low) * .15, .01)
         low, high = low - margin, high + margin
@@ -2118,13 +2121,15 @@ def open_trade_popup(game_instance):
             for fraction in ticks:
                 Color(.24, .31, .40, .45)
                 Line(points=[left, bottom + height * fraction, left + width, bottom + height * fraction], width=1)
-                caption(f'{low + (high - low) * fraction:.2f}', left + width + dp(8), bottom + height * fraction)
+                if not compact:
+                    caption(f'{low + (high - low) * fraction:.2f}', left + width + dp(8), bottom + height * fraction)
             for fraction in (0, .25, .5, .75, 1):
                 Color(.24, .31, .40, .3)
                 x = left + width * fraction
                 Line(points=[x, bottom, x, bottom + height], width=1)
-            caption('Раньше', left, plot.y + dp(9))
-            caption('Сейчас', max(left, left + width - dp(36)), plot.y + dp(9))
+            if not compact:
+                caption('Раньше', left, plot.y + dp(9))
+                caption('Сейчас', max(left, left + width - dp(36)), plot.y + dp(9))
             # Полупрозрачная область под линией: реальные котировки без выдуманных OHLC.
             Color(*trend_color[:3], .12)
             vertices = []
@@ -2176,39 +2181,12 @@ def open_trade_popup(game_instance):
     current_price_label.bind(size=current_price_label.setter('text_size'))
     price_card.add_widget(current_price_label)
 
-    # === ЧЕКБОКС "ПРОДАТЬ ВСЁ" ===
-    sell_all_layout = BoxLayout(
-        orientation='horizontal',
-        size_hint=(1, None),
-        height=dp(40),
-        spacing=dp(10)
-    )
-    sell_all_checkbox = CheckBox(
-        size_hint=(None, None),
-        size=(dp(30), dp(30)),
-        active=False,
-        color=(1, 1, 1, 1)
-    )
-
-    sell_all_label = Label(
-        text="Продать все",
-        font_size=sp(16),
-        color=(1, 1, 1, 1),
-        halign="left",
-        size_hint_x=None,
-        width=dp(150)
-    )
-
-    sell_all_layout.add_widget(sell_all_checkbox)
-    sell_all_layout.add_widget(sell_all_label)
-    sell_all_layout.add_widget(Widget())  # Заполнитель
-    sell_all_label.size_hint_x = 1
-    sell_all_checkbox.size = (dp(40), dp(40))
-    sell_all_checkbox.pos_hint = {'center_y': .5}
-    sell_all_layout.remove_widget(sell_all_layout.children[0])  # unused spacer
+    from strategy_ui import StrategyButton
+    sell_all_btn = StrategyButton(text='Продать всё', size_hint=(1, None),
+                                  height=dp(48), disabled=max_sell_lots <= 0)
     trade_layout.add_widget(price_card)
-    trade_layout.padding = dp(8)
-    trade_layout.spacing = dp(8)
+    trade_layout.padding = dp(6)
+    trade_layout.spacing = dp(4)
 
     # === СОЗДАНИЕ КНОПОК ===
     def _trade_btn(txt, clr):
@@ -2229,7 +2207,7 @@ def open_trade_popup(game_instance):
     sell_btn = _trade_btn("Продать", (0.60, 0.10, 0.10, 1))
 
     # === СЛАЙДЕР И ОТОБРАЖЕНИЕ ЗНАЧЕНИЯ ===
-    slider_layout = BoxLayout(orientation='vertical', spacing=dp(5), size_hint=(1, None), height=dp(80))
+    slider_layout = BoxLayout(orientation='vertical', spacing=0, size_hint=(1, None), height=dp(56))
 
     trade_info_label = Label(
         text="Нет операции",
@@ -2238,7 +2216,7 @@ def open_trade_popup(game_instance):
         color=(0.8, 0.8, 0.8, 1),
         halign="center",
         size_hint=(1, None),
-        height=dp(30)
+        height=dp(24)
     )
     trade_info_label.bind(size=trade_info_label.setter('text_size'))
 
@@ -2248,15 +2226,12 @@ def open_trade_popup(game_instance):
         value=0,
         step=1,
         size_hint=(1, None),
-        height=dp(50),
-        cursor_size=(dp(20), dp(40)),
+        height=dp(32),
+        cursor_size=(dp(20), dp(28)),
     )
 
     # Функция обновления слайдера
     def update_slider_label(instance, value):
-        if sell_all_checkbox.active:
-            return  # Если чекбокс активен, не обновляем по слайдеру
-
         val = int(value)
         if val > 0:
             crystals_gain = val * 100
@@ -2283,37 +2258,15 @@ def open_trade_popup(game_instance):
         buy_btn.disabled = (val <= 0)
         sell_btn.disabled = (val >= 0)
 
-    # Функция обработки чекбокса "Продать всё"
-    def on_sell_all_toggle(instance, value):
-        if value:
-            # Активирована продажа всех лотов
-            trade_slider.disabled = True
-            trade_slider.value = -max_sell_lots
-            crystals_spent = max_sell_lots * 100
-            income = int(max_sell_lots * sell_price)
-            base_income = int(max_sell_lots * current_price)
-            extra = income - base_income
-            extra_txt = f" (выгода +{format_number(extra)})" if extra > 0 else ""
-            trade_info_label.text = f"Продать ВСЁ: {format_number(crystals_spent)} кристаллов за {format_number(income)} крон{extra_txt}"
-            trade_info_label.color = (1, 0, 0, 1)
-            buy_btn.disabled = True
-            sell_btn.disabled = (max_sell_lots <= 0)
-        else:
-            # Возвращаем слайдер в нейтральное положение
-            trade_slider.disabled = False
-            trade_slider.value = 0
-            update_slider_label(None, 0)
-
     trade_slider.bind(value=update_slider_label)
-    sell_all_checkbox.bind(active=on_sell_all_toggle)
 
     slider_layout.add_widget(trade_info_label)
     slider_layout.add_widget(trade_slider)
     trade_layout.add_widget(slider_layout)
-    trade_layout.add_widget(sell_all_layout)
+    trade_layout.add_widget(sell_all_btn)
 
     # === ДОБАВЛЕНИЕ КНОПОК В LAYOUT ===
-    button_layout = BoxLayout(spacing=dp(16), size_hint=(1, None), height=dp(60))
+    button_layout = BoxLayout(spacing=dp(8), size_hint=(1, None), height=dp(48))
     button_layout.add_widget(buy_btn)
     button_layout.add_widget(sell_btn)
     trade_layout.add_widget(button_layout)
@@ -2331,11 +2284,17 @@ def open_trade_popup(game_instance):
     trade_layout._responsive_keep_geometry = True
 
     def fit_trade(*args):
-        chart.height = dp(120 if trade_layout.height < dp(430) else 220)
-        plot.height = chart.height - dp(44)
+        compact = trade_layout.height < dp(340)
+        chart.height = max(dp(48), quote_scroll.height)
+        chart.children[0].height = 0 if compact else dp(18)
+        chart.children[0].opacity = 0 if compact else 1
+        chart.children[-1].height = dp(16 if compact else 20)
+        plot.height = max(dp(26), chart.height - chart.children[-1].height
+                          - chart.children[0].height - chart.spacing * 2)
         current_price_label.font_size = sp(13 if trade_layout.width < dp(420) else 16)
         trade_info_label.font_size = sp(13 if trade_layout.width < dp(420) else 16)
     trade_layout.bind(size=fit_trade)
+    quote_scroll.bind(size=fit_trade)
     fit_trade()
 
     # === ПОПАП ===
@@ -2350,18 +2309,41 @@ def open_trade_popup(game_instance):
         title_size=sp(20) if is_mobile else sp(18),
         title_align='center'
     )
+    # Own the market's viewport so the shared action dock cannot consume the chart.
+    from kivy.core.window import Window
+    from window_theme import prepare_custom_popup, center_after_resize
+    trade_layout._strategy_fixed_layout = True
+    prepare_custom_popup(popup)
+    header = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(8))
+    title = Label(text='Рынок Кристаллов', font_size=sp(18), bold=True, halign='left')
+    title.bind(size=title.setter('text_size'))
+    header.add_widget(title)
+    close = StrategyButton(text='×', size_hint_x=None, width=dp(48))
+    close._strategy_close = True
+    close.bind(on_release=popup.dismiss)
+    header.add_widget(close)
+    trade_layout.add_widget(header, index=len(trade_layout.children))
+
+    def fit_market(*_):
+        popup.size_hint = (None, None)
+        popup.size = (max(1, min(dp(1100), Window.width - dp(12))),
+                      max(1, min(dp(720), Window.height - dp(12))))
+        center_after_resize(popup)
+
+    popup.bind(on_dismiss=lambda *_: Window.unbind(on_resize=fit_market))
+    Window.bind(on_resize=fit_market)
+    fit_market()
 
     def on_press_wrapper(action):
         def handler(instance):
-            if sell_all_checkbox.active:
-                quantity = max_sell_lots
-            else:
-                quantity = abs(int(trade_slider.value))
+            quantity = abs(int(trade_slider.value))
             handle_trade(game_instance, action, quantity, popup)
         return handler
 
     buy_btn.bind(on_release=on_press_wrapper('buy'))
     sell_btn.bind(on_release=on_press_wrapper('sell'))
+    sell_all_btn.bind(on_release=lambda _: handle_trade(
+        game_instance, 'sell', game_instance.get_available_raw_material_lots(), popup))
 
     popup.open()
     from tutorial import notify_event
@@ -2652,264 +2634,8 @@ def open_auto_build_popup(faction):
 
 
 def open_development_popup(faction):
-    from kivy.uix.scrollview import ScrollView
-    from kivy.uix.boxlayout import BoxLayout
-    from kivy.uix.button import Button
-    from kivy.uix.label import Label
-    from kivy.graphics import Color, RoundedRectangle
-    from kivy.metrics import dp, sp
-    from kivy.uix.popup import Popup
-    from kivy import platform
-
-    def format_number(value):
-        if isinstance(value, (int, float)):
-            return f"{value:,.0f}".replace(",", " ")
-        return str(value)
-
-    is_mobile = platform in ['android', 'ios']
-
-    # --- Три варианта стратегии ---
-    STRATEGIES = [
-        {
-            'ratio': (1, 1),
-            'name': 'Баланс',
-            'desc': 'Больницы и фабрики строятся поровну.\nРавномерный рост населения и кристаллов.',
-            'color': (0.92, 0.80, 0.55, 1),
-            'bg': (0.22, 0.28, 0.42, 1),
-        },
-        {
-            'ratio': (2, 1),
-            'name': 'Рост населения',
-            'desc': 'Больниц x2 больше фабрик.\nБольше рабочих и крон, меньше кристаллов.',
-            'color': (0.55, 0.78, 0.95, 1),
-            'bg': (0.18, 0.28, 0.45, 1),
-        },
-        {
-            'ratio': (1, 2),
-            'name': 'Рост добычи',
-            'desc': 'Фабрик x2 больше больниц.\nБольше кристаллов, меньше рабочих.',
-            'color': (0.55, 0.85, 0.55, 1),
-            'bg': (0.18, 0.35, 0.22, 1),
-        },
-    ]
-
-    current_ratio = getattr(faction, 'auto_build_ratio', (1, 1))
-    selected = [None]  # mutable container for closure
-
-    # Find initial selection
-    for i, s in enumerate(STRATEGIES):
-        if s['ratio'] == current_ratio:
-            selected[0] = i
-            break
-    if selected[0] is None:
-        selected[0] = 0  # default to balance
-
-    dev_popup = Popup(
-        title="Развитие",
-        size_hint=(0.92, 0.92) if is_mobile else (0.6, 0.75),
-        background_color=(0.08, 0.10, 0.16, 0.98),
-        separator_color=(0.25, 0.52, 0.92, 0.55),
-        title_color=(0.75, 0.92, 1, 1),
-        title_size=sp(18) if is_mobile else sp(20),
-        title_align='center',
-        auto_dismiss=False
-    )
-
-    main_layout = BoxLayout(
-        orientation='vertical',
-        padding=[dp(10), dp(8), dp(10), dp(8)],
-        spacing=dp(8)
-    )
-
-    # ScrollView for cards
-    scroll = ScrollView(size_hint=(1, 1), do_scroll_x=False, bar_width=dp(3))
-    cards_layout = BoxLayout(
-        orientation='vertical',
-        size_hint_y=None,
-        spacing=dp(8),
-        padding=[0, dp(4), 0, dp(4)]
-    )
-    cards_layout.bind(minimum_height=cards_layout.setter('height'))
-
-    card_widgets = []
-    border_rects = []
-
-    def select_card(idx):
-        selected[0] = idx
-        for j, (cw, br) in enumerate(zip(card_widgets, border_rects)):
-            if j == idx:
-                br.rgba = (0.4, 0.75, 1, 1)
-            else:
-                br.rgba = (0.3, 0.3, 0.4, 0.5)
-
-    for i, strat in enumerate(STRATEGIES):
-        card_height = dp(90) if is_mobile else dp(100)
-        card = BoxLayout(
-            orientation='vertical',
-            size_hint_y=None,
-            height=card_height,
-            padding=[dp(12), dp(8), dp(12), dp(8)]
-        )
-        with card.canvas.before:
-            border_c = Color(0.4, 0.75, 1, 1) if i == selected[0] else Color(0.3, 0.3, 0.4, 0.5)
-            border_r = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(12)])
-        with card.canvas.before:
-            Color(*strat['bg'])
-            card._bg = RoundedRectangle(
-                pos=(card.x + dp(2), card.y + dp(2)),
-                size=(card.width - dp(4), card.height - dp(4)),
-                radius=[dp(10)]
-            )
-
-        border_rects.append(border_c)
-
-        def _update_card_bg(inst, val, _bg=card._bg, _br=border_r):
-            _br.pos = inst.pos
-            _br.size = inst.size
-            _bg.pos = (inst.x + dp(2), inst.y + dp(2))
-            _bg.size = (inst.width - dp(4), inst.height - dp(4))
-
-        card.bind(pos=_update_card_bg, size=_update_card_bg)
-
-        # Name
-        name_lbl = Label(
-            text=strat['name'],
-            font_size=sp(17) if is_mobile else sp(19),
-            bold=True,
-            color=strat['color'],
-            halign='left', valign='middle',
-            size_hint_y=0.4
-        )
-        name_lbl.bind(size=name_lbl.setter('text_size'))
-
-        # Ratio indicator
-        h, f = strat['ratio']
-        ratio_text = f"Больницы {h} : Фабрики {f}"
-
-        # Description
-        desc_lbl = Label(
-            text=f"[{ratio_text}]  {strat['desc'].replace(chr(10), ' ')}",
-            font_size=sp(12) if is_mobile else sp(13),
-            color=(0.8, 0.85, 0.9, 0.9),
-            halign='left', valign='top',
-            size_hint_y=0.6
-        )
-        desc_lbl.bind(size=desc_lbl.setter('text_size'))
-
-        card.add_widget(name_lbl)
-        card.add_widget(desc_lbl)
-
-        card_btn_overlay = Button(
-            background_color=(0, 0, 0, 0),
-            size_hint=(1, 1),
-            pos_hint={'x': 0, 'y': 0}
-        )
-        # Use a separate BoxLayout to stack label content and transparent button
-        card_container = BoxLayout(orientation='vertical', size_hint_y=None, height=card_height)
-
-        # We need a RelativeLayout or FloatLayout for overlay
-        from kivy.uix.floatlayout import FloatLayout
-        fl = FloatLayout(size_hint_y=None, height=card_height)
-        card.size_hint = (1, 1)
-        card.pos_hint = {'x': 0, 'y': 0}
-        card_btn_overlay.pos_hint = {'x': 0, 'y': 0}
-        card_btn_overlay.bind(on_release=lambda inst, idx=i: select_card(idx))
-
-        fl.add_widget(card)
-        fl.add_widget(card_btn_overlay)
-
-        cards_layout.add_widget(fl)
-        card_widgets.append(card)
-
-    scroll.add_widget(cards_layout)
-    main_layout.add_widget(scroll)
-
-    # --- Статистика (компактная) ---
-    stats_box = BoxLayout(
-        orientation='horizontal',
-        size_hint_y=None,
-        height=dp(50) if is_mobile else dp(55),
-        spacing=dp(6),
-        padding=[dp(4), dp(4), dp(4), dp(4)]
-    )
-    with stats_box.canvas.before:
-        Color(0.12, 0.15, 0.25, 1)
-        stats_box._bg = RoundedRectangle(pos=stats_box.pos, size=stats_box.size, radius=[dp(8)])
-    stats_box.bind(
-        pos=lambda inst, val: setattr(stats_box._bg, 'pos', val),
-        size=lambda inst, val: setattr(stats_box._bg, 'size', val)
-    )
-
-    # Определяем текущий режим развития
-    if getattr(faction, 'auto_build_enabled', False):
-        current_h, current_f = getattr(faction, 'auto_build_ratio', (1, 1))
-        mode_name = "Не выбран"
-        for s in STRATEGIES:
-            if s['ratio'] == (current_h, current_f):
-                mode_name = s['name']
-                break
-        if mode_name == "Не выбран":
-            mode_name = f"Своё ({current_h}:{current_f})"
-    else:
-        mode_name = "Не выбран"
-
-    sf = sp(11) if is_mobile else sp(13)
-    stats_items = [
-        (f"Режим: {mode_name}", (0.75, 0.92, 1, 1)),
-        (f"Больницы: {format_number(faction.hospitals)}", (0.85, 0.45, 0.45, 1)),
-        (f"Фабрики: {format_number(faction.factories)}", (0.45, 0.85, 0.5, 1)),
-        (f"Доход Крон: {format_number(faction.money_up)}", (0.5, 0.95, 0.6, 1)),
-    ]
-    for txt, clr in stats_items:
-        sl = Label(text=txt, font_size=sf, bold=True, color=clr, halign='center', valign='middle')
-        sl.bind(size=sl.setter('text_size'))
-        stats_box.add_widget(sl)
-
-    main_layout.add_widget(stats_box)
-
-    # --- Action buttons ---
-    action_buttons = BoxLayout(
-        orientation='horizontal',
-        spacing=dp(8),
-        size_hint_y=None,
-        height=dp(48) if is_mobile else dp(52)
-    )
-
-    def _make_btn(txt, clr):
-        b = Button(
-            text=txt, font_size=sp(15) if is_mobile else sp(16),
-            bold=True, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1)
-        )
-        with b.canvas.before:
-            b._bc = Color(*clr)
-            b._br = RoundedRectangle(pos=b.pos, size=b.size, radius=[dp(10)])
-        b.bind(pos=lambda i, v: setattr(i._br, 'pos', v),
-               size=lambda i, v: setattr(i._br, 'size', v))
-        return b
-
-    cancel_btn = _make_btn("Отмена", (0.55, 0.18, 0.18, 1))
-    apply_btn = _make_btn("Применить", (0.18, 0.58, 0.25, 1))
-    cancel_btn.size_hint_x = 0.4
-    apply_btn.size_hint_x = 0.6
-
-    def apply_settings(instance):
-        idx = selected[0]
-        faction.auto_build_ratio = STRATEGIES[idx]['ratio']
-        faction.auto_build_enabled = True
-        faction.save_auto_build_settings()
-        dev_popup.dismiss()
-        show_message("Сохранение...", f"Выбран: {STRATEGIES[idx]['name']}")
-
-    apply_btn.bind(on_release=apply_settings)
-    cancel_btn.bind(on_release=lambda _: dev_popup.dismiss())
-
-    action_buttons.add_widget(cancel_btn)
-    action_buttons.add_widget(apply_btn)
-    main_layout.add_widget(action_buttons)
-
-    dev_popup.content = main_layout
-    dev_popup.open()
-
+    from development_ui import open_development
+    return open_development(faction, show_message)
 
 # --------------------------
 def start_economy_mode(faction, game_area, db_conn, season_manager, root_overlay=None):

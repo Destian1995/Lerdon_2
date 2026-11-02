@@ -64,7 +64,7 @@ class FrontendTests(unittest.TestCase):
         menu = self.show('MenuWidget')
         self.assertEqual(len(menu.buttons), 6)
         self.assertTrue(all(isinstance(b, StrategyButton) and b.height >= 48 for b in menu.buttons))
-        self.assertTrue(any(isinstance(w, Label) and w.text == 'v7.0.7' for w in menu.walk()))
+        self.assertTrue(any(isinstance(w, Label) and w.text == 'v7.0.8' for w in menu.walk()))
         self.assertIsNone(menu._particle_event)
         self.assertEqual(menu.button_container.cols, 2)
         Window.size = (360, 640)
@@ -150,6 +150,41 @@ class FrontendTests(unittest.TestCase):
         self.assertFalse(tutorial.start_btn.disabled)
         author = self.show('AuthorScreen')
         self.assertTrue(any(isinstance(w, StrategyButton) and w.text == 'В меню' for w in author.walk()))
+
+    def test_campaign_summary_fits_at_android_density(self):
+        from kivy.metrics import Metrics
+        previous = Metrics.density, Metrics.fontscale
+        try:
+            with patch('kivy.app.App.get_running_app', return_value=SimpleNamespace(selected_kingdom=None)):
+                setup = self.show('KingdomSelectionWidget')
+                for size, density in (((800, 600), 1), ((640, 360), 1),
+                                      ((1280, 576), 2), ((320, 568), 1)):
+                    Metrics.density, Metrics.fontscale = density, 1.2
+                    Window.size = size
+                    settle()
+                    columns = setup.campaign_columns
+                    self.assertIsNone(columns.controls.size_hint_y)
+                    self.assertLessEqual(columns.controls.height, columns.workspace.height + 1)
+                    self.assertGreaterEqual(setup.allies_spinner.y, setup.start_game_button.top)
+                    if size == (800, 600):
+                        self.assertEqual(columns.workspace.orientation, 'vertical')
+                        self.assertAlmostEqual(setup.ideology_spinner.y, setup.allies_spinner.y, delta=1)
+                        self.assertAlmostEqual(columns.controls.y - columns.body.top,
+                                               columns.workspace.spacing, delta=1)
+                    for button in setup.kingdom_button_widgets.values():
+                        button.dispatch('on_release')
+                        settle()
+                        view = setup.campaign_columns.body
+                        self.assertLessEqual(view.children[0].height, view.height + 1)
+                        for widget in (setup.faction_ability_label, setup.ideology_bonus_label,
+                                       setup.allies_count_label):
+                            _, bottom = widget.to_window(*widget.pos)
+                            _, top = widget.to_window(widget.x, widget.top)
+                            _, view_bottom = view.to_window(*view.pos)
+                            self.assertGreaterEqual(bottom, view_bottom - 1)
+                            self.assertLessEqual(top, view_bottom + view.height + 1)
+        finally:
+            Metrics.density, Metrics.fontscale = previous
 
     def test_tutorial_keeps_all_factions_and_start_visible_after_resize(self):
         from kivy.metrics import Metrics

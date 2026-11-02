@@ -1540,6 +1540,8 @@ class GameScreen(Screen):
         Обработка хода: быстрые операции на главном потоке,
         тяжёлые (ИИ, пересчёты) — в фоновом потоке.
         """
+        if getattr(self, '_troop_movement_busy', False):
+            return
         import threading
 
         # === Фаза 1: Быстрые операции на главном потоке ===
@@ -3169,13 +3171,11 @@ class GameScreen(Screen):
         self._prev_star_levels = dict(self.city_star_levels)
 
         garrison_icon_path = 'files/status/army_in_city/garrison_shield.png'
-        hero_icon_path = 'files/status/army_in_city/hero_helm.png'
         crystal_icon_path = 'files/status/city_bonus/crystal.png'
         player_choise_icon_path = 'files/status/choise.png'
 
         # Параметры отрисовки
         GARRISON_ICON_SIZE = 28
-        HERO_ICON_SIZE = 32
         BADGE_WIDTH = 68
         BADGE_HEIGHT = 28
         CITY_ICON_SIZE = 77
@@ -3284,13 +3284,7 @@ class GameScreen(Screen):
 
 
                 badge_y = icon_y + CITY_ICON_SIZE + 2
-                if has_hero:
-                    Color(1, 1, 1, 1)
-                    Rectangle(
-                        source=hero_icon_path,
-                        pos=(icon_center_x - HERO_ICON_SIZE / 2, badge_y + BADGE_HEIGHT + 2),
-                        size=(HERO_ICON_SIZE, HERO_ICON_SIZE)
-                    )
+                # Animated faction standards in CityEffects replace the helmet.
 
                 # Щит и три деления: доля гарнизона в текущем потреблении фракции.
                 if star_level <= 0:
@@ -3527,13 +3521,8 @@ class GameScreen(Screen):
 
     def calculate_star_level(self, total_consumption, city_consumption):
         """Деления шкалы по доле гарнизона в текущем потреблении фракции."""
-        if total_consumption <= 0 or city_consumption <= 0:
-            return 0
-        if city_consumption <= total_consumption * 0.30:
-            return 1
-        if city_consumption <= total_consumption * 0.70:
-            return 2
-        return 3
+        from utils.movement_rules import army_size_level
+        return army_size_level(total_consumption, city_consumption)
 
     def initialize_turn_check_move(self):
         """

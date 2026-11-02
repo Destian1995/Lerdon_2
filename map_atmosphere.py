@@ -75,7 +75,10 @@ class MapAtmosphere(Widget):
         self._storm_group = InstructionGroup()
         from map_city_effects import CityEffects
         self.city_effects = CityEffects(self)
-        for group in (self._weather_group, self._plague_group, self._storm_group, self.city_effects.group):
+        from troop_movement import MarchLayer
+        self.marches = MarchLayer(self)
+        for group in (self._weather_group, self._plague_group, self._storm_group,
+                      self.city_effects.group, self.marches.group):
             self.canvas.add(group)
         with self.canvas:
             StencilUnUse()
@@ -413,6 +416,7 @@ class MapAtmosphere(Widget):
         self._update_storms(dt)
         self._update_plague()
         self.city_effects.update(dt)
+        self.marches.update(dt)
 
     def start(self):
         if self._event is None:
@@ -426,6 +430,7 @@ class MapAtmosphere(Widget):
     def on_parent(self, instance, parent):
         if parent is None:
             self.stop()
+            self.marches.cancel_all()
         else:
             self.start()
 

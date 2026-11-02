@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import unittest
 
-from utils.resource_payments import spend_resources, sync_resources, exchange_resources
+from utils.resource_payments import spend_resources, sync_resources, exchange_resources, ensure_resource_schema
 
 
 class ResourcePaymentTests(unittest.TestCase):
@@ -35,6 +35,38 @@ class ResourcePaymentTests(unittest.TestCase):
     def test_insufficient_second_resource_rolls_back_first(self):
         self.assertFalse(spend_resources(self.db, 'Север', {'Кроны': 500, 'Рабочие': 201}))
         self.assertEqual(sync_resources(self.db, 'Север')['Кроны'], 2000000)
+
+    def test_legacy_duplicate_crowns_do_not_block_or_multiply_event_payment(self):
+        self.db.execute('DROP INDEX resources_faction_type')
+        self.db.execute("INSERT INTO resources VALUES('Север','Кроны',2000000)")
+        self.assertTrue(spend_resources(self.db, 'Север', {'Кроны': 18200 + 4431}))
+        rows = self.db.execute("SELECT amount FROM resources WHERE faction='Север' AND resource_type='Кроны'").fetchall()
+        self.assertEqual(rows, [(2000000 - 22631,)])
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("INSERT INTO resources VALUES('Север','Кроны',2000000)")
+
+    def test_migration_keeps_latest_displayed_balance_instead_of_summing(self):
+        self.db.execute('DROP INDEX resources_faction_type')
+        self.db.execute("INSERT INTO resources VALUES('Север','Кроны',2400000)")
+        ensure_resource_schema(self.db)
+        ensure_resource_schema(self.db)
+        self.assertEqual(sync_resources(self.db, 'Север')['Кроны'], 2400000)
+        self.assertEqual(sync_resources(self.db, 'Эльфы')['Кроны'], 100)
+
+    def test_duplicate_legacy_rows_do_not_allow_unaffordable_payment(self):
+        self.db.execute('DROP INDEX resources_faction_type')
+        self.db.execute("INSERT INTO resources VALUES('Север','Кроны',100)")
+        self.assertFalse(spend_resources(self.db, 'Север', {'Кроны': 101}))
+        self.assertEqual(sync_resources(self.db, 'Север')['Кроны'], 100)
+
+    def test_schema_repair_does_not_commit_the_callers_transaction(self):
+        self.db.execute('DROP INDEX resources_faction_type')
+        self.db.execute("UPDATE resources SET amount=123 WHERE faction='Север' AND resource_type='Кроны'")
+        ensure_resource_schema(self.db)
+        self.assertTrue(self.db.in_transaction)
+        self.db.rollback()
+        amount = self.db.execute("SELECT amount FROM resources WHERE faction='Север' AND resource_type='Кроны'").fetchone()[0]
+        self.assertEqual(amount, 2000000)
 
     def test_invalid_amounts_cannot_credit_or_corrupt_balance(self):
         for amount in (-100, float('nan'), float('inf')):

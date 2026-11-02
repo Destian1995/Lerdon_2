@@ -65,8 +65,15 @@ class DialogLayoutTests(unittest.TestCase):
                     if show in (market, taxes):
                         slider = next(w for w in popup.content.walk() if isinstance(w, Slider))
                         _, y = slider.to_window(slider.x, slider.y)
-                        self.assertGreaterEqual(y + 1, popup._window_action_dock.top, (show.__name__, size, density))
-                        self.assertLessEqual(y + slider.height, popup._window_flow.top + 1)
+                        if show is market:
+                            sell_all = next(w for w in popup.content.walk()
+                                            if isinstance(w, Button) and w.text == 'Продать всё')
+                            self.visible(sell_all, popup)
+                            self.assertGreaterEqual(y + 1, sell_all.top)
+                            self.assertLessEqual(y + slider.height, popup.top + 1)
+                        else:
+                            self.assertGreaterEqual(y + 1, popup._window_action_dock.top)
+                            self.assertLessEqual(y + slider.height, popup._window_flow.top + 1)
                 finally:
                     popup.dismiss(animation=False)
                     if db:
@@ -139,6 +146,19 @@ class DialogLayoutTests(unittest.TestCase):
             self.assertGreater(buttons[0].y, popup.center_y)
         finally:
             db.close()
+
+    def test_market_sell_all_is_full_width_and_trades_without_slider_selection(self):
+        from kivy.uix.checkbox import CheckBox
+        calls = []
+        market(calls)
+        popup = next(w for w in Window.children if isinstance(w, Popup))
+        settle()
+        button = next(w for w in popup.content.walk() if isinstance(w, Button) and w.text == 'Продать всё')
+        self.visible(button, popup)
+        self.assertAlmostEqual(button.width, popup.content.width - dp(12), delta=1)
+        self.assertFalse(any(isinstance(w, CheckBox) for w in popup.content.walk()))
+        button.dispatch('on_release')
+        self.assertEqual(calls[0][1:3], ('sell', 100))
 
     def test_market_trade_callback_uses_selected_quantity(self):
         calls = []

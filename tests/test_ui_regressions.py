@@ -80,7 +80,7 @@ class UIRegressionTests(unittest.TestCase):
             self.assertTrue(advisor.diplomacy_chat._disposed)
             self.assertTrue(advisor.diplomacy_chat.keyboard_helper._disposed)
 
-    def test_campaign_panels_have_top_aligned_titles_and_fixed_footer_at_android_density(self):
+    def test_campaign_has_one_faction_strip_and_fixed_footer_at_android_density(self):
         Metrics.density, Metrics.fontscale = 2, 1.2
         Window.size = (1280, 576)
         settle(5)
@@ -89,9 +89,10 @@ class UIRegressionTests(unittest.TestCase):
             setup = classes['KingdomSelectionWidget'](self.db)
             self.host.add_widget(setup)
             settle()
-            first_title = list(reversed(setup.faction_panel_container.children))[0]
-            self.assertLess(setup.faction_panel_container.top - first_title.top, dp(16))
-            self.assertLess(first_title.height, dp(40))
+            strip = setup.kingdom_buttons
+            self.assertLess(setup.faction_panel_container.top - strip.top, dp(16))
+            self.assertEqual(strip.cols, 5)
+            self.assertAlmostEqual(strip.height, dp(48), delta=1)
             self.assertGreaterEqual(setup.back_btn.y, 0)
             self.assertGreaterEqual(setup.start_game_button.y, 0)
             self.assertLessEqual(setup.start_game_button.top, setup.top)
@@ -100,9 +101,9 @@ class UIRegressionTests(unittest.TestCase):
             for button in setup.kingdom_button_widgets.values():
                 self.assertGreaterEqual(button.height, dp(48))
             self.assertLess(setup._front_page.flow.width, Window.width)
-            heights = (setup.faction_panel_container.height, setup.settings_panel_container.height, first_title.height)
+            heights = (setup.faction_panel_container.height, setup.settings_panel_container.height, strip.height)
             settle(30)
-            self.assertEqual(heights, (setup.faction_panel_container.height, setup.settings_panel_container.height, first_title.height))
+            self.assertEqual(heights, (setup.faction_panel_container.height, setup.settings_panel_container.height, strip.height))
 
     def test_rating_content_stays_inside_its_scroll_and_filter_preserves_data(self):
         Window.size = (640, 360)
@@ -147,8 +148,11 @@ class UIRegressionTests(unittest.TestCase):
         self.assertGreaterEqual(len(queue.pending), 1)
         self.assertGreaterEqual(first.y, dp(70))
         self.assertLess(first.width, Window.width)
+        queue.push('Последствие решения', 'positive')
+        self.assertIs(queue.active, first)
         first.finish()
-        self.assertNotEqual(queue.active, first)
+        self.assertIsNone(queue.active)
+        self.assertFalse(queue.pending)
         self.host.remove_widget(screen)
         self.assertIsNone(queue.active)
         self.assertFalse(first.events)
@@ -209,10 +213,8 @@ class UIRegressionTests(unittest.TestCase):
         slider.value = 5
         info = next(w for w in labels if 'Купить 500' in w.text)
         self.assertIn(format_number(1000), info.text)
-        checkbox = next(w for w in popup.content.walk() if isinstance(w, CheckBox))
-        checkbox.active = True
-        self.assertTrue(slider.disabled)
-        self.assertIn('Продать ВСЁ:', info.text)
-        checkbox.active = False
+        sell_all = next(w for w in popup.content.walk() if isinstance(w, Button) and w.text == 'Продать всё')
+        self.assertFalse(sell_all.disabled)
+        self.assertFalse(any(isinstance(w, CheckBox) for w in popup.content.walk()))
         self.assertFalse(slider.disabled)
-        self.assertEqual(slider.value, 0)
+        self.assertEqual(slider.value, 5)

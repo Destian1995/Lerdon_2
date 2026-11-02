@@ -199,6 +199,27 @@ class MapIntegrationTests(unittest.TestCase):
         self.host._sync_map_atmosphere()
         self.assertEqual(self.host._map_atmosphere._streams, [])
 
+    def test_hero_movement_invalidates_snapshot_and_moves_own_faction_flag(self):
+        self.db.executescript('''
+            CREATE TABLE units(unit_name TEXT, faction TEXT, unit_class TEXT);
+            CREATE TABLE garrisons(city_name TEXT, unit_name TEXT, unit_count INTEGER);
+            INSERT INTO units VALUES('Герой', 'Эльфы', '3');
+            INSERT INTO units VALUES('Пехота', 'Север', '1');
+            INSERT INTO garrisons VALUES('target', 'Герой', 1);
+            INSERT INTO garrisons VALUES('source', 'Пехота', 50);
+        ''')
+        before = self.host._read_map_snapshot()
+        self.host._sync_map_atmosphere()
+        flags = self.host._map_atmosphere.city_effects.flags
+        self.assertEqual([(f['city'], f['faction']) for f in flags], [('target', 'Эльфы')])
+        self.db.execute("UPDATE garrisons SET city_name='source' WHERE unit_name='Герой'")
+        self.assertNotEqual(before, self.host._read_map_snapshot())
+        self.host._sync_map_atmosphere()
+        self.assertEqual(self.host._map_atmosphere.city_effects.flags[0]['city'], 'source')
+        self.db.execute("UPDATE garrisons SET unit_count=0 WHERE unit_name='Герой'")
+        self.host._sync_map_atmosphere()
+        self.assertEqual(self.host._map_atmosphere.city_effects.flags, [])
+
     def test_stale_loss_report_does_not_infect_a_now_neutral_city(self):
         self.host._sync_map_atmosphere()
         self.db.execute("UPDATE cities SET faction = 'Нейтрал' WHERE name = 'target'")

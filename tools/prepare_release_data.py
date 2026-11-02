@@ -22,7 +22,7 @@ def prepare(source, destination):
     with closing(sqlite3.connect(destination)) as clean:
         clean.execute('PRAGMA foreign_keys=OFF')
         tables = {row[0] for row in clean.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        reference = {name for name in tables if name.endswith('_default')} | {'events', 'event_chains', 'sqlite_sequence'}
+        reference = {name for name in tables if name.endswith('_default')} | {'events', 'sqlite_sequence'}
         for name in sorted(tables - reference):
             clean.execute('DELETE FROM "' + name.replace('"', '""') + '"')
         for name in sorted(tables - reference):

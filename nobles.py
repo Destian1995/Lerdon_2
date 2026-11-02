@@ -10,6 +10,7 @@ from kivy.uix.widget import Widget
 from kivy.graphics import Color, RoundedRectangle, Rectangle, Line
 from kivy.clock import Clock
 import json
+import math
 from utils.coup_rules import coup_probabilities
 
 # --- КОНФИГУРАЦИЯ СТИЛЕЙ (THEME) ---
@@ -301,8 +302,19 @@ def show_nobles_window(conn, faction, class_faction):
                         coup_success_chance=coup_probabilities(loyalty, disloyal)[1])
             agent = SecretServiceCard(info, conn, cash_player, None, refresh_list, events)
             risk = agent._get_status_text()
-            details = f"Лояльность: {loyalty:g}%" if loyalty is not None else 'Лояльность: нет данных'
-            card.add_widget(text_label(details, 12, UIStyles.COLOR_TEXT, size_hint_y=None, height=dp(22)))
+            if loyalty is None:
+                details, loyalty_color = 'Лояльность: нет данных', UIStyles.COLOR_TEXT_DIM
+            else:
+                displayed_loyalty = math.floor(loyalty)
+                if displayed_loyalty >= 70:
+                    level, loyalty_color = 'высокая', UIStyles.COLOR_SUCCESS
+                elif displayed_loyalty >= 30:
+                    level, loyalty_color = 'средняя', UIStyles.COLOR_GOLD
+                else:
+                    level, loyalty_color = 'низкая', UIStyles.COLOR_DANGER
+                details = f'Лояльность: {displayed_loyalty}% · {level}'
+            card.add_widget(text_label(details, 12, loyalty_color, bold=True,
+                                       size_hint_y=None, height=dp(22)))
             card.add_widget(text_label(NobleCard._get_status_text(None, noble), 11,
                                        UIStyles.COLOR_TEXT_DIM, markup=True, size_hint_y=None, height=dp(20)))
             card.add_widget(text_label(get_noble_trait_text(noble), 12, UIStyles.COLOR_TEXT_DIM, markup=True,

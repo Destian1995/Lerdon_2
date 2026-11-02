@@ -621,6 +621,8 @@ class MapWidget(Widget):
                 self._player_pulse_event = None
             if self._map_atmosphere:
                 self._map_atmosphere.stop()
+                self._map_atmosphere.city_effects.attach_standards(None)
+                self._map_atmosphere.marches.cancel_all()
         else:
             if not self.update_cities_event:
                 self._map_snapshot = None
@@ -672,7 +674,8 @@ class MapWidget(Widget):
                     effects.append(tuple(cursor.fetchall()))
                 else:
                     effects.append(())
-            return (cities, roads, tuple(effects), Window.width, Window.height,
+            from map_city_effects import read_hero_garrisons
+            return (cities, roads, tuple(effects), read_hero_garrisons(self.conn), Window.width, Window.height,
                     self.current_player_kingdom, self.random_map_source)
         except sqlite3.Error:
             # При временной ошибке БД не считаем старую картинку актуальной.
@@ -1119,6 +1122,8 @@ class MapWidget(Widget):
                         (self.base_map_width, self.base_map_height))
         if layer.parent is None:
             self.add_widget(layer)
+        elif layer.canvas not in self.canvas.children:
+            self.canvas.add(layer.canvas)
         layer.set_storms(self._undead_shield_data)
         from city_war import read_city_war_states, current_turn
         war_cities = []
@@ -1128,7 +1133,9 @@ class MapWidget(Widget):
                 war_cities.append((name, x, y, faction))
             except (ValueError, TypeError, SyntaxError):
                 continue
-        layer.city_effects.sync(war_cities, read_city_war_states(self.conn), current_turn(self.conn))
+        from map_city_effects import read_hero_garrisons
+        layer.city_effects.sync(war_cities, read_city_war_states(self.conn), current_turn(self.conn),
+                               read_hero_garrisons(self.conn))
         cursor = self.conn.cursor()
         try:
             cursor.execute('SELECT current_season FROM season WHERE id = 1')
@@ -1670,6 +1677,9 @@ class KingdomSelectionWidget(MDFloatLayout):
             app.root.clear_widgets()
             app.root.add_widget(state['map'])
             app.root.add_widget(state['screen'])
+            atmosphere = getattr(state['map'], '_map_atmosphere', None)
+            if atmosphere:
+                atmosphere.city_effects.attach_standards(state['screen'].game_area)
 
         def finished():
             self._game_loading = None
@@ -1845,6 +1855,9 @@ class TutorialFactionScreen(FloatLayout):
             app.root.clear_widgets()
             app.root.add_widget(state['map'])
             app.root.add_widget(state['screen'])
+            atmosphere = getattr(state['map'], '_map_atmosphere', None)
+            if atmosphere:
+                atmosphere.city_effects.attach_standards(state['screen'].game_area)
 
         def finished():
             self._game_loading = None

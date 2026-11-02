@@ -5,6 +5,42 @@ from collections import defaultdict, deque
 MAX_MOVE_DISTANCE = 280
 
 
+def army_size_level(total, moving):
+    if total <= 0 or moving <= 0:
+        return 0
+    return 1 if moving <= total * .30 else 2 if moving <= total * .70 else 3
+
+
+def movement_city_route(conn, source, destination, faction, visible_links=None):
+    """The same ownership restrictions as the picker, with intermediate cities."""
+    rows = {name: (cid, owner) for cid, name, owner in conn.execute('SELECT id,name,faction FROM cities')}
+    if source not in rows or destination not in rows or not can_move_between_cities(conn, source, destination, faction):
+        return []
+    first, last = rows[source][0], rows[destination][0]
+    if rows[source][1] != faction or rows[destination][1] != faction:
+        return [first, last] if visible_links is None or tuple(sorted((first, last))) in visible_links else []
+    owned = {cid for cid, owner in rows.values() if owner == faction}
+    adjacent = defaultdict(set)
+    for a, b in conn.execute('SELECT city1,city2 FROM roads'):
+        if a in owned and b in owned and (visible_links is None or tuple(sorted((a, b))) in visible_links):
+            adjacent[a].add(b)
+            adjacent[b].add(a)
+    queue, parents = deque([first]), {first: None}
+    while queue:
+        current = queue.popleft()
+        if current == last:
+            route = []
+            while current is not None:
+                route.append(current)
+                current = parents[current]
+            return list(reversed(route))
+        for neighbor in sorted(adjacent[current]):
+            if neighbor not in parents:
+                parents[neighbor] = current
+                queue.append(neighbor)
+    return []
+
+
 def reachable_source_cities(conn, destination, faction):
     """Sources allowed by ordinary movement, also used by the troop picker.
 

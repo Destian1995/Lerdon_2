@@ -1892,10 +1892,14 @@ class FortressInfoPopup(Popup):
 
     def move_selected_group_to_city(self, instance=None):
         """Перемещает выбранную группу юнитов в город."""
+        from troop_movement import movement_busy
+        if movement_busy(self) and not getattr(self, '_movement_arrived', False):
+            return
         if not self.selected_group:
             show_popup_message("Ошибка", "Группа пуста. Добавьте юниты перед перемещением.")
             return
 
+        deferred = False
         try:
             current_player_kingdom = self.player_fraction
             cursor = self.conn.cursor()
@@ -1958,6 +1962,21 @@ class FortressInfoPopup(Popup):
                 grouped_by_city[city][name] += count
 
             # Перемещаем по каждому городу отдельно
+            # Arrival revalidates the whole command before moving any stack.
+            for source_city, units in grouped_by_city.items():
+                for unit_name, total_count in units.items():
+                    cursor.execute('SELECT unit_count FROM garrisons WHERE city_name=? AND unit_name=?',
+                                   (source_city, unit_name))
+                    available = cursor.fetchone()
+                    if not available or total_count <= 0 or available[0] < total_count:
+                        show_popup_message('Недостаточно войск',
+                                           f'В городе {source_city} недостаточно юнитов {unit_name}.')
+                        return
+            if not getattr(self, '_movement_arrived', False):
+                from troop_movement import animate_transfer
+                if animate_transfer(self, grouped_by_city):
+                    deferred = True
+                    return
             for source_city, units in grouped_by_city.items():
                 source_units = [u for u in self.selected_group if u.get("city_name") == source_city]
                 for unit_name, total_count in units.items():
@@ -1995,8 +2014,9 @@ class FortressInfoPopup(Popup):
             show_popup_message("Ошибка", f"Произошла ошибка при перемещении группы: {e}")
 
         finally:
-            self.selected_group.clear()
-            self.update_garrison()
+            if not deferred:
+                self.selected_group.clear()
+                self.update_garrison()
 
     def transfer_troops_between_cities(self,
                                        source_fortress_name,

@@ -159,7 +159,7 @@ from kivy.config import Config
 Config.set('graphics', 'window_state', 'hidden')
 from map_atmosphere import MapAtmosphere
 from kivy.core.text import Label as CoreLabel
-from kivy.graphics import Color, Rectangle
+from kivy.graphics import Color, Rectangle, Mesh
 from kivy.uix.image import Image
 from kivy.uix.modalview import ModalView
 from kivy.uix.widget import Widget
@@ -202,12 +202,148 @@ class CityWarEffectsTests(CityWarFixture):
         self.fx.sync(self.cities, read_city_war_states(self.db), 8)
         self.assertEqual(self.fx.smoke, [])
 
+    def test_battle_smoke_comes_from_combat_and_peace_does_not_extend_it(self):
+        record_capture(self.db, 'Town', 'Север')
+        self.fx.sync(self.cities, read_city_war_states(self.db), 5)
+        self.assertEqual(self.fx.battle_clouds, [])
+        record_battle(self.db, 'Town', 10, 10, 'Север')
+        self.fx.sync(self.cities, read_city_war_states(self.db), 5)
+        self.assertEqual(len(self.fx.battle_clouds), 1)  # Even when defenders held.
+        instructions = tuple(self.fx.battle_group.children)
+        for _ in range(120):
+            self.layer.update(1 / 30)
+        self.assertEqual(instructions, tuple(self.fx.battle_group.children))
+        self.db.execute('UPDATE turn SET turn_count=6')
+        record_capture(self.db, 'Town', 'Эльфы')
+        for turn in (6, 7):
+            self.fx.sync(self.cities, read_city_war_states(self.db), turn)
+            self.assertEqual(len(self.fx.battle_clouds), 1)
+        self.fx.sync(self.cities, read_city_war_states(self.db), 8)
+        self.assertEqual(self.fx.battle_clouds, [])
+        self.assertEqual(self.fx.battle_group.children, [])
+
+    def test_smoke_has_brief_quiet_flashes_without_flame_geometry(self):
+        record_battle(self.db, 'Town', 10, 10, 'Север')
+        self.fx.sync(self.cities, read_city_war_states(self.db), 5)
+        self.assertFalse(any(isinstance(item, Mesh) for item in self.fx.battle_group.children))
+        instructions = tuple(self.fx.battle_group.children)
+        smoke = tuple(self.fx.smoke_group.children)
+        intensities = []
+        for _ in range(300):
+            self.layer.update(1 / 30)
+            intensities.append(self.fx.battle_clouds[0]['intensity'])
+        self.assertGreater(max(intensities), .2)
+        self.assertGreater(sum(value < .001 for value in intensities), 240)
+        self.assertEqual(instructions, tuple(self.fx.battle_group.children))
+        self.assertEqual(smoke, tuple(self.fx.smoke_group.children))
+
+    def test_hero_flags_wave_reproject_and_follow_garrisons(self):
+        cities = self.cities + [('Other', 600, 400, 'Эльфы')]
+        self.fx.sync(cities, {}, 5, [('Town', 'Север')])
+        flag = self.fx.flags[0]
+        self.layer.update(.1)
+        first = list(flag['cloth'].vertices)
+        instructions = tuple(self.fx.flag_group.children)
+        self.layer.update(.2)
+        self.assertNotEqual(first, list(flag['cloth'].vertices))
+        self.assertEqual(instructions, tuple(self.fx.flag_group.children))
+        self.layer.configure((100, 50), .5)
+        self.layer.update(.1)
+        self.assertNotEqual(first[:2], list(flag['cloth'].vertices)[:2])
+        self.fx.sync(cities, {}, 5, [('Other', 'Север')])
+        self.assertEqual(self.fx.flags[0]['city'], 'Other')
+        self.assertEqual(self.fx.flags[0]['faction'], 'Север')
+        self.fx.sync(cities, {}, 5)
+        self.assertEqual(self.fx.flags, [])
+
+    def test_faction_standards_use_distinct_symbols_and_clear_the_badge(self):
+        from map_city_effects import FACTION_EMBLEMS, faction_emblem, standard_layout
+        from map_terrain import city_sprite_size
+        for faction in FACTION_EMBLEMS:
+            self.fx.sync(self.cities, {}, 5, [('Town', faction)])
+            self.layer.update(.1)
+            self.assertIs(self.fx.flags[0]['emblem'].texture, faction_emblem(faction))
+        self.assertEqual(len({id(faction_emblem(faction)) for faction in FACTION_EMBLEMS}),
+                         len(FACTION_EMBLEMS))
+        for scale in (.45, .8, 1., 1.5):
+            center = (300, 300)
+            x, bottom, width, height = standard_layout(center, scale)
+            badge_top = center[1] + 77 - city_sprite_size(scale) / 2 + 30
+            self.assertGreaterEqual(bottom - 5, badge_top)
+            self.assertGreaterEqual(width, 40)
+            self.assertGreaterEqual(height, 27)
+        x, y, w, h = standard_layout((300, 740), 1., bounds=(26, 26, 1148, 748))
+        self.assertLessEqual(y + h + 4, 774)
+
+    def test_real_military_overlay_keeps_shield_and_removes_helmet(self):
+        from types import SimpleNamespace
+        from strategy_ui_fixture import __dict__ as fixture_globals
+        tree = ast.parse((Path(__file__).resolve().parents[1] / 'game_process.py').read_text(encoding='utf-8'))
+        cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'GameScreen')
+        method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == 'draw_army_stars_on_map')
+        namespace = dict(fixture_globals)
+        exec(compile(ast.Module(body=[method], type_ignores=[]), 'game_process.py', 'exec'), namespace)
+        host = SimpleNamespace(city_star_levels={'Town': (2, 300, 300, 'Town', True, None, 0, False)},
+                               _prev_star_levels=None, game_area=Widget(), _check_file=lambda path: True)
+        namespace[method.name](host)
+        sources = [item.source for item in host.game_area.canvas.before.children if isinstance(item, Rectangle)]
+        self.assertTrue(any(source and source.endswith('garrison_shield.png') for source in sources))
+        self.assertFalse(any(source and source.endswith('hero_helm.png') for source in sources))
+
+    def test_flags_render_above_map_symbols_but_below_panel_children(self):
+        from kivy.graphics import Fbo, ClearColor, ClearBuffers
+        from map_city_effects import standard_layout
+        self.fx.sync(self.cities, {}, 5, [('Town', 'Север')])
+        self.layer.update(.1)
+        center = self.layer.project((300, 300))
+        x, y, width, height = standard_layout(center, 1, bounds=self.layer._bounds)
+        root, overlay, panel = Widget(), Widget(), Widget()
+        root.add_widget(self.layer)
+        root.add_widget(overlay)
+        with overlay.canvas.before:
+            Color(1, 0, 0, 1)
+            Rectangle(pos=(x - 10, y - 10), size=(width + 20, height + 20))
+        with panel.canvas:
+            Color(0, 0, 1, 1)
+            Rectangle(pos=(x, y), size=(width, height))
+        overlay.add_widget(panel)
+        self.fx.attach_standards(overlay)
+        canvas = self.fx._standard_canvas
+        self.assertLess(overlay.canvas.children.index(canvas), overlay.canvas.children.index(panel.canvas))
+        fbo = Fbo(size=(1200, 800), with_stencilbuffer=True)
+        with fbo:
+            ClearColor(0, 0, 0, 1)
+            ClearBuffers()
+        fbo.add(root.canvas)
+
+        def sample():
+            fbo.draw()
+            offset = (int(y + 5) * 1200 + int(x + 5)) * 4
+            return tuple(fbo.pixels[offset:offset + 3])
+
+        try:
+            self.assertEqual(sample(), (0, 0, 255))  # The panel covers the flag.
+            overlay.remove_widget(panel)
+            self.assertNotEqual(sample(), (255, 0, 0))  # The flag covers the symbol.
+            self.assertNotEqual(sample(), (0, 0, 0))
+            for _ in range(3):
+                self.fx.attach_standards(None)
+                self.assertNotIn(canvas, overlay.canvas.children)
+                self.assertIn(self.fx.flag_group, self.fx.group.children)
+                self.fx.attach_standards(overlay)
+                self.assertEqual(overlay.canvas.children.count(canvas), 1)
+        finally:
+            fbo.remove(root.canvas)
+            self.fx.attach_standards(None)
+            root.remove_widget(self.layer)
+
     def test_opening_saved_state_does_not_replay_old_capture(self):
         record_battle(self.db, 'Town', 20_000_000, 20_000_000, 'Эльфы')
         new_layer = MapAtmosphere()
         new_layer.configure((0, 0), 1)
         new_layer.city_effects.sync(self.cities, read_city_war_states(self.db), 5)
         self.assertTrue(new_layer.city_effects.smoke)
+        self.assertTrue(new_layer.city_effects.battle_clouds)
         self.assertEqual(new_layer.city_effects.captures, [])
 
     def test_capture_waits_until_battle_report_is_closed(self):
@@ -236,7 +372,7 @@ class CityWarEffectsTests(CityWarFixture):
         for _ in range(50):
             self.fx.play('Town', 'peace', 'Север')
         self.assertEqual(len(self.fx.captures), 8)
-        self.assertEqual(len(self.fx.group.children), 9)
+        self.assertEqual(len(self.fx.group.children), 11)
 
     def test_real_city_renderer_switches_ruins_back_to_faction_icon(self):
         path = Path(__file__).resolve().parents[1] / 'main.py'

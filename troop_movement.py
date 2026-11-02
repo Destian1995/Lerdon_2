@@ -1,0 +1,259 @@
+"""Player marches follow the visible transport network before applying transfers."""
+import ast
+import bisect
+import math
+import random
+import sys
+from dataclasses import dataclass
+
+from utils.movement_rules import army_size_level, movement_city_route
+
+
+@dataclass
+class MarchRoute:
+    points: list
+    land: list
+
+    def __post_init__(self):
+        self.lengths = [0.]
+        for a, b in zip(self.points, self.points[1:]):
+            self.lengths.append(self.lengths[-1] + math.dist(a, b))
+        self.length = self.lengths[-1]
+
+    def sample(self, progress):
+        distance = max(0., min(1., progress)) * self.length
+        i = min(len(self.points) - 2, max(0, bisect.bisect_right(self.lengths, distance) - 1))
+        a, b = self.points[i:i + 2]
+        length = max(1e-9, self.lengths[i + 1] - self.lengths[i])
+        t = (distance - self.lengths[i]) / length
+        dx, dy = (b[0] - a[0]) / length, (b[1] - a[1]) / length
+        return a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, dx, dy, self.land[i]
+
+
+def rendered_route(network, cities, centers):
+    """Stitch real road/bridge/ferry runs, including reverse travel and chains."""
+    points, modes = [], []
+    for source, target in zip(cities, cities[1:]):
+        pieces = [(list(path), dry) for paths, dry in
+                  ((network.land, True), (network.bridges, True), (network.sea, False))
+                  for a, b, path in paths if {a, b} == {source, target} and len(path) >= 2]
+        if not pieces:
+            return None
+        current = centers[source]
+        first_piece = True
+        while pieces:
+            index, reverse = min(((i, rev) for i in range(len(pieces)) for rev in (False, True)),
+                                 key=lambda pair: math.dist(current, pieces[pair[0]][0][-1 if pair[1] else 0]))
+            path, dry = pieces.pop(index)
+            if reverse:
+                path.reverse()
+            if not first_piece and math.dist(current, path[0]) > .1:
+                return None
+            if points and math.dist(points[-1], path[0]) > .1:
+                return None
+            if not points:
+                points.append(path[0])
+            for point in path[1:]:
+                if math.dist(points[-1], point) > 1e-6:
+                    points.append(point)
+                    modes.append(dry)
+            current, first_piece = path[-1], False
+    return MarchRoute(points, modes) if len(points) >= 2 else None
+
+
+def _screen(owner):
+    screen = getattr(sys.modules.get('game_process'), '_active_game_screen', None)
+    return screen if screen and getattr(screen, 'conn', None) is owner.conn else None
+
+
+def movement_busy(owner):
+    return bool(getattr(_screen(owner), '_troop_movement_busy', False))
+
+
+def animate_transfer(owner, grouped):
+    screen = _screen(owner)
+    if not screen or not screen.parent:
+        return False  # Headless callers retain the ordinary validated transfer.
+    map_widget = next((widget for widget in screen.parent.children
+                       if getattr(widget, '_map_atmosphere', None) is not None), None)
+    if map_widget is None:
+        return False
+    conn, faction = owner.conn, owner.player_fraction
+    from map_terrain import city_sprite_size
+    city_coords = {cid: ast.literal_eval(raw) for cid, raw in conn.execute('SELECT id,coordinates FROM cities')}
+    total = conn.execute('''SELECT COALESCE(SUM(g.unit_count*u.consumption),0)
+        FROM garrisons g JOIN units u ON u.unit_name=g.unit_name WHERE u.faction=?''', (faction,)).fetchone()[0]
+    network = map_widget._road_geometry
+    visible = {tuple(sorted((a, b))) for paths in (network.land, network.bridges, network.sea)
+               for a, b, _ in paths}
+    specs = []
+    for source, units in grouped.items():
+        chain = movement_city_route(conn, source, owner.city_name, faction, visible)
+
+        def provider(chain=chain):
+            size = city_sprite_size(map_widget.map_scale)
+            centers = {cid: (map_widget.map_pos[0] + x * map_widget.map_scale + size / 2,
+                             map_widget.map_pos[1] + y * map_widget.map_scale + size * 30 / 77)
+                       for cid, (x, y) in city_coords.items()}
+            return rendered_route(map_widget._road_geometry, chain, centers)
+
+        route = provider()
+        if route is None:
+            raise ValueError(f'Не удалось построить маршрут по дорогам из {source} в {owner.city_name}.')
+        weight, count = 0, 0
+        for name, amount in units.items():
+            row = conn.execute('''SELECT g.unit_count,u.consumption FROM garrisons g
+                JOIN units u ON u.unit_name=g.unit_name WHERE g.city_name=? AND g.unit_name=?''',
+                               (source, name)).fetchone()
+            if not row or amount <= 0 or amount > row[0]:
+                raise ValueError(f'Недостаточно войск в городе {source}.')
+            weight += amount * (row[1] or 0)
+            count += amount
+        specs.append((provider, max(1, army_size_level(total, weight)), faction, count))
+
+    selected = [dict(unit) for unit in owner.selected_group]
+    end_turn = getattr(screen, 'end_turn_button', None)
+    was_disabled = end_turn.disabled if end_turn else False
+    screen._troop_movement_busy = True
+    if end_turn:
+        end_turn.disabled = True
+    finished = False
+
+    def release():
+        screen._troop_movement_busy = False
+        if end_turn:
+            end_turn.disabled = was_disabled
+
+    def arrive():
+        nonlocal finished
+        if finished:
+            return
+        finished = True
+        owner.selected_group = selected
+        owner._movement_arrived = True
+        try:
+            owner.move_selected_group_to_city()
+        finally:
+            owner._movement_arrived = False
+            release()
+
+    def cancel():
+        nonlocal finished
+        if not finished:
+            finished = True
+            owner.selected_group.clear()
+            release()
+
+    try:
+        map_widget._map_atmosphere.marches.play_batch(specs, arrive, cancel)
+        if getattr(owner, 'current_popup', None):
+            owner.current_popup.dismiss()
+            owner.current_popup = None
+        owner.dismiss()
+    except Exception:
+        map_widget._map_atmosphere.marches.cancel_all()
+        cancel()
+        raise
+    return True
+
+
+class MarchLayer:
+    """Fixed particle pools, updated by the atmosphere's existing single clock."""
+    def __init__(self, atmosphere):
+        from kivy.graphics import InstructionGroup
+        self.atmosphere = atmosphere
+        self.group = InstructionGroup()
+        self.marches = []
+
+    def play_batch(self, specs, arrive, cancel):
+        batch = dict(remaining=len(specs), arrive=arrive, cancel=cancel, done=False)
+        for provider, level, faction, count in specs:
+            march = March(self, provider, level, faction, count, batch)
+            self.marches.append(march)
+            self.group.add(march.group)
+
+    def update(self, dt):
+        for march in list(self.marches):
+            if march.update(dt) and march in self.marches:
+                self.group.remove(march.group)
+                self.marches.remove(march)
+
+    def cancel_all(self):
+        for march in self.marches:
+            batch = march.batch
+            if not batch['done']:
+                batch['done'] = True
+                batch['cancel']()
+        self.marches.clear()
+        self.group.clear()
+
+
+class March:
+    def __init__(self, layer, provider, level, faction, count, batch):
+        from kivy.graphics import Color, Ellipse, InstructionGroup, Line, Rectangle
+        from map_city_effects import faction_emblem
+        self.layer, self.provider, self.level, self.batch = layer, provider, level, batch
+        self.route = provider()
+        self.geometry_key = None
+        self.age, self.arrived, self.emit = 0., False, 0.
+        self.duration = max(1.8, min(5., self.route.length / max(1, 85 * layer.atmosphere._scale)))
+        self.group = InstructionGroup()
+        self.rng = random.Random(faction + str(count) + str(self.route.points[0]))
+        self.dust = []
+        for _ in range((12, 24, 40)[level - 1]):
+            color, shape = Color(.64, .56, .43, 0), Rectangle(texture=layer.atmosphere.mist_texture())
+            self.group.add(color)
+            self.group.add(shape)
+            self.dust.append(dict(color=color, shape=shape, age=2., life=1., pos=(0, 0), drift=(0, 0)))
+        self.marker_color, self.marker = Color(.05, .07, .10, 1), Ellipse()
+        self.outline_color, self.outline = Color(.98, .8, .44, 1), Line(width=1.)
+        self.emblem_color, self.emblem = Color(1, 1, 1, 1), Rectangle(texture=faction_emblem(faction))
+        for instruction in (self.marker_color, self.marker, self.outline_color, self.outline,
+                            self.emblem_color, self.emblem):
+            self.group.add(instruction)
+
+    def update(self, dt):
+        self.age += dt
+        atmosphere = self.layer.atmosphere
+        # Reproject onto the rebuilt visible roads after a resize.
+        key = (atmosphere._bounds, atmosphere._scale)
+        if key != self.geometry_key:
+            self.route = self.provider() or self.route
+            self.geometry_key = key
+        progress = min(1., self.age / self.duration)
+        x, y, dx, dy, dry = self.route.sample(progress)
+        size = min(1.15, max(.75, atmosphere._scale))
+        if not self.arrived and progress >= 1:
+            self.arrived = True
+            self.batch['remaining'] -= 1
+            if self.batch['remaining'] == 0 and not self.batch['done']:
+                self.batch['done'] = True
+                self.batch['arrive']()
+        for color in (self.marker_color, self.outline_color, self.emblem_color):
+            color.a = 0 if self.arrived else 1
+        self.marker.pos, self.marker.size = (x - 11 * size, y - 11 * size), (22 * size, 22 * size)
+        self.outline.circle = (x, y, 11 * size)
+        self.emblem.pos, self.emblem.size = (x - 8 * size, y - 8 * size), (16 * size, 16 * size)
+        self.emit += dt
+        interval = 1 / (8, 16, 26)[self.level - 1]
+        while self.emit >= interval:
+            self.emit -= interval
+            if not self.arrived and dry and progress > .02:
+                particle = next((p for p in self.dust if p['age'] >= p['life']), None)
+                if particle:
+                    lateral = self.rng.uniform(-3, 3) * size
+                    px, py = x - dx * 10 * size - dy * lateral, y - dy * 10 * size + dx * lateral
+                    particle.update(age=0., life=self.rng.uniform(.55, .85),
+                        pos=((px - atmosphere._origin[0]) / atmosphere._scale,
+                             (py - atmosphere._origin[1]) / atmosphere._scale),
+                        drift=(self.rng.uniform(-4, 4) - dx * 3, self.rng.uniform(-3, 3) - dy * 3))
+        for p in self.dust:
+            p['age'] += dt
+            u = min(1., p['age'] / p['life'])
+            width = (9 + self.level * 4 + u * 16) * size
+            px = atmosphere._origin[0] + p['pos'][0] * atmosphere._scale + p['drift'][0] * u
+            py = atmosphere._origin[1] + p['pos'][1] * atmosphere._scale + p['drift'][1] * u
+            height = width * .65
+            p['shape'].pos, p['shape'].size = (px - width / 2, py - height / 2), (width, height)
+            p['color'].a = math.sin(math.pi * u) * (.32, .50, .72)[self.level - 1]
+        return self.arrived and all(p['age'] >= p['life'] for p in self.dust)

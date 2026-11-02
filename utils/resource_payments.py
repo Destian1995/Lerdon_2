@@ -3,7 +3,30 @@ import math
 import sys
 
 
+def ensure_resource_schema(conn):
+    """Repair legacy duplicate balances and prevent another row for the same purse.
+
+    The most recently written row is the balance the resource HUD displayed.
+    Copies represent the same purse, so summing them would invent resources.
+    A savepoint preserves the caller's transaction when migrating an old save.
+    """
+    if conn.execute("SELECT 1 FROM sqlite_master WHERE type='index' AND name='resources_faction_type'").fetchone():
+        return
+    conn.execute('SAVEPOINT resource_rows')
+    try:
+        conn.execute('''DELETE FROM resources WHERE rowid NOT IN (
+            SELECT MAX(rowid) FROM resources GROUP BY faction, resource_type)''')
+        conn.execute('''CREATE UNIQUE INDEX resources_faction_type
+            ON resources(faction, resource_type)''')
+        conn.execute('RELEASE resource_rows')
+    except Exception:
+        conn.execute('ROLLBACK TO resource_rows')
+        conn.execute('RELEASE resource_rows')
+        raise
+
+
 def sync_resources(conn, faction, model=None):
+    ensure_resource_schema(conn)
     balances = dict(conn.execute('SELECT resource_type,amount FROM resources WHERE faction=?', (faction,)))
     screen = getattr(sys.modules.get('game_process'), '_active_game_screen', None)
     if model is None and screen and getattr(screen, 'selected_faction', None) == faction:
@@ -24,6 +47,7 @@ def spend_resources(conn, faction, costs):
     if any(not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0
            for value in costs.values()):
         return False
+    ensure_resource_schema(conn)
     conn.execute('SAVEPOINT paid_action')
     try:
         for resource, amount in costs.items():
@@ -50,6 +74,7 @@ def exchange_resources(conn, first, second, give_type, give_amount, receive_type
     if first == second or any(not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0
                               for v in (give_amount, receive_amount)):
         return False
+    ensure_resource_schema(conn)
     conn.execute('SAVEPOINT resource_exchange')
     try:
         for owner, resource, amount in ((first, give_type, give_amount), (second, receive_type, receive_amount)):
