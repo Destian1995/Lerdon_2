@@ -76,6 +76,31 @@ class AIMarchTests(unittest.TestCase):
         namespace['refresh_map']()
         self.assertEqual(updates, [0])
 
+    def test_city_redraw_preserves_the_atmosphere_and_running_march(self):
+        self.db.execute('DELETE FROM cities')
+        host = Widget()
+        host._map_atmosphere = self.layer
+        host.conn = self.db
+        host.fortress_icon_widgets = {}
+        host.fortress_data_for_canvas = []
+        host.add_widget(self.layer)
+        host.add_widget(Widget())
+        from troop_movement import MarchRoute
+        route = MarchRoute([(0, 0), (100, 0)], [True])
+        cancelled = []
+        self.layer.marches.play_batch([(lambda: route, 1, 'Север', 20)],
+                                     lambda: None, lambda: cancelled.append(True))
+        tree = ast.parse((ROOT / 'main.py').read_text(encoding='utf-8'))
+        cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'MapWidget')
+        node = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == 'draw_fortresses')
+        namespace = dict(sqlite3=sqlite3)
+        exec(compile(ast.Module(body=[node], type_ignores=[]), 'main.py', 'exec'), namespace)
+        namespace['draw_fortresses'](host)
+        self.assertEqual(host.children, [self.layer])
+        self.assertEqual(len(self.layer.marches.marches), 1)
+        self.assertFalse(cancelled)
+        host.remove_widget(self.layer)
+
     def test_ai_routes_are_merged_and_replayed_without_changing_garrisons(self):
         before = self.db.execute('SELECT * FROM garrisons').fetchall()
         queue_ai_march(self.db, 'Север', 'A', 'C', [dict(unit_count=20)])

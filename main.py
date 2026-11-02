@@ -953,7 +953,11 @@ class MapWidget(Widget):
         war_states = read_city_war_states(self.conn)
         self._undead_shield_data = []
 
-        self.clear_widgets()
+        # A city redraw must not detach the atmosphere: detaching cancels all
+        # marches and would show deferred capture messages before arrival.
+        for widget in list(self.children):
+            if widget is not getattr(self, '_map_atmosphere', None):
+                self.remove_widget(widget)
         self.fortress_icon_widgets.clear()
         self.fortress_data_for_canvas.clear()
 
