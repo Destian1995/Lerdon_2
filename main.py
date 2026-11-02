@@ -1571,13 +1571,7 @@ class KingdomSelectionWidget(MDFloatLayout):
         from frontend_ui import switch_faction_art
         switch_faction_art(self, faction_name)
 
-    FACTION_ABILITIES = {
-        'Север': '[b]Шквал[/b] — если бонусы увеличили урон в 20+ раз, x1.7 к урону',
-        'Эльфы': '[b]Природное исцеление[/b] — 10% погибших возвращаются в строй',
-        'Вампиры': '[b]Вампиризм[/b] — 5% убитых врагов воскресают как ваши юниты',
-        'Адепты': '[b]Оплот[/b] — если бонусы увеличили защиту в 20+ раз, +35% к защите',
-        'Элины': '[b]Торговая империя[/b] — 2 перемещения/атаки за ход, +35% кристаллы, +25% торговля',
-    }
+    from utils.faction_bonuses import FACTION_ABILITIES
 
     def update_faction_stats(self, kingdom):
         """Обновляет полосы-бары характеристик и способность выбранной фракции."""

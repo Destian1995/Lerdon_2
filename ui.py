@@ -1165,16 +1165,18 @@ class FortressInfoPopup(Popup):
                     else:
                         _exp_mult = 1.0
 
+                    from utils.faction_bonuses import combat_multiplier
+                    _faction_mult = combat_multiplier(self.ai_fraction, self.conn)
                     _faction_bonus_text = None
-                    if self.ai_fraction == 'Север' and _hero_bonus_atk > 0:
-                        _total_atk = int((unit_attack + _hero_bonus_atk) * 1.7 * _exp_mult)
+                    if self.ai_fraction == 'Север' and unit_attack > 0 and (unit_attack + _hero_bonus_atk) / unit_attack >= 20:
+                        _total_atk = int((unit_attack + _hero_bonus_atk) * _faction_mult * _exp_mult)
                         _faction_bonus_text = f"[color=#FF6644]Шквал\n{format_number(_total_atk)}\nATK[/color]"
                     elif self.ai_fraction == 'Адепты' and _hero_bonus_def > 0:
                         _base_def = unit_defense
                         _boosted_def = (unit_defense + _hero_bonus_def + _hero_bonus_dur / 2) * _exp_mult
-                        # Оплот: если защита увеличена в 20+ раз, +35%
+                        # Оплот: если защита увеличена в 20+ раз, +55% с сезонным усилением
                         if _base_def > 0 and _boosted_def / _base_def >= 20.0:
-                            _total_def = int(_boosted_def * 1.35)
+                            _total_def = int(_boosted_def * _faction_mult)
                             _faction_bonus_text = f"[color=#44AAFF]Оплот\n{format_number(_total_def)}\nЗАЩ[/color]"
                         else:
                             _total_def = int(_boosted_def)
@@ -1292,26 +1294,29 @@ class FortressInfoPopup(Popup):
                 _exp_m = 1.05
             else:
                 _exp_m = 1.0
-            # Север: Шквал — финальная атака с x1.7 + опыт
-            if self.ai_fraction == 'Север' and hero_bonus_atk > 0:
-                _eff_atk = int(_eff_atk * 1.7 * _exp_m)
+            from utils.faction_bonuses import combat_multiplier
+            _faction_mult = combat_multiplier(self.ai_fraction, self.conn)
+            _shkval_active = self.ai_fraction == 'Север' and attack > 0 and _eff_atk / attack >= 20
+            # Север: Шквал — текущий сезонный множитель при пороге x20.
+            if _shkval_active:
+                _eff_atk = int(_eff_atk * _faction_mult * _exp_m)
             elif _exp_m > 1.0:
                 _eff_atk = int(_eff_atk * _exp_m)
-            # Адепты: Оплот — если защита увеличена в 20+ раз, +35%
+            # Адепты: Оплот — если защита увеличена в 20+ раз, +55% с сезонным усилением
             if self.ai_fraction == 'Адепты' and hero_bonus_def > 0 and defense > 0:
                 if _eff_def / defense >= 20.0:
-                    _eff_def = int(_eff_def * 1.35 * _exp_m)
+                    _eff_def = int(_eff_def * _faction_mult * _exp_m)
                 elif _exp_m > 1.0:
                     _eff_def = int(_eff_def * _exp_m)
             elif _exp_m > 1.0:
                 _eff_def = int(_eff_def * _exp_m)
             if _has_hero:
-                if self.ai_fraction == 'Север' and hero_bonus_atk > 0:
+                if _shkval_active:
                     _atk_text = f'Шквал: {format_number(_eff_atk)} × {format_number(_cnt)} = {format_number(_eff_atk * _cnt)}'
                 else:
                     _atk_text = f'({format_number(attack)}+{format_number(hero_bonus_atk)}) × {format_number(_cnt)} = {format_number(_eff_atk * _cnt)}'
                 if self.ai_fraction == 'Адепты' and hero_bonus_def > 0 and defense > 0 and (defense + hero_bonus_def) / defense >= 20.0:
-                    _oplot_bonus = int(_eff_def * 0.35)
+                    _oplot_bonus = int((defense + hero_bonus_def) * (_faction_mult - 1))
                     _def_text = f'Оплот: ({format_number(defense)}+{format_number(hero_bonus_def)}+{format_number(_oplot_bonus)}) × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'
                 else:
                     _def_text = f'({format_number(defense)}+{format_number(hero_bonus_def)}) × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'

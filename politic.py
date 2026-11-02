@@ -1,3 +1,4 @@
+from utils.faction_bonuses import combat_multiplier
 from db_lerdon_connect import *
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
@@ -630,10 +631,10 @@ class DiplomacyManager:
                 return
 
             # Списываем деньги
-            self.cursor.execute(
-                "UPDATE resources SET amount = amount - ? WHERE faction = ? AND resource_type = 'Кроны'",
-                (peace_cost, self.faction)
-            )
+            from utils.resource_payments import spend_resources
+            if not spend_resources(self.db_connection, self.faction, {'Кроны': peace_cost}):
+                show_message('Мир', 'Недостаточно крон для оплаты мира.')
+                return
 
             # Устанавливаем нейтралитет
             self.cursor.execute(
@@ -802,9 +803,9 @@ def calculate_peace_army_points(conn, faction):
                 _unit_power = base_stats + hero_bonus * class_1_count
                 # Фракционные бонусы
                 if faction == 'Север':
-                    _unit_power = int(_unit_power * 1.7)  # Шквал
+                    _unit_power = int(_unit_power * combat_multiplier(faction, conn))  # Шквал
                 elif faction == 'Адепты':
-                    _unit_power = int(_unit_power * 1.35)  # Оплот
+                    _unit_power = int(_unit_power * combat_multiplier(faction, conn))  # Оплот
                 city_strength += _unit_power
             city_strength += others_stats
 
@@ -1025,9 +1026,9 @@ def calculate_total_faction_power(conn, faction):
             if data["heroes"]["present"] and class_1_count > 0:
                 _unit_power = base_stats + hero_bonus * class_1_count
                 if faction == 'Север':
-                    _unit_power = int(_unit_power * 1.7)
+                    _unit_power = int(_unit_power * combat_multiplier(faction, conn))
                 elif faction == 'Адепты':
-                    _unit_power = int(_unit_power * 1.25)
+                    _unit_power = int(_unit_power * combat_multiplier(faction, conn))
                 city_strength += _unit_power
             else:
                 city_strength += base_stats
@@ -1122,134 +1123,56 @@ def show_faction_bonuses_popup(conn, faction):
     from kivy.utils import platform
     is_mobile = platform in ('android', 'ios')
 
+    from utils.faction_bonuses import (
+        FACTION_ABILITIES, NORTH_MULTIPLIER, ADEPT_MULTIPLIER, VAMPIRE_RATE,
+        ELF_RATE, season_multiplier, council_bonuses, current_effect_rows, supplied_cities,
+    )
     cursor = conn.cursor()
-
-    # === Собираем данные ===
-    # Здания
-    cursor.execute("SELECT building_type, SUM(count) FROM buildings WHERE faction = ? GROUP BY building_type", (faction,))
-    buildings = {row[0]: row[1] for row in cursor.fetchall()}
-    walls = buildings.get('Стена', 0)
-    markets = buildings.get('Рынок', 0)
-    smithies = buildings.get('Кузница', 0)
-    towers = buildings.get('Вышка', 0)
-
-    # Базовый урон юнитов 1 класса
-    cursor.execute("SELECT unit_name, attack FROM units WHERE faction = ? AND unit_class = '1' LIMIT 1", (faction,))
-    unit_row = cursor.fetchone()
-    base_unit_atk = unit_row[1] if unit_row else 0
-    unit_name = unit_row[0] if unit_row else "—"
-
-    # Герои — суммарный бонус от героев 2-3 класса
-    cursor.execute("""
-        SELECT SUM(u.attack) FROM garrisons g
-        JOIN units u ON g.unit_name = u.unit_name
-        WHERE u.faction = ? AND u.unit_class IN ('2', '3')
-    """, (faction,))
-    hero_atk_bonus = cursor.fetchone()[0] or 0
-
-    # Итоговый урон юнита с героем
-    total_unit_atk = base_unit_atk + hero_atk_bonus
-
-    # Базовая защита юнитов 1 класса
-    cursor.execute("SELECT defense FROM units WHERE faction = ? AND unit_class = '1' LIMIT 1", (faction,))
-    _def_row = cursor.fetchone()
-    base_unit_def = _def_row[0] if _def_row else 0
-
-    # Суммарный бонус защиты от героев 2-3 класса
-    cursor.execute("""
-        SELECT SUM(u.defense) FROM garrisons g
-        JOIN units u ON g.unit_name = u.unit_name
-        WHERE u.faction = ? AND u.unit_class IN ('2', '3')
-    """, (faction,))
-    hero_def_bonus = cursor.fetchone()[0] or 0
-
-    # Итоговая защита юнита с героем и Стойкостью (+25%)
-    total_unit_def = int((base_unit_def + hero_def_bonus) * 1.25)
-
-    # Сезон
     cursor.execute("SELECT season_index FROM season LIMIT 1")
     season_row = cursor.fetchone()
-    season_idx = season_row[0] if season_row else 0
+    season_idx = season_row[0] if season_row else -1
     season_names = {0: "Зима", 1: "Весна", 2: "Лето", 3: "Осень"}
-
-    # Количество советников с бонусом
-    try:
-        cursor.execute("SELECT COUNT(*) FROM nobles WHERE status = 'active' AND loyalty > 50")
-        loyal_nobles = cursor.fetchone()[0]
-    except Exception:
-        loyal_nobles = 0
-
-    # === Формируем строки бонусов ===
-    FACTION_DATA = {
-        'Север': {
-            'name': 'Шквал',
-            'desc': 'Если бонусы увеличили урон в 20+ раз, x1.7 к урону',
-            'color': (0.25, 0.52, 0.92, 1),
-            'calc': lambda: _calc_shkval(base_unit_atk, total_unit_atk),
-        },
-        'Эльфы': {
-            'name': 'Природное исцеление',
-            'desc': '10% погибших юнитов возвращаются в строй после боя',
-            'color': (0.22, 0.76, 0.32, 1),
-            'calc': lambda: [("Исцеление", "10%", "От своих погибших в бою"), ("В сезон Лето", "27.5%", "x2.75 в пиковый сезон")],
-        },
-        'Вампиры': {
-            'name': 'Вампиризм',
-            'desc': '5% убитых врагов воскресают как ваши юниты',
-            'color': (0.78, 0.10, 0.16, 1),
-            'calc': lambda: [("Воскрешение врагов", "5%", "После каждого боя")],
-        },
-        'Адепты': {
-            'name': 'Оплот',
-            'desc': 'Если бонусы увеличили защиту в 20+ раз, +35% к защите',
-            'color': (0.62, 0.22, 0.88, 1),
-            'calc': lambda: _calc_oplot(base_unit_def, total_unit_def),
-        },
-        'Элины': {
-            'name': 'Торговая империя',
-            'desc': '+35% кристаллы, +25% к торговле (стакается с Рынком)',
-            'color': (0.92, 0.70, 0.10, 1),
-            'calc': lambda: [("Бонус кристаллов", "+35%", "Фракционный бафф добычи"), ("Бонус торговли", f"+{25 + markets * 10}%", f"25% фракция + {markets * 10}% от {markets} рынков")],
-        },
-    }
-
-    def _calc_oplot(base, total):
-        ratio = total / base if base > 0 else 0
-        active = ratio >= 20.0
-        final_def = int(total * 1.35) if active else total
-        bonus_def = final_def - total if active else 0
-        status = f"[color=00ff00]АКТИВЕН (итого {final_def})[/color]" if active else f"[color=ff8800]Не активен (x{ratio:.1f}, нужно x20)[/color]"
-        return [
-            ("Базовая защита", str(base_unit_def), unit_name),
-            ("Бонус от героев", f"+{hero_def_bonus}", f"Итого: {total}"),
-            ("Множитель", f"x{ratio:.1f}", f"Нужно x20"),
-            ("Оплот (+35%)", f"+{bonus_def}" if active else "---", status),
-        ]
-
-    def _calc_shkval(base, total):
-        ratio = total / base if base > 0 else 0
-        active = ratio >= 20.0
-        final_dmg = int(total * 1.70) if active else total
-        bonus_dmg = final_dmg - total if active else 0
-        status = f"[color=00ff00]АКТИВЕН (итого {final_dmg})[/color]" if active else f"[color=ff8800]Не активен (x{ratio:.1f}, нужно x20)[/color]"
-        return [
-            ("Базовый урон", str(base_unit_atk), unit_name),
-            ("Бонус от героев", f"+{hero_atk_bonus}", f"Итого: {total}"),
-            ("Множитель", f"x{ratio:.1f}", f"Нужно x20"),
-            ("Шквал (x1.7)", f"+{bonus_dmg}" if active else "---", status),
-        ]
-
-    faction_info = FACTION_DATA.get(faction)
-    if not faction_info:
+    multiplier = season_multiplier(faction, season_idx)
+    council = council_bonuses(conn, faction)
+    supplied = supplied_cities(conn, faction)
+    markets = sum(count or 0 for city, count in conn.execute(
+        "SELECT city_name,count FROM buildings WHERE faction=? AND building_type='Рынок'", (faction,))
+        if city in supplied)
+    colors = {'Север': (.25, .52, .92, 1), 'Эльфы': (.22, .76, .32, 1),
+              'Вампиры': (.78, .10, .16, 1), 'Адепты': (.62, .22, .88, 1), 'Элины': (.92, .70, .10, 1)}
+    if faction not in FACTION_ABILITIES:
         return
-
-    bonus_rows = faction_info['calc']()
+    ability = FACTION_ABILITIES[faction]
+    title, description = ability.split('[/b] — ', 1)
+    faction_info = dict(name=title.removeprefix('[b]'), desc=description, color=colors[faction])
+    season_note = 'Пиковый сезон: усиление ×2.75' if multiplier > 1 else 'Обычный сезон'
+    if faction == 'Север':
+        bonus_rows = [('Шквал: текущий множитель', f'×{NORTH_MULTIPLIER * multiplier:g}',
+                       'При усилении урона в 20+ раз; ' + season_note)]
+    elif faction == 'Адепты':
+        bonus_rows = [('Оплот: текущий множитель', f'×{ADEPT_MULTIPLIER * multiplier:g}',
+                       'При усилении защиты в 20+ раз; ' + season_note)]
+    elif faction == 'Эльфы':
+        rate = 1.0 if multiplier > 1 else ELF_RATE
+        bonus_rows = [('Исцеление сейчас', f'{rate * 100:g}%', 'Свои погибшие юниты 1 класса, после победы'),
+                      ('Базовый / летом', f'{ELF_RATE * 100:g}% / 100%', 'Не распространяется на героев')]
+    elif faction == 'Вампиры':
+        bonus_rows = [('Воскрешение врагов сейчас', f'{VAMPIRE_RATE * multiplier * 100:g}%',
+                       'Погибшие враги 1 класса; ' + season_note)]
+    else:
+        trade_pct = 25 * multiplier + markets * 10 + council['trade']
+        bonus_rows = [('Добыча кристаллов сейчас', f'+{35 * multiplier:g}%', season_note),
+                      ('Торговля: суммарный бонус', f'+{trade_pct:g}%',
+                       f"Фракция {25 * multiplier:g}% + рынки {markets * 10}% + советники {council['trade']:g}%"),
+                      ('Перемещения / атаки', '2', 'За ход')]
 
     # === UI ===
     from kivy.uix.scrollview import ScrollView
+    from frontend_ui import NaturalList
     accent = faction_info['color']
 
     outer = BoxLayout(orientation='vertical', spacing=0)
+    outer._responsive_keep_geometry = True  # The inner list measures its own wrapping rows.
     with outer.canvas.before:
         Color(0.07, 0.08, 0.13, 1)
         outer._bg = Rectangle(pos=outer.pos, size=outer.size)
@@ -1257,9 +1180,17 @@ def show_faction_bonuses_popup(conn, faction):
                size=lambda i, v: setattr(i._bg, 'size', v))
 
     scroll = ScrollView(size_hint=(1, 1), do_scroll_x=False)
-    content = BoxLayout(orientation='vertical', size_hint_y=None,
+    content = NaturalList(orientation='vertical', size_hint_y=None,
                         spacing=dp(8), padding=[dp(12), dp(10)])
-    content.bind(minimum_height=content.setter('height'))
+    def wrap_row(row):
+        def resize(*args):
+            row.height = max(dp(26), max((label.texture_size[1] for label in row.children), default=0) + dp(8))
+        for label in row.children:
+            label.bind(width=lambda widget, width: setattr(widget, 'text_size', (max(1, width), None)))
+            label.bind(texture_size=resize)
+            label.text_size = (max(1, label.width), None)
+        resize()
+
 
     # Заголовок способности
     title = Label(
@@ -1267,7 +1198,6 @@ def show_faction_bonuses_popup(conn, faction):
         font_size=sp(18), color=accent,
         size_hint_y=None, height=dp(28), halign='center', valign='middle'
     )
-    title.bind(size=title.setter('text_size'))
     content.add_widget(title)
 
     desc = Label(
@@ -1275,7 +1205,6 @@ def show_faction_bonuses_popup(conn, faction):
         color=(0.7, 0.7, 0.7, 1), size_hint_y=None, height=dp(22),
         halign='center', valign='middle'
     )
-    desc.bind(size=desc.setter('text_size'))
     content.add_widget(desc)
 
     # Разделитель
@@ -1291,16 +1220,14 @@ def show_faction_bonuses_popup(conn, faction):
         row = BoxLayout(size_hint_y=None, height=dp(26), spacing=dp(4))
         lbl = Label(text=label_text, font_size=sp(12), color=(0.85, 0.85, 0.85, 1),
                     halign='left', valign='middle', size_hint_x=0.35)
-        lbl.bind(size=lbl.setter('text_size'))
         val = Label(text=f"[b]{value_text}[/b]", markup=True, font_size=sp(13),
                     color=accent, halign='center', valign='middle', size_hint_x=0.2)
-        val.bind(size=val.setter('text_size'))
         det = Label(text=detail_text, markup=True, font_size=sp(11),
                     color=(0.6, 0.6, 0.6, 1), halign='left', valign='middle', size_hint_x=0.45)
-        det.bind(size=det.setter('text_size'))
         row.add_widget(lbl)
         row.add_widget(val)
         row.add_widget(det)
+        wrap_row(row)
         content.add_widget(row)
 
     # Разделитель
@@ -1312,34 +1239,24 @@ def show_faction_bonuses_popup(conn, faction):
     content.add_widget(sep2)
 
     # Общие бонусы от зданий
-    building_bonuses = [
-        ("Стены", walls, f"+{walls * 15}% защита гарнизона"),
-        ("Рынки", markets, f"+{markets * 10}% доход крон"),
-        ("Кузницы", smithies, f"+{smithies * 5}% атака обороны"),
-        ("Вышки", towers, f"+{towers * 500} лимит армии"),
-        ("Советники", loyal_nobles, f"Лояльные (>50%) дают бонусы"),
-    ]
+    building_bonuses = current_effect_rows(conn, faction, season_idx)
 
     bld_title = Label(
         text="[b]Бонусы от зданий и советников[/b]", markup=True,
         font_size=sp(13), color=(0.85, 0.75, 0.4, 1),
         size_hint_y=None, height=dp(24), halign='left', valign='middle'
     )
-    bld_title.bind(size=bld_title.setter('text_size'))
     content.add_widget(bld_title)
 
     for name, count, effect in building_bonuses:
-        if count == 0:
-            continue
         row = BoxLayout(size_hint_y=None, height=dp(24), spacing=dp(4))
-        n_lbl = Label(text=f"{name}: {count}", font_size=sp(12),
+        n_lbl = Label(text=f"{name}: {count}" if count != "" else name, font_size=sp(12),
                       color=(0.8, 0.8, 0.8, 1), halign='left', size_hint_x=0.4)
-        n_lbl.bind(size=n_lbl.setter('text_size'))
         e_lbl = Label(text=effect, font_size=sp(12),
                       color=(0.6, 0.85, 0.5, 1), halign='left', size_hint_x=0.6)
-        e_lbl.bind(size=e_lbl.setter('text_size'))
         row.add_widget(n_lbl)
         row.add_widget(e_lbl)
+        wrap_row(row)
         content.add_widget(row)
 
     # Сезонные эффекты на экономику
@@ -1363,7 +1280,6 @@ def show_faction_bonuses_popup(conn, faction):
         font_size=sp(13), color=(0.5, 0.7, 0.9, 1),
         size_hint_y=None, height=dp(24), halign='left', valign='middle'
     )
-    season_title.bind(size=season_title.setter('text_size'))
     content.add_widget(season_title)
 
     if _se:
@@ -1374,7 +1290,6 @@ def show_faction_bonuses_popup(conn, faction):
                 color=_color, size_hint_y=None, height=dp(20),
                 halign='center', valign='middle'
             )
-            eff_lbl.bind(size=eff_lbl.setter('text_size'))
             content.add_widget(eff_lbl)
 
     scroll.add_widget(content)
@@ -1394,7 +1309,7 @@ def show_faction_bonuses_popup(conn, faction):
     popup = Popup(
         title=f"Бонусы — {faction}",
         content=outer,
-        size_hint=(0.80 if is_mobile else 0.60, 0.75 if is_mobile else 0.70),
+        size_hint=(0.96, 0.94),
         auto_dismiss=False,
         background_color=(0.07, 0.08, 0.13, 1),
         separator_color=accent[:3] + (0.7,),

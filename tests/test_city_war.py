@@ -122,6 +122,9 @@ class CityWarRulesTests(CityWarFixture):
                     continue
                 nodes.append(node)
         namespace = dict(random=random.Random(14), sqlite3=sqlite3, copy=copy, os=os)
+        from utils.faction_bonuses import NORTH_MULTIPLIER, ADEPT_MULTIPLIER, VAMPIRE_RATE, ELF_RATE, PEAK_SEASONS
+        namespace.update(NORTH_MULTIPLIER=NORTH_MULTIPLIER, ADEPT_MULTIPLIER=ADEPT_MULTIPLIER,
+                         VAMPIRE_RATE=VAMPIRE_RATE, ELF_RATE=ELF_RATE, FACTION_PEAK_SEASON=PEAK_SEASONS)
         exec(compile(ast.Module(body=nodes, type_ignores=[]), str(source), 'exec'), namespace)
         self.db.executescript('''
             CREATE TABLE user_faction(faction_name TEXT);

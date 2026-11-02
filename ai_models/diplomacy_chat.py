@@ -1178,6 +1178,17 @@ class EnhancedDiplomacyChat():
         qr.add_widget(no_btn)
 
     def generate_diplomatic_response(self, player_message, target_faction):
+        try:
+            return self._generate_diplomatic_response(player_message, target_faction)
+        finally:
+            from utils.resource_payments import sync_resources
+            sync_resources(self.db_connection, self.faction)
+
+    def _pay_resources(self, costs):
+        from utils.resource_payments import spend_resources
+        return spend_resources(self.db_connection, self.faction, costs)
+
+    def _generate_diplomatic_response(self, player_message, target_faction):
         """Генерирует ответ ИИ на сообщение игрока со всеми политическими функциями"""
 
         print(f"DEBUG: Получено сообщение: '{player_message}' от игрока")
@@ -1286,8 +1297,8 @@ class EnhancedDiplomacyChat():
                     return (f"Дружба стоит {_friendship_cost:,} крон, а у тебя только "
                             f"{int(_player_money):,}. Накопи и приходи!")
                 # Списываем деньги
-                cursor.execute("UPDATE resources SET amount = amount - ? WHERE faction=? AND resource_type='Кроны'",
-                               (_friendship_cost, self.faction))
+                if not self._pay_resources({'Кроны': _friendship_cost}):
+                    return 'Недостаточно крон для оплаты операции.'
                 new_level = min(100, relation_level + 10)
                 cursor.execute("""
                     UPDATE relations SET relationship = ?
@@ -1324,8 +1335,8 @@ class EnhancedDiplomacyChat():
                         return f"У тебя не хватает крон! Нужно {alliance_cost:,}, а у тебя {int(player_money):,}."
 
                     # Списываем деньги
-                    cursor.execute("UPDATE resources SET amount = amount - ? WHERE faction=? AND resource_type='Кроны'",
-                                   (alliance_cost, self.faction))
+                    if not self._pay_resources({'Кроны': alliance_cost}):
+                        return 'Недостаточно крон для оплаты операции.'
                     # Создаём союз
                     cursor.execute("UPDATE diplomacies SET relationship='союз' WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)",
                                    (self.faction, target_faction, target_faction, self.faction))
@@ -3405,16 +3416,10 @@ class EnhancedDiplomacyChat():
                 print(f"[TRADE] У {target_faction} не хватает {get_resource}: нужно {get_amount}, есть {_tgt_res[0] if _tgt_res else 0}")
                 return False
 
-            # Переводим ресурсы: инициатор отдаёт give, получает get
-            cursor.execute("UPDATE resources SET amount = amount - ? WHERE faction=? AND resource_type=?",
-                           (give_amount, initiator, give_resource))
-            cursor.execute("UPDATE resources SET amount = amount + ? WHERE faction=? AND resource_type=?",
-                           (get_amount, initiator, get_resource))
-            # Цель: отдаёт get, получает give
-            cursor.execute("UPDATE resources SET amount = amount - ? WHERE faction=? AND resource_type=?",
-                           (get_amount, target_faction, get_resource))
-            cursor.execute("UPDATE resources SET amount = amount + ? WHERE faction=? AND resource_type=?",
-                           (give_amount, target_faction, give_resource))
+            from utils.resource_payments import exchange_resources
+            if not exchange_resources(self.db_connection, initiator, target_faction,
+                                      give_resource, give_amount, get_resource, get_amount):
+                return False
 
             # Записываем в историю
             cursor.execute('''
@@ -3798,11 +3803,8 @@ class EnhancedDiplomacyChat():
                     return random.choice(insufficient_responses)
 
                 # СПИСЫВАЕМ КРОНЫ У ИГРОКА
-                cursor.execute("""
-                    UPDATE resources 
-                    SET amount = amount - ? 
-                    WHERE faction = ? AND resource_type = 'Кроны'
-                """, (alliance_cost, self.faction))
+                if not self._pay_resources({'Кроны': alliance_cost}):
+                    return 'Недостаточно крон для оплаты операции.'
 
                 # ПРОВЕРЯЕМ И ОБНОВЛЯЕМ/СОЗДАЕМ ЗАПИСЬ В ДИПЛОМАЦИЯХ
                 cursor.execute("""
@@ -4456,11 +4458,8 @@ class EnhancedDiplomacyChat():
                     return f"У тебя недостаточно крон! Нужно {required_amount:,}, а у тебя {player_resources[0] if player_resources else 0:,}."
 
                 # Списываем ресурсы
-                cursor.execute("""
-                    UPDATE resources 
-                    SET amount = amount - ? 
-                    WHERE faction = ? AND resource_type = 'Кроны'
-                """, (required_amount, self.faction))
+                if not self._pay_resources({'Кроны': required_amount}):
+                    return 'Недостаточно крон для оплаты операции.'
 
                 # Объявляем войну (AI объявляет, не игрок)
                 self._declare_war_on_faction(self.faction, target_faction)
@@ -5225,11 +5224,8 @@ class EnhancedDiplomacyChat():
                     f"Накопи нужную сумму и возвращайся.")
 
             # Списываем ресурсы
-            cursor.execute("""
-                UPDATE resources 
-                SET amount = amount - ? 
-                WHERE faction = ? AND resource_type = 'Кроны'
-            """, (cost, self.faction))
+            if not self._pay_resources({'Кроны': cost}):
+                return 'Недостаточно крон для оплаты операции.'
 
             # Улучшаем отношения
             new_relationship = min(100, current_relationship + chosen_option['improvement'])
@@ -6728,9 +6724,14 @@ class EnhancedDiplomacyChat():
                 def _do_improve(i2):
                     try:
                         cur = self.db_connection.cursor()
-                        # Списываем ресурсы у игрока
-                        cur.execute("UPDATE resources SET amount = amount - ? WHERE faction=? AND resource_type=?",
-                                    (cost, player_faction, need_resource))
+                        from utils.resource_payments import spend_resources
+                        if i2.disabled:
+                            return
+                        i2.disabled = True
+                        if not spend_resources(self.db_connection, player_faction, {need_resource: cost}):
+                            self.add_chat_message_system('Недостаточно ресурсов для оплаты. Операция отменена.')
+                            popup.dismiss()
+                            return
                         # Добавляем AI-фракции
                         cur.execute("UPDATE resources SET amount = amount + ? WHERE faction=? AND resource_type=?",
                                     (cost, faction, need_resource))

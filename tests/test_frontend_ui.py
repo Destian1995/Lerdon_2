@@ -64,7 +64,7 @@ class FrontendTests(unittest.TestCase):
         menu = self.show('MenuWidget')
         self.assertEqual(len(menu.buttons), 6)
         self.assertTrue(all(isinstance(b, StrategyButton) and b.height >= 48 for b in menu.buttons))
-        self.assertTrue(any(isinstance(w, Label) and w.text == 'v7.0.5' for w in menu.walk()))
+        self.assertTrue(any(isinstance(w, Label) and w.text == 'v7.0.6' for w in menu.walk()))
         self.assertIsNone(menu._particle_event)
         self.assertEqual(menu.button_container.cols, 2)
         Window.size = (360, 640)
@@ -99,6 +99,12 @@ class FrontendTests(unittest.TestCase):
                 Window.size = size
                 settle()
                 page = loading._front_page
+                self.assertGreaterEqual(page.column.height, page.flow.height)
+                self.assertAlmostEqual(page.flow.width, loading.width - dp(24), delta=1)
+                self.assertAlmostEqual(page.header.top, page.column.top - page.column.padding[1], delta=1)
+                self.assertTrue(all(label.halign == 'center' for label in page.header.children))
+                self.assertGreaterEqual(loading.label.y, loading.percent_label.top)
+                self.assertGreaterEqual(loading.percent_label.y, loading.pb_container.top)
                 geometry = (tuple(page.flow.size), page.column.height, loading.tip_label.height)
                 self.assertLess(loading.tip_label.height, dp(120))
                 self.assertIsNone(loading.tip_label.text_size[1])
@@ -115,6 +121,26 @@ class FrontendTests(unittest.TestCase):
                                            loading.pb_container.width * percent / 100, delta=0.01)
             menu = self.show('MenuWidget')
             self.assertEqual(tuple(page.flow.size), tuple(menu._front_page.flow.size))
+
+    def test_campaign_factions_and_selectors_are_visible_together_after_resize(self):
+        with patch('kivy.app.App.get_running_app', return_value=SimpleNamespace(selected_kingdom=None)):
+            setup = self.show('KingdomSelectionWidget')
+            for size in ((800, 600), (640, 360), (360, 640), (320, 568), (1280, 720)):
+                Window.size = size
+                settle()
+                controls = [*setup.kingdom_button_widgets.values(), setup.ideology_spinner,
+                            setup.allies_spinner, setup.start_game_button, setup.back_btn]
+                for widget in controls:
+                    with self.subTest(size=size, text=widget.text):
+                        left, bottom = widget.to_window(*widget.pos)
+                        right, top = widget.to_window(widget.right, widget.top)
+                        self.assertGreaterEqual(bottom, setup.y - 1)
+                        self.assertLessEqual(top, setup.top + 1)
+                        self.assertGreaterEqual(left, setup.x - 1)
+                        self.assertLessEqual(right, setup.right + 1)
+                        self.assertGreaterEqual(widget.height, dp(48))
+                self.assertGreaterEqual(setup.campaign_columns.factions.y,
+                                        setup.campaign_columns.controls.top)
 
     def test_tutorial_and_author_share_components(self):
         tutorial = self.show('TutorialFactionScreen')

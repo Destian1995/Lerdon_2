@@ -52,7 +52,7 @@ class DialogLayoutTests(unittest.TestCase):
             Metrics.density, Metrics.fontscale = density, scale
             Window.size = size
             settle()
-            for show, captions in ((market, {'Купить', 'Продать'}), (taxes, {'Применить'}),
+            for show, captions in ((market, {'Купить', 'Продать'}), (taxes, {'Установить налог'}),
                                    (council_event, {'Провести', 'Отмена'})):
                 db = show()
                 popup = next(w for w in Window.children if isinstance(w, Popup))
@@ -65,7 +65,7 @@ class DialogLayoutTests(unittest.TestCase):
                     if show in (market, taxes):
                         slider = next(w for w in popup.content.walk() if isinstance(w, Slider))
                         _, y = slider.to_window(slider.x, slider.y)
-                        self.assertGreaterEqual(y + 1, popup._window_action_dock.top)
+                        self.assertGreaterEqual(y + 1, popup._window_action_dock.top, (show.__name__, size, density))
                         self.assertLessEqual(y + slider.height, popup._window_flow.top + 1)
                 finally:
                     popup.dismiss(animation=False)

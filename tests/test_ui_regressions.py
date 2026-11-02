@@ -153,7 +153,40 @@ class UIRegressionTests(unittest.TestCase):
         self.assertIsNone(queue.active)
         self.assertFalse(first.events)
 
-    def test_real_market_keeps_ratio_in_price_card_and_uses_styled_slider(self):
+    def test_bonus_popup_shows_current_rates_buildings_and_council_effects(self):
+        tree = ast.parse((ROOT / 'politic.py').read_text(encoding='utf-8'))
+        node = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'show_faction_bonuses_popup')
+        namespace = dict(fixture_globals)
+        exec(compile(ast.Module(body=[node], type_ignores=[]), 'politic.py', 'exec'), namespace)
+        with closing(sqlite3.connect(':memory:')) as db:
+            db.executescript('''
+                CREATE TABLE season(season_index INTEGER);
+                INSERT INTO season VALUES(0);
+                CREATE TABLE cities(id INTEGER, name TEXT, faction TEXT);
+                CREATE TABLE roads(city1 INTEGER, city2 INTEGER);
+                CREATE TABLE buildings(city_name TEXT, faction TEXT, building_type TEXT, count INTEGER);
+                CREATE TABLE nobles(loyalty REAL, ideology TEXT, status TEXT);
+                INSERT INTO nobles VALUES(80,'Смирение','active'),(75,'Борьба','active');
+                INSERT INTO cities VALUES(1,'Столица','Вампиры');
+                INSERT INTO buildings VALUES('Столица','Вампиры','Рынок',2);
+            ''')
+            for faction, season, expected in [('Вампиры', 0, '15%'), ('Вампиры', 1, '41.25%'),
+                                               ('Эльфы', 0, '60%'), ('Эльфы', 2, '100%'),
+                                               ('Север', 2, '×1.8'), ('Адепты', 0, '×1.55')]:
+                with self.subTest(faction=faction, season=season):
+                    db.execute('UPDATE season SET season_index=?', (season,))
+                    namespace[node.name](db, faction)
+                    settle(5)
+                    popup = next(w for w in Window.children if isinstance(w, Popup))
+                    texts = [w.text for w in popup.content.walk() if isinstance(w, Label)]
+                    self.assertIn(f'[b]{expected}[/b]', texts)
+                    self.assertTrue(any('+6% доход крон; +5% добыча кристаллов; +5.5%' in text for text in texts))
+                    self.assertFalse(any('Лояльные (>50%)' in text or '27.5%' in text for text in texts))
+                    if faction == 'Вампиры':
+                        self.assertTrue(any('+20% доход крон' in text for text in texts))
+                    popup.dismiss(animation=False)
+
+    def test_real_market_shows_unit_price_history_and_preserves_trading_controls(self):
         tree = ast.parse((ROOT / 'economic.py').read_text(encoding='utf-8'))
         node = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'open_trade_popup')
         namespace = dict(fixture_globals, platform='android', CheckBox=CheckBox)
@@ -166,11 +199,20 @@ class UIRegressionTests(unittest.TestCase):
         settle()
         popup = next(w for w in Window.children if isinstance(w, Popup))
         labels = [w for w in popup.content.walk() if isinstance(w, Label)]
-        price = next(w for w in labels if 'Цена 1 лота' in w.text)
-        ratio = next(w for w in labels if 'Соотношение:' in w.text)
-        self.assertIs(price.parent, ratio.parent)
+        price = next(w for w in labels if 'Цена за 1 ед кристалла:' in w.text)
+        self.assertIn('2.00 крон.', price.text)
+        self.assertFalse(any('Соотношение:' in w.text or 'Цена 1 лота' in w.text for w in labels))
+        history = next(w for w in labels if 'Котировок: 2' in w.text)
+        self.assertIn('1.80 — 2.00', history.text)
         slider = next(w for w in popup.content.walk() if isinstance(w, Slider))
         self.assertTrue(hasattr(slider, '_strategy_slider_art'))
         slider.value = 5
         info = next(w for w in labels if 'Купить 500' in w.text)
         self.assertIn(format_number(1000), info.text)
+        checkbox = next(w for w in popup.content.walk() if isinstance(w, CheckBox))
+        checkbox.active = True
+        self.assertTrue(slider.disabled)
+        self.assertIn('Продать ВСЁ:', info.text)
+        checkbox.active = False
+        self.assertFalse(slider.disabled)
+        self.assertEqual(slider.value, 0)

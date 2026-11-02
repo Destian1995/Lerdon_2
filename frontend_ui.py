@@ -19,7 +19,7 @@ from strategy_ui import INK, SURFACE, GOLD, TEXT, MUTED, FACTIONS, StrategyButto
 from responsive_ui import WindowFlow
 from ui_motion import enter
 
-VERSION = '7.0.5'
+VERSION = '7.0.6'
 FACTION_ART = {'Север': 'people', 'Эльфы': 'elfs', 'Вампиры': 'vampire', 'Адепты': 'adepts', 'Элины': 'elins'}
 
 
@@ -77,7 +77,10 @@ class NaturalList(BoxLayout):
         kwargs.setdefault('orientation', 'vertical')
         kwargs.setdefault('size_hint_y', None)
         super().__init__(**kwargs)
-        self.bind(minimum_height=self.setter('height'))
+        self.bind(minimum_height=self.fit_height)
+
+    def fit_height(self, *args):
+        self.height = max(self.minimum_height, getattr(self, '_viewport_height', 0))
 
     def add_widget(self, widget, *args, **kwargs):
         if isinstance(widget, Label) and not isinstance(widget, Button):
@@ -93,52 +96,40 @@ class NaturalList(BoxLayout):
 
 
 class CampaignColumns(BoxLayout):
-    def __init__(self, factions, settings, **kwargs):
+    """Keep every faction and both campaign selectors outside the details scroll."""
+    def __init__(self, factions, settings, controls, faction_grid, **kwargs):
         super().__init__(orientation='vertical', spacing=dp(8), **kwargs)
-        self.panels, self.selected, self._wide = [], 0, None
-        for content in (factions, settings):
-            scroll = ScrollView(do_scroll_x=False, bar_width=dp(3), bar_color=GOLD)
-            scroll.add_widget(content)
-            self.panels.append(scroll)
-        self.body = BoxLayout(spacing=dp(24))
-        self.tabs = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(8))
-        for index, caption in enumerate(('Фракция', 'Настройки')):
-            button = StrategyButton(text=caption)
-            button.bind(on_release=lambda widget, index=index: self.select(index))
-            self.tabs.add_widget(button)
-        self.bind(width=self.arrange)
+        self.factions, self.controls, self.faction_grid = factions, controls, faction_grid
+        self.essentials = NaturalList(spacing=dp(8))
+        self.essentials.add_widget(factions)
+        self.essentials.add_widget(controls)
+        self.essential_view = ScrollView(size_hint_y=None, do_scroll_x=False,
+                                         bar_width=dp(3), bar_color=GOLD)
+        self.essential_view.add_widget(self.essentials)
+        self.add_widget(self.essential_view)
+        self.body = ScrollView(do_scroll_x=False, bar_width=dp(3), bar_color=GOLD)
+        self.body.add_widget(settings)
+        self.add_widget(self.body)
+        self.bind(size=self.arrange)
+        factions.bind(height=self.arrange)
+        self.arrange()
 
     def arrange(self, *args):
-        wide = self.width >= dp(440)
-        if wide == self._wide:
-            return
-        self._wide = wide
-        self.clear_widgets()
-        self.body.clear_widgets()
-        for panel in self.panels:
-            if panel.parent:
-                panel.parent.remove_widget(panel)
-        if wide:
-            self.panels[0].size_hint_x, self.panels[1].size_hint_x = 0.37, 0.63
-            for panel in self.panels:
-                self.body.add_widget(panel)
-        else:
-            self.add_widget(self.tabs)
-            self.panels[self.selected].size_hint_x = 1
-            self.body.add_widget(self.panels[self.selected])
-        self.add_widget(self.body)
-
-    def select(self, index):
-        self.selected = index
-        self._wide = None
-        self.arrange()
+        self.faction_grid.cols = min(5, max(1, int((self.width - dp(16)) / dp(100))))
+        required = self.factions.height + self.controls.height + self.essentials.spacing
+        self.essential_view.height = min(required, max(0, self.height))
+        available = self.height - required - dp(8)
+        self.body.opacity = 1 if available >= dp(36) else 0
+        self.body.disabled = available < dp(36)
+        self.spacing = dp(8) if available >= dp(36) else 0
 
 
 class FrontPage(FloatLayout):
     """Full viewport artwork, readable content surface, one responsive flow."""
-    def __init__(self, owner, title, subtitle='', art='files/menu/choise/vampire.jpg', paged=False, **kwargs):
+    def __init__(self, owner, title, subtitle='', art='files/menu/choise/vampire.jpg', paged=False, full_surface=False, **kwargs):
         super().__init__(**kwargs)
         self.paged = paged
+        self.full_surface = full_surface
         self.art = Image(source=art, fit_mode='cover')
         self.add_widget(self.art)
         shade = Widget()
@@ -176,28 +167,42 @@ class FrontPage(FloatLayout):
         enter(self.column)
 
     def fit(self, *args):
-        width = self.width - dp(24)
-        self.flow.size = (max(1, min(dp(1100), width)), max(1, self.height - dp(24)))
+        inset = dp(8 if self.paged and self.height < dp(420) else 24)
+        width = self.width - inset
+        self.flow.size = (max(1, min(dp(1100), width)), max(1, self.height - inset))
         self.flow.center = self.center
+        if self.full_surface:
+            self.flow.width = max(1, width)
+            self.flow.center = self.center
+            self.column._viewport_height = self.flow.height
+            self.column.fit_height()
         if self.paged:
             compact = self.height < dp(420)
+            self.column.padding = dp(4 if compact else 10)
+            self.column.spacing = dp(4 if compact else 8)
         else:
             compact = False
             short = self.height < dp(420)
             self.column.padding = dp(12 if short else 16)
             self.column.spacing = dp(8 if short else 12)
+        self.header.padding = [dp(16), dp(6 if compact else 10)]
+        header_text_width = max(1, self.flow.width - self.column.padding[0] - self.column.padding[2]
+                                - self.header.padding[0] - self.header.padding[2])
         for label in self.header.children:
             label.size_hint_y = None
+            label.halign = 'center'
             hidden = self.paged and compact and label in (self.subtitle_label, self.brand_label)
             label.opacity = 0 if hidden else 1
             if hidden:
                 label.height = 0
             else:
                 text = CoreLabel(text=label.text, font_size=label.font_size, font_name=label.font_name,
-                                 bold=label.bold, text_size=(max(dp(160), self.flow.width - dp(40)), None))
+                                 bold=label.bold, text_size=(header_text_width, None))
                 text.refresh()
                 label.height = text.texture.height + dp(2)
-        self.header.height = sum(label.height for label in self.header.children) + self.header.spacing * (len(self.header.children) - 1)
+        self.header.height = (sum(label.height for label in self.header.children)
+                              + self.header.spacing * (len(self.header.children) - 1)
+                              + self.header.padding[1] + self.header.padding[3])
 
 
 def build_main_menu(owner):
@@ -234,11 +239,12 @@ def build_campaign_setup(owner):
     owner.tutorial_enabled = owner.buttons_locked = False
     page = FrontPage(owner, 'Новая кампания', 'Выберите фракцию и условия нового мира.', paged=True)
     owner.main_container = page.column
-    factions = surface(NaturalList(padding=dp(12), spacing=dp(8)), (*INK[:3], 0.88))
-    factions.add_widget(text_label('ВАША ФРАКЦИЯ', 12, GOLD, size_hint_y=None, height=dp(28)))
+    factions = surface(NaturalList(padding=dp(6), spacing=dp(4)), (*INK[:3], 0.88))
+    faction_heading = text_label('ВАША ФРАКЦИЯ', 12, GOLD, size_hint_y=None, height=dp(20))
+    faction_heading.halign = 'center'
+    factions.add_widget(faction_heading)
     owner.kingdom_buttons = GridLayout(cols=1, size_hint_y=None, spacing=dp(6))
     owner.kingdom_buttons.bind(minimum_height=owner.kingdom_buttons.setter('height'))
-    owner.kingdom_buttons.bind(width=lambda widget, width: setattr(widget, 'cols', 2 if width < dp(260) else 1))
     owner.faction_data = owner.load_factions_from_db()
     owner.kingdom_button_widgets = {}
     for data in owner.faction_data:
@@ -251,26 +257,46 @@ def build_campaign_setup(owner):
     settings = surface(NaturalList(padding=dp(12), spacing=dp(10)), (*INK[:3], 0.88))
     owner.faction_panel_container, owner.settings_panel_container = factions, settings
     owner.settings_content_container = settings
-    settings.add_widget(text_label('УСЛОВИЯ КАМПАНИИ', 12, GOLD, size_hint_y=None, height=dp(28)))
+    controls = GridLayout(cols=2, size_hint_y=None, height=dp(76), spacing=dp(8))
     from window_theme import skin_button, StrategySpinnerOption
     for caption, name, values, callback in (
             ('Идеология', 'ideology_spinner', ('Случайная', 'Смирение', 'Борьба'), owner.on_ideology_selected),
             ('Единомышленники', 'allies_spinner', ('Случайное количество', '1', '2'), owner.on_allies_selected)):
-        settings.add_widget(text_label(caption, 13, MUTED, size_hint_y=None, height=dp(26)))
+        field = BoxLayout(orientation='vertical', spacing=dp(4))
+        field.add_widget(text_label(caption, 13, MUTED, size_hint_y=None, height=dp(24)))
         spinner = Spinner(text=values[0], values=values, option_cls=StrategySpinnerOption,
                           size_hint_y=None, height=dp(48), font_size=sp(14))
         skin_button(spinner)
         spinner.bind(text=callback)
         setattr(owner, name, spinner)
-        settings.add_widget(spinner)
+        field.add_widget(spinner)
+        controls.add_widget(field)
     owner.ideology_bonus_icon = Image(source='files/pict/menu/bonus_icon.png', size_hint_x=None, width=dp(24))
-    bonus = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(8))
-    bonus.add_widget(owner.ideology_bonus_icon)
+    bonus = BoxLayout(size_hint_y=None, spacing=dp(8))
+    bonus.bind(minimum_height=bonus.setter('height'))
+    ideology_info = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(8), pos_hint={'center_y': .5})
+    ideology_info.add_widget(owner.ideology_bonus_icon)
     owner.ideology_bonus_label = text_label('Идеология будет выбрана случайно', 12, MUTED)
-    bonus.add_widget(owner.ideology_bonus_label)
+    ideology_info.add_widget(owner.ideology_bonus_label)
+    owner.allies_count_label = text_label('Случайно 1 или 2 союзника', 12, MUTED,
+                                         size_hint_y=None, height=dp(40), pos_hint={'center_y': .5})
+    # Both summaries wrap to their own column; narrow screens stack the pair.
+    for label, holder in ((owner.ideology_bonus_label, ideology_info),
+                          (owner.allies_count_label, owner.allies_count_label)):
+        label.unbind(size=label._strategy_text_sizer)
+        def wrap_summary(widget, *args):
+            widget.text_size = (max(1, widget.width), None)
+        label.bind(width=wrap_summary)
+        label.bind(texture_size=lambda widget, size, holder=holder:
+                   setattr(holder, 'height', max(dp(40), size[1] + dp(4))))
+        wrap_summary(label)
+    bonus.add_widget(ideology_info)
+    bonus.add_widget(owner.allies_count_label)
+    bonus.bind(width=lambda widget, width:
+               setattr(widget, 'orientation', 'vertical' if width < dp(420) else 'horizontal'))
     settings.add_widget(bonus)
-    owner.allies_count_label = text_label('Случайно 1 или 2 союзника', 12, MUTED, size_hint_y=None, height=dp(32))
-    settings.add_widget(owner.allies_count_label)
+    owner.faction_ability_label = text_label('', 13, GOLD, markup=True, size_hint_y=None, height=dp(32))
+    settings.add_widget(owner.faction_ability_label)
     owner._stat_bars = {}
     for name in ('Экономика', 'Кристаллы', 'Армия'):
         row = BoxLayout(size_hint_y=None, height=dp(28), spacing=dp(10))
@@ -283,9 +309,7 @@ def build_campaign_setup(owner):
             Animation(value=holder[0], duration=0.22, t='out_quad').start(meter)
         owner._stat_bars[name] = dict(ratio=holder, updater=update)
         settings.add_widget(row)
-    owner.faction_ability_label = text_label('', 13, GOLD, markup=True, size_hint_y=None, height=dp(64))
-    settings.add_widget(owner.faction_ability_label)
-    columns = CampaignColumns(factions, settings)
+    columns = CampaignColumns(factions, settings, controls, owner.kingdom_buttons)
     owner.campaign_columns = columns
     page.column.add_widget(columns)
     actions = BoxLayout(size_hint_y=None, height=dp(52), spacing=dp(10))
@@ -356,16 +380,27 @@ def finish_legacy_page(owner, root):
 def restyle_loading(owner):
     for widget in list(owner.children):
         owner.remove_widget(widget)
-    page = FrontPage(owner, 'Подготовка мира', 'Загружаем королевства, героев и хроники.')
-    for label in (owner.label, owner.percent_label, owner.tip_label):
+    page = FrontPage(owner, 'Подготовка мира', 'Загружаем королевства, героев и хроники.', full_surface=True)
+    # Header stays at the top; the flexible middle centers the progress group
+    # and the hint anchors the bottom of the full-height frame.
+    progress_area = BoxLayout(orientation='vertical', spacing=dp(8), size_hint_min_y=dp(112))
+    progress_area.add_widget(Widget())
+    for label, height in ((owner.label, 28), (owner.percent_label, 40), (owner.tip_label, 52)):
         label.pos_hint = {}
         label.size_hint = (1, None)
-        label.height = dp(52)
+        label.height = dp(height)
         label.color = TEXT if label is owner.label else GOLD if label is owner.percent_label else MUTED
         label.halign = 'center'
-        page.column.add_widget(label)
+        if label is not owner.tip_label:
+            label.valign = 'middle'
+            label.bind(size=lambda widget, size: setattr(widget, 'text_size', size))
+            progress_area.add_widget(label)
     owner.pb_container = Meter(size_hint_y=None, height=dp(12))
-    page.column.add_widget(owner.pb_container, index=1)
+    progress_area.add_widget(owner.pb_container)
+    progress_area.add_widget(Widget())
+    page.column.add_widget(progress_area)
+    page.column.add_widget(owner.tip_label)
+    owner.loading_progress_area = progress_area
 
 
 def build_rating(owner):

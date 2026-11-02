@@ -34,38 +34,15 @@ class CalculateCash:
         self.resources = self.load_resources()
 
     def load_resources(self):
-        try:
-            resources = {
-                "Кроны": self.class_faction.get_resource_now("Кроны"),
-                "Рабочие": self.class_faction.get_resource_now("Рабочие")
-            }
-            print(f"[DEBUG] Загружены ресурсы для фракции '{self.faction}': {resources}")
-            return resources
-        except Exception as e:
-            print(f"Ошибка при загрузке ресурсов: {e}")
-            return {"Кроны": 0, "Рабочие": 0}
+        from utils.resource_payments import sync_resources
+        self.resources = sync_resources(self.class_faction.conn, self.faction, self.class_faction)
+        return self.resources
 
     def deduct_resources(self, crowns, workers=0):
-        try:
-            current_crowns = self.class_faction.get_resource_now("Кроны")
-            current_workers = self.class_faction.get_resource_now("Рабочие")
-            print(f"[DEBUG] Текущие ресурсы: Кроны={current_crowns}, Рабочие={current_workers}")
-
-            if current_crowns < crowns or current_workers < workers:
-                print("[DEBUG] Недостаточно ресурсов для списания.")
-                return False
-
-            self.class_faction.update_resource_now("Кроны", current_crowns - crowns)
-            if workers > 0:
-                self.class_faction.update_resource_now("Рабочие", current_workers - workers)
-
-            self.resources["Кроны"] = current_crowns - crowns
-            if workers > 0:
-                self.resources["Рабочие"] = current_workers - workers
-            return True
-        except Exception as e:
-            print(f"Ошибка при списании ресурсов: {e}")
-            return False
+        from utils.resource_payments import spend_resources
+        paid = spend_resources(self.class_faction.conn, self.faction, {'Кроны': crowns, 'Рабочие': workers})
+        self.load_resources()
+        return paid
 
 class ThemedButton(Button):
     def __init__(self, **kwargs):
@@ -737,8 +714,18 @@ def show_confirmation_popup(conn, player_faction, cash_player, op_name, op_info,
         separator_height=0
     )
 
+    confirmed = False
     def on_confirm(instance):
+        nonlocal confirmed
+        if confirmed:
+            return
+        confirmed = True
+        instance.disabled = True
         popup.dismiss()
+        error = validate_operation_target(conn, player_faction, op_name, op_info, target_faction, targets_info)
+        if error:
+            show_result_popup('Операция отменена', error, False)
+            return
         deduction_success = cash_player.deduct_resources(cost)
         if not deduction_success:
             show_result_popup("Ошибка", "Ошибка списания средств.", False)
@@ -753,6 +740,34 @@ def show_confirmation_popup(conn, player_faction, cash_player, op_name, op_info,
     content.add_widget(btn_layout)
 
     popup.open()
+
+def validate_operation_target(conn, player_faction, op_name, op_info, target_faction, targets_info):
+    if target_faction == player_faction:
+        return 'Нельзя провести операцию против своей фракции.'
+    if op_name == 'Мятеж':
+        occupied = op_info.get('_target_type') == 'garrison'
+        candidates = [row[0] for row in conn.execute('''SELECT c.name FROM cities c WHERE c.faction=?
+            AND EXISTS(SELECT 1 FROM garrisons g WHERE g.city_name=c.name AND g.unit_count>0)=?''',
+                                                    (target_faction, int(occupied)))]
+        if not candidates:
+            return 'Подходящих городов больше нет. Оплата не списана.'
+        if conn.execute("SELECT COUNT(*) FROM units WHERE unit_name IN ('Кейдж','Мятежники')").fetchone()[0] != 2:
+            return 'В базе отсутствуют юниты мятежников. Оплата не списана.'
+        if occupied:
+            op_info['_garrison_cities'] = candidates
+        else:
+            targets_info[target_faction]['cities_without_garrison'] = candidates
+    elif op_name in ('Саботаж', 'Заказ'):
+        sql = '''SELECT 1 FROM garrisons g JOIN units u ON u.unit_name=g.unit_name
+                 WHERE u.faction=? AND g.unit_count>0'''
+        if op_name == 'Заказ':
+            sql += " AND u.unit_class LIKE '3%'"
+        if not conn.execute(sql, (target_faction,)).fetchone():
+            return 'Подходящих целей больше нет. Оплата не списана.'
+    else:
+        return 'Неизвестная операция.'
+    return None
+
 
 def execute_diversion_operation(conn, player_faction, op_name, op_info, target_faction, targets_info, custom_cost=None, rebels_count=None):
     cursor = conn.cursor()

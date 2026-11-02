@@ -90,36 +90,8 @@ class StyledButton(Button):
         self._bg_color.rgba = self._original_color
 
 def get_noble_bonus_text(noble_data):
-    """Возвращает текст бонуса от советника если лояльность > 50%."""
-    loyalty = noble_data.get('loyalty', 0)
-    if loyalty < 50:
-        return None
-
-    try:
-        ideology_raw = noble_data.get('ideology', '{}')
-        if isinstance(ideology_raw, str) and ideology_raw.startswith('{'):
-            traits = json.loads(ideology_raw)
-        elif isinstance(ideology_raw, dict):
-            traits = ideology_raw
-        elif isinstance(ideology_raw, str) and ideology_raw.startswith("Любит "):
-            traits = {'type': 'race_love', 'value': ideology_raw.split(" ", 1)[1]}
-        else:
-            traits = {'type': 'ideology', 'value': ideology_raw}
-    except Exception:
-        return None
-
-    bonus_pct = min(int((loyalty - 50) / 5), 10)  # 0-10% бонус от лояльности 50-100
-
-    if traits.get('type') == 'ideology':
-        if traits.get('value') == 'Борьба':
-            return f"[color=88ccff]+{bonus_pct}% к добыче Кристаллов[/color]"
-        else:
-            return f"[color=ffdd66]+{bonus_pct}% к доходу Крон[/color]"
-    elif traits.get('type') == 'race_love':
-        return f"[color=88ff88]+{bonus_pct}% к отношениям с {traits['value']}[/color]"
-    elif traits.get('type') == 'greed':
-        return f"[color=ffaa55]+{bonus_pct}% к торговым сделкам[/color]"
-    return None
+    summary = _build_bonus_summary([noble_data])
+    return summary if 'Нет активных бонусов' not in summary else None
 
 
 def get_noble_trait_text(noble_data):
@@ -257,135 +229,95 @@ class NobleCard(BoxLayout):
 
 # --- ОБНОВЛЕННЫЕ ФУНКЦИИ ИНТЕРФЕЙСА ---
 def _build_bonus_summary(nobles_data):
-    """Собирает суммарные бонусы от всех лояльных советников."""
-    bonuses = {'crowns': 0, 'crystals': 0, 'relations': [], 'trade': 0}
-    for noble in nobles_data:
-        loyalty = noble.get('loyalty', 0)
-        if loyalty < 50:
-            continue
-        bonus_pct = min(int((loyalty - 50) / 5), 10)
-        try:
-            ideology_raw = noble.get('ideology', '{}')
-            if isinstance(ideology_raw, str) and ideology_raw.startswith('{'):
-                traits = json.loads(ideology_raw)
-            elif isinstance(ideology_raw, dict):
-                traits = ideology_raw
-            elif isinstance(ideology_raw, str) and ideology_raw.startswith("Любит "):
-                traits = {'type': 'race_love', 'value': ideology_raw.split(" ", 1)[1]}
-            else:
-                traits = {'type': 'ideology', 'value': ideology_raw}
-        except Exception:
-            continue
-
-        if traits.get('type') == 'ideology':
-            if traits.get('value') == 'Борьба':
-                bonuses['crystals'] += bonus_pct
-            else:
-                bonuses['crowns'] += bonus_pct
-        elif traits.get('type') == 'race_love':
-            bonuses['relations'].append((traits['value'], bonus_pct))
-        elif traits.get('type') == 'greed':
-            bonuses['trade'] += bonus_pct
-
+    from utils.faction_bonuses import summarize_council
+    bonuses = summarize_council([(noble.get('loyalty', 0), noble.get('ideology'))
+                                 for noble in nobles_data if noble.get('status', 'active') == 'active'])
     parts = []
     if bonuses['crowns']:
         parts.append(f"[color=ffdd66]+{bonuses['crowns']}% Кроны[/color]")
     if bonuses['crystals']:
         parts.append(f"[color=88ccff]+{bonuses['crystals']}% Кристаллы[/color]")
-    for race, pct in bonuses['relations']:
-        parts.append(f"[color=88ff88]+{pct}% с {race}[/color]")
+    for race, points in bonuses['relations'].items():
+        parts.append(f"[color=88ff88]+{points} п. отношений с {race}/ход[/color]")
     if bonuses['trade']:
-        parts.append(f"[color=ffaa55]+{bonuses['trade']}% торговля[/color]")
-
-    return "  ".join(parts) if parts else "[color=888888]Нет активных бонусов[/color]"
+        parts.append(f"[color=ffaa55]+{bonuses['trade']:g}% к множителю торговли[/color]")
+    return '  '.join(parts) if parts else '[color=888888]Нет активных бонусов[/color]'
 
 
 def show_nobles_window(conn, faction, class_faction):
-    """Главное окно совета с бонусами и улучшенным управлением"""
+    from strategy_ui import StrategyButton, surface, text_label
+    from frontend_ui import NaturalList
+    from utils.faction_bonuses import summarize_council
+    from utils.coup_rules import coup_probabilities
     cash_player = CalculateCash(faction, class_faction)
     player_faction = get_player_faction(conn)
-    season_index = get_current_season_index(conn)
-
-    # Основной контейнер
-    main_layout = BoxLayout(orientation='vertical', padding=UIStyles.PADDING, spacing=dp(6))
-    main_layout.canvas.before.add(Color(*UIStyles.COLOR_BG))
-    main_layout.canvas.before.add(RoundedRectangle(pos=main_layout.pos, size=main_layout.size, radius=[dp(15)]))
-
-    # --- Блок суммарных бонусов ---
-    bonus_header = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(50), padding=[dp(8), dp(4)])
-    with bonus_header.canvas.before:
-        Color(0.1, 0.12, 0.2, 1)
-        bonus_header._bg = RoundedRectangle(pos=bonus_header.pos, size=bonus_header.size, radius=[dp(8)])
-    bonus_header.bind(
-        pos=lambda i, v: setattr(i._bg, 'pos', v),
-        size=lambda i, v: setattr(i._bg, 'size', v)
-    )
-
-    bonus_title = Label(
-        text="[b]Бонусы совета[/b]", markup=True,
-        font_size=sp(13), color=(0.85, 0.75, 0.4, 1),
-        halign='left', valign='middle', size_hint_y=None, height=dp(20)
-    )
-    bonus_title.bind(size=bonus_title.setter('text_size'))
-
-    bonus_summary_label = Label(
-        text="", markup=True,
-        font_size=sp(12), halign='left', valign='middle',
-        size_hint_y=None, height=dp(22)
-    )
-    bonus_summary_label.bind(size=bonus_summary_label.setter('text_size'))
-
-    bonus_header.add_widget(bonus_title)
-    bonus_header.add_widget(bonus_summary_label)
-    main_layout.add_widget(bonus_header)
-
-    # --- Список дворян (ScrollView) ---
-    scroll_view = ScrollView(do_scroll_x=False, size_hint_y=1)
-    nobles_list = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(6))
-    nobles_list.bind(minimum_height=nobles_list.setter('height'))
-    scroll_view.add_widget(nobles_list)
-    main_layout.add_widget(scroll_view)
-
-    # --- Панель действий ---
-    actions_layout = BoxLayout(size_hint_y=None, height=UIStyles.get_btn_height() + dp(10), spacing=dp(8))
-    btn_secret = StyledButton(text="Тайная служба", color=UIStyles.COLOR_DANGER)
-    btn_secret.bind(on_release=lambda inst: show_secret_service_popup(conn, lambda res: None, cash_player, lambda: refresh_list()))
-    btn_event = StyledButton(text="Мероприятие", color=UIStyles.COLOR_ACTION)
-    btn_event.bind(on_release=lambda inst: show_event_popup(conn, player_faction, season_index, lambda: refresh_list(), cash_player))
-
-    actions_layout.add_widget(btn_secret)
-    actions_layout.add_widget(btn_event)
-    main_layout.add_widget(actions_layout)
-
-    # Кнопка закрытия
-    btn_close = StyledButton(text="Закрыть", color=(0.5, 0.5, 0.5, 1), size_hint_y=None, height=UIStyles.get_btn_height())
-    btn_close.bind(on_release=lambda inst: popup.dismiss())
-    main_layout.add_widget(btn_close)
-
+    root = BoxLayout(orientation='vertical', padding=dp(8), spacing=dp(8))
+    root._responsive_keep_geometry = True
+    summary = text_label('', 12, UIStyles.COLOR_GOLD, markup=True, size_hint_y=None, height=dp(44))
+    summary.halign = 'center'
+    root.add_widget(summary)
+    scroll = ScrollView(do_scroll_x=False)
+    grid = GridLayout(cols=1, size_hint_y=None, spacing=dp(8))
+    grid.bind(minimum_height=grid.setter('height'))
+    scroll.add_widget(grid)
+    root.add_widget(scroll)
+    actions = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(8))
+    event = StrategyButton(text='Мероприятие', primary=True)
+    close = StrategyButton(text='Закрыть')
+    actions.add_widget(event)
+    actions.add_widget(close)
+    root.add_widget(actions)
+    popup = Popup(title='Королевский совет', content=root, size_hint=(.98, .96))
+    popup.advisor_grid = grid
+    def fit_grid(*args):
+        grid.cols = min(max(1, len(grid.children)), max(1, int(grid.width / dp(200))))
+    grid.bind(width=fit_grid)
     def refresh_list():
-        nobles_list.clear_widgets()
-        all_nobles = get_all_nobles(conn)
-        for noble in all_nobles:
-            nobles_list.add_widget(NobleCard(noble, conn, cash_player, refresh_list))
-        # Обновляем суммарные бонусы
-        bonus_summary_label.text = _build_bonus_summary(all_nobles)
-
+        grid.clear_widgets()
+        nobles = [n for n in get_all_nobles(conn) if n.get('status') == 'active']
+        events = get_events_count_from_history(conn)
+        disloyal = sum((n.get('loyalty') or 0) < 30 for n in nobles)
+        summary.text = _build_bonus_summary(nobles)
+        for noble in nobles:
+            card = surface(NaturalList(padding=dp(8), spacing=dp(6)), UIStyles.COLOR_CARD)
+            # A compact column shows every advisor's information and actions together.
+            name = text_label(noble['name'], 15, UIStyles.COLOR_GOLD, bold=True, size_hint_y=None, height=dp(24))
+            card.add_widget(name)
+            loyalty = noble.get('loyalty') or 0
+            info = dict(noble, show_loyalty=events >= 3, calculated_loyalty=int(loyalty),
+                        coup_attempt_chance=coup_probabilities(loyalty, disloyal)[0],
+                        coup_success_chance=coup_probabilities(loyalty, disloyal)[1])
+            agent = SecretServiceCard(info, conn, cash_player, None, refresh_list, events)
+            risk = agent._get_status_text()
+            details = f"Лояльность: {int(loyalty)}%"
+            card.add_widget(text_label(details, 12, UIStyles.COLOR_TEXT, size_hint_y=None, height=dp(22)))
+            card.add_widget(text_label(NobleCard._get_status_text(None, noble), 11,
+                                       UIStyles.COLOR_TEXT_DIM, markup=True, size_hint_y=None, height=dp(20)))
+            card.add_widget(text_label(get_noble_trait_text(noble), 12, UIStyles.COLOR_TEXT_DIM, markup=True,
+                                       size_hint_y=None, height=dp(22)))
+            card.add_widget(text_label(get_noble_bonus_text(noble) or 'Нет активного бонуса', 12,
+                                       UIStyles.COLOR_SUCCESS, markup=True, size_hint_y=None, height=dp(30)))
+            card.add_widget(text_label(risk.split('  |  ')[-1], 11, UIStyles.COLOR_TEXT_DIM, markup=True,
+                                       size_hint_y=None, height=dp(26)))
+            buttons = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(6))
+            eliminate = StrategyButton(text='Устранить · 100 тыс.', accent=UIStyles.COLOR_DANGER, font_size=sp(12))
+            eliminate.bind(on_release=lambda widget, agent=agent: agent._handle_elimination())
+            buttons.add_widget(eliminate)
+            if get_noble_traits(noble.get('ideology', ''))['type'] == 'greed':
+                deal = StrategyButton(text='Договориться', font_size=sp(12))
+                deal.bind(on_release=lambda widget, noble=noble: show_deal_popup(conn, noble, cash_player, refresh_list))
+                buttons.add_widget(deal)
+            card.add_widget(buttons)
+            grid.add_widget(card)
+        fit_grid()
+    event.bind(on_release=lambda *_: show_event_popup(conn, player_faction, get_current_season_index(conn), refresh_list, cash_player))
+    close.bind(on_release=lambda *_: popup.dismiss())
     refresh_list()
-
-    popup = Popup(
-        title="Королевский совет",
-        content=main_layout,
-        size_hint=(0.95, 0.9) if not UIStyles.is_android() else (1, 1),
-        pos_hint={'center_x': 0.5, 'center_y': 0.5},
-        background_color=(0.07, 0.08, 0.13, 1),
-        separator_color=(0.72, 0.55, 0.18, 0.75),
-        title_color=(1.0, 0.88, 0.50, 1),
-        title_size=sp(17),
-        title_align='center'
-    )
     popup.open()
+    return popup
 
-def show_deal_popup(conn, noble_data, cash_player):
+
+def show_deal_popup(conn, noble_data, cash_player, refresh_callback=None):
     """Красивое окно сделки с улучшенной проверкой баланса"""
     noble_traits = get_noble_traits(noble_data['ideology'])
     if noble_traits['type'] != 'greed':
@@ -427,9 +359,19 @@ def show_deal_popup(conn, noble_data, cash_player):
     btn_pay = StyledButton(text="Заплатить", color=UIStyles.COLOR_SUCCESS)
     btn_cancel = StyledButton(text="Отмена", color=(0.5, 0.5, 0.5, 1))
 
+    paid = False
     def do_pay(*args):
+        nonlocal paid
+        if paid:
+            return
+        if not conn.execute("SELECT 1 FROM nobles WHERE id=? AND status='active'", (noble_data['id'],)).fetchone():
+            popup.dismiss()
+            return
         if cash_player.deduct_resources(demand):
+            paid = True
             if pay_greedy_noble(conn, noble_data['id'], demand):
+                if callable(refresh_callback):
+                    refresh_callback()
                 # ИЗМЕНЕНО: Используем тост вместо попапа с заголовком
                 show_toast_notification("Ближайшие 3 мероприятия моя лояльность к Вам будет расти!", is_success=True, duration=1.0)
                 popup.dismiss()
@@ -649,39 +591,7 @@ from nobles_generator import (
 
 from utils.helpers import format_number
 
-class CalculateCash:
-    def __init__(self, faction, class_faction):
-        self.faction = faction
-        self.class_faction = class_faction
-        self.resources = self.load_resources()
-
-    def load_resources(self):
-        try:
-            resources = {
-                "Кроны": self.class_faction.get_resource_now("Кроны"),
-                "Рабочие": self.class_faction.get_resource_now("Рабочие")
-            }
-            return resources
-        except Exception as e:
-            print(f"Ошибка при загрузке ресурсов: {e}")
-            return {"Кроны": 0, "Рабочие": 0}
-
-    def deduct_resources(self, crowns, workers=0):
-        try:
-            current_crowns = self.class_faction.get_resource_now("Кроны")
-            current_workers = self.class_faction.get_resource_now("Рабочие")
-            if current_crowns < crowns or current_workers < workers:
-                return False
-            self.class_faction.update_resource_now("Кроны", current_crowns - crowns)
-            if workers > 0:
-                self.class_faction.update_resource_now("Рабочие", current_workers - workers)
-            self.resources["Кроны"] = current_crowns - crowns
-            if workers > 0:
-                self.resources["Рабочие"] = current_workers - workers
-            return True
-        except Exception as e:
-            print(f"Ошибка при списании ресурсов: {e}")
-            return False
+from diversion import CalculateCash
 
 def get_current_season_index(conn):
     cursor = conn.cursor()
@@ -721,154 +631,9 @@ def get_events_count_from_history(conn):
     return max(all_lengths) if all_lengths else 0
 
 def show_secret_service_popup(conn, on_result_callback, cash_player, refresh_main_list_callback):
-    """Показывает всплывающее окно для Тайной службы (стильное, адаптивное)"""
-    COST_SECRET_SERVICE = 100_000
-    _is_mobile = UIStyles.is_android()
+    # Compatibility for old callers: the service now lives in the council.
+    return show_nobles_window(conn, cash_player.faction, cash_player.class_faction)
 
-    cash_player.load_resources()
-    current_money = cash_player.resources.get("Кроны", 0)
-
-    if current_money < COST_SECRET_SERVICE:
-        shortage = COST_SECRET_SERVICE - current_money
-        show_insufficient_funds_popup(COST_SECRET_SERVICE, current_money, shortage)
-        return
-
-    events_count = get_events_count_from_history(conn)
-
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-        SELECT id, name, loyalty, status, ideology, attendance_history
-        FROM nobles
-        WHERE status = 'active'
-        ORDER BY name ASC
-        """)
-        all_active_nobles = cursor.fetchall()
-        disloyal_count = sum(1 for row in all_active_nobles
-                             if row[2] is not None and row[2] < 30)
-        nobles_data = []
-        for row in all_active_nobles:
-            attempt_chance, success_chance = coup_probabilities(row[2], disloyal_count)
-            noble_dict = {
-                'id': row[0], 'name': row[1], 'loyalty': row[2],
-                'status': row[3], 'ideology': row[4], 'attendance_history': row[5],
-                'coup_attempt_chance': attempt_chance,
-                'coup_success_chance': success_chance,
-            }
-            if events_count >= 3:
-                noble_dict['show_loyalty'] = True
-                noble_dict['show_views'] = True
-                noble_dict['calculated_loyalty'] = int(noble_dict['loyalty']) if noble_dict['loyalty'] is not None else None
-            else:
-                noble_dict['show_loyalty'] = False
-                noble_dict['show_views'] = False
-                noble_dict['calculated_loyalty'] = None
-            nobles_data.append(noble_dict)
-    except Exception as e:
-        print(f"[ERROR] Ошибка при получении списка активных дворян: {e}")
-        show_result_popup("Ошибка", "Ошибка получения списка целей.", False)
-        return
-
-    if not nobles_data:
-        show_result_popup("Ошибка", "Нет доступных целей.", False)
-        return
-
-    # Основной контейнер
-    main_layout = BoxLayout(orientation='vertical', padding=[dp(10), dp(8)], spacing=dp(6))
-    with main_layout.canvas.before:
-        Color(0.06, 0.07, 0.11, 1)
-        main_layout._bg = RoundedRectangle(pos=main_layout.pos, size=main_layout.size, radius=[dp(12)])
-    main_layout.bind(
-        pos=lambda i, v: setattr(i._bg, 'pos', v),
-        size=lambda i, v: setattr(i._bg, 'size', v)
-    )
-
-    # Заголовок
-    header = Label(
-        text="[b]Тайная служба[/b]",
-        font_size=sp(18) if not _is_mobile else sp(16),
-        color=(0.85, 0.25, 0.25, 1),
-        markup=True,
-        size_hint_y=None,
-        height=dp(36),
-        halign='center'
-    )
-    header.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    main_layout.add_widget(header)
-
-    # Подзаголовок: стоимость + баланс
-    cost_info = Label(
-        text=f"[color=#AAAAAA]Цена операции:[/color] [b]{format_number(COST_SECRET_SERVICE)}[/b] крон"
-             f"   |   [color=#AAAAAA]Баланс:[/color] [b]{format_number(int(current_money))}[/b] крон",
-        font_size=sp(12) if not _is_mobile else sp(10),
-        color=(0.8, 0.8, 0.8, 1),
-        markup=True,
-        size_hint_y=None,
-        height=dp(22),
-        halign='center'
-    )
-    cost_info.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    main_layout.add_widget(cost_info)
-
-    risk_info = Label(
-        text="Риск попытки при текущей лояльности; успех — шанс захватить власть.",
-        font_size=sp(11) if not _is_mobile else sp(9),
-        color=(0.65, 0.65, 0.7, 1), size_hint_y=None, height=dp(22),
-        halign='center'
-    )
-    risk_info.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-    main_layout.add_widget(risk_info)
-
-    # Разделитель
-    sep = Widget(size_hint_y=None, height=dp(1))
-    with sep.canvas:
-        Color(0.3, 0.15, 0.15, 0.6)
-        sep._line = Rectangle(pos=sep.pos, size=sep.size)
-    sep.bind(pos=lambda i, v: setattr(i._line, 'pos', v),
-             size=lambda i, v: setattr(i._line, 'size', v))
-    main_layout.add_widget(sep)
-
-    # Список целей
-    scroll_view = ScrollView(do_scroll_x=False, size_hint_y=1)
-    nobles_list = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(5))
-    nobles_list.bind(minimum_height=nobles_list.setter('height'))
-    scroll_view.add_widget(nobles_list)
-    main_layout.add_widget(scroll_view)
-
-    # Кнопка закрыть
-    btn_cancel = Button(
-        text="Закрыть", size_hint_y=None, height=dp(38),
-        font_size=sp(14) if not _is_mobile else sp(12),
-        bold=True,
-        background_normal='', background_color=(0, 0, 0, 0),
-        color=(0.9, 0.9, 0.9, 1)
-    )
-    with btn_cancel.canvas.before:
-        Color(0.15, 0.15, 0.22, 0.95)
-        btn_cancel._rr = RoundedRectangle(pos=btn_cancel.pos, size=btn_cancel.size, radius=[dp(8)])
-    btn_cancel.bind(pos=lambda i, v: setattr(i._rr, 'pos', v),
-                    size=lambda i, v: setattr(i._rr, 'size', v))
-    main_layout.add_widget(btn_cancel)
-
-    popup = Popup(
-        title="",
-        content=main_layout,
-        size_hint=(0.85 if not _is_mobile else 0.95, 0.85 if not _is_mobile else 0.92),
-        pos_hint={'center_x': 0.5, 'center_y': 0.5},
-        background_color=(0.04, 0.05, 0.09, 0.98),
-        separator_height=0
-    )
-
-    btn_cancel.bind(on_release=lambda *args: popup.dismiss())
-
-    def refresh_list():
-        nobles_list.clear_widgets()
-        for noble_data in nobles_data:
-            card = SecretServiceCard(noble_data, conn, cash_player, popup, refresh_main_list_callback, events_count)
-            nobles_list.add_widget(card)
-
-    refresh_list()
-    popup.open()
 
 def show_insufficient_funds_popup(required, current, shortage):
     """
@@ -1085,8 +850,17 @@ class SecretServiceCard(BoxLayout):
 
         btn_layout = BoxLayout(size_hint_y=None, height=UIStyles.get_btn_height(), spacing=dp(10))
 
+        handled = False
         def do_eliminate(*args):
+            nonlocal handled
+            if handled:
+                return
+            handled = True
             confirm_popup.dismiss()
+            if not self.conn.execute("SELECT 1 FROM nobles WHERE id=? AND status='active'", (self.noble_data['id'],)).fetchone():
+                if callable(self.refresh_callback):
+                    self.refresh_callback()
+                return
             deduction_success = self.cash_player.deduct_resources(self.COST_SECRET_SERVICE)
             if deduction_success:
                 result = attempt_secret_service_action(
@@ -1310,7 +1084,13 @@ def show_event_popup(conn, player_faction, season_index, refresh_callback, cash_
         separator_height=0
     )
 
+    confirmed = False
     def on_confirm(instance):
+        nonlocal confirmed
+        if confirmed:
+            return
+        confirmed = True
+        instance.disabled = True
         popup.dismiss()
         success = cash_player.deduct_resources(total_cost)
         if success:

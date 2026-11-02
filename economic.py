@@ -123,60 +123,8 @@ class Faction:
             return []
 
     def _get_supplied_cities(self):
-        """
-        Возвращает множество названий городов фракции, которые связаны
-        дорогами с основной территорией (наибольшая связная компонента).
-        Города вне основной территории считаются отрезанными от снабжения.
-        """
-        try:
-            self.cursor.execute("SELECT id, name, faction FROM cities")
-            all_cities = self.cursor.fetchall()
-            id_to_name = {cid: name for cid, name, _ in all_cities}
-            id_to_faction = {cid: faction for cid, _, faction in all_cities}
-            own_city_ids = {cid for cid, faction in id_to_faction.items() if faction == self.faction}
-
-            if not own_city_ids:
-                return set()
-
-            self.cursor.execute("SELECT city1, city2 FROM roads")
-            all_roads = self.cursor.fetchall()
-            adjacency = {}
-            for c1, c2 in all_roads:
-                adjacency.setdefault(c1, []).append(c2)
-                adjacency.setdefault(c2, []).append(c1)
-
-            # Находим все связные компоненты среди городов фракции
-            visited = set()
-            components = []
-            for start_id in own_city_ids:
-                if start_id in visited:
-                    continue
-                component = set()
-                queue = [start_id]
-                visited.add(start_id)
-                while queue:
-                    current = queue.pop(0)
-                    component.add(current)
-                    for neighbor in adjacency.get(current, []):
-                        if neighbor in visited or neighbor not in own_city_ids:
-                            continue
-                        visited.add(neighbor)
-                        queue.append(neighbor)
-                components.append(component)
-
-            if not components:
-                return set()
-
-            main_component = max(components, key=len)
-            return {id_to_name[cid] for cid in main_component}
-        except Exception as e:
-            print(f"[ERROR] _get_supplied_cities: {e}")
-            # Фоллбэк: все города фракции
-            try:
-                self.cursor.execute("SELECT name FROM cities WHERE faction = ?", (self.faction,))
-                return {r[0] for r in self.cursor.fetchall()}
-            except Exception:
-                return set()
+        from utils.faction_bonuses import supplied_cities
+        return supplied_cities(self.conn, self.faction)
 
     def _apply_supply_line_losses(self):
         """
@@ -903,38 +851,9 @@ class Faction:
             return "Смирение"
 
     def _get_council_bonuses(self):
-        """Рассчитывает бонусы от советников с лояльностью > 50%."""
-        import json
-        crowns_pct = 0
-        crystals_pct = 0
-        try:
-            self.cursor.execute("SELECT loyalty, ideology FROM nobles WHERE status = 'active'")
-            for loyalty, ideology_str in self.cursor.fetchall():
-                if loyalty < 50:
-                    continue
-                bonus_pct = min(int((loyalty - 50) / 5), 10)
-
-                try:
-                    if isinstance(ideology_str, str) and ideology_str.startswith('{'):
-                        traits = json.loads(ideology_str)
-                    elif isinstance(ideology_str, str) and ideology_str.startswith("Любит "):
-                        traits = {'type': 'race_love'}
-                    else:
-                        traits = {'type': 'ideology', 'value': ideology_str}
-                except Exception:
-                    continue
-
-                if traits.get('type') == 'ideology':
-                    if traits.get('value') == 'Борьба':
-                        crystals_pct += bonus_pct
-                    else:
-                        crowns_pct += bonus_pct
-                elif traits.get('type') == 'greed':
-                    crowns_pct += bonus_pct // 2
-                    crystals_pct += bonus_pct // 2
-        except Exception as e:
-            print(f"[Совет] Ошибка расчёта бонусов: {e}")
-        return crowns_pct, crystals_pct
+        from utils.faction_bonuses import council_bonuses
+        bonuses = council_bonuses(self.conn, self.faction)
+        return bonuses["crowns"], bonuses["crystals"]
 
     def apply_player_bonuses(self):
         bonuses = {}
@@ -1797,9 +1716,14 @@ class Faction:
             return  # Цена уже сгенерирована для этого хода
 
         # Генерация новой цены
-        if current_turn == 1 or not self.raw_material_price_history:
+        if not self.raw_material_price_history:
             self.current_raw_material_price = round(random.uniform(76.3, 148.7), 2)
-            self.raw_material_price_history.append(self.current_raw_material_price)
+            # 34 предыдущие котировки: плавная случайная история
+            # заканчивается фактической ценой первого хода и создаётся один раз.
+            history = [self.current_raw_material_price]
+            for _ in range(34):
+                history.append(round(max(76.3, min(148.7, history[-1] + random.uniform(-4.5, 4.5))), 2))
+            self.raw_material_price_history.extend(reversed(history))
         else:
             # Генерация изменения цены (дробное число)
             price_change = random.uniform(-4.5, 4.5)
@@ -1808,9 +1732,8 @@ class Faction:
             self.current_raw_material_price = round(max(76.3, min(148.7, self.current_raw_material_price)), 2)
             self.raw_material_price_history.append(self.current_raw_material_price)
 
-        # Ограничение длины истории цен до 25 элементов
-        if len(self.raw_material_price_history) > 25:
-            self.raw_material_price_history.pop(0)
+        # Сохраняем стартовую историю и последующие котировки.
+        del self.raw_material_price_history[:-60]
 
         # Обновляем значение последнего загруженного хода
         self.last_turn_loaded = current_turn
@@ -2153,11 +2076,85 @@ def open_trade_popup(game_instance):
     arrow_color = (0, 1, 0, 1) if current_price > prev_price else \
         (1, 0, 0, 1) if current_price < prev_price else (0.8, 0.8, 0.8, 1)
 
-    # Карточка-заголовок с ценой
+    # История биржевых котировок в кронах за один кристалл.
+    chart = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(160), spacing=dp(3))
+    change_pct = (current_price / prev_price - 1) * 100 if prev_price else 0
+    chart.add_widget(Label(text=f'КРИСТАЛЛ / КРОНА    {change_pct:+.2f}% за ход', font_size=sp(12),
+                           color=arrow_color, size_hint_y=None, height=dp(20)))
+    plot = Widget(size_hint_y=None, height=dp(90))
+    chart.add_widget(plot)
+    history = [price / 100 for price in game_instance.raw_material_price_history[-60:]] or [current_price / 100]
+    chart.add_widget(Label(text=f'{min(history):.2f} — {max(history):.2f} крон  ·  '
+                                f'Котировок: {len(history)}',
+                           font_size=sp(11), color=(0.65, 0.75, 0.88, 1),
+                           size_hint_y=None, height=dp(18)))
+
+    def draw_price_history(*args):
+        from kivy.graphics import Line, Ellipse, Mesh
+        from kivy.core.text import Label as ChartLabel
+        plot.canvas.clear()
+        left, bottom = plot.x + dp(10), plot.y + dp(22)
+        width, height = max(1, plot.width - dp(74)), max(1, plot.height - dp(32))
+        low, high = min(history), max(history)
+        margin = max((high - low) * .15, .01)
+        low, high = low - margin, high + margin
+        points = []
+        for index, price in enumerate(history):
+            x = left + width * index / max(1, len(history) - 1)
+            y = bottom + height * (price - low) / (high - low)
+            points.extend((x, y))
+
+        def caption(text, x, y, color=(.58, .66, .77, 1)):
+            label = ChartLabel(text=text, font_size=sp(10), color=color)
+            label.refresh()
+            Color(1, 1, 1, 1)
+            Rectangle(texture=label.texture, pos=(x, y - label.texture.height / 2), size=label.texture.size)
+
+        trend_color = (.22, .82, .65, 1) if history[-1] >= history[0] else (.96, .34, .40, 1)
+        with plot.canvas:
+            Color(.045, .065, .095, 1)
+            RoundedRectangle(pos=plot.pos, size=plot.size, radius=[dp(8)])
+            ticks = (0, .5, 1) if height < dp(100) else (0, .25, .5, .75, 1)
+            for fraction in ticks:
+                Color(.24, .31, .40, .45)
+                Line(points=[left, bottom + height * fraction, left + width, bottom + height * fraction], width=1)
+                caption(f'{low + (high - low) * fraction:.2f}', left + width + dp(8), bottom + height * fraction)
+            for fraction in (0, .25, .5, .75, 1):
+                Color(.24, .31, .40, .3)
+                x = left + width * fraction
+                Line(points=[x, bottom, x, bottom + height], width=1)
+            caption('Раньше', left, plot.y + dp(9))
+            caption('Сейчас', max(left, left + width - dp(36)), plot.y + dp(9))
+            # Полупрозрачная область под линией: реальные котировки без выдуманных OHLC.
+            Color(*trend_color[:3], .12)
+            vertices = []
+            for index in range(0, len(points), 2):
+                x, y = points[index:index + 2]
+                vertices.extend((x, bottom, 0, 0, x, y, 0, 0))
+            if len(history) > 1:
+                Mesh(vertices=vertices, indices=list(range(len(history) * 2)), mode='triangle_strip')
+            Color(*trend_color)
+            if len(history) > 1:
+                Line(points=points, width=dp(1.5))
+            # Пунктир и ценник последней котировки, как в торговом терминале.
+            Color(*arrow_color[:3], .65)
+            Line(points=[left, points[-1], left + width, points[-1]],
+                 width=1, dash_length=dp(4), dash_offset=dp(3))
+            Color(*arrow_color)
+            Ellipse(pos=(points[-2] - dp(3), points[-1] - dp(3)), size=(dp(6), dp(6)))
+            RoundedRectangle(pos=(left + width + dp(3), points[-1] - dp(9)),
+                             size=(dp(54), dp(18)), radius=[dp(3)])
+            caption(f'{history[-1]:.2f}', left + width + dp(9), points[-1], (.03, .05, .08, 1))
+
+    plot.bind(pos=draw_price_history, size=draw_price_history)
+    draw_price_history()
+    trade_layout.add_widget(chart)
+
+    # Единая строка с ценой за единицу перед выбором объёма.
     price_card = BoxLayout(
         orientation='vertical',
         size_hint=(1, None),
-        height=dp(92),
+        height=dp(48),
         spacing=dp(10),
         padding=[dp(14), dp(8), dp(14), dp(8)]
     )
@@ -2167,10 +2164,8 @@ def open_trade_popup(game_instance):
     price_card.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
                     size=lambda i, v: setattr(i._bg, 'size', v))
 
-    _bonus_pct = int((trade_bonus - 1.0) * 100)
-    _bonus_text = f"  [color=#44dd44](бонус +{_bonus_pct}%)[/color]" if _bonus_pct > 0 else ""
     current_price_label = Label(
-        text=f"[b]Цена 1 лота (100 ед.):[/b]  {current_price} крон{_bonus_text}",
+        text=f"[b]Цена за 1 ед кристалла:[/b] {current_price / 100:.2f} крон.",
         markup=True,
         font_size=sp(16),
         color=arrow_color,
@@ -2180,21 +2175,6 @@ def open_trade_popup(game_instance):
     )
     current_price_label.bind(size=current_price_label.setter('text_size'))
     price_card.add_widget(current_price_label)
-
-    # === СООТНОШЕНИЕ СДЕЛКИ (компактная строка) ===
-    deal_ratio = round(current_price / 100, 2)
-    ratio_label = Label(
-        text=f"[b]Соотношение:[/b] [color=#44dd44]{deal_ratio}[/color] крон/ед. Кристалла",
-        markup=True,
-        font_size=sp(13),
-        color=(0.7, 0.75, 0.85, 1),
-        halign="center",
-        valign="middle",
-        size_hint=(1, None),
-        height=dp(26)
-    )
-    ratio_label.bind(size=ratio_label.setter('text_size'))
-    price_card.add_widget(ratio_label)
 
     # === ЧЕКБОКС "ПРОДАТЬ ВСЁ" ===
     sell_all_layout = BoxLayout(
@@ -2222,20 +2202,11 @@ def open_trade_popup(game_instance):
     sell_all_layout.add_widget(sell_all_checkbox)
     sell_all_layout.add_widget(sell_all_label)
     sell_all_layout.add_widget(Widget())  # Заполнитель
-    # Price and the optional full-sale switch share a row, leaving the slider
-    # and both transaction buttons visible on landscape phones.
-    top_row = BoxLayout(size_hint_y=None, height=dp(90), spacing=dp(12))
-    price_card.size_hint = (0.72, 1)
-    sell_all_layout.size_hint = (0.28, 1)
     sell_all_label.size_hint_x = 1
-    sell_all_label.font_size = sp(16)
-    sell_all_label.text = 'Продать\nвсё'
     sell_all_checkbox.size = (dp(40), dp(40))
     sell_all_checkbox.pos_hint = {'center_y': .5}
     sell_all_layout.remove_widget(sell_all_layout.children[0])  # unused spacer
-    top_row.add_widget(price_card)
-    top_row.add_widget(sell_all_layout)
-    trade_layout.add_widget(top_row)
+    trade_layout.add_widget(price_card)
     trade_layout.padding = dp(8)
     trade_layout.spacing = dp(8)
 
@@ -2326,7 +2297,7 @@ def open_trade_popup(game_instance):
             trade_info_label.text = f"Продать ВСЁ: {format_number(crystals_spent)} кристаллов за {format_number(income)} крон{extra_txt}"
             trade_info_label.color = (1, 0, 0, 1)
             buy_btn.disabled = True
-            sell_btn.disabled = False
+            sell_btn.disabled = (max_sell_lots <= 0)
         else:
             # Возвращаем слайдер в нейтральное положение
             trade_slider.disabled = False
@@ -2339,37 +2310,31 @@ def open_trade_popup(game_instance):
     slider_layout.add_widget(trade_info_label)
     slider_layout.add_widget(trade_slider)
     trade_layout.add_widget(slider_layout)
+    trade_layout.add_widget(sell_all_layout)
 
     # === ДОБАВЛЕНИЕ КНОПОК В LAYOUT ===
     button_layout = BoxLayout(spacing=dp(16), size_hint=(1, None), height=dp(60))
     button_layout.add_widget(buy_btn)
     button_layout.add_widget(sell_btn)
     trade_layout.add_widget(button_layout)
+    # Keep volume controls visible; only the chart and quote can scroll on short screens.
+    from kivy.uix.scrollview import ScrollView
+    visuals = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(8))
+    visuals.bind(minimum_height=visuals.setter('height'))
+    trade_layout.remove_widget(chart)
+    trade_layout.remove_widget(price_card)
+    visuals.add_widget(chart)
+    visuals.add_widget(price_card)
+    quote_scroll = ScrollView(do_scroll_x=False)
+    quote_scroll.add_widget(visuals)
+    trade_layout.add_widget(quote_scroll, index=len(trade_layout.children))
+    trade_layout._responsive_keep_geometry = True
 
-    trade_layout.remove_widget(top_row)
-    trade_layout.remove_widget(slider_layout)
-    trade_body = BoxLayout(orientation='vertical', spacing=dp(8))
-    trade_body.add_widget(top_row)
-    trade_body.add_widget(slider_layout)
-    trade_layout.add_widget(trade_body, index=len(trade_layout.children))
     def fit_trade(*args):
-        from kivy.core.window import Window
-        short = Window.height < dp(330) and Window.width >= dp(480)
-        trade_body.orientation = 'horizontal' if short else 'vertical'
-        top_row.orientation = 'vertical' if short else 'horizontal'
-        top_row.size_hint = (.5, 1) if short else (1, None)
-        top_row.height = dp(90)
-        top_row.spacing = dp(6 if short else 12)
-        price_card.size_hint = (1, 1) if short else (.72, 1)
-        price_card.padding = [dp(8), dp(4)] if short else [dp(14), dp(8)]
-        sell_all_layout.size_hint = (1, None) if short else (.28, 1)
-        sell_all_layout.height = dp(48)
-        sell_all_label.text = 'Продать всё' if short else 'Продать\nвсё'
-        ratio_label.opacity = 0 if short else 1
-        ratio_label.height = 0 if short else dp(26)
-        slider_layout.size_hint = (.5, 1) if short else (1, None)
-        slider_layout.height = dp(80)
-        trade_info_label.font_size = sp(15 if short else 18)
+        chart.height = dp(120 if trade_layout.height < dp(430) else 220)
+        plot.height = chart.height - dp(44)
+        current_price_label.font_size = sp(13 if trade_layout.width < dp(420) else 16)
+        trade_info_label.font_size = sp(13 if trade_layout.width < dp(420) else 16)
     trade_layout.bind(size=fit_trade)
     fit_trade()
 
@@ -2450,188 +2415,46 @@ def handle_trade(game_instance, action, quantity, trade_popup):
 
 # -----------------------------------
 def open_tax_popup(faction):
-    is_android = platform == 'android'
-    popup_size_hint = (0.88, 0.72) if is_android else (0.60, 0.60)
-
+    from strategy_ui import StrategyButton
+    from kivy.core.window import Window
     try:
-        current_tax_rate = int(faction.current_tax_rate.strip('%')) \
-            if isinstance(faction.current_tax_rate, str) else int(faction.current_tax_rate)
-    except:
-        current_tax_rate = 0
-
-    def _effect_color(effect):
-        if effect > 0:
-            return (0.35, 1.0, 0.45, 1)
-        elif effect < 0:
-            return (1.0, 0.38, 0.38, 1)
-        return (1.0, 0.90, 0.35, 1)
-
-    def _effect_text(effect):
-        prefix = "+" if effect > 0 else ""
-        return f"{prefix}{effect}% прироста населения"
-
-    # === Основной контейнер со скроллом ===
-    outer_layout = BoxLayout(orientation='vertical', spacing=0)
-    with outer_layout.canvas.before:
-        Color(0.07, 0.08, 0.13, 1)
-        outer_layout._bg = Rectangle(pos=outer_layout.pos, size=outer_layout.size)
-    outer_layout.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-                      size=lambda i, v: setattr(i._bg, 'size', v))
-
-    main_layout = BoxLayout(orientation='vertical',
-                            padding=[dp(16), dp(12)], spacing=dp(10))
-
-    # === Карточка с отображением налога ===
-    card = FloatLayout(size_hint_y=None, height=dp(104))
-    card._responsive_min_height = dp(104)
-    from strategy_ui import frame
-    frame(card)
-    with card.canvas.before:
-        Color(0.12, 0.15, 0.24, 1)
-        card._bg = RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(12)])
-    card.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-              size=lambda i, v: setattr(i._bg, 'size', v))
-
-    initial_effect = faction.tax_effect(current_tax_rate)
-    tax_label = Label(
-        text=f"Налог: {current_tax_rate}%",
-        color=(0.65, 0.88, 1, 1),
-        font_size=sp(22) if is_android else sp(20),
-        bold=True,
-        halign='center',
-        valign='middle',
-        size_hint_y=None,
-        height=dp(30)
-    )
-    tax_label.bind(size=tax_label.setter('text_size'))
-    effect_label = Label(
-        text=_effect_text(initial_effect),
-        color=_effect_color(initial_effect),
-        font_size=sp(14),
-        halign='center',
-        size_hint_y=None,
-        height=dp(22)
-    )
-    effect_label.bind(size=effect_label.setter('text_size'))
-    card.add_widget(tax_label)
-    card.add_widget(effect_label)
-    def center_tax_amount(*args):
-        tax_label.size_hint = effect_label.size_hint = (None, None)
-        tax_label.size = (max(1, card.width - dp(20)), max(dp(32), tax_label.font_size * 1.3))
-        tax_label.pos = (card.x + dp(10), card.center_y - tax_label.height / 2)
-        effect_label.size = (tax_label.width, dp(22))
-        effect_label.pos = (tax_label.x, tax_label.y - effect_label.height - dp(6))
-    card.bind(pos=center_tax_amount, size=center_tax_amount)
-    center_tax_amount()
-    main_layout.add_widget(card)
-
-    # === Статус налогов ===
-    tax_status_text = "Налоги установлены" if faction.tax_set else "Налоги не установлены!"
-    tax_status_color = (0.4, 0.85, 0.5, 1) if faction.tax_set else (1.0, 0.45, 0.35, 1)
-    tax_status = Label(
-        text=tax_status_text,
-        font_size=sp(13) if is_android else sp(12),
-        bold=True,
-        color=tax_status_color,
-        halign='center',
-        size_hint_y=None,
-        height=dp(22)
-    )
-    tax_status.bind(size=tax_status.setter('text_size'))
-    main_layout.add_widget(tax_status)
-
-    # === Ползунок ===
-    slider_container = BoxLayout(orientation='vertical', size_hint_y=None,
-                                 height=dp(54) if is_android else dp(48),
-                                 padding=[0, dp(6)])
-    tax_slider = Slider(
-        min=0, max=100, value=current_tax_rate, step=1,
-        orientation='horizontal',
-        size_hint=(1, 1),
-        background_width=dp(8),
-        cursor_size=(dp(36), dp(36)),
-        value_track=False
-    )
-
-    def update_tax_label(instance, value):
-        rate = int(value)
-        effect = faction.tax_effect(rate)
-        tax_label.text = f"Налог: {rate}%"
-        effect_label.text = _effect_text(effect)
-        effect_label.color = _effect_color(effect)
-
-    tax_slider.bind(value=update_tax_label)
-    slider_container.add_widget(tax_slider)
-    main_layout.add_widget(slider_container)
-
-    # === Кнопка "Применить" ===
-    set_tax_button = Button(
-        text="Применить",
-        size_hint=(1, None),
-        height=dp(46) if is_android else dp(42),
-        background_color=(0, 0, 0, 0),
-        color=(1, 1, 1, 1),
-        font_size=sp(18) if is_android else sp(16),
-        bold=True
-    )
-    with set_tax_button.canvas.before:
-        set_tax_button._bc = Color(0.18, 0.55, 0.22, 1)
-        set_tax_button._br = RoundedRectangle(
-            size=set_tax_button.size, pos=set_tax_button.pos, radius=[dp(12)]
-        )
-    set_tax_button.bind(
-        pos=lambda i, v: setattr(i._br, 'pos', v),
-        size=lambda i, v: setattr(i._br, 'size', v)
-    )
-
-    def set_tax(instance):
-        tax_rate = int(tax_slider.value)
-        faction.current_tax_rate = f"{tax_rate}%"
-        faction.set_taxes(tax_rate)
-        faction.apply_tax_effect(tax_rate)
+        current_rate = int(str(faction.current_tax_rate).rstrip('%'))
+    except (ValueError, TypeError):
+        current_rate = 0
+    content = BoxLayout(orientation='vertical', padding=dp(12), spacing=dp(8))
+    content._responsive_keep_geometry = True
+    summary = BoxLayout(size_hint_y=None, height=dp(36))
+    amount = Label(text=f'Налог: {current_rate}%', bold=True, font_size=sp(21),
+                   halign='center', valign='middle')
+    amount.bind(size=amount.setter('text_size'))
+    summary.add_widget(amount)
+    content.add_widget(summary)
+    status = Label(text='Установлен на этот ход' if faction.tax_set else 'Не установлен на этот ход',
+                   color=(.5, .85, .55, 1) if faction.tax_set else (1, .65, .3, 1),
+                   size_hint_y=None, height=dp(28), font_size=sp(13))
+    content.add_widget(status)
+    slider = Slider(min=0, max=100, value=current_rate, step=1, size_hint_y=None, height=dp(48))
+    slider.bind(value=lambda widget, value: setattr(amount, 'text', f'Налог: {int(value)}%'))
+    content.add_widget(slider)
+    apply = StrategyButton(text='Установить налог', primary=True, size_hint_y=None, height=dp(48))
+    content.add_widget(apply)
+    popup = Popup(title='Налоги', content=content, size_hint=(None, None),
+                  size=(min(Window.width - dp(16), dp(560)), min(Window.height - dp(16), dp(276))))
+    def set_tax(button):
+        if button.disabled:
+            return
+        button.disabled = True
+        rate = int(slider.value)
+        faction.current_tax_rate = f'{rate}%'
+        faction.set_taxes(rate)
+        faction.apply_tax_effect(rate)
         from tutorial import notify_event
         notify_event('tax_set')
-        tax_status.text = "Налоги установлены"
-        tax_status.color = (0.4, 0.85, 0.5, 1)
-        tax_popup.dismiss()
-
-    set_tax_button.bind(on_release=set_tax)
-    main_layout.add_widget(set_tax_button)
-
-    # Put the rate preview beside the status and slider on landscape screens.
-    # The Apply action remains a separate, pinned footer.
-    main_layout.remove_widget(set_tax_button)
-    main_layout.remove_widget(tax_status)
-    main_layout.remove_widget(slider_container)
-    tax_controls = BoxLayout(orientation='vertical', spacing=dp(6))
-    tax_controls.add_widget(tax_status)
-    tax_controls.add_widget(slider_container)
-    main_layout.add_widget(tax_controls)
-    def fit_tax(*args):
-        from kivy.core.window import Window
-        wide = Window.width >= dp(480)
-        main_layout.orientation = 'horizontal' if wide else 'vertical'
-        card.size_hint = (.52, 1) if wide else (1, None)
-        tax_controls.size_hint = (.48, 1) if wide else (1, 1)
-    main_layout.bind(size=fit_tax)
-    fit_tax()
-    outer_layout.add_widget(main_layout)
-    outer_layout.add_widget(set_tax_button)
-
-    tax_popup = Popup(
-        title="Управление налогами",
-        content=outer_layout,
-        size_hint=(0.94, 0.96),
-        background_color=(0.07, 0.08, 0.13, 1),
-        separator_color=(0.25, 0.72, 0.35, 0.7),
-        title_color=(0.65, 0.88, 1, 1),
-        title_size=sp(18) if is_android else sp(16),
-        title_align='center',
-        auto_dismiss=True
-    )
-    tax_popup.open()
-    tax_popup.tax_card = card
-    tax_popup.tax_amount_label = tax_label
+        popup.dismiss()
+    apply.bind(on_release=set_tax)
+    popup.tax_card, popup.tax_amount_label = summary, amount
+    popup.open()
+    return popup
 
 
 def open_auto_build_popup(faction):

@@ -28,6 +28,7 @@ import random
 import sqlite3
 from db_lerdon_connect import *
 import copy
+from utils.faction_bonuses import NORTH_MULTIPLIER, ADEPT_MULTIPLIER, VAMPIRE_RATE, ELF_RATE, PEAK_SEASONS
 
 
 # ======================================================================
@@ -61,14 +62,7 @@ TYPE_MOD = {
 
 
 # Пиковые сезоны фракций (для бонусов способностей)
-FACTION_PEAK_SEASON = {
-    'Север': 0,    # Зима
-    'Вампиры': 1,  # Весна
-    'Эльфы': 2,    # Лето
-    'Адепты': 3,   # Осень
-    'Элины': 2,    # Лето
-    'Нежить': 0,   # Зима — Ужас Смерти усиливается
-}
+FACTION_PEAK_SEASON = PEAK_SEASONS
 
 
 def _get_season_mult(faction, conn):
@@ -330,8 +324,8 @@ def battle_chain(attacker, defender, city, user_faction, conn,
         def_attack += def_hero_bonus[0]
         def_defense += def_hero_bonus[1] + def_hero_bonus[2] / 2.0
 
-    # Север: Шквал — если итоговый урон >= 20x от базового, урон x1.7 (в свой сезон x2.975)
-    shkval_mult = 1.70 * _get_season_mult('Север', conn) if atk_fraction == 'Север' or def_fraction == 'Север' else 1.70
+    # Север: Шквал — при 20x от базового урона +80%, с сезонным усилением.
+    shkval_mult = NORTH_MULTIPLIER * _get_season_mult('Север', conn) if atk_fraction == 'Север' or def_fraction == 'Север' else NORTH_MULTIPLIER
     if atk_fraction == 'Север' and get_unit_class(attacker) == 1 and atk_base_attack > 0:
         if atk_attack / atk_base_attack >= 20.0:
             atk_attack = int(atk_attack * shkval_mult)
@@ -339,10 +333,10 @@ def battle_chain(attacker, defender, city, user_faction, conn,
         if def_attack / def_base_attack >= 20.0:
             def_attack = int(def_attack * shkval_mult)
 
-    # Адепты: Оплот — если защита увеличена в 20+ раз от базовой (артефакты героя), +35% защиты
+    # Адепты: Оплот — если защита увеличена в 20+ раз от базовой, +55% защиты.
     atk_base_defense = calculate_unit_power(attacker, is_attacking=False)
     def_base_defense = calculate_unit_power(defender, is_attacking=False)
-    oplot_mult = 1.35 * _get_season_mult('Адепты', conn) if atk_fraction == 'Адепты' or def_fraction == 'Адепты' else 1.35
+    oplot_mult = ADEPT_MULTIPLIER * _get_season_mult('Адепты', conn) if atk_fraction == 'Адепты' or def_fraction == 'Адепты' else ADEPT_MULTIPLIER
     if atk_fraction == 'Адепты' and get_unit_class(attacker) == 1 and atk_base_defense > 0:
         if atk_defense / atk_base_defense >= 20.0:
             atk_defense = int(atk_defense * oplot_mult)
@@ -601,11 +595,11 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     def _season_mult(faction):
         return _get_season_mult(faction, conn)
 
-    # Север: Шквал — реализуется в battle_chain (x1.7 при 20x множителе)
+    # Север: Шквал — реализуется в battle_chain (x1.8 при 20x множителе)
     # В пиковый сезон порог снижается (множитель Шквала передаётся через atk_fraction)
 
-    # Эльфы: Природное исцеление — 10% погибших возвращаются в строй после боя
-    # (в свой сезон Лето: 27.5%)
+    # Эльфы: Природное исцеление — 60% погибших возвращаются в строй после боя
+    # (в свой сезон Лето: 100%, в остальные сезоны: 60%)
     # Реализуется после боя в _apply_elf_healing
 
     # Нежить: Ужас Смерти — -15% атаки у врагов (в Зиму -25%)
@@ -918,8 +912,8 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         else:
             u['killed_count'] = 0
 
-    # Вампиры: Вампиризм — 5% убитых врагов воскресают (в свой сезон 8.75%)
-    vamp_rate = 0.05 * _season_mult('Вампиры') if _season_mult('Вампиры') > 1 else 0.05
+    # Вампиры: Вампиризм — 15% убитых врагов, в свой сезон 41.25%.
+    vamp_rate = VAMPIRE_RATE * _season_mult('Вампиры')
     def _apply_vampirism(vampire_army, enemy_army, faction):
         if faction != 'Вампиры':
             return
@@ -942,8 +936,8 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     _apply_vampirism(atk_army, def_army, attacking_fraction)
     _apply_vampirism(def_army, atk_army, defending_fraction)
 
-    # Эльфы: Природное исцеление — 10% своих погибших возвращаются в строй (в Лето 27.5%)
-    elf_heal_rate = 0.10 * _season_mult('Эльфы') if _season_mult('Эльфы') > 1 else 0.10
+    # Эльфы: 60% своих погибших возвращаются в строй, летом — 100%.
+    elf_heal_rate = 1.0 if _season_mult('Эльфы') > 1 else ELF_RATE
     def _apply_elf_healing(army, faction):
         if faction != 'Эльфы':
             return

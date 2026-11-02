@@ -121,11 +121,12 @@ class WindowThemeTests(unittest.TestCase):
                                   apply_tax_effect=lambda rate: calls.append(('effect', rate)))
         namespace['open_tax_popup'](faction)
         from kivy.core.window import Window
-        popup = next(widget for widget in Window.children if isinstance(widget, Popup) and widget.title == 'Управление налогами')
+        popup = next(widget for widget in Window.children if isinstance(widget, Popup) and widget.title == 'Налоги')
         self.popups.append(popup)
         slider = next(widget for widget in popup.content.walk() if isinstance(widget, Slider))
         slider.value = 35
-        button = next(widget for widget in popup.content.walk() if isinstance(widget, Button) and widget.text == 'Применить')
-        self.assertTrue(hasattr(button, '_window_button_skin'))
+        button = next(widget for widget in popup.content.walk() if isinstance(widget, Button) and widget.text == 'Установить налог')
+        from strategy_ui import StrategyButton
+        self.assertIsInstance(button, StrategyButton)
         button.dispatch('on_release')
         self.assertEqual(calls, [('tax', 35), ('effect', 35)])

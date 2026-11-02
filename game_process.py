@@ -1105,7 +1105,8 @@ class GameScreen(Screen):
             self.conn.commit()
 
             # Обновляем UI ресурсов
-            self.faction.load_resources()
+            from utils.resource_payments import sync_resources
+            sync_resources(self.conn, self.selected_faction, self.faction)
             self.resource_box.update_resources()
 
             # Перерисовка карты если дипломатия изменилась (союз, мир)
@@ -1146,33 +1147,11 @@ class GameScreen(Screen):
         ai_gives_type = type_map.get(ai_gives_type, ai_gives_type)
         player_gives_type = type_map.get(player_gives_type, player_gives_type)
 
-        # Проверяем хватает ли у игрока ресурсов
-        player_has = self.faction.resources.get(player_gives_type, 0)
-        if player_has < player_gives_amount:
-            return f"Недостаточно {player_gives_type}! Нужно {player_gives_amount}, у вас {int(player_has)}."
-
-        # Выполняем обмен: игрок отдаёт → AI получает, AI отдаёт → игрок получает
-        # Игрок
-        self.faction.resources[player_gives_type] -= player_gives_amount
-        self.faction.resources[ai_gives_type] = self.faction.resources.get(ai_gives_type, 0) + ai_gives_amount
-
-        # Обновляем внутренние поля Faction
-        if player_gives_type == 'Кроны':
-            self.faction.money -= player_gives_amount
-        elif player_gives_type == 'Кристаллы':
-            self.faction.raw_material -= player_gives_amount
-        if ai_gives_type == 'Кроны':
-            self.faction.money += ai_gives_amount
-        elif ai_gives_type == 'Кристаллы':
-            self.faction.raw_material += ai_gives_amount
-
-        self.faction.save_resources_to_db()
-
-        # AI фракция: обратный обмен
-        cursor.execute("UPDATE resources SET amount = amount - ? WHERE faction=? AND resource_type=?",
-                        (ai_gives_amount, faction_name, ai_gives_type))
-        cursor.execute("UPDATE resources SET amount = amount + ? WHERE faction=? AND resource_type=?",
-                        (player_gives_amount, faction_name, player_gives_type))
+        from utils.resource_payments import exchange_resources, sync_resources
+        if not exchange_resources(self.conn, self.selected_faction, faction_name,
+                                  player_gives_type, player_gives_amount, ai_gives_type, ai_gives_amount):
+            return 'Сделка отменена: у одной из сторон недостаточно ресурсов.'
+        sync_resources(self.conn, self.selected_faction, self.faction)
 
         # Улучшаем отношения
         cursor.execute("""

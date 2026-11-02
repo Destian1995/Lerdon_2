@@ -23,6 +23,9 @@ def combat_namespace():
                 continue
             nodes.append(node)
     namespace = dict(random=random.Random(8), sqlite3=sqlite3, copy=copy, os=os)
+    from utils.faction_bonuses import NORTH_MULTIPLIER, ADEPT_MULTIPLIER, VAMPIRE_RATE, ELF_RATE, PEAK_SEASONS
+    namespace.update(NORTH_MULTIPLIER=NORTH_MULTIPLIER, ADEPT_MULTIPLIER=ADEPT_MULTIPLIER,
+                     VAMPIRE_RATE=VAMPIRE_RATE, ELF_RATE=ELF_RATE, FACTION_PEAK_SEASON=PEAK_SEASONS)
     exec(compile(ast.Module(body=nodes, type_ignores=[]), str(source), 'exec'), namespace)
     namespace['damage_to_infrastructure'] = lambda *args: None
     namespace['_get_season_mult'] = lambda *args: 1
