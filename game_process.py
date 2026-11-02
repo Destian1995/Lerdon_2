@@ -36,6 +36,11 @@ def refresh_map():
             gs.game_state_manager.faction.refresh_from_db()
         if hasattr(gs, 'resource_box'):
             gs.resource_box.update_resources()
+        # Capture/arrival must be visible in the same frame, before map polling.
+        if gs.parent:
+            for widget in list(gs.parent.children):
+                if getattr(widget, '_map_atmosphere', None) is not None:
+                    widget.update_cities(0)
 
 
 # Список всех фракций
@@ -1695,6 +1700,8 @@ class GameScreen(Screen):
             if hasattr(self, '_turn_overlay') and self._turn_overlay:
                 self._turn_overlay.dismiss()
                 self._turn_overlay = None
+            from troop_movement import play_ai_marches
+            Clock.schedule_once(lambda dt: play_ai_marches(self), 0.3)
 
     def _check_council_loyalty_warning(self):
         """Предупреждение если средняя лояльность советников ниже 40%"""

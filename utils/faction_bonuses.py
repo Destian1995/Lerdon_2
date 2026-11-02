@@ -31,6 +31,37 @@ def combat_multiplier(faction, conn):
     return base * season_multiplier(faction, season)
 
 
+def combat_bonus_status(faction, attack, defense, durability, hero_bonus=(0, 0, 0)):
+    """Use battle_chain's threshold before experience, morale and other effects."""
+    if faction == 'Север':
+        base, extra, name = attack, hero_bonus[0], 'Шквал'
+    elif faction == 'Адепты':
+        base = max(defense + durability / 2.0, 1)
+        extra, name = hero_bonus[1] + hero_bonus[2] / 2.0, 'Оплот'
+    else:
+        return '', False, 0, 0
+    boosted = base + extra
+    return name, base > 0 and boosted / base >= 20, base, boosted
+
+
+def garrison_bonus_status(conn, faction):
+    """Count eligible troop stacks using the heroes currently in each city."""
+    cities = defaultdict(list)
+    for city, unit_class, attack, defense, durability in conn.execute('''
+            SELECT g.city_name,u.unit_class,u.attack,u.defense,u.durability
+            FROM garrisons g JOIN units u ON u.unit_name=g.unit_name
+            WHERE u.faction=? AND g.unit_count>0''', (faction,)):
+        cities[city].append((str(unit_class), attack or 0, defense or 0, durability or 0))
+    active, total = 0, 0
+    for units in cities.values():
+        heroes = tuple(sum(u[i] for u in units if u[0] in ('2', '3')) for i in (1, 2, 3))
+        for cls, attack, defense, durability in units:
+            if cls == '1':
+                total += 1
+                active += combat_bonus_status(faction, attack, defense, durability, heroes)[1]
+    return active, total
+
+
 def council_bonuses(conn, faction=None):
     """Match resource, trade and relation formulas, including the greed split."""
     try:

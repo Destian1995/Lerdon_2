@@ -88,8 +88,15 @@ class CityEffects:
         self.flags = []
         self._battle_key = self._flag_key = None
         self.captures = []
+        self._deferred_captures = {}
         self.time = 0.0
         self.capture_time = 0.0
+
+    def release_capture(self, city, faction):
+        kind = self._deferred_captures.pop((city, faction), None)
+        current = self._cities.get(city)
+        if kind and current and current[2] == faction:
+            self.play(city, kind, faction)
 
     def _sprite(self, group, rgb, alpha=0):
         color = Color(*rgb, alpha)
@@ -142,7 +149,7 @@ class CityEffects:
             for mask in (self._standard_mask, self._standard_unmask):
                 mask.pos, mask.size = (x, y), (width, height)
 
-    def sync(self, cities, states, turn, heroes=()):
+    def sync(self, cities, states, turn, heroes=(), deferred=()):
         """Baseline saved events on first view; redraws never replay celebrations."""
         self._cities = {name: (x, y, faction) for name, x, y, faction in cities}
         revisions = {name: state.revision for name, state in states.items()}
@@ -152,9 +159,15 @@ class CityEffects:
                 changed = name in self._owners and self._owners[name] != faction
                 new_event = state and state.revision != self._seen.get(name, 0)
                 if new_event and state.turn == turn:
-                    self.play(name, state.kind, faction)
+                    if (name, faction) in deferred:
+                        self._deferred_captures[name, faction] = state.kind
+                    else:
+                        self.play(name, state.kind, faction)
                 elif changed:
-                    self.play(name, 'peace', faction)
+                    if (name, faction) in deferred:
+                        self._deferred_captures[name, faction] = 'peace'
+                    else:
+                        self.play(name, 'peace', faction)
         self._seen = revisions
         self._owners = {name: value[2] for name, value in self._cities.items()}
         self._sync_flags(heroes)
@@ -326,7 +339,7 @@ class CityEffects:
             group.add(color)
             group.add(shape)
             particles.append((color, shape, rng.random() * math.tau, rng.uniform(0.65, 1.3), rng.random()))
-        title = {'peace': 'Мирное присоединение', 'battle_capture': 'Город захвачен',
+        title = {'peace': f'{city} захвачен', 'battle_capture': f'{city} захвачен',
                  'battle': 'Битва завершена', 'rebuild': 'Город восстановлен'}.get(kind, 'Новый владелец')
         label = CoreLabel(text=title, font_size=14, bold=True, color=(1, 0.92, 0.72, 1),
                           outline_width=1, outline_color=(0.03, 0.04, 0.06, 1))

@@ -132,7 +132,7 @@ class AIEconomyTests(unittest.TestCase):
         counts = []
         with patch.object(strategy, 'assess_situation', return_value=ai._situation), \
                 patch.object(strategy, 'apply_leader_pressure'), patch.object(strategy, 'ensure_scout_unit'), \
-                patch.object(strategy, 'early_expansion'), patch.object(strategy, 'rally_units_to_hero'):
+                patch.object(strategy, 'early_expansion'), patch.object(strategy, 'rally_units_to_frontier'):
             for _ in range(6):
                 strategy.make_turn_v2(ai)
                 counts.append(self.db.execute('SELECT SUM(count) FROM buildings').fetchone()[0])

@@ -1126,6 +1126,7 @@ def show_faction_bonuses_popup(conn, faction):
     from utils.faction_bonuses import (
         FACTION_ABILITIES, NORTH_MULTIPLIER, ADEPT_MULTIPLIER, VAMPIRE_RATE,
         ELF_RATE, season_multiplier, council_bonuses, current_effect_rows, supplied_cities,
+        garrison_bonus_status,
     )
     cursor = conn.cursor()
     cursor.execute("SELECT season_index FROM season LIMIT 1")
@@ -1165,6 +1166,15 @@ def show_faction_bonuses_popup(conn, faction):
                       ('Торговля: суммарный бонус', f'+{trade_pct:g}%',
                        f"Фракция {25 * multiplier:g}% + рынки {markets * 10}% + советники {council['trade']:g}%"),
                       ('Перемещения / атаки', '2', 'За ход')]
+
+    if faction in ('Север', 'Адепты'):
+        active, total = garrison_bonus_status(conn, faction)
+        status = '[color=66CC66]Применяется[/color]' if active else 'Не применяется'
+        bonus_rows.append(('Статус бонуса', status,
+                           f'Активен у {active} из {total} отрядов в текущих гарнизонах; порог ×20 до опыта и морали'))
+    else:
+        bonus_rows.append(('Статус бонуса', '[color=66CC66]Применяется[/color]',
+                           'Автоматически при выполнении условий способности'))
 
     # === UI ===
     from kivy.uix.scrollview import ScrollView

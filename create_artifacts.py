@@ -310,6 +310,10 @@ def workshop(faction, db_conn):
     #  ЭКРАН 2 — Характеристики
     # ==================================================================
     def screen2(layout):
+        # This form owns its geometry: the generic dialog flow otherwise expands
+        # every slider/card and hides the season and budget below the viewport.
+        layout._responsive_keep_geometry = True
+        from kivy.uix.gridlayout import GridLayout
         _fn = getattr(faction, 'faction', '')
         _MAX = 12_000_000 if _fn == 'Элины' else 9_900_000
         _max_stats = _MAX - 50_000
@@ -363,7 +367,10 @@ def workshop(faction, db_conn):
                         size_hint_y=None, height=dp(36),
                         cursor_size=(dp(26), dp(26)) if is_android else (dp(22), dp(22)))
         ar.add_widget(atk_sl)
-        layout.add_widget(ar)
+        stats = GridLayout(cols=2, spacing=dp(6))
+        ar.size_hint_y = 1
+        atk_sl.size_hint_y = 1
+        stats.add_widget(ar)
 
         # Защита
         dr = BoxLayout(orientation='vertical', spacing=dp(1), size_hint_y=None, height=dp(64),
@@ -380,7 +387,11 @@ def workshop(faction, db_conn):
                         size_hint_y=None, height=dp(36),
                         cursor_size=(dp(26), dp(26)) if is_android else (dp(22), dp(22)))
         dr.add_widget(def_sl)
-        layout.add_widget(dr)
+        dr.size_hint_y = 1
+        def_sl.size_hint_y = 1
+        stats.add_widget(dr)
+        stats.bind(width=lambda widget, width: setattr(widget, 'cols', 2 if width >= dp(560) else 1))
+        layout.add_widget(stats)
 
         # Сезон
         sp_row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(34),
@@ -441,8 +452,6 @@ def workshop(faction, db_conn):
         tp.add_widget(total_lbl)
         tp.add_widget(budget_lbl)
         layout.add_widget(tp)
-
-        layout.add_widget(BoxLayout(size_hint_y=1))
 
         bot = BoxLayout(orientation='horizontal', size_hint_y=None,
                         height=btn_height + dp(8), spacing=dp(8),

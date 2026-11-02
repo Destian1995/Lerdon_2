@@ -70,6 +70,87 @@ def movement_busy(owner):
     return bool(getattr(_screen(owner), '_troop_movement_busy', False))
 
 
+def deferred_ai_captures(conn):
+    from types import SimpleNamespace
+    return set(getattr(_screen(SimpleNamespace(conn=conn)), '_ai_march_destinations', ()))
+
+
+def queue_ai_march(conn, faction, source, destination, units):
+    """Record a committed AI move; no graphics are touched by the AI thread."""
+    from types import SimpleNamespace
+    screen = _screen(SimpleNamespace(conn=conn))
+    if screen is None or source == destination:
+        return
+    chain = movement_city_route(conn, source, destination, faction)
+    if len(chain) < 2:
+        return
+    count = sum(unit['unit_count'] for unit in units)
+    if count <= 0:
+        return
+    total = conn.execute('''SELECT COALESCE(SUM(g.unit_count),0) FROM garrisons g
+        JOIN units u ON u.unit_name=g.unit_name WHERE u.faction=?''', (faction,)).fetchone()[0]
+    if not hasattr(screen, '_ai_march_queue'):
+        screen._ai_march_queue = []
+    if not hasattr(screen, '_ai_march_destinations'):
+        screen._ai_march_destinations = set()
+    screen._ai_march_destinations.add((destination, faction))
+    screen._ai_march_queue.append((tuple(chain), faction, count, max(total, count), destination))
+
+
+def play_ai_marches(screen):
+    """Replay AI routes once the turn overlay has left the map."""
+    pending = getattr(screen, '_ai_march_queue', [])
+    screen._ai_march_queue = []
+    if not pending:
+        return
+    if not screen.parent:
+        screen._ai_march_destinations.clear()
+        return
+    map_widget = next((w for w in screen.parent.children
+                       if getattr(w, '_map_atmosphere', None) is not None), None)
+    if map_widget is None:
+        screen._ai_march_destinations.clear()
+        return
+    from map_terrain import city_sprite_size
+    coords = {cid: ast.literal_eval(raw) for cid, raw in screen.conn.execute('SELECT id,coordinates FROM cities')}
+    grouped = {}
+    for chain, faction, count, total, destination in pending:
+        key = (chain, faction, destination)
+        previous = grouped.get(key, (0, total))
+        grouped[key] = (previous[0] + count, max(previous[1], total))
+    if hasattr(map_widget, '_sync_map_atmosphere'):
+        map_widget._sync_map_atmosphere()
+    remaining = [len(grouped)]
+    end_turn = getattr(screen, 'end_turn_button', None)
+    was_disabled = end_turn.disabled if end_turn else False
+    screen._troop_movement_busy = True
+    if end_turn:
+        end_turn.disabled = True
+    for (chain, faction, destination), (count, total) in grouped.items():
+        def provider(chain=chain):
+            size = city_sprite_size(map_widget.map_scale)
+            centers = {cid: (map_widget.map_pos[0] + x * map_widget.map_scale + size / 2,
+                             map_widget.map_pos[1] + y * map_widget.map_scale + size * 30 / 77)
+                       for cid, (x, y) in coords.items()}
+            return rendered_route(map_widget._road_geometry, chain, centers)
+        def arrive(destination=destination, faction=faction, completed=[False]):
+            if completed[0]:
+                return
+            completed[0] = True
+            screen._ai_march_destinations.discard((destination, faction))
+            map_widget._map_atmosphere.city_effects.release_capture(destination, faction)
+            remaining[0] -= 1
+            if remaining[0] == 0:
+                screen._troop_movement_busy = False
+                if end_turn:
+                    end_turn.disabled = was_disabled
+        if provider() is not None:
+            spec = (provider, max(1, army_size_level(total, count)), faction, count)
+            map_widget._map_atmosphere.marches.play_batch([spec], arrive, arrive)
+        else:
+            arrive()
+
+
 def animate_transfer(owner, grouped):
     screen = _screen(owner)
     if not screen or not screen.parent:

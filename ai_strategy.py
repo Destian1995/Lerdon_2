@@ -752,6 +752,8 @@ def attack_city_v2(self, city_name, faction):
                     "units_stats": {"Урон": a, "Защита": d, "Живучесть": du, "Класс юнита": str(uc)}
                 })
 
+        from troop_movement import queue_ai_march
+        queue_ai_march(self.db_connection, self.faction, allied_city, city_name, attacking_army)
         result = fight(
             attacking_city=allied_city, defending_city=city_name,
             defending_army=self.get_defending_army(city_name),
@@ -930,6 +932,8 @@ def early_expansion(self):
 
     print(f"[AI] {self.faction} (ход {self.turn+1}): отправляет 1 '{chosen['unit_name']}' на нейтрала {target_city}.")
     try:
+        from troop_movement import queue_ai_march
+        queue_ai_march(self.db_connection, self.faction, allied_city, target_city, attacking_army)
         result = fight(
             attacking_city=allied_city, defending_city=target_city,
             defending_army=self.get_defending_army(target_city),
@@ -1097,6 +1101,14 @@ def rally_units_to_hero(self):
         print(f"[AI] rally_units_to_hero: {e}")
 
 
+def rally_units_to_frontier(self):
+    from utils.ai_frontline import rally_frontier
+    plan = rally_frontier(self)
+    if plan is None:
+        rally_units_to_hero(self)
+    return plan
+
+
 # ============================================================
 # 11. УЛУЧШЕННЫЙ make_turn — расписание v6
 # ============================================================
@@ -1206,8 +1218,8 @@ def make_turn_v2(self):
                     if self.resources.get('Кроны', 0) > 0:
                         self.hire_army()
 
-                    # Шаг 6: стягиваем юнитов к герою
-                    rally_units_to_hero(self)
+                    # Шаг 6: собираем армию с героями у выбранной границы
+                    rally_units_to_frontier(self)
 
                 else:
                     # БОЕВАЯ ФАЗА: стандартное расписание
@@ -1231,9 +1243,9 @@ def make_turn_v2(self):
                     if self.resources.get('Кроны', 0) > 0:
                         self.hire_army()
 
-                    # Шаг 3.5: стягиваем разбросанных юнитов 1 класса к герою
-                    _diag(self, "шаг 3.5: rally_units_to_hero")
-                    rally_units_to_hero(self)
+                    # Шаг 3.5: подготовка приграничного гарнизона
+                    _diag(self, "шаг 3.5: rally_units_to_frontier")
+                    rally_units_to_frontier(self)
 
                     # Шаг 4: войны и атаки
                     _war_rounds = 2 if self.faction == 'Элины' else 1
@@ -1253,6 +1265,9 @@ def make_turn_v2(self):
                 self.send_proactive_diplomacy()
                 self.send_help_request_if_needed()
                 self.send_mercy_request_if_needed()
+
+                # Keep freshly hired and surviving troops at the current border.
+                rally_units_to_frontier(self)
 
         self.save_all_data()
         self.turn += 1
@@ -1292,6 +1307,7 @@ def apply_ai_improvements(AIControllerCls):
     AIControllerCls.ensure_scout_unit = ensure_scout_unit
     AIControllerCls.emergency_sell_crystals = emergency_sell_crystals
     AIControllerCls.rally_units_to_hero = rally_units_to_hero
+    AIControllerCls.rally_units_to_frontier = rally_units_to_frontier
     AIControllerCls._find_closest_own_city_in_range = _find_closest_own_city_in_range
 
     print("[AI] Стратегические улучшения ИИ применены (ai_strategy v6).")

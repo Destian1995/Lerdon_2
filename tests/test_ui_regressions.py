@@ -170,6 +170,8 @@ class UIRegressionTests(unittest.TestCase):
                 CREATE TABLE roads(city1 INTEGER, city2 INTEGER);
                 CREATE TABLE buildings(city_name TEXT, faction TEXT, building_type TEXT, count INTEGER);
                 CREATE TABLE nobles(loyalty REAL, ideology TEXT, status TEXT);
+                CREATE TABLE units(unit_name TEXT,unit_class TEXT,attack REAL,defense REAL,durability REAL,faction TEXT);
+                CREATE TABLE garrisons(city_name TEXT,unit_name TEXT,unit_count INTEGER);
                 INSERT INTO nobles VALUES(80,'Смирение','active'),(75,'Борьба','active');
                 INSERT INTO cities VALUES(1,'Столица','Вампиры');
                 INSERT INTO buildings VALUES('Столица','Вампиры','Рынок',2);
@@ -184,6 +186,9 @@ class UIRegressionTests(unittest.TestCase):
                     popup = next(w for w in Window.children if isinstance(w, Popup))
                     texts = [w.text for w in popup.content.walk() if isinstance(w, Label)]
                     self.assertIn(f'[b]{expected}[/b]', texts)
+                    self.assertTrue(any('Статус бонуса' in text for text in texts))
+                    if faction in ('Север', 'Адепты'):
+                        self.assertTrue(any('Не применяется' in text for text in texts))
                     self.assertTrue(any('+6% доход крон; +5% добыча кристаллов; +5.5%' in text for text in texts))
                     self.assertFalse(any('Лояльные (>50%)' in text or '27.5%' in text for text in texts))
                     if faction == 'Вампиры':

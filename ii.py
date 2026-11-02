@@ -2275,6 +2275,9 @@ class AIController:
 
             self.db_connection.commit()
             print(f"Передислокация {unit_count} юнитов {unit_name} из {from_city_name} в {to_city_name} выполнена.")
+            from troop_movement import queue_ai_march
+            queue_ai_march(self.db_connection, self.faction, from_city_name, to_city_name,
+                           [dict(unit_count=unit_count)])
         except sqlite3.Error as e:
             print(f"Ошибка при передислокации: {e}")
 
@@ -2393,6 +2396,8 @@ class AIController:
                     }
                 })
 
+        from troop_movement import queue_ai_march
+        queue_ai_march(self.db_connection, self.faction, allied_city, city_name, attacking_army)
         # Запуск боя
         result = fight(
             attacking_city=allied_city,
@@ -2769,6 +2774,8 @@ class AIController:
                         }
                     })
 
+            from troop_movement import queue_ai_march
+            queue_ai_march(self.db_connection, self.faction, allied_city, city_name, attacking_army)
             # Запуск боя
             result = fight(
                 attacking_city=allied_city,
@@ -2944,6 +2951,9 @@ class AIController:
             our_strength = army_strength.get(self.faction, 0)
             print("our_strength:", type(our_strength), our_strength)
 
+            from utils.ai_frontline import choose_frontier, prepare_border_war
+            frontier = choose_frontier(self.db_connection, self.faction, self.relations, army_strength)
+
             for faction, relationship in self.relations.items():
                 # Никогда не атакуем союзников
                 if self.is_faction_ally(faction):
@@ -2981,6 +2991,8 @@ class AIController:
                 # Условия для объявления войны
                 if self.turn < 10:
                     continue
+                if frontier is None or faction != frontier.faction:
+                    continue
 
                 # Порог войны зависит от идеологии
                 other_system = self.load_political_system_for_faction(faction)
@@ -3006,6 +3018,9 @@ class AIController:
 
                     # Объявляем войну если сильнее хотя бы на 5%
                     if effective_our > 1.05 * enemy_strength:
+                        if not prepare_border_war(self, faction):
+                            print(f"{self.faction}: собираем армию у границы с {faction} перед войной.")
+                            continue
                         print(f"Отношения с {faction} < 30%. "
                               f"Сила: {effective_our:.0f} vs {enemy_strength}. Объявление войны.")
                         self.update_diplomacy_status(faction, "война")
@@ -4882,6 +4897,9 @@ class AIController:
 
             if not attack_units:
                 return
+
+            from troop_movement import queue_ai_march
+            queue_ai_march(self.db_connection, self.faction, from_city, target_city, attack_units)
 
             # Вычитаем из гарнизона
             for unit in attack_units:

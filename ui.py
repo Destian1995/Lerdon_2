@@ -1100,27 +1100,22 @@ class FortressInfoPopup(Popup):
                     else:
                         _exp_mult = 1.0
 
-                    from utils.faction_bonuses import combat_multiplier
+                    from utils.faction_bonuses import combat_multiplier, combat_bonus_status
                     _faction_mult = combat_multiplier(self.ai_fraction, self.conn)
+                    _bonus_name, _bonus_active, _, _bonus_power = combat_bonus_status(
+                        self.ai_fraction, unit_attack, unit_defense, unit_durability,
+                        (_hero_bonus_atk, _hero_bonus_def, _hero_bonus_dur))
                     _faction_bonus_text = None
-                    if self.ai_fraction == 'Север' and unit_attack > 0 and (unit_attack + _hero_bonus_atk) / unit_attack >= 20:
-                        _total_atk = int((unit_attack + _hero_bonus_atk) * _faction_mult * _exp_mult)
-                        _faction_bonus_text = f"[color=#FF6644]Шквал\n{format_number(_total_atk)}\nATK[/color]"
-                    elif self.ai_fraction == 'Адепты' and _hero_bonus_def > 0:
-                        _base_def = unit_defense
-                        _boosted_def = (unit_defense + _hero_bonus_def + _hero_bonus_dur / 2) * _exp_mult
-                        # Оплот: если защита увеличена в 20+ раз, +55% с сезонным усилением
-                        if _base_def > 0 and _boosted_def / _base_def >= 20.0:
-                            _total_def = int(_boosted_def * _faction_mult)
-                            _faction_bonus_text = f"[color=#44AAFF]Оплот\n{format_number(_total_def)}\nЗАЩ[/color]"
+                    if _bonus_name:
+                        if _bonus_active:
+                            _faction_bonus_text = f'[color=#66CC66]{_bonus_name}\nПрименяется\n{format_number(int(_bonus_power * _faction_mult * _exp_mult))}[/color]'
                         else:
-                            _total_def = int(_boosted_def)
-                            _faction_bonus_text = f"[color=#44AAFF]{format_number(_total_def)}\nЗАЩ[/color]"
+                            _faction_bonus_text = f'[color=#999999]{_bonus_name}\nНе применяется[/color]'
                     if _faction_bonus_text:
                         _fb_lbl = Label(
                             text=_faction_bonus_text, markup=True,
                             font_size=sp(9), halign='center', valign='middle',
-                            size_hint=(None, 1), width=dp(65)
+                            size_hint=(None, 1), width=dp(100)
                         )
                         _fb_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
                         card.add_widget(_fb_lbl)
@@ -1216,7 +1211,7 @@ class FortressInfoPopup(Popup):
         # Формат: (base+hero) × count = total (для юнитов класса 1)
         _cnt = max(count, 1)
         _has_hero = unit_class == '1' and (hero_bonus_atk > 0 or hero_bonus_def > 0 or hero_bonus_dur > 0)
-        if unit_class == '1' and _cnt > 1:
+        if unit_class == '1':
             _eff_atk = attack + hero_bonus_atk
             _eff_def = defense + hero_bonus_def
             _eff_dur = durability + hero_bonus_dur
@@ -1238,11 +1233,12 @@ class FortressInfoPopup(Popup):
             elif _exp_m > 1.0:
                 _eff_atk = int(_eff_atk * _exp_m)
             # Адепты: Оплот — если защита увеличена в 20+ раз, +55% с сезонным усилением
-            if self.ai_fraction == 'Адепты' and hero_bonus_def > 0 and defense > 0:
-                if _eff_def / defense >= 20.0:
-                    _eff_def = int(_eff_def * _faction_mult * _exp_m)
-                elif _exp_m > 1.0:
-                    _eff_def = int(_eff_def * _exp_m)
+            from utils.faction_bonuses import combat_bonus_status
+            _oplot_name, _oplot_active, _, _combat_def = combat_bonus_status(
+                self.ai_fraction, attack, defense, durability,
+                (hero_bonus_atk, hero_bonus_def, hero_bonus_dur))
+            if _oplot_name == 'Оплот' and _oplot_active:
+                _eff_def = int(_combat_def * _faction_mult * _exp_m)
             elif _exp_m > 1.0:
                 _eff_def = int(_eff_def * _exp_m)
             if _has_hero:
@@ -1250,9 +1246,8 @@ class FortressInfoPopup(Popup):
                     _atk_text = f'Шквал: {format_number(_eff_atk)} × {format_number(_cnt)} = {format_number(_eff_atk * _cnt)}'
                 else:
                     _atk_text = f'({format_number(attack)}+{format_number(hero_bonus_atk)}) × {format_number(_cnt)} = {format_number(_eff_atk * _cnt)}'
-                if self.ai_fraction == 'Адепты' and hero_bonus_def > 0 and defense > 0 and (defense + hero_bonus_def) / defense >= 20.0:
-                    _oplot_bonus = int((defense + hero_bonus_def) * (_faction_mult - 1))
-                    _def_text = f'Оплот: ({format_number(defense)}+{format_number(hero_bonus_def)}+{format_number(_oplot_bonus)}) × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'
+                if _oplot_name == 'Оплот' and _oplot_active:
+                    _def_text = f'Оплот: {format_number(_eff_def)} × {format_number(_cnt)} = {format_number(_eff_def * _cnt)} (с ½ живучести)'
                 else:
                     _def_text = f'({format_number(defense)}+{format_number(hero_bonus_def)}) × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'
                 _dur_text = f'({format_number(durability)}+{format_number(hero_bonus_dur)}) × {format_number(_cnt)} = {format_number(_eff_dur * _cnt)}'
@@ -1310,6 +1305,18 @@ class FortressInfoPopup(Popup):
                 ('Живучесть',  'files/pict/hire/health.png', _dur_text),
                 ('Класс',      'files/pict/hire/class.png',  unit_class),
             ]
+
+        if unit_class == '1':
+            from utils.faction_bonuses import combat_bonus_status, combat_multiplier
+            name, active, _, _ = combat_bonus_status(
+                self.ai_fraction, attack, defense, durability,
+                (hero_bonus_atk, hero_bonus_def, hero_bonus_dur))
+            if name:
+                status = 'Применяется' if active else 'Не применяется'
+                color = '66CC66' if active else '999999'
+                mult = combat_multiplier(self.ai_fraction, self.conn) if active else 1
+                stats_icons.append((name, 'files/pict/hire/strong.png',
+                                    f'[color=#{color}]{status} (×{mult:g})[/color]'))
 
         # Распорка сверху чтобы статы были по центру
         stats_box.add_widget(Widget(size_hint_y=1))
@@ -2459,7 +2466,6 @@ class FortressInfoPopup(Popup):
                 from city_war import record_capture
                 record_capture(self.conn, city_name, new_owner)
 
-            show_popup_message("Успех", f"Город {city_name} захвачен!")
             self.update_garrison()
             # Обновляем количество городов и лимит армии
             from game_process import _active_game_screen
