@@ -9,6 +9,20 @@ from contextlib import closing
 
 
 class ReleaseStateTests(unittest.TestCase):
+    def test_release_assigns_missing_reference_unit_ids_before_copying(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source, target = Path(directory) / 'source.db', Path(directory) / 'clean.db'
+            with closing(sqlite3.connect(source)) as db:
+                db.executescript('CREATE TABLE units(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT);'
+                                 'CREATE TABLE units_default(id INTEGER,name TEXT);'
+                                 "INSERT INTO units_default VALUES(NULL,'new'),(1,'base');")
+            prepare(source, target)
+            with closing(sqlite3.connect(target)) as db:
+                self.assertEqual(dict(db.execute('SELECT name,id FROM units')), {'base': 1, 'new': 2})
+                self.assertEqual(dict(db.execute('SELECT name,id FROM units_default')), {'base': 1, 'new': 2})
+            with closing(sqlite3.connect(source)) as db:
+                self.assertIsNone(db.execute("SELECT id FROM units_default WHERE name='new'").fetchone()[0])
+
     def test_reset_replaces_old_data_and_icon_cache_only_once(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

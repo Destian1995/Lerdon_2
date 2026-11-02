@@ -30,6 +30,17 @@ def prepare(source, destination):
         for name in ('diplomacies', 'relations', 'resources', 'units', 'artifacts', 'artifacts_ai'):
             default = name + '_default'
             if name in tables and default in tables:
+                # Old reference snapshots may contain a newly added unit with
+                # a NULL ID before explicit IDs. SQLite would allocate an ID
+                # already used by a later row when copying that snapshot.
+                if name == 'units':
+                    columns = {row[1] for row in clean.execute('PRAGMA table_info(units_default)')}
+                    if 'id' in columns:
+                        next_id = clean.execute('SELECT COALESCE(MAX(id),0)+1 FROM units_default').fetchone()[0]
+                        missing = clean.execute('SELECT rowid FROM units_default WHERE id IS NULL').fetchall()
+                        for (rowid,) in missing:
+                            clean.execute('UPDATE units_default SET id=? WHERE rowid=?', (next_id, rowid))
+                            next_id += 1
                 clean.execute(f'INSERT INTO "{name}" SELECT * FROM "{default}"')
         clean.commit()
         migrate_morgana(clean)
