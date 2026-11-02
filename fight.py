@@ -344,6 +344,10 @@ def battle_chain(attacker, defender, city, user_faction, conn,
         if def_defense / def_base_defense >= 20.0:
             def_defense = int(def_defense * oplot_mult)
 
+    # City relief belongs to the defending army, including initiative reversals.
+    atk_defense *= attacker.get('_terrain_defense_multiplier',1.0)
+    def_defense *= defender.get('_terrain_defense_multiplier',1.0)
+
     # Боевой дух: 2+ победы над контрпиком за последние 4 хода → +15% урон
     # Контрпики — фракции, которые сильнее тебя по типу юнита
     _COUNTER_PICKS = {
@@ -591,6 +595,13 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     def_army = new_def_army
 
     # === Фракционные пассивные способности ===
+    from utils.city_terrain import defense_multiplier as terrain_defense_multiplier
+    _terrain_defense = terrain_defense_multiplier(conn,defending_city)
+    for unit in atk_army:
+        unit['_terrain_defense_multiplier'] = 1.0
+    for unit in def_army:
+        unit['_terrain_defense_multiplier'] = _terrain_defense
+
     # В "свой" сезон бонус способности работает на 175% сильнее
     def _season_mult(faction):
         return _get_season_mult(faction, conn)

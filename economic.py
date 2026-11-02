@@ -1284,6 +1284,9 @@ class Faction:
         # Бонус от Рынков: +10% дохода крон за каждый рынок
         market_bonus = 1.0 + self.markets * 0.10
         boosted_income = int(base_income * market_bonus)
+        from utils.city_terrain import economic_bonuses
+        _terrain_bonus = economic_bonuses(self.conn,self.faction,boosted_income,105*_season_factory_mult)
+        boosted_income += _terrain_bonus['crowns']
         self.money += boosted_income
         self.money_info = int(self.hospitals * coeffs['money_loss'])
         self.money_up = boosted_income
@@ -1323,11 +1326,11 @@ class Faction:
         # (армия уже списывает кристаллы напрямую; двойное наказание нарушает баланс).
         # max(0, ...) гарантирует, что фракция с отрицательным базовым производством
         # просто не получает бонус, вместо отрицательного значения.
-        self.food_info = max(0, int(base_raw_material_production + total_city_bonus_kf))
+        self.food_info = max(0, int(base_raw_material_production + total_city_bonus_kf + _terrain_bonus['crystals']))
 
         # Итоговый прирост Кристаллов = базовый + бонус от kf_crystal - потребление армии
         # self.raw_material увеличивается на этот итоговый прирост
-        self.raw_material += int(base_raw_material_production + total_city_bonus_kf - self.current_consumption)
+        self.raw_material += int(base_raw_material_production + total_city_bonus_kf + _terrain_bonus['crystals'] - self.current_consumption)
 
         # self.food_peoples не изменяется, так как зависит от coeffs['food_loss'] и населения
         self.food_peoples = int(self.population * coeffs['food_loss'])

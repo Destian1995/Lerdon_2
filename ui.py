@@ -748,9 +748,9 @@ class FortressInfoPopup(Popup):
                 SELECT g.unit_name, g.unit_count, u.consumption
                 FROM garrisons g
                 JOIN units u ON g.unit_name = u.unit_name
-                JOIN cities c ON c.name = g.city_name
-                WHERE c.faction = ?
-            """, (self.player_fraction,))
+                LEFT JOIN cities c ON c.name = g.city_name
+                WHERE c.faction = ? OR (g.city_name LIKE '@terrain:%' AND u.faction = ?)
+            """, (self.player_fraction,self.player_fraction))
             rows = cursor.fetchall()
 
             total_consumption = 0
@@ -857,6 +857,12 @@ class FortressInfoPopup(Popup):
     def get_garrison(self):
         """Получает гарнизон города из таблицы garrisons и отображает его с учетом класса и специализации юнитов."""
         try:
+            if hasattr(self, 'garrison_attack_total'):
+                from utils.garrison_stats import garrison_totals
+                totals = garrison_totals(self.conn, self.city_name)
+                self.garrison_totals_snapshot = totals
+                self.garrison_attack_total.text = format_number(totals['attack'])
+                self.garrison_defense_total.text = format_number(totals['defense'])
             # Запрос к базе данных для получения гарнизона
             # Используем COALESCE: если unit_image пустой/NULL — берём image_path из units
             self.cursor.execute("""
@@ -1317,6 +1323,11 @@ class FortressInfoPopup(Popup):
                 mult = combat_multiplier(self.ai_fraction, self.conn) if active else 1
                 stats_icons.append((name, 'files/pict/hire/strong.png',
                                     f'[color=#{color}]{status} (×{mult:g})[/color]'))
+
+        from utils.city_terrain import defense_multiplier
+        if defense_multiplier(self.conn,self.city_name)>1:
+            stats_icons.append(('Высота','files/pict/hire/shield.png',
+                                '[color=#66CC66]+30% к боевой защите гарнизона[/color]'))
 
         # Распорка сверху чтобы статы были по центру
         stats_box.add_widget(Widget(size_hint_y=1))
@@ -1980,6 +1991,46 @@ class FortressInfoPopup(Popup):
                                            f'В городе {source_city} недостаточно юнитов {unit_name}.')
                         return
             if not getattr(self, '_movement_arrived', False):
+                from terrain_journeys import route_stops, start_journey
+                from utils.movement_rules import movement_city_route
+                terrain_sources = {source for source in grouped_by_city if route_stops(
+                    self.conn,movement_city_route(self.conn,source,self.city_name,current_player_kingdom))}
+                if terrain_sources:
+                    if (destination_owner not in (current_player_kingdom,'Нейтрал') and not is_war_destination
+                            and not self.is_ally(current_player_kingdom,destination_owner)):
+                        raise ValueError('Сначала объявите войну владельцу этого города.')
+                    if destination_owner == 'Нейтрал':
+                        cursor.execute('SELECT COALESCE(is_undead,0) FROM cities WHERE name=?',(self.city_name,))
+                        hidden = cursor.fetchone()
+                        if hidden and hidden[0]:
+                            from undead_invasion import is_invasion_active
+                            if not is_invasion_active(self.conn):
+                                raise ValueError('Эти земли недоступны до начала вторжения нежити.')
+                    for source, units in grouped_by_city.items():
+                        selected = [dict(unit_name=name,unit_count=count) for name,count in units.items()]
+                        if source in terrain_sources:
+                            mode = 'gift' if getattr(self,'_ally_transfer_mode','control') == 'transfer' else 'move'
+                            start_journey(self.conn,current_player_kingdom,source,self.city_name,selected,mode)
+                        else:
+                            from troop_movement import queue_ai_march
+                            queue_ai_march(self.conn,current_player_kingdom,source,self.city_name,selected)
+                            for unit in selected:
+                                if not self.transfer_troops_between_cities(source,self.city_name,unit['unit_name'],
+                                        unit['unit_count'],attacking_units=[u for u in self.selected_group if u['city_name']==source]):
+                                    raise ValueError('Не удалось отправить часть группы.')
+                                if is_war_destination:
+                                    break
+                    cursor.execute('UPDATE turn_check_move SET moves_left=MAX(0,moves_left-1) WHERE faction=?',
+                                   (current_player_kingdom,))
+                    self.conn.commit()
+                    from troop_movement import close_transfer_windows
+                    close_transfer_windows(self)
+                    from game_process import _active_game_screen, refresh_map
+                    from troop_movement import play_ai_marches
+                    refresh_map()
+                    if _active_game_screen:
+                        play_ai_marches(_active_game_screen)
+                    return
                 from troop_movement import animate_transfer
                 if animate_transfer(self, grouped_by_city):
                     deferred = True
@@ -2011,11 +2062,8 @@ class FortressInfoPopup(Popup):
             self.conn.commit()
 
             # Закрываем попап и обновляем интерфейс
-            if hasattr(self, 'current_popup') and self.current_popup:
-                self.current_popup.dismiss()
-                self.current_popup = None
-            if hasattr(self, 'dismiss'):
-                self.dismiss()
+            from troop_movement import close_transfer_windows
+            close_transfer_windows(self)
 
         except Exception as e:
             show_popup_message("Ошибка", f"Произошла ошибка при перемещении группы: {e}")

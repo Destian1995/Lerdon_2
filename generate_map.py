@@ -478,25 +478,31 @@ def is_connected(positions):
     return all(visited)
 
 
-def generate_map_and_cities(conn, terrain=None, sprite_scale=1):
+def generate_map_and_cities(conn, terrain=None, sprite_scale=1,label_size_provider=None):
     """Основная функция: генерация связного набора городов → остальное."""
     from city_war import ensure_city_war_schema
     ensure_city_war_schema(conn)
     conn.execute('DELETE FROM city_war_state')
 
-    # Шаг 1: Генерация координат городов с гарантией связности по манхэттену
-    print("[INFO] Генерация координат городов с гарантией связности...")
-    positions = generate_all_cities(terrain=terrain, sprite_scale=sprite_scale)
-
-    # Шаг 2: Назначаем фракции и остальные параметры
-    cities = assign_factions_to_cities(positions)
-
-    # Шаг 3: Строим граф дорог (можно оставить старый Kruskal‑подход или переделать под манхэттен)
-    print("[INFO] Построение графа связей между городами...")
-    graph = build_city_graph(cities)
-
-    # Шаг 4: Сохраняем всё в БД
-    save_to_database(conn, cities, graph)
-
-    print("[SUCCESS] Координаты для городов успешно сгенерированы!")
+    from terrain_journeys import generate_features
+    from terrain_placement import FeaturePlacementError
+    # Retry the city layout rather than placing terrain on top of a building.
+    for attempt in range(12):
+        positions=generate_all_cities(terrain=terrain,sprite_scale=sprite_scale)
+        cities=assign_factions_to_cities(positions)
+        graph=build_city_graph(cities)
+        save_to_database(conn,cities,graph)
+        try:
+            generate_features(conn,terrain,rng=random,sprite_scale=sprite_scale,label_size_provider=label_size_provider)
+            break
+        except FeaturePlacementError:
+            try:
+                generate_features(conn,terrain,rng=random,sprite_scale=sprite_scale,label_size_provider=label_size_provider,
+                                  allow_new_roads=True)
+                break
+            except FeaturePlacementError:
+                if attempt==11:
+                    raise
+    from utils.city_terrain import assign_city_terrain
+    assign_city_terrain(conn,terrain,sprite_scale)
     print("[SUCCESS] GENERATE MAP COMPLETE!")

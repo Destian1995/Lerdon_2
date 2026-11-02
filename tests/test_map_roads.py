@@ -56,7 +56,7 @@ class RoadLayerTests(unittest.TestCase):
         tree = ast.parse(Path('main.py').read_text(encoding='utf-8'))
         node = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'MapWidget')
         methods = [n for n in node.body if isinstance(n, ast.FunctionDef)
-                   and n.name in ('draw_roads', '_get_city_label_texture')]
+                   and n.name in ('draw_roads', 'draw_terrain_features', '_get_city_label_texture')]
         namespace = dict(ast=ast, sqlite3=sqlite3, CoreLabel=CoreLabel)
         exec(compile(ast.Module(body=methods, type_ignores=[]), 'main.py', 'exec'), namespace)
         host_type = type('RoadHost', (Widget,), {n.name: namespace[n.name] for n in methods})

@@ -604,15 +604,20 @@ class MapWidget(Widget):
         self.random_map_source = self.get_random_map_source()
         from map_terrain import load_terrain
         self._map_terrain = load_terrain(self.random_map_source)
-        generate_map_and_cities(self.conn, terrain=self._map_terrain, sprite_scale=self.map_scale)
+        generate_map_and_cities(self.conn, terrain=self._map_terrain, sprite_scale=self.map_scale,
+                               label_size_provider=lambda text:self._get_city_label_texture(text).size)
 
         self.initialize_map()
         self._map_snapshot = self._read_map_snapshot()
         self.update_cities_event = Clock.schedule_interval(self.update_cities, 1.0)
+        from map_zoom import MapZoom
+        self._map_zoom = MapZoom(self)
 
     def on_parent(self, widget, parent):
         """Останавливает все эффекты при уходе с карты, возобновляет при возврате."""
         if parent is None:
+            if getattr(self,'_map_zoom',None):
+                self._map_zoom.stop()
             if self.update_cities_event:
                 self.update_cities_event.cancel()
                 self.update_cities_event = None
@@ -624,6 +629,8 @@ class MapWidget(Widget):
                 self._map_atmosphere.city_effects.attach_standards(None)
                 self._map_atmosphere.marches.cancel_all()
         else:
+            if getattr(self,'_map_zoom',None):
+                self._map_zoom.start()
             if not self.update_cities_event:
                 self._map_snapshot = None
                 self.update_cities_event = Clock.schedule_interval(self.update_cities, 1.0)
@@ -655,6 +662,8 @@ class MapWidget(Widget):
         self.draw_fortresses()
 
         self._map_snapshot = snapshot
+        if getattr(self,'_map_zoom',None):
+            self._map_zoom.restore()
 
     def _read_map_snapshot(self):
         """Проверяет только данные визуализации, исключая записываемые экранные координаты."""
@@ -666,7 +675,7 @@ class MapWidget(Widget):
             roads = tuple(cursor.fetchall())
             effects = []
             for table in ('undead_invasion', 'plague_effects', 'season',
-                          'city_war_state', 'turn', 'buildings'):
+                          'city_war_state', 'turn', 'buildings', 'map_features', 'terrain_journeys', 'city_terrain'):
                 cursor.execute('SELECT name FROM sqlite_master WHERE type = ? AND name = ?', ('table', table))
                 if cursor.fetchone():
                     # Имена таблиц заданы константами, не пользовательским вводом.
@@ -706,6 +715,8 @@ class MapWidget(Widget):
 
         if schedule_blink:
             Clock.schedule_once(self._schedule_blink, 0.2)
+        if getattr(self,'_map_zoom',None):
+            self._map_zoom.restore()
 
     def _compute_voronoi_cells(self, sites, clip_rect):
         """
@@ -951,6 +962,9 @@ class MapWidget(Widget):
         """Рисует крепости на карте с анимацией при смене фракции."""
         from city_war import read_city_war_states
         war_states = read_city_war_states(self.conn)
+        from utils.city_terrain import read_all as read_city_terrain
+        from map_relief_ui import draw_city_base, draw_city_badges
+        terrain_cities = read_city_terrain(self.conn)
         self._undead_shield_data = []
 
         # A city redraw must not detach the atmosphere: detaching cancels all
@@ -1030,6 +1044,7 @@ class MapWidget(Widget):
             # --- Создание виджета иконки ---
             from map_terrain import city_sprite_size
             icon_size = city_sprite_size(self.map_scale)
+            draw_city_base(self,terrain_cities.get(fortress_name),drawn_x,drawn_y,icon_size)
             icon_widget = Image(
                 source=image_path,
                 size=(icon_size, icon_size),
@@ -1089,6 +1104,8 @@ class MapWidget(Widget):
                     pos=(text_x, text_y),
                     size=(text_width, text_height)
                 )
+
+            draw_city_badges(self,terrain_cities.get(fortress_name),drawn_x,drawn_y,icon_size,text_y)
 
         # Погода, грозовые тучи и чума находятся в одном ограниченном слое.
         self._sync_map_atmosphere()
@@ -1328,6 +1345,11 @@ class MapWidget(Widget):
                 self.canvas.remove(self._road_group)
         self._road_group = draw_transport_layer(self._road_geometry, self.map_scale)
         self.canvas.add(self._road_group)
+        self.draw_terrain_features()
+
+    def draw_terrain_features(self):
+        from map_features_ui import draw_waypoints
+        draw_waypoints(self)
 
     def calculate_manhattan_distance(self, source_coords, destination_coords):
         """Вычисляет манхэттенское расстояние между точками"""
@@ -1335,6 +1357,9 @@ class MapWidget(Widget):
 
     def check_fortress_click(self, touch):
         """Проверяет нажатие на крепость (использует сохранённые оригинальные координаты)."""
+        from map_features_ui import inspect_waypoint
+        if inspect_waypoint(self,touch):
+            return
         # self.fortress_data_for_canvas: [(name, kingdom, fort_x, fort_y, drawn_x, drawn_y), ...]
         for fortress_name, kingdom, fort_x, fort_y, drawn_x, drawn_y in self.fortress_data_for_canvas:
             icon_widget = self.fortress_icon_widgets.get(fortress_name)
@@ -1360,8 +1385,22 @@ class MapWidget(Widget):
                 )
                 return
 
+    def on_touch_down(self, touch):
+        camera = getattr(self,'_map_zoom',None)
+        if camera and camera.down(touch):
+            return True
+        return super().on_touch_down(touch)
+
+    def on_touch_move(self, touch):
+        camera = getattr(self,'_map_zoom',None)
+        if camera and camera.move(touch):
+            return True
+        return super().on_touch_move(touch)
+
     def on_touch_up(self, touch):
-        """Обрабатывает нажатия на карту"""
+        camera = getattr(self,'_map_zoom',None)
+        if camera:
+            return camera.up(touch)
         self.check_fortress_click(touch)
 
 

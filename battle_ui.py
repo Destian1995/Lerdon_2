@@ -238,7 +238,7 @@ class BattleViewer(Popup):
         arena.add_widget(self.result_ribbon)
         root.add_widget(arena)
         footer = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(48))
-        self.round_label = text_label(f'{source_city} → {city}', 12, GOLD)
+        self.round_label = text_label(f'{source_city} - {city}', 12, GOLD)
         self.event_label = text_label('Армии занимают позиции…', 12, MUTED)
         footer.add_widget(self.round_label)
         footer.add_widget(self.event_label)
@@ -374,7 +374,7 @@ class BattleReport(Popup):
                            SURFACE, FACTIONS.get(faction, GOLD))
             card.add_widget(text_label(faction + (' · Вы' if player_side(user, attacking, defending) == side else ''), 14,
                                        FACTIONS.get(faction, GOLD), bold=True))
-            card.add_widget(text_label(f'Было {format_number(summary["initial"])} → осталось {format_number(summary["remaining"])}', 12))
+            card.add_widget(text_label(f'Было {format_number(summary["initial"])}, осталось {format_number(summary["remaining"])}', 12))
             card.add_widget(text_label('Безвозвратные: ' + format_number(summary['net_losses']), 12,
                                        RED if summary['net_losses'] else MUTED))
             recovered = 'Вернулось: ' + format_number(summary['recovered'])

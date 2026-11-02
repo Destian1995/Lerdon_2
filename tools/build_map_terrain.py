@@ -11,7 +11,7 @@ from collections import deque
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from PIL import Image, ImageDraw, ImageFilter, ImageChops
-from map_terrain import LAND, WATER, FOREST, MOUNTAIN, SNOW, DESERT, CORRUPTION, VOID, TERRAIN_NAMES
+from map_terrain import LAND, WATER, FOREST, MOUNTAIN, SNOW, DESERT, CORRUPTION, SWAMP, VOID, TERRAIN_NAMES
 
 GRID = (300, 200)
 ALL = [(0, 0), (1, 0), (1, 1), (0, 1)]
@@ -43,9 +43,35 @@ SPECS = {
         'water_windows': [ALL], 'green_water': True},
     7: {'base': CORRUPTION, 'regions': [(MOUNTAIN, [(.68,.03),(.97,.03),(.97,.50),(.88,.42),(.72,.25)])],
         'water_windows': [ALL], 'green_water': True},
+    8: {'base': LAND, 'regions': [
+        (MOUNTAIN,[(.03,.04),(.50,.04),(.34,.16),(.17,.28),(.03,.37)]),
+        (FOREST,[(.13,.27),(.32,.27),(.32,.44),(.13,.44)]),
+        (FOREST,[(.76,.06),(.94,.06),(.94,.23),(.76,.23)]),
+        (FOREST,[(.66,.43),(.86,.43),(.86,.64),(.66,.64)]),
+        (SWAMP,[(.67,.23),(.88,.23),(.88,.39),(.67,.39)]),
+        (SWAMP,[(.07,.54),(.26,.54),(.26,.69),(.07,.69)])],
+        'water_windows':[ALL],
+        'water_exclude':[[(0,0),(.57,0),(.34,.16),(.17,.28),(0,.37)]]},
+    9: {'base': LAND, 'regions': [
+        (MOUNTAIN,[(.01,.01),(.99,.01),(.99,.20),(.01,.23)]),
+        (FOREST,[(.12,.67),(.31,.67),(.31,.86),(.12,.86)]),
+        (FOREST,[(.55,.64),(.74,.64),(.74,.82),(.55,.82)]),
+        (SWAMP,[(.07,.41),(.29,.41),(.29,.60),(.07,.60)])],
+        'water_windows':[ALL], 'water_exclude':[[(0,0),(1,0),(1,.19),(0,.23)]],
+        'water_regions':[[(.99,.235),(.92,.26),(.866,.29),(.84,.34),(.817,.40),(.814,.45),
+                          (.84,.50),(.89,.55),(.96,.58),(.99,.58)]]},
+    10: {'base': LAND, 'regions': [
+        (MOUNTAIN,[(.73,.03),(.97,.03),(.97,.97),(.66,.97),(.83,.75),(.87,.46)]),
+        (FOREST,[(.34,.08),(.51,.08),(.51,.23),(.34,.23)]),
+        (FOREST,[(.58,.16),(.75,.16),(.75,.31),(.58,.31)]),
+        (FOREST,[(.10,.57),(.30,.57),(.30,.76),(.10,.76)]),
+        (SWAMP,[(.10,.28),(.30,.28),(.30,.41),(.10,.41)]),
+        (SWAMP,[(.56,.64),(.77,.64),(.77,.79),(.56,.79)])],
+        'water_windows':[[(0,0),(.31,0),(.31,.29),(.09,.31),(.10,1),(0,1)]],
+        'preserve_forests':True},
 }
 COLORS = {LAND: '#d9c382', WATER: '#187fbb', FOREST: '#376d35', MOUNTAIN: '#715364',
-          SNOW: '#dae9f4', DESERT: '#e6b756', CORRUPTION: '#635346', VOID: '#181e27'}
+          SNOW: '#dae9f4', DESERT: '#e6b756', CORRUPTION: '#635346', SWAMP: '#737a43', VOID: '#181e27'}
 
 
 def polygon(draw, points, size, fill):
@@ -100,11 +126,13 @@ def build(number, spec):
                 values[item] = 0
     water.putdata(values)
     annotation.paste(WATER, mask=water)
+    for points in spec.get('water_regions',[]):
+        polygon(ImageDraw.Draw(annotation),points,GRID,WATER)
     # Refine forest regions to actual tree clusters, leaving their clearings open.
     small = image.resize(GRID, Image.Resampling.BOX)
     values = list(annotation.getdata())
     for index, ((r, g, b), kind) in enumerate(zip(small.getdata(), values)):
-        if kind == FOREST and not (g > r * .92 and g > b * 1.12 and (r + g + b) / 3 < 140):
+        if kind == FOREST and not spec.get('preserve_forests',False) and not (g > r * .92 and g > b * 1.12 and (r + g + b) / 3 < 140):
             values[index] = LAND
     for y in range(GRID[1]):
         for x in range(GRID[0]):
@@ -131,12 +159,14 @@ def build(number, spec):
     preview = Image.new('RGB', GRID)
     preview.putdata([tuple(bytes.fromhex(COLORS[v][1:])) for v in values])
     preview.save(destination.with_suffix('.png'))
+    from tools.build_map_palettes import build as build_palette
+    build_palette(destination)
     print(source.name, 'water:', round(values.count(WATER) / len(values) * 100, 1), '%')
     return image, preview
 
 
 if __name__ == '__main__':
-    sheet = Image.new('RGB', (1200, 7 * 285 + 35), '#181e27')
+    sheet = Image.new('RGB', (1200, len(SPECS) * 285 + 35), '#181e27')
     text = ImageDraw.Draw(sheet)
     text.text((12, 9), 'BLUE water | GREEN forest | PURPLE mountains | WHITE snow | GOLD desert | BROWN corruption', fill='white')
     for number, spec in SPECS.items():

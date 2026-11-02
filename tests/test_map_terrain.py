@@ -31,8 +31,8 @@ def synthetic_terrain(water_rects):
 
 
 class TerrainAnnotationTests(unittest.TestCase):
-    def test_all_seven_images_have_matching_annotations_and_water(self):
-        for number in range(1, 8):
+    def test_all_ten_images_have_matching_annotations_and_water(self):
+        for number in range(1, 11):
             terrain = load_terrain(f'files/map/generate/map_{number}.png')
             self.assertIsNotNone(terrain)
             self.assertEqual((terrain.width, terrain.height), (300, 200))
@@ -80,7 +80,7 @@ class TerrainAnnotationTests(unittest.TestCase):
         ns = dict(random=rng, math=math, MARGIN=100, MAP_SIZE=(1200, 800),
                   MIN_DISTANCE_PX=120, MAX_DISTANCE_PX=300, MANHATTAN_MOVE_LIMIT=280, TOTAL_CITIES=26)
         exec(compile(ast.Module(body=functions, type_ignores=[]), 'generate_map.py', 'exec'), ns)
-        for number in range(1, 8):
+        for number in range(1, 11):
             terrain = load_terrain(f'files/map/generate/map_{number}.png')
             for scale in (.27, .405, .6, .8, 1.15):
                 for seed in (2026 + number, 42, 501):
@@ -107,7 +107,7 @@ class TerrainAnnotationTests(unittest.TestCase):
         ns = dict(random=rng, math=math, MARGIN=100, MAP_SIZE=(1200, 800),
                   MIN_DISTANCE_PX=120, MAX_DISTANCE_PX=300, MANHATTAN_MOVE_LIMIT=280, TOTAL_CITIES=26)
         exec(compile(ast.Module(body=functions, type_ignores=[]), 'generate_map.py', 'exec'), ns)
-        for number in range(1, 8):
+        for number in range(1, 11):
             terrain = load_terrain(f'files/map/generate/map_{number}.png')
             rng.seed(901 + number)
             with contextlib.redirect_stdout(io.StringIO()):

@@ -4,6 +4,7 @@ import bisect
 import math
 import random
 import sys
+import sqlite3
 from dataclasses import dataclass
 
 from utils.movement_rules import army_size_level, movement_city_route
@@ -66,6 +67,30 @@ def _screen(owner):
     return screen if screen and getattr(screen, 'conn', None) is owner.conn else None
 
 
+def rendered_leg(network, chain, centers, start=None, end=None):
+    """Crop by road-edge fractions, independent of viewport and detours."""
+    start = start or (0,0)
+    end = end or (len(chain)-2,1)
+    points, modes = [], []
+    for i in range(start[0],end[0]+1):
+        route = rendered_route(network,chain[i:i+2],centers)
+        if route is None:
+            return None
+        low = start[1] if i == start[0] else 0
+        high = end[1] if i == end[0] else 1
+        for j,(a,b) in enumerate(zip(route.points,route.points[1:])):
+            left,right = max(route.lengths[j],low*route.length), min(route.lengths[j+1],high*route.length)
+            if right-left <= 1e-6:
+                continue
+            first = route.sample(left/route.length)[:2]
+            last = route.sample(right/route.length)[:2]
+            if not points:
+                points.append(first)
+            points.append(last)
+            modes.append(route.land[j])
+    return MarchRoute(points,modes) if len(points)>1 else None
+
+
 def movement_busy(owner):
     return bool(getattr(_screen(owner), '_troop_movement_busy', False))
 
@@ -87,14 +112,48 @@ def queue_ai_march(conn, faction, source, destination, units):
     count = sum(unit['unit_count'] for unit in units)
     if count <= 0:
         return
+    queue_route_march(conn,faction,chain,destination,count,has_hero=marching_hero(conn,units))
+
+
+def marching_hero(conn,units):
+    """Inspect only departing stacks, never heroes left behind in the city."""
+    for unit in units:
+        if unit.get('unit_count',0)<=0:
+            continue
+        stats=unit.get('units_stats') or {}
+        value=stats.get('Класс юнита',unit.get('unit_class'))
+        if value is None and unit.get('unit_name'):
+            try:
+                row=conn.execute('SELECT unit_class FROM units WHERE unit_name=? LIMIT 1',
+                                  (unit['unit_name'],)).fetchone()
+                value=row[0] if row else None
+            except sqlite3.OperationalError:
+                value=None
+        parts=str(value or '').split()
+        if parts and parts[0] in ('2','3','4'):
+            return True
+    return False
+
+
+def queue_route_march(conn, faction, chain, destination, count, start=None, end=None, camp='', capture=True,has_hero=False):
+    from types import SimpleNamespace
+    screen = _screen(SimpleNamespace(conn=conn))
+    if screen is None or count <= 0:
+        return
     total = conn.execute('''SELECT COALESCE(SUM(g.unit_count),0) FROM garrisons g
         JOIN units u ON u.unit_name=g.unit_name WHERE u.faction=?''', (faction,)).fetchone()[0]
     if not hasattr(screen, '_ai_march_queue'):
         screen._ai_march_queue = []
     if not hasattr(screen, '_ai_march_destinations'):
         screen._ai_march_destinations = set()
-    screen._ai_march_destinations.add((destination, faction))
-    screen._ai_march_queue.append((tuple(chain), faction, count, max(total, count), destination))
+    if capture:
+        screen._ai_march_destinations.add((destination, faction))
+    if not hasattr(screen,'_terrain_moving_camps'):
+        screen._terrain_moving_camps = set()
+    if camp:
+        screen._terrain_moving_camps.add(camp)
+    screen._ai_march_queue.append((tuple(chain), faction, count, max(total,count), destination,
+                                   tuple(start) if start else None,tuple(end) if end else None,camp,capture,bool(has_hero)))
 
 
 def play_ai_marches(screen):
@@ -105,19 +164,21 @@ def play_ai_marches(screen):
         return
     if not screen.parent:
         screen._ai_march_destinations.clear()
+        getattr(screen,'_terrain_moving_camps',set()).clear()
         return
     map_widget = next((w for w in screen.parent.children
                        if getattr(w, '_map_atmosphere', None) is not None), None)
     if map_widget is None:
         screen._ai_march_destinations.clear()
+        getattr(screen,'_terrain_moving_camps',set()).clear()
         return
     from map_terrain import city_sprite_size
     coords = {cid: ast.literal_eval(raw) for cid, raw in screen.conn.execute('SELECT id,coordinates FROM cities')}
     grouped = {}
-    for chain, faction, count, total, destination in pending:
-        key = (chain, faction, destination)
-        previous = grouped.get(key, (0, total))
-        grouped[key] = (previous[0] + count, max(previous[1], total))
+    for chain, faction, count, total, destination, start, end, camp, capture, has_hero in pending:
+        key = (chain, faction, destination, start, end, camp, capture)
+        previous = grouped.get(key, (0, total,False))
+        grouped[key] = (previous[0] + count, max(previous[1], total),previous[2] or has_hero)
     if hasattr(map_widget, '_sync_map_atmosphere'):
         map_widget._sync_map_atmosphere()
     remaining = [len(grouped)]
@@ -126,29 +187,42 @@ def play_ai_marches(screen):
     screen._troop_movement_busy = True
     if end_turn:
         end_turn.disabled = True
-    for (chain, faction, destination), (count, total) in grouped.items():
-        def provider(chain=chain):
+    for (chain, faction, destination, start, end, camp, capture), (count, total,has_hero) in grouped.items():
+        def provider(chain=chain, start=start, end=end):
             size = city_sprite_size(map_widget.map_scale)
             centers = {cid: (map_widget.map_pos[0] + x * map_widget.map_scale + size / 2,
                              map_widget.map_pos[1] + y * map_widget.map_scale + size * 30 / 77)
                        for cid, (x, y) in coords.items()}
-            return rendered_route(map_widget._road_geometry, chain, centers)
-        def arrive(destination=destination, faction=faction, completed=[False]):
+            return rendered_leg(map_widget._road_geometry, chain, centers, start, end)
+        def arrive(destination=destination, faction=faction, camp=camp, capture=capture, completed=[False]):
             if completed[0]:
                 return
             completed[0] = True
-            screen._ai_march_destinations.discard((destination, faction))
-            map_widget._map_atmosphere.city_effects.release_capture(destination, faction)
+            if capture:
+                screen._ai_march_destinations.discard((destination, faction))
+                map_widget._map_atmosphere.city_effects.release_capture(destination, faction)
+            screen._terrain_moving_camps.discard(camp)
+            if hasattr(map_widget,'draw_terrain_features'):
+                map_widget.draw_terrain_features()
             remaining[0] -= 1
             if remaining[0] == 0:
                 screen._troop_movement_busy = False
                 if end_turn:
                     end_turn.disabled = was_disabled
         if provider() is not None:
-            spec = (provider, max(1, army_size_level(total, count)), faction, count)
+            spec = (provider, max(1, army_size_level(total, count)), faction, count,has_hero)
             map_widget._map_atmosphere.marches.play_batch([spec], arrive, arrive)
         else:
             arrive()
+
+
+def close_transfer_windows(owner):
+    """Hide both selection and city windows as soon as a march is accepted."""
+    popup=getattr(owner,'current_popup',None)
+    if popup is not None:
+        popup.dismiss()
+        owner.current_popup=None
+    owner.dismiss()
 
 
 def animate_transfer(owner, grouped):
@@ -190,7 +264,8 @@ def animate_transfer(owner, grouped):
                 raise ValueError(f'Недостаточно войск в городе {source}.')
             weight += amount * (row[1] or 0)
             count += amount
-        specs.append((provider, max(1, army_size_level(total, weight)), faction, count))
+        has_hero=marching_hero(conn,[dict(unit_name=name,unit_count=amount) for name,amount in units.items()])
+        specs.append((provider, max(1, army_size_level(total, weight)), faction, count,has_hero))
 
     selected = [dict(unit) for unit in owner.selected_group]
     end_turn = getattr(screen, 'end_turn_button', None)
@@ -227,10 +302,7 @@ def animate_transfer(owner, grouped):
 
     try:
         map_widget._map_atmosphere.marches.play_batch(specs, arrive, cancel)
-        if getattr(owner, 'current_popup', None):
-            owner.current_popup.dismiss()
-            owner.current_popup = None
-        owner.dismiss()
+        close_transfer_windows(owner)
     except Exception:
         map_widget._map_atmosphere.marches.cancel_all()
         cancel()
@@ -248,8 +320,8 @@ class MarchLayer:
 
     def play_batch(self, specs, arrive, cancel):
         batch = dict(remaining=len(specs), arrive=arrive, cancel=cancel, done=False)
-        for provider, level, faction, count in specs:
-            march = March(self, provider, level, faction, count, batch)
+        for provider, level, faction, count, *extra in specs:
+            march = March(self, provider, level, faction, count, batch,has_hero=bool(extra and extra[0]))
             self.marches.append(march)
             self.group.add(march.group)
 
@@ -269,8 +341,64 @@ class MarchLayer:
         self.group.clear()
 
 
+class MarchFlag:
+    """A small cloth standard on the existing march clock, with faction art."""
+    def __init__(self,group,faction):
+        from kivy.graphics import Color,InstructionGroup,Line,Mesh,Ellipse
+        from map_city_effects import faction_emblem,FACTION_RGB
+        self.group=InstructionGroup()
+        group.add(self.group)
+        self.colors=[]
+        def color(*rgba):
+            c=Color(*rgba);self.colors.append((c,rgba[3]));self.group.add(c)
+        color(.03,.025,.02,.9)
+        self.pole_shadow=Line(width=2.2);self.group.add(self.pole_shadow)
+        color(.96,.78,.43,1)
+        self.pole=Line(width=1.1);self.group.add(self.pole)
+        self.finial=Ellipse();self.group.add(self.finial)
+        rgb=FACTION_RGB.get(faction,(.8,.75,.6))
+        color(*(v*.34+.025 for v in rgb),1)
+        self.cloth=Mesh(vertices=[0.]*72,indices=[v for i in range(8) for v in
+                          (2*i,2*i+1,2*i+2,2*i+1,2*i+3,2*i+2)],mode='triangles')
+        self.group.add(self.cloth)
+        color(1,1,1,1)
+        self.emblem=Mesh(texture=faction_emblem(faction),vertices=[0.]*56,
+                         indices=list(range(14)),mode='triangle_strip')
+        self.group.add(self.emblem)
+        color(.98,.8,.44,1)
+        self.edge=Line(width=.8);self.group.add(self.edge)
+
+    def update(self,x,y,scale,time,visible,bounds=None):
+        for color,alpha in self.colors:
+            color.a=alpha if visible else 0
+        width,height=36*scale,24*scale
+        left,top=x+9*scale,y+49*scale
+        if bounds:
+            bx,by,bw,bh=bounds
+            left=max(bx+3,min(left,bx+bw-width-3))
+            top=min(top,by+bh-4)
+        def point(u,v):
+            ripple=(math.sin(time*5-u*6)*2.4+math.sin(time*7-u*9)*.6)*u*scale
+            return left+u*width,top+ripple-v*height-u*scale
+        self.pole.points=self.pole_shadow.points=(left,y+3*scale,left,top+4*scale)
+        self.finial.pos,self.finial.size=(left-1.8*scale,top+3*scale),(3.6*scale,3.6*scale)
+        vertices=[];upper=[];lower=[]
+        for i in range(9):
+            u=i/8;a,b=point(u,0),point(u,1)
+            vertices.extend((*a,0,0,*b,0,0));upper.append(a);lower.append(b)
+        self.cloth.vertices=vertices
+        self.edge.points=[v for p in (*upper,*reversed(lower),upper[0]) for v in p]
+        uv=self.emblem.texture.tex_coords
+        vertices=[]
+        for i in range(7):
+            u=i/6;tx=uv[0]+(uv[2]-uv[0])*u
+            for v,ty in ((.12,uv[5]),(.88,uv[1])):
+                vertices.extend((*point(.15+u*.7,v),tx,ty))
+        self.emblem.vertices=vertices
+
+
 class March:
-    def __init__(self, layer, provider, level, faction, count, batch):
+    def __init__(self, layer, provider, level, faction, count, batch,has_hero=False):
         from kivy.graphics import Color, Ellipse, InstructionGroup, Line, Rectangle
         from map_city_effects import faction_emblem
         self.layer, self.provider, self.level, self.batch = layer, provider, level, batch
@@ -292,6 +420,7 @@ class March:
         for instruction in (self.marker_color, self.marker, self.outline_color, self.outline,
                             self.emblem_color, self.emblem):
             self.group.add(instruction)
+        self.hero_flag=MarchFlag(self.group,faction) if has_hero else None
 
     def update(self, dt):
         self.age += dt
@@ -315,6 +444,8 @@ class March:
         self.marker.pos, self.marker.size = (x - 11 * size, y - 11 * size), (22 * size, 22 * size)
         self.outline.circle = (x, y, 11 * size)
         self.emblem.pos, self.emblem.size = (x - 8 * size, y - 8 * size), (16 * size, 16 * size)
+        if self.hero_flag:
+            self.hero_flag.update(x,y,size,self.age,not self.arrived,atmosphere._bounds)
         self.emit += dt
         interval = 1 / (8, 16, 26)[self.level - 1]
         while self.emit >= interval:

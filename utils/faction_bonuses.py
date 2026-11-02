@@ -141,6 +141,21 @@ def current_effect_rows(conn, faction, season):
     supplied = supplied_cities(conn, faction)
     totals, all_totals = defaultdict(int), defaultdict(int)
     rows = []
+    from utils.city_terrain import read_all as read_city_terrain
+    for city,info in read_city_terrain(conn).items():
+        owner=conn.execute('SELECT faction FROM cities WHERE name=?',(city,)).fetchone()
+        if not owner or owner[0] != faction:
+            continue
+        if info.landform == 'highland':
+            rows.append((f'Горы · {city}','','+30% к боевой защите всего гарнизона этого города'))
+        economic=[]
+        if info.landform == 'lowland':
+            economic.append('+15% к доле города в доходе крон')
+        if info.waterside:
+            economic.append('+20% к выработке кристаллов фабрик города')
+        if economic:
+            effect='; '.join(economic) if city in supplied else 'Без снабжения: экономические бонусы рельефа не действуют'
+            rows.append((f'Рельеф · {city}','',effect))
     for city, kind, count in conn.execute(
             'SELECT city_name,building_type,count FROM buildings WHERE faction=?', (faction,)):
         count = count or 0

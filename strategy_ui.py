@@ -109,6 +109,8 @@ class StrategyButton(Button):
 
 def text_label(text, size=14, color=TEXT, **kwargs):
     label = Label(text=text, font_size=sp(size), color=color, halign='left', valign='middle', **kwargs)
+    from utils.ui_text import bind_plain_text
+    bind_plain_text(label)
     def resize(widget, value):
         widget.text_size = value
     label._strategy_text_sizer = resize
@@ -211,7 +213,56 @@ def build_city_window(popup):
     status = ('Руины · идёт восстановление' if state.ready_turn is not None else 'Руины · отстройте 25 зданий') if state and state.ruined else (
         'Ваш город' if owned else 'Чужие владения' if popup.city_faction != 'Нейтрал' else 'Нейтральный город')
     heading.add_widget(text_label(status, 12, MUTED))
+    from utils.city_terrain import city_terrain
+    relief = popup.city_relief = city_terrain(popup.conn,popup.city_name)
+    if relief.badges:
+        for label,weight in zip(reversed(heading.children),(.6,1.5,.65)):
+            label.size_hint_y=weight
+        short=[]
+        if relief.landform == 'highland':
+            short.append('Горы: ЗАЩ +30%')
+        elif relief.landform == 'lowland':
+            short.append('Низина: кроны +15%')
+        if relief.waterside:
+            short.append('Крист. +20%')
+        terrain_label=text_label(' · '.join(short),10,GOLD,size_hint_y=.65)
+        heading.add_widget(terrain_label)
+        def inspect_relief(widget,touch):
+            if widget.collide_point(*touch.pos):
+                from ui_components import show_message
+                show_message('Рельеф · '+popup.city_name,relief.description)
+                return True
+            return False
+        terrain_label.bind(on_touch_down=inspect_relief)
+        portrait.bind(on_touch_down=inspect_relief)
     header.add_widget(heading)
+    totals = BoxLayout(spacing=dp(10))
+    for key, title, icon, color in (
+            ('attack', 'ОБЩАЯ АТАКА', 'files/pict/hire/sword.png', (.95, .55, .38, 1)),
+            ('defense', 'ОБЩАЯ ЗАЩИТА', 'files/pict/hire/shield.png', (.42, .73, .96, 1))):
+        tile = BoxLayout(spacing=dp(6), padding=dp(5))
+        tile.add_widget(Image(source=icon, size_hint_x=None, width=dp(26), mipmap=True))
+        labels = BoxLayout(orientation='vertical')
+        labels.add_widget(text_label(title, 10, MUTED))
+        value = text_label('0', 21, color, bold=True)
+        setattr(popup, 'garrison_' + key + '_total', value)
+        labels.add_widget(value)
+        tile.add_widget(labels)
+        totals.add_widget(tile)
+    header.add_widget(totals)
+    def inspect_totals(widget,touch):
+        if not widget.collide_point(*touch.pos):
+            return False
+        from ui_components import show_message
+        snapshot = getattr(popup,'garrison_totals_snapshot',dict(attack=0,defense=0,count=0))
+        number = lambda value: f'{value:,}'.replace(',',' ')
+        show_message('Характеристики гарнизона',
+                     f"Бойцов: {number(snapshot['count'])}\nОбщая атака: {number(snapshot['attack'])}\n"
+                     f"Общая защита: {number(snapshot['defense'])}\n\n"
+                     'Учтены герои, опыт, фракционные бонусы, укрепления и высота города. '
+                     'Боевая защита включает половину живучести. Войска в походе в гарнизон не входят.')
+        return True
+    totals.bind(on_touch_down=inspect_totals)
     close = StrategyButton(text='×', size_hint=(None, None), size=(dp(48), dp(48)),
                            pos_hint={'center_y': 0.5}, accent=accent)
     close.font_size = sp(24)
@@ -270,6 +321,23 @@ def build_city_window(popup):
         popup.size = (max(dp(1), min(dp(1040), width - dp(16))),
                       max(dp(1), min(dp(620), height - dp(16))))
         compact = height < dp(480)
+        narrow = popup.width < dp(560)
+        if narrow and totals.parent is header:
+            header.remove_widget(totals)
+            totals.size_hint = (1, None)
+            totals.height = dp(54)
+            root.add_widget(totals, index=len(root.children) - 1)
+        elif not narrow and totals.parent is root:
+            root.remove_widget(totals)
+            totals.size_hint = (.75, 1)
+            header.add_widget(totals, index=1)
+        heading.size_hint_x = 1 if narrow else .7
+        if relief.badges:
+            labels=list(reversed(heading.children))
+            labels[0].font_size=sp(9 if compact else 10)
+            labels[1].font_size=sp(20 if compact else 24)
+            labels[2].font_size=sp(10 if compact else 11)
+            terrain_label.font_size=sp(9 if compact else 10)
         header.height = dp(64 if compact else 80)
         portrait.width = header.height
         root.padding = dp(12 if compact else 18)

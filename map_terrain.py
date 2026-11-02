@@ -10,9 +10,9 @@ import json
 import math
 from pathlib import Path
 
-LAND, WATER, FOREST, MOUNTAIN, SNOW, DESERT, CORRUPTION, VOID = 0, 1, 2, 3, 4, 5, 6, 255
+LAND, WATER, FOREST, MOUNTAIN, SNOW, DESERT, CORRUPTION, SWAMP, VOID = 0, 1, 2, 3, 4, 5, 6, 7, 255
 TERRAIN_NAMES = {LAND: 'land', WATER: 'water', FOREST: 'forest', MOUNTAIN: 'mountain',
-                 SNOW: 'snow', DESERT: 'desert', CORRUPTION: 'corruption', VOID: 'frame'}
+                 SNOW: 'snow', DESERT: 'desert', CORRUPTION: 'corruption', SWAMP: 'swamp', VOID: 'frame'}
 
 
 class TerrainMap:
@@ -35,6 +35,7 @@ class TerrainMap:
                 raise ValueError('Invalid terrain row width')
             self.grid.extend(row)
         self.image_hash = data.get('image_sha256')
+        self.foliage_palette = data.get('foliage_palette')
         # Distance to water/frame, in conservative Chebyshev grid cells.
         self.clearance = [65535] * len(self.grid)
         queue = deque()
@@ -77,7 +78,8 @@ class TerrainMap:
         # Small windows shrink the icon as well as the map. Its world-space
         # footprint must not grow indefinitely when the screen gets smaller.
         footprint_scale = max(.8, sprite_scale)
-        return all(self.is_land(x + dx / footprint_scale, y + dy / footprint_scale, clearance=5)
+        return all(self.kind_at(x + dx / footprint_scale,y + dy / footprint_scale) != SWAMP and
+                   self.is_land(x + dx / footprint_scale, y + dy / footprint_scale, clearance=5)
                    for dx, dy in ((12, 8), (38.5, 8), (65, 8),
                                   (12, 30), (38.5, 30), (65, 30), (38.5, 48)))
 
@@ -128,7 +130,7 @@ class TerrainView:
         if kind == VOID or (mode == 'land' and not self.is_land(point)):
             return math.inf
         return {WATER: 5.0, FOREST: 1.35, MOUNTAIN: 3.5, SNOW: 1.2,
-                DESERT: 1.15, CORRUPTION: 1.2}.get(kind, 1.0)
+                DESERT: 1.15, CORRUPTION: 1.2, SWAMP: 1.8}.get(kind, 1.0)
 
     def path_clear(self, points, mode='land'):
         for a, b in zip(points, points[1:]):

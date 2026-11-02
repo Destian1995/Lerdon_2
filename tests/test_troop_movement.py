@@ -4,7 +4,7 @@ import sys
 import unittest
 from collections import defaultdict
 from types import MethodType, SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 from strategy_ui_fixture import *
 from test_allied_movement import city_methods
@@ -54,6 +54,24 @@ class MarchTests(unittest.TestCase):
         self.assertEqual(active[3], 0)
         self.assertEqual(ids, [[id(p['shape']) for p in march.dust] for march in marches])
         self.assertEqual([army_size_level(100, n) for n in (30, 70, 71)], [1, 2, 3])
+
+    def test_hero_flag_waves_follows_march_on_water_and_disappears_at_arrival(self):
+        route=MarchRoute([(100,100),(500,100)],[False])
+        self.layer.marches.play_batch([(lambda:route,1,'Север',1,True)],lambda:None,lambda:None)
+        march=self.layer.marches.marches[0]
+        self.layer.update(.2)
+        flag=march.hero_flag
+        first=list(flag.cloth.vertices)
+        position=march.marker.pos
+        self.layer.update(.2)
+        self.assertNotEqual(first,flag.cloth.vertices)
+        self.assertNotEqual(position,march.marker.pos)
+        self.assertTrue(all(c.a>0 for c,_ in flag.colors))
+        self.assertEqual(sum(p['age']<p['life'] for p in march.dust),0)
+        for _ in range(180):
+            self.layer.update(1/30)
+        self.assertTrue(march.arrived)
+        self.assertTrue(all(c.a==0 for c,_ in flag.colors))
 
     def test_end_turn_is_blocked_while_a_march_is_pending(self):
         import ast
@@ -117,8 +135,14 @@ class MovementArrivalTests(unittest.TestCase):
         return row[0] if row else 0
 
     def test_real_command_transfers_only_on_arrival_and_spends_one_move(self):
+        selection=SimpleNamespace(dismiss=Mock())
+        self.owner.current_popup=selection
+        self.owner.dismiss=Mock()
         self.assertEqual(movement_city_route(self.db, 'A', 'C', 'Север'), [1, 2, 3])
         self.owner.move_selected_group_to_city()
+        selection.dismiss.assert_called_once_with()
+        self.owner.dismiss.assert_called_once_with()
+        self.assertIsNone(self.owner.current_popup)
         self.assertFalse(self.errors)
         self.assertEqual((self.count('A'), self.count('C')), (100, 0))
         self.assertTrue(self.screen.end_turn_button.disabled)
@@ -132,6 +156,36 @@ class MovementArrivalTests(unittest.TestCase):
         self.assertFalse(self.screen.end_turn_button.disabled)
         self.assertFalse(self.screen._troop_movement_busy)
         self.assertEqual(self.layer.marches.marches, [])
+
+    def test_flag_depends_on_selected_troops_and_ai_queue_remembers_hero_after_transfer(self):
+        from troop_movement import queue_ai_march,play_ai_marches
+        self.db.execute("ALTER TABLE units ADD COLUMN unit_class TEXT DEFAULT '1'")
+        self.db.execute("INSERT INTO units VALUES('Герой','Север',1,'2')")
+        self.db.execute("INSERT INTO garrisons VALUES('A','Герой',1,'')")
+        self.owner.move_selected_group_to_city()
+        self.assertIsNone(self.layer.marches.marches[0].hero_flag)
+        self.layer.marches.cancel_all()
+        self.owner.selected_group=[dict(city_name='A',unit_name='Герой',unit_count=1)]
+        self.owner.move_selected_group_to_city()
+        self.assertIsNotNone(self.layer.marches.marches[0].hero_flag)
+        self.layer.marches.cancel_all()
+        queue_ai_march(self.db,'Север','A','C',[dict(unit_name='Страж',unit_count=10)])
+        queue_ai_march(self.db,'Север','A','C',[dict(unit_name='Герой',unit_count=1)])
+        self.db.execute("DELETE FROM garrisons WHERE unit_name='Герой'")
+        play_ai_marches(self.screen)
+        self.assertEqual(len(self.layer.marches.marches),1)
+        self.assertIsNotNone(self.layer.marches.marches[0].hero_flag)
+
+    def test_rejected_command_keeps_city_and_selection_open(self):
+        selection=SimpleNamespace(dismiss=Mock())
+        self.owner.current_popup=selection
+        self.owner.dismiss=Mock()
+        self.owner.selected_group[0]['unit_count']=101
+        self.owner.move_selected_group_to_city()
+        self.assertTrue(self.errors)
+        selection.dismiss.assert_not_called()
+        self.owner.dismiss.assert_not_called()
+        self.assertEqual(self.count('A'),100)
 
     def test_cancel_before_arrival_leaves_garrisons_and_move_counter_intact(self):
         self.owner.move_selected_group_to_city()

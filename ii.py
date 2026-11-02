@@ -1339,6 +1339,7 @@ class AIController:
                        (u.attack + u.defense + u.durability) as hero_power
                 FROM garrisons g
                 JOIN units u ON g.unit_name = u.unit_name
+                JOIN cities c ON c.name=g.city_name
                 WHERE u.faction = ? AND u.unit_class IN ('2', '3', '4') AND g.unit_count > 0
                 ORDER BY CAST(u.unit_class AS INTEGER) DESC, hero_power DESC
                 LIMIT 1
@@ -1642,18 +1643,21 @@ class AIController:
 
             # Выполняем расчеты
             self.free_peoples += self.clear_up_peoples
-            self.money += int(self.calculate_tax_income() - (self.hospitals * coeffs['money_loss']))
+            from utils.city_terrain import economic_bonuses
+            _base_money = int(self.calculate_tax_income() - (self.hospitals * coeffs['money_loss']))
+            _terrain_bonus = economic_bonuses(self.db_connection,self.faction,_base_money,100)
+            self.money += _base_money + _terrain_bonus['crowns']
             self.money_info = int(self.hospitals * coeffs['money_loss'])
-            self.money_up = int(self.calculate_tax_income() - (self.hospitals * coeffs['money_loss']))
+            self.money_up = _base_money + _terrain_bonus['crowns']
             self.taxes_info = int(self.calculate_tax_income())
 
 
             # Учитываем, что одна фабрика может прокормить 100 людей
-            self.raw_material += int((self.factories * 100) - (self.population * coeffs['food_loss']))
+            self.raw_material += int((self.factories * 100) - (self.population * coeffs['food_loss'])) + _terrain_bonus['crystals']
             # food_info — база для бонуса «Борьба»: не вычитаем потребление армии,
             # так как армия уже списывает кристаллы напрямую.
             # max(0, ...) — фракция с отрицательным производством просто не получает бонус.
-            self.food_info = max(0, int((self.factories * 100) - (self.population * coeffs['food_loss'])))
+            self.food_info = max(0, int((self.factories * 100) - (self.population * coeffs['food_loss'])) + _terrain_bonus['crystals'])
             self.food_peoples = int(self.population * coeffs['food_loss'])
 
 
@@ -2252,6 +2256,10 @@ class AIController:
                     return
 
             # Уменьшаем количество юнитов в исходном городе
+            from terrain_journeys import start_journey
+            if start_journey(self.db_connection,self.faction,from_city_name,to_city_name,
+                             [dict(unit_name=unit_name,unit_count=unit_count)]):
+                return
             self.cursor.execute("""
                 UPDATE garrisons
                 SET unit_count = unit_count - ?
@@ -2277,7 +2285,7 @@ class AIController:
             print(f"Передислокация {unit_count} юнитов {unit_name} из {from_city_name} в {to_city_name} выполнена.")
             from troop_movement import queue_ai_march
             queue_ai_march(self.db_connection, self.faction, from_city_name, to_city_name,
-                           [dict(unit_count=unit_count)])
+                           [dict(unit_name=unit_name,unit_count=unit_count)])
         except sqlite3.Error as e:
             print(f"Ошибка при передислокации: {e}")
 
@@ -4898,6 +4906,9 @@ class AIController:
             if not attack_units:
                 return
 
+            from terrain_journeys import start_journey
+            if start_journey(self.db_connection,self.faction,from_city,target_city,attack_units,'attack'):
+                return
             from troop_movement import queue_ai_march
             queue_ai_march(self.db_connection, self.faction, from_city, target_city, attack_units)
 

@@ -170,34 +170,18 @@ class NotificationToast(FloatLayout):
 
         self.bind(pos=self._update_bg, size=self._update_bg)
 
-        # Иконка типа уведомления
-        icons = {
-            'info': 'ℹ️',
-            'success': '✅',
-            'warning': '⚠️',
-            'error': '❌'
-        }
-
-        icon_label = Label(
-            text=icons.get(self.toast_type, 'ℹ️'),
-            font_size=sp(20),
-            size_hint=(None, None),
-            size=(dp(30), dp(30)),
-            pos_hint={'center_y': 0.5}
-        )
-
         # Текст уведомления
+        from utils.ui_text import plain_ui_text
         message_label = Label(
-            text=self.message,
+            text=plain_ui_text(self.message),
             font_size=sp(14),
             color=(1, 1, 1, 1),
             halign='left',
             valign='center',
-            text_size=(dp(240), dp(40))
+            text_size=(dp(270), dp(40))
         )
 
         # Добавляем виджеты
-        self.add_widget(icon_label)
         self.add_widget(message_label)
 
         # Анимация появления

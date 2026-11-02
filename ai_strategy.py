@@ -733,6 +733,10 @@ def attack_city_v2(self, city_name, faction):
             except Exception as e:
                 print(f"[AI] relocate_units: {e}")
 
+        from terrain_journeys import available_attack_units
+        attack_army = available_attack_units(self.db_connection,allied_city,attack_army)
+        if not attack_army:
+            return
         self.cursor.execute("SELECT SUM(unit_count) FROM garrisons WHERE city_name = ?", (allied_city,))
         if (self.cursor.fetchone()[0] or 0) == 0:
             return
@@ -752,6 +756,12 @@ def attack_city_v2(self, city_name, faction):
                     "units_stats": {"Урон": a, "Защита": d, "Живучесть": du, "Класс юнита": str(uc)}
                 })
 
+        if not any(str(u['units_stats']['Класс юнита']).split()[0] == '1' for u in attacking_army):
+            return
+        from terrain_journeys import start_journey
+        if start_journey(self.db_connection,self.faction,allied_city,city_name,attacking_army,'attack'):
+            self._action_taken_this_turn = True
+            return
         from troop_movement import queue_ai_march
         queue_ai_march(self.db_connection, self.faction, allied_city, city_name, attacking_army)
         result = fight(
@@ -924,6 +934,10 @@ def early_expansion(self):
         return
 
     a, d, dur, uc = stats
+    from terrain_journeys import available_attack_units
+    if not available_attack_units(self.db_connection,allied_city,
+                                  [dict(unit_name=chosen['unit_name'],unit_count=NEUTRAL_ATTACKER_COUNT)]):
+        return
     attacking_army = [{
         "unit_name": chosen["unit_name"], "unit_count": NEUTRAL_ATTACKER_COUNT,
         "unit_image": chosen["unit_image"],
@@ -932,6 +946,10 @@ def early_expansion(self):
 
     print(f"[AI] {self.faction} (ход {self.turn+1}): отправляет 1 '{chosen['unit_name']}' на нейтрала {target_city}.")
     try:
+        from terrain_journeys import start_journey
+        if start_journey(self.db_connection,self.faction,allied_city,target_city,attacking_army,'attack'):
+            self._action_taken_this_turn = True
+            return
         from troop_movement import queue_ai_march
         queue_ai_march(self.db_connection, self.faction, allied_city, target_city, attacking_army)
         result = fight(

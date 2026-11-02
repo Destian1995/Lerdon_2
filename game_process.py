@@ -1603,6 +1603,8 @@ class GameScreen(Screen):
             _new_season = None
             try:
                 self.ensure_rebellion_ai_controller()
+                from terrain_journeys import advance_journeys
+                advance_journeys(self.conn,self.turn_counter)
 
                 invasion_triggered, invasion_msg = check_and_trigger_invasion(
                     self.conn, self.turn_counter, self.selected_faction
@@ -3316,6 +3318,9 @@ class GameScreen(Screen):
                     Color(*pip_color)
                     RoundedRectangle(pos=(pip_x, badge_y + 6),
                                      size=(7, pip_height), radius=[2])
+
+        from map_zoom import sync_map_zoom
+        sync_map_zoom(self)
 
     def update_city_military_status(self):
         """Обновляет военный статус городов и иконки идеологии."""

@@ -473,11 +473,11 @@ def show_coup_attempt_popup(successful=False, message_override=None):
         content.bind(pos=update_rect, size=update_rect)
 
         if successful:
-            title_text = "⚠ Переворот!"
+            title_text = "Переворот!"
             title_color = UIStyles.COLOR_DANGER
             message_text = message_override or "Тайная служба пресекла попытку государственного переворота!"
         else:
-            title_text = "⚠ Переворот!"
+            title_text = "Переворот!"
             title_color = UIStyles.COLOR_WARNING
             message_text = message_override or "Тайная служба пресекла попытку переворота."
 

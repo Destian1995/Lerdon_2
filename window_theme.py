@@ -21,6 +21,7 @@ from kivy.uix.spinner import Spinner, SpinnerOption
 from kivy.uix.textinput import TextInput
 
 from strategy_ui import GOLD, INK, SURFACE, TEXT, MUTED, StrategyButton, frame
+from utils.ui_text import bind_plain_text
 
 CLOSE_TEXT = {'закрыть', 'назад', 'закрыть окно', 'x', 'х', '×', '✕', '✖'}
 
@@ -159,6 +160,8 @@ def theme_tree(root, observe=True):
         trigger = Clock.create_trigger(lambda dt: theme_tree(root), -1)
         root._window_theme_trigger = trigger
     for widget in list(root.walk()):
+        if isinstance(widget, Label):
+            bind_plain_text(widget)
         if isinstance(widget, ButtonBehavior) and hasattr(widget, 'text'):
             skin_button(widget)
         elif isinstance(widget, Image):
@@ -232,6 +235,7 @@ def watch_game_area(area):
 
 
 def theme_popup(popup):
+    bind_plain_text(popup,'title')
     if getattr(popup, '_window_theme_busy', False) or popup.content is None:
         return
     popup._window_theme_busy = True

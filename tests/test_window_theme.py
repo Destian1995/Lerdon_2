@@ -23,6 +23,21 @@ from strategy_ui_fixture import __dict__ as fixture_globals
 
 
 class WindowThemeTests(unittest.TestCase):
+    def test_unsupported_symbols_are_removed_from_initial_and_dynamic_window_text(self):
+        body=BoxLayout()
+        label=Label(text='⚠️ Лес: 2 бойца → Аргенвилль')
+        action=Button(text='✅ Отправить')
+        body.add_widget(label)
+        body.add_widget(action)
+        popup=self.open(body,title='🌲 Лес')
+        self.assertEqual(label.text,' Лес: 2 бойца -> Аргенвилль')
+        self.assertEqual(action.text,' Отправить')
+        self.assertEqual(popup.title,' Лес')
+        label.text='[color=#66CC66]✅ +30%[/color]\nЛес: 2 х.'
+        self.assertEqual(label.text,'[color=#66CC66] +30%[/color]\nЛес: 2 х.')
+        popup.title='⚠ Болото'
+        self.assertEqual(popup.title,' Болото')
+
     def setUp(self):
         self.original = Popup.open
         install_window_theme()
