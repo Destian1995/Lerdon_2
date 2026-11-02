@@ -470,76 +470,11 @@ class FortressInfoPopup(Popup):
                 self._show_ally_transfer_choice(troop_type, target_faction)
                 return
 
-            # Получаем все города где есть войска игрока (свои + союзные)
-            # Сначала находим фракции-союзники
-            _ally_factions = []
-            try:
-                cursor.execute("""
-                    SELECT DISTINCT faction1, faction2 FROM diplomacies
-                    WHERE relationship = 'союз'
-                """)
-                for f1, f2 in cursor.fetchall():
-                    if f1 == self.player_fraction:
-                        _ally_factions.append(f2)
-                    elif f2 == self.player_fraction:
-                        _ally_factions.append(f1)
-            except Exception:
-                pass
-            _friendly_factions = [self.player_fraction] + _ally_factions
-            _ff_ph = ','.join('?' * len(_friendly_factions))
-            cursor.execute(f"""
-                SELECT DISTINCT c.id, c.name
-                FROM garrisons g
-                JOIN cities c ON c.name = g.city_name
-                JOIN units u ON u.unit_name = g.unit_name
-                WHERE c.faction IN ({_ff_ph}) AND u.faction = ?
-            """, _friendly_factions + [self.player_fraction])
-            all_garr = cursor.fetchall()
-
-            if not all_garr:
-                _show_dark_error_popup("Нет войск", "У вас нет войск ни в одном городе.")
-                return
-
-            # Определяем: город свой или союзника (дружественный)
-            _is_ally_city = (target_faction != self.player_fraction and
-                             self.is_ally(self.player_fraction, target_faction))
-            _is_friendly = target_faction == self.player_fraction or _is_ally_city
-
-            if _is_friendly:
-                # ── Свой/союзный город: BFS с предзагрузкой
-                # Батч-загрузка: все фракции городов и дороги
-                cursor.execute("SELECT id, faction FROM cities")
-                _city_factions = {r[0]: r[1] for r in cursor.fetchall()}
-                cursor.execute("SELECT city1, city2 FROM roads")
-                _road_adj = {}
-                for c1, c2 in cursor.fetchall():
-                    _road_adj.setdefault(c1, []).append(c2)
-                    _road_adj.setdefault(c2, []).append(c1)
-
-                source_city_ids = set()
-                visited = {target_id}
-                queue = [target_id]
-                while queue:
-                    cur = queue.pop(0)
-                    for nbr_id in _road_adj.get(cur, []):
-                        if nbr_id in visited:
-                            continue
-                        _nbr_faction = _city_factions.get(nbr_id)
-                        if _nbr_faction and (_nbr_faction == self.player_fraction or
-                                    self.is_ally(self.player_fraction, _nbr_faction)):
-                            visited.add(nbr_id)
-                            queue.append(nbr_id)
-                            source_city_ids.add(nbr_id)
-                # Оставляем только гарнизонные города из достижимых
-                reachable_garr_ids = [cid for cid, _ in all_garr if cid in source_city_ids]
-            else:
-                # ── Нейтральный / вражеский город: только прямые соседи
-                cursor.execute("""
-                    SELECT CASE WHEN city1=? THEN city2 ELSE city1 END
-                    FROM roads WHERE city1=? OR city2=?
-                """, (target_id, target_id, target_id))
-                neighbor_ids = {row[0] for row in cursor.fetchall()}
-                reachable_garr_ids = [cid for cid, _ in all_garr if cid in neighbor_ids]
+            from utils.movement_rules import reachable_source_cities
+            self._ally_transfer_mode = _transfer_mode or 'control'
+            reachable_names = reachable_source_cities(self.conn, target_city, self.player_fraction)
+            reachable_garr_ids = [cid for cid, name in cursor.execute('SELECT id,name FROM cities')
+                                  if name in reachable_names]
 
             if not reachable_garr_ids:
                 _show_dark_error_popup("Нет войск", f"Нет ваших войск в городах, откуда можно достичь {target_city}.")
@@ -556,7 +491,7 @@ class FortressInfoPopup(Popup):
                 JOIN cities c ON c.name = g.city_name
                 JOIN units u ON u.unit_name = g.unit_name
                 WHERE c.id IN ({placeholders})
-                  AND u.faction = ?
+                  AND u.faction = ? AND g.unit_count > 0
                   {_class_filter}
             """, reachable_garr_ids + [self.player_fraction])
 
@@ -2005,41 +1940,14 @@ class FortressInfoPopup(Popup):
             if destination_owner and destination_owner != current_player_kingdom:
                 is_war_destination = self.get_relationship(current_player_kingdom, destination_owner) == 'война'
 
-            if target_faction_row and target_faction_row[0] == current_player_kingdom:
-                allowed_by_distance = False
-                for unit in self.selected_group:
-                    source_city = unit.get("city_name")
-                    if not source_city:
-                        show_popup_message("Ошибка", "Не указан исходный город для перемещения.")
-                        return
-
-                    source_owner = self.get_city_owner(source_city)
-                    if source_owner == current_player_kingdom:
-                        if self.has_own_territory_path(source_city, self.city_name, current_player_kingdom):
-                            allowed_by_distance = True
-                            break
-                    elif self.has_road_between_cities(source_city, self.city_name):
-                        allowed_by_distance = True
-                        break
-            else:
-                # Проверяем условие по наличию дороги хотя бы для одного юнита
-                allowed_by_distance = False
-                for unit in self.selected_group:
-                    source_city = unit.get("city_name")
-                    if not source_city:
-                        show_popup_message("Ошибка", "Не указан исходный город для перемещения.")
-                        return
-
-                    if self.has_road_between_cities(source_city, self.city_name):
-                        allowed_by_distance = True
-                        break  # достаточно одного юнита
-
-            if not allowed_by_distance:
-                show_popup_message(
-                    "Нет дороги",
-                    f"Нет дороги к городу {self.city_name} от ваших войск."
-                )
-                return
+            from utils.movement_rules import reachable_source_cities
+            reachable = reachable_source_cities(self.conn, self.city_name, current_player_kingdom)
+            for unit in self.selected_group:
+                source_city = unit.get('city_name')
+                if not source_city or source_city not in reachable:
+                    show_popup_message('Нет дороги',
+                                       f'Из города {source_city or "—"} нельзя достичь {self.city_name}.')
+                    return
 
             # Группируем юниты по их исходным городам
             grouped_by_city = defaultdict(lambda: defaultdict(int))
@@ -2112,22 +2020,13 @@ class FortressInfoPopup(Popup):
                 show_popup_message("Ошибка", "Один из городов не существует.")
                 return False
 
-            # Проверяем маршрут для движения
-            _src_is_friendly = (source_owner == self.player_fraction or
-                                self.is_ally(self.player_fraction, source_owner))
-            _dst_is_friendly = (destination_owner == self.player_fraction or
-                                self.is_ally(self.player_fraction, destination_owner))
-            if _src_is_friendly and _dst_is_friendly:
-                if not (self.has_road_between_cities(source_fortress_name, destination_fortress_name) or
-                        self.has_own_territory_path(source_fortress_name, destination_fortress_name,
-                                                   self.player_fraction)):
-                    show_popup_message("Нет дороги",
-                                       f"Нет пути между {source_fortress_name} и {destination_fortress_name} по вашей территории.")
-                    return False
-            else:
-                if not self.has_road_between_cities(source_fortress_name, destination_fortress_name):
-                    show_popup_message("Нет дороги", f"Нет дороги между {source_fortress_name} и {destination_fortress_name}.")
-                    return False
+            # Selection and execution use the same route rules, including allied targets.
+            from utils.movement_rules import can_move_between_cities
+            if not can_move_between_cities(self.conn, source_fortress_name,
+                                           destination_fortress_name, self.player_fraction):
+                show_popup_message('Нет дороги',
+                                   f'Нет доступного пути из {source_fortress_name} в {destination_fortress_name}.')
+                return False
 
             current_player_kingdom = self.player_fraction
 

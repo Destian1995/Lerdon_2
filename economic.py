@@ -2421,20 +2421,32 @@ def open_tax_popup(faction):
         current_rate = int(str(faction.current_tax_rate).rstrip('%'))
     except (ValueError, TypeError):
         current_rate = 0
-    content = BoxLayout(orientation='vertical', padding=dp(12), spacing=dp(8))
+    content = BoxLayout(orientation='vertical', padding=dp(8), spacing=dp(4))
     content._responsive_keep_geometry = True
-    summary = BoxLayout(size_hint_y=None, height=dp(36))
+    summary = BoxLayout(size_hint_y=None, height=dp(32))
     amount = Label(text=f'Налог: {current_rate}%', bold=True, font_size=sp(21),
                    halign='center', valign='middle')
     amount.bind(size=amount.setter('text_size'))
     summary.add_widget(amount)
     content.add_widget(summary)
-    status = Label(text='Установлен на этот ход' if faction.tax_set else 'Не установлен на этот ход',
+    status = Label(text='Установлен' if faction.tax_set else 'Не установлен',
                    color=(.5, .85, .55, 1) if faction.tax_set else (1, .65, .3, 1),
-                   size_hint_y=None, height=dp(28), font_size=sp(13))
+                   size_hint_y=None, height=dp(20), font_size=sp(13))
     content.add_widget(status)
+    effect = Label(size_hint_y=None, height=dp(24), font_size=sp(12),
+                   halign='center', valign='middle')
+    effect.bind(size=effect.setter('text_size'))
+    content.add_widget(effect)
+    def update_preview(widget, value):
+        rate = int(value)
+        change = faction.tax_effect(rate)
+        amount.text = f'Налог: {rate}%'
+        effect.text = f'Прирост населения: {change:+g}%'
+        effect.color = ((.5, .85, .55, 1) if change > 0 else
+                        (1, .55, .4, 1) if change < 0 else (.7, .75, .8, 1))
     slider = Slider(min=0, max=100, value=current_rate, step=1, size_hint_y=None, height=dp(48))
-    slider.bind(value=lambda widget, value: setattr(amount, 'text', f'Налог: {int(value)}%'))
+    slider.bind(value=update_preview)
+    update_preview(slider, current_rate)
     content.add_widget(slider)
     apply = StrategyButton(text='Установить налог', primary=True, size_hint_y=None, height=dp(48))
     content.add_widget(apply)

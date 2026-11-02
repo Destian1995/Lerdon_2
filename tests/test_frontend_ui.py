@@ -64,7 +64,7 @@ class FrontendTests(unittest.TestCase):
         menu = self.show('MenuWidget')
         self.assertEqual(len(menu.buttons), 6)
         self.assertTrue(all(isinstance(b, StrategyButton) and b.height >= 48 for b in menu.buttons))
-        self.assertTrue(any(isinstance(w, Label) and w.text == 'v7.0.6' for w in menu.walk()))
+        self.assertTrue(any(isinstance(w, Label) and w.text == 'v7.0.7' for w in menu.walk()))
         self.assertIsNone(menu._particle_event)
         self.assertEqual(menu.button_container.cols, 2)
         Window.size = (360, 640)
@@ -150,6 +150,33 @@ class FrontendTests(unittest.TestCase):
         self.assertFalse(tutorial.start_btn.disabled)
         author = self.show('AuthorScreen')
         self.assertTrue(any(isinstance(w, StrategyButton) and w.text == 'В меню' for w in author.walk()))
+
+    def test_tutorial_keeps_all_factions_and_start_visible_after_resize(self):
+        from kivy.metrics import Metrics
+        original_metrics = Metrics.density, Metrics.fontscale
+        tutorial = self.show('TutorialFactionScreen')
+        try:
+            for size, density in (((800, 600), 1), ((640, 360), 1), ((360, 640), 1),
+                                  ((320, 568), 1), ((1280, 576), 2)):
+                Metrics.density, Metrics.fontscale = density, 1.2
+                Window.size = size
+                settle()
+                for button in [*tutorial._faction_btns.values(), tutorial.start_btn, tutorial.tutorial_back_button]:
+                    with self.subTest(size=size, faction=button.text):
+                        left, bottom = button.to_window(*button.pos)
+                        right, top = button.to_window(button.right, button.top)
+                        self.assertGreaterEqual(bottom, -1)
+                        self.assertLessEqual(top, Window.height + 1)
+                        self.assertGreaterEqual(left, -1)
+                        self.assertLessEqual(right, Window.width + 1)
+                for name, button in tutorial._faction_btns.items():
+                    button.dispatch('on_release')
+                    self.assertEqual(tutorial.selected_faction, name)
+                    self.assertEqual(tutorial.tutorial_selection_label.text, name)
+                    self.assertEqual(tutorial.tutorial_ideology_label.text, tutorial.FACTION_HINT[name])
+                    self.assertFalse(tutorial.start_btn.disabled)
+        finally:
+            Metrics.density, Metrics.fontscale = original_metrics
 
     def test_button_motion_finishes_and_does_not_change_geometry(self):
         button = StrategyButton(size=(180, 52), size_hint=(None, None))

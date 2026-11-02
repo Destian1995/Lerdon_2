@@ -19,7 +19,7 @@ from strategy_ui import INK, SURFACE, GOLD, TEXT, MUTED, FACTIONS, StrategyButto
 from responsive_ui import WindowFlow
 from ui_motion import enter
 
-VERSION = '7.0.6'
+VERSION = '7.0.7'
 FACTION_ART = {'Север': 'people', 'Эльфы': 'elfs', 'Вампиры': 'vampire', 'Адепты': 'adepts', 'Элины': 'elins'}
 
 
@@ -263,7 +263,8 @@ def build_campaign_setup(owner):
             ('Идеология', 'ideology_spinner', ('Случайная', 'Смирение', 'Борьба'), owner.on_ideology_selected),
             ('Единомышленники', 'allies_spinner', ('Случайное количество', '1', '2'), owner.on_allies_selected)):
         field = BoxLayout(orientation='vertical', spacing=dp(4))
-        field.add_widget(text_label(caption, 13, MUTED, size_hint_y=None, height=dp(24)))
+        field.add_widget(text_label(caption, 13, MUTED, size_hint_y=None, height=dp(24),
+                                    outline_color=(0, 0, 0, 1), outline_width=dp(1.5)))
         spinner = Spinner(text=values[0], values=values, option_cls=StrategySpinnerOption,
                           size_hint_y=None, height=dp(48), font_size=sp(14))
         skin_button(spinner)
@@ -334,23 +335,61 @@ def switch_faction_art(owner, name):
 
 
 def build_tutorial_picker(owner):
-    page = FrontPage(owner, 'Обучение', 'Освойте управление выбранной фракцией.')
+    page = FrontPage(owner, 'Обучение', 'Выберите фракцию и начните пошаговое обучение.', paged=True)
+    picker = surface(NaturalList(padding=dp(8), spacing=dp(6)), (*INK[:3], .90))
+    heading = text_label('ВЫБЕРИТЕ ФРАКЦИЮ', 12, GOLD, size_hint_y=None, height=dp(20))
+    heading.halign = 'center'
+    picker.add_widget(heading)
+    grid = GridLayout(cols=5, size_hint_y=None, spacing=dp(6))
+    grid.bind(minimum_height=grid.setter('height'))
+    grid.bind(width=lambda widget, width: setattr(widget, 'cols', 5 if width >= dp(560) else
+                                                 3 if width >= dp(310) else 2))
+    owner.tutorial_faction_grid = grid
     owner._faction_btns = {}
     for name in owner.FACTIONS:
-        button = FactionChoice(text=name, size_hint_y=None, height=dp(52))
+        button = FactionChoice(text=name, size_hint_y=None, height=dp(48))
         button.bind(on_release=lambda widget, name=name: owner._select_faction(name))
-        page.column.add_widget(button)
-        page.column.add_widget(text_label(owner.FACTION_HINT.get(name, ''), 12, MUTED,
-                                          size_hint_y=None, height=dp(30)))
+        grid.add_widget(button)
         owner._faction_btns[name] = button
+    picker.add_widget(grid)
+    page.column.add_widget(picker)
+
+    # Descriptions scroll independently, keeping every choice and Start visible.
+    details = surface(NaturalList(padding=dp(12), spacing=dp(8)), (*INK[:3], .90))
+    owner.tutorial_selection_label = text_label('Как начать', 17, GOLD, bold=True,
+                                                 size_hint_y=None, height=dp(28))
+    owner.tutorial_ability_label = text_label(
+        'Выберите фракцию выше, затем нажмите «Начать обучение».', 13, TEXT,
+        markup=True, size_hint_y=None, height=dp(24))
+    owner.tutorial_ideology_label = text_label(
+        'Пошаговые подсказки помогут освоить управление королевством.', 12, MUTED,
+        size_hint_y=None, height=dp(24))
+    for label in (owner.tutorial_selection_label, owner.tutorial_ability_label, owner.tutorial_ideology_label):
+        details.add_widget(label)
+    detail_scroll = ScrollView(do_scroll_x=False, bar_width=dp(3), bar_color=GOLD)
+    detail_scroll.add_widget(details)
+    owner.tutorial_detail_scroll = detail_scroll
+    page.column.add_widget(detail_scroll)
     actions = BoxLayout(size_hint_y=None, height=dp(52), spacing=dp(10))
     back = StrategyButton(text='В меню')
+    owner.tutorial_back_button = back
     back.bind(on_release=owner._go_back)
     owner.start_btn = StrategyButton(text='Начать обучение', primary=True, disabled=True)
     owner.start_btn.bind(on_release=owner._start_tutorial)
     actions.add_widget(back)
     actions.add_widget(owner.start_btn)
     page.column.add_widget(actions)
+
+
+def update_tutorial_faction(owner, faction):
+    from utils.faction_bonuses import FACTION_ABILITIES
+    owner.tutorial_selection_label.text = faction
+    owner.tutorial_ability_label.text = FACTION_ABILITIES.get(faction, '')
+    owner.tutorial_ideology_label.text = owner.FACTION_HINT.get(faction, '')
+    owner.tutorial_detail_scroll.scroll_y = 1
+    art = FACTION_ART.get(faction)
+    if art:
+        owner._front_page.art.source = f'files/menu/choise/{art}.jpg'
 
 
 def build_author(owner):

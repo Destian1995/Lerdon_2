@@ -248,7 +248,7 @@ def show_nobles_window(conn, faction, class_faction):
     from strategy_ui import StrategyButton, surface, text_label
     from frontend_ui import NaturalList
     from utils.faction_bonuses import summarize_council
-    from utils.coup_rules import coup_probabilities
+    from utils.coup_rules import coup_probabilities, council_coup_probabilities
     cash_player = CalculateCash(faction, class_faction)
     player_faction = get_player_faction(conn)
     root = BoxLayout(orientation='vertical', padding=dp(8), spacing=dp(8))
@@ -256,6 +256,9 @@ def show_nobles_window(conn, faction, class_faction):
     summary = text_label('', 12, UIStyles.COLOR_GOLD, markup=True, size_hint_y=None, height=dp(44))
     summary.halign = 'center'
     root.add_widget(summary)
+    risk_summary = text_label('', 12, UIStyles.COLOR_TEXT_DIM, size_hint_y=None, height=dp(28))
+    risk_summary.halign = 'center'
+    root.add_widget(risk_summary)
     scroll = ScrollView(do_scroll_x=False)
     grid = GridLayout(cols=1, size_hint_y=None, spacing=dp(8))
     grid.bind(minimum_height=grid.setter('height'))
@@ -276,20 +279,29 @@ def show_nobles_window(conn, faction, class_faction):
         grid.clear_widgets()
         nobles = [n for n in get_all_nobles(conn) if n.get('status') == 'active']
         events = get_events_count_from_history(conn)
-        disloyal = sum((n.get('loyalty') or 0) < 30 for n in nobles)
+        loyalties = [n.get('loyalty') for n in nobles]
+        disloyal = sum(value is not None and value < 30 for value in loyalties)
+        total_attempt, _ = council_coup_probabilities(loyalties)
+        risk_summary.text = (f'Риск попытки переворота: {total_attempt:.1%} за ход'
+                             if events >= 3 else 'Риск переворота: скрыто до трёх мероприятий')
+        risk_summary.color = (UIStyles.COLOR_DANGER if total_attempt >= .5 else
+                              UIStyles.COLOR_GOLD if total_attempt > 0 else UIStyles.COLOR_SUCCESS)
+        if events < 3:
+            risk_summary.color = UIStyles.COLOR_TEXT_DIM
         summary.text = _build_bonus_summary(nobles)
         for noble in nobles:
             card = surface(NaturalList(padding=dp(8), spacing=dp(6)), UIStyles.COLOR_CARD)
             # A compact column shows every advisor's information and actions together.
             name = text_label(noble['name'], 15, UIStyles.COLOR_GOLD, bold=True, size_hint_y=None, height=dp(24))
             card.add_widget(name)
-            loyalty = noble.get('loyalty') or 0
-            info = dict(noble, show_loyalty=events >= 3, calculated_loyalty=int(loyalty),
+            loyalty = noble.get('loyalty')
+            info = dict(noble, show_loyalty=events >= 3,
+                        calculated_loyalty=int(loyalty) if loyalty is not None else None,
                         coup_attempt_chance=coup_probabilities(loyalty, disloyal)[0],
                         coup_success_chance=coup_probabilities(loyalty, disloyal)[1])
             agent = SecretServiceCard(info, conn, cash_player, None, refresh_list, events)
             risk = agent._get_status_text()
-            details = f"Лояльность: {int(loyalty)}%"
+            details = f"Лояльность: {loyalty:g}%" if loyalty is not None else 'Лояльность: нет данных'
             card.add_widget(text_label(details, 12, UIStyles.COLOR_TEXT, size_hint_y=None, height=dp(22)))
             card.add_widget(text_label(NobleCard._get_status_text(None, noble), 11,
                                        UIStyles.COLOR_TEXT_DIM, markup=True, size_hint_y=None, height=dp(20)))
@@ -303,10 +315,6 @@ def show_nobles_window(conn, faction, class_faction):
             eliminate = StrategyButton(text='Устранить · 100 тыс.', accent=UIStyles.COLOR_DANGER, font_size=sp(12))
             eliminate.bind(on_release=lambda widget, agent=agent: agent._handle_elimination())
             buttons.add_widget(eliminate)
-            if get_noble_traits(noble.get('ideology', ''))['type'] == 'greed':
-                deal = StrategyButton(text='Договориться', font_size=sp(12))
-                deal.bind(on_release=lambda widget, noble=noble: show_deal_popup(conn, noble, cash_player, refresh_list))
-                buttons.add_widget(deal)
             card.add_widget(buttons)
             grid.add_widget(card)
         fit_grid()
@@ -804,8 +812,8 @@ class SecretServiceCard(BoxLayout):
         if self.noble_data['show_loyalty'] and self.noble_data['loyalty'] is not None:
             attempt = self.noble_data['coup_attempt_chance']
             success = self.noble_data['coup_success_chance']
-            color = 'ff5555' if attempt > 0 else '66cc88'
-            risk = f"Попытка переворота: {attempt:.0%}"
+            color = 'ff5555' if attempt >= .5 else 'ffcc66' if attempt > 0 else '66cc88'
+            risk = f"Попытка переворота: {attempt:.1%} за ход"
             if attempt > 0:
                 risk += f" · успех: {success:.0%}"
             parts.append(f"[color={color}]{risk}[/color]")
@@ -1030,7 +1038,7 @@ def show_event_popup(conn, player_faction, season_index, refresh_callback, cash_
     content.add_widget(cost_lbl)
 
     # Подсказка
-    hint_text = "Вся знать будет приглашена"
+    hint_text = "Попытка повышения лояльности советников"
     if greedy_nobles:
         names = ', '.join(n[1] for n in greedy_nobles)
         hint_text += f"\n[color=#FFAA55]Договор с: {names}[/color]"
@@ -1123,7 +1131,7 @@ def show_event_popup(conn, player_faction, season_index, refresh_callback, cash_
     popup.open()
 
 def create_noble_widget_with_deal(noble_data, conn, cash_player, refresh_callback):
-    """Создание виджета для отображения одного дворянина с кнопкой 'Договориться' (Табличный формат)"""
+    """Compact adviser row; agreements are handled by the council event."""
     is_android = UIStyles.is_android()
     widget_height = dp(50) if not is_android else dp(45)
     font_large = sp(16) if not is_android else sp(14)
@@ -1132,7 +1140,7 @@ def create_noble_widget_with_deal(noble_data, conn, cash_player, refresh_callbac
     padding_inner = dp(8) if not is_android else dp(5)
     spacing_inner = dp(5) if not is_android else dp(3)
 
-    layout = GridLayout(cols=3, size_hint_y=None, height=widget_height, padding=padding_inner, spacing=spacing_inner)
+    layout = GridLayout(cols=2, size_hint_y=None, height=widget_height, padding=padding_inner, spacing=spacing_inner)
 
     name_label = Label(
         text=noble_data['name'],
@@ -1182,41 +1190,6 @@ def create_noble_widget_with_deal(noble_data, conn, cash_player, refresh_callbac
     )
     attention_label.bind(size=attention_label.setter('text_size'))
 
-    try:
-        import json
-        ideology_data = json.loads(noble_data['ideology']) if isinstance(noble_data['ideology'], str) else noble_data['ideology']
-        if isinstance(ideology_data, dict) and ideology_data.get('type') == 'greed':
-            deal_btn = Button(
-                text="Договориться",
-                font_size=font_small,
-                size_hint_y=None,
-                height=dp(30) if not is_android else dp(25),
-                background_color=(0.3, 0.7, 0.3, 1)
-            )
-            def on_deal(instance):
-                show_deal_popup(conn, noble_data, cash_player)
-                Clock.schedule_once(lambda dt: refresh_callback(), 0.1)
-            deal_btn.bind(on_release=on_deal)
-        else:
-            deal_btn = Label(
-                text="-",
-                font_size=font_small,
-                halign='center',
-                valign='middle',
-                color=(0.7, 0.7, 0.7, 1)
-            )
-            deal_btn.bind(size=deal_btn.setter('text_size'))
-    except (json.JSONDecodeError, TypeError):
-        deal_btn = Label(
-            text="-",
-            font_size=font_small,
-            halign='center',
-            valign='middle',
-            color=(0.7, 0.7, 0.7, 1)
-        )
-        deal_btn.bind(size=deal_btn.setter('text_size'))
-
     layout.add_widget(name_label)
     layout.add_widget(attention_label)
-    layout.add_widget(deal_btn)
     return layout

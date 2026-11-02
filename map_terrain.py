@@ -74,9 +74,17 @@ class TerrainMap:
     def city_allowed(self, x, y, sprite_scale=1):
         # Coordinates refer to the bottom-left of the 77px city sprite. Check
         # the actual ground footprint, not just a corner hidden under the icon.
-        return all(self.is_land(x + dx / sprite_scale, y + dy / sprite_scale, clearance=5)
+        # Small windows shrink the icon as well as the map. Its world-space
+        # footprint must not grow indefinitely when the screen gets smaller.
+        footprint_scale = max(.8, sprite_scale)
+        return all(self.is_land(x + dx / footprint_scale, y + dy / footprint_scale, clearance=5)
                    for dx, dy in ((12, 8), (38.5, 8), (65, 8),
                                   (12, 30), (38.5, 30), (65, 30), (38.5, 48)))
+
+
+def city_sprite_size(map_scale):
+    """Screen size matching the land footprint used during city placement."""
+    return 77 * min(1.0, max(0.0, map_scale) / .8)
 
 
 @lru_cache(maxsize=16)

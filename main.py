@@ -813,8 +813,10 @@ class MapWidget(Widget):
         for name, faction, raw_coords in cities:
             try:
                 x, y = ast.literal_eval(raw_coords)
-                city_list.append((x * self.map_scale + self.map_pos[0] + 38.5,
-                                  y * self.map_scale + self.map_pos[1] + 38.5,
+                from map_terrain import city_sprite_size
+                center_offset = city_sprite_size(self.map_scale) / 2
+                city_list.append((x * self.map_scale + self.map_pos[0] + center_offset,
+                                  y * self.map_scale + self.map_pos[1] + center_offset,
                                   faction, name))
             except (ValueError, TypeError, SyntaxError):
                 continue
@@ -1019,9 +1021,11 @@ class MapWidget(Widget):
             self.previous_city_factions[fortress_name] = kingdom
 
             # --- Создание виджета иконки ---
+            from map_terrain import city_sprite_size
+            icon_size = city_sprite_size(self.map_scale)
             icon_widget = Image(
                 source=image_path,
-                size=(77, 77),
+                size=(icon_size, icon_size),
                 pos=(drawn_x, drawn_y),
                 allow_stretch=True,
                 keep_ratio=True,
@@ -1032,8 +1036,8 @@ class MapWidget(Widget):
 
             # --- Анимация щита для городов нежити ---
             if is_undead_city:
-                cx = drawn_x + 38.5  # Центр иконки 77x77
-                cy = drawn_y + 38.5
+                cx = drawn_x + icon_size / 2
+                cy = drawn_y + icon_size / 2
                 # Определяем столицу нежити
                 _is_capital = capital_name == fortress_name
                 self._undead_shield_data.append((cx, cy, _is_capital))
@@ -1047,7 +1051,7 @@ class MapWidget(Widget):
             text_texture = self._get_city_label_texture(display_name)
             text_width, text_height = text_texture.size
 
-            text_x = drawn_x + (40 - text_width) / 2
+            text_x = drawn_x + (icon_size - text_width) / 2
             text_y = drawn_y - text_height - 5
 
             outline_width = 2
@@ -1283,6 +1287,8 @@ class MapWidget(Widget):
             return
         finally:
             cursor.close()
+        from map_terrain import city_sprite_size
+        icon_size = city_sprite_size(self.map_scale)
         cities, labels = {}, {}
         for city_id, name, faction, raw_coords in rows:
             try:
@@ -1292,7 +1298,7 @@ class MapWidget(Widget):
             x, y = x * self.map_scale + self.map_pos[0], y * self.map_scale + self.map_pos[1]
             cities[city_id] = (x, y)
             width, height = self._get_city_label_texture(f'{name}({faction})').size
-            left = x + (40 - width) / 2
+            left = x + (icon_size - width) / 2
             labels[city_id] = (left - 5, y - height - 10, left + width + 5, y - 1)
         inset = 30 * self.map_scale
         bounds = (self.map_pos[0] + inset, self.map_pos[1] + inset,
@@ -1803,6 +1809,8 @@ class TutorialFactionScreen(FloatLayout):
         for name, button in self._faction_btns.items():
             button.set_selected(name == faction)
         self.start_btn.disabled = False
+        from frontend_ui import update_tutorial_faction
+        update_tutorial_faction(self, faction)
 
     def _go_back(self, instance):
         app = App.get_running_app()
@@ -1810,43 +1818,55 @@ class TutorialFactionScreen(FloatLayout):
         app.root.add_widget(MenuWidget(self.conn))
 
     def _start_tutorial(self, instance):
-        if not self.selected_faction:
+        if not self.selected_faction or getattr(self, '_game_loading', None) is not None:
             return
-
-        restore_from_backup(self.conn)
-
+        from game_loading import GameLoadingPanel
         app = App.get_running_app()
-        app.selected_kingdom = self.selected_faction
+        faction = self.selected_faction
+        state = {}
+        self.start_btn.disabled = True
+        for button in self._faction_btns.values():
+            button.disabled = True
 
-        MapWidget = globals().get('MapWidget')
-        GameScreen = globals().get('GameScreen')
-        if not MapWidget or not GameScreen:
-            import sys
-            current_module = sys.modules[__name__]
-            MapWidget = getattr(current_module, 'MapWidget', None)
-            GameScreen = getattr(current_module, 'GameScreen', None)
+        def prepare_world():
+            restore_from_backup(self.conn)
+            app.selected_kingdom = faction
 
-        if MapWidget and GameScreen:
-            map_widget = MapWidget(
-                selected_kingdom=self.selected_faction,
-                player_kingdom=self.selected_faction,
-                conn=self.conn
-            )
-            cities = load_cities_from_db(self.conn, self.selected_faction)
-            tutorial_ideology = self.FACTION_IDEOLOGY.get(self.selected_faction, 'Смирение')
-            game_screen = GameScreen(
-                self.selected_faction,
-                cities,
-                player_ideology=tutorial_ideology,
-                player_allies=['Случайно 1 или 2 союзника'],
-                tutorial_enabled=True,
-                conn=self.conn
-            )
+        def prepare_map():
+            state['map'] = MapWidget(selected_kingdom=faction, player_kingdom=faction, conn=self.conn)
+
+        def prepare_interface():
+            cities = load_cities_from_db(self.conn, faction)
+            state['screen'] = GameScreen(
+                faction, cities, player_ideology=self.FACTION_IDEOLOGY.get(faction, 'Смирение'),
+                player_allies=['Случайно 1 или 2 союзника'], tutorial_enabled=True, conn=self.conn)
+
+        def reveal_map():
             app.root.clear_widgets()
-            app.root.add_widget(map_widget)
-            app.root.add_widget(game_screen)
-            if hasattr(map_widget, 'blink_player_city_icon'):
-                Clock.schedule_once(lambda dt: map_widget.blink_player_city_icon(), 1.0)
+            app.root.add_widget(state['map'])
+            app.root.add_widget(state['screen'])
+
+        def finished():
+            self._game_loading = None
+            if hasattr(state['map'], 'blink_player_city_icon'):
+                Clock.schedule_once(lambda dt: state['map'].blink_player_city_icon(), 1.0)
+
+        def failed(error):
+            map_widget = state.get('map')
+            if map_widget is not None and map_widget.parent is None:
+                map_widget.on_parent(map_widget, None)
+            self.start_btn.disabled = False
+            for button in self._faction_btns.values():
+                button.disabled = False
+            self._game_loading.bind(on_dismiss=lambda *_: setattr(self, '_game_loading', None))
+
+        self._game_loading = GameLoadingPanel([
+            ('Подготавливаем обучение…', prepare_world),
+            ('Создаём карту и размещаем города…', prepare_map),
+            ('Подготавливаем подсказки…', prepare_interface),
+            ('Открываем учебную карту…', reveal_map),
+        ], on_complete=finished, on_error=failed)
+        self._game_loading.start()
 
 
 class MenuWidget(FloatLayout):

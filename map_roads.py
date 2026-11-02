@@ -5,6 +5,7 @@ import random
 from dataclasses import dataclass, field
 from collections import deque
 from utils.movement_rules import MAX_MOVE_DISTANCE, filter_city_links, route_in_range
+from map_terrain import city_sprite_size
 
 _surface_texture = None
 
@@ -159,13 +160,14 @@ def build_road_paths(cities, roads, labels, bounds, scale=1, movement_limit=None
     but deliberately makes no claims about traversability of painted terrain.
     """
     result, seen = [], set()
-    building_rects = {key: (x - 5, y - 4, x + 82, y + 82) for key, (x, y) in cities.items()}
+    icon_size = city_sprite_size(scale)
+    building_rects = {key: (x - 5, y - 4, x + icon_size + 5, y + icon_size + 5) for key, (x, y) in cities.items()}
     for a, b in filter_city_links(cities, roads, scale, movement_limit):
         if a == b or a not in cities or b not in cities or (a, b) in seen:
             continue
         seen.add((a, b))
-        start = cities[a][0] + 38.5, cities[a][1] + 30
-        end = cities[b][0] + 38.5, cities[b][1] + 30
+        start = cities[a][0] + icon_size / 2, cities[a][1] + icon_size * 30 / 77
+        end = cities[b][0] + icon_size / 2, cities[b][1] + icon_size * 30 / 77
         obstacles = [rect for key, rect in building_rects.items() if key not in (a, b)]
         obstacles.extend(labels.values())
         hard_obstacles = [rect for key, rect in building_rects.items() if key not in (a, b)]
@@ -258,13 +260,14 @@ def build_transport_network(cities, roads, labels, bounds, scale=1, terrain=None
         return TransportNetwork(land=paths, connections=len(paths))
     network = TransportNetwork()
     seen = set()
-    rects = {key: (x - 5, y - 4, x + 82, y + 82) for key, (x, y) in cities.items()}
+    icon_size = city_sprite_size(scale)
+    rects = {key: (x - 5, y - 4, x + icon_size + 5, y + icon_size + 5) for key, (x, y) in cities.items()}
     for a, b in roads:
         if a == b or a not in cities or b not in cities or (a, b) in seen:
             continue
         seen.add((a, b))
-        start = cities[a][0] + 38.5, cities[a][1] + 30
-        end = cities[b][0] + 38.5, cities[b][1] + 30
+        start = cities[a][0] + icon_size / 2, cities[a][1] + icon_size * 30 / 77
+        end = cities[b][0] + icon_size / 2, cities[b][1] + icon_size * 30 / 77
         hard_obstacles = [rect for key, rect in rects.items() if key not in (a, b)]
         obstacles = hard_obstacles + list(labels.values())
         def within_budget(candidate):

@@ -1,7 +1,7 @@
 # nobles_generator.py
 import random
 import json
-from utils.coup_rules import coup_probabilities
+from utils.coup_rules import council_coup_probabilities
 
 from kivy.core.window import Window
 from kivy.metrics import dp, sp
@@ -364,14 +364,14 @@ def check_coup_attempts(conn):
     cursor.execute("SELECT id, loyalty, name FROM nobles WHERE status = 'active'")
     all_nobles = cursor.fetchall()
 
-    disloyal_nobles = [(id, name) for id, loyalty, name in all_nobles if loyalty < 30]
+    disloyal_nobles = [(id, name) for id, loyalty, name in all_nobles if loyalty is not None and loyalty < 30]
 
     coup_occurred = False
 
     if disloyal_nobles:
-        _, success_chance = coup_probabilities(
-            min(loyalty for _, loyalty, _ in all_nobles), len(disloyal_nobles))
-        if success_chance > 0:
+        attempt_chance, success_chance = council_coup_probabilities(
+            [loyalty for _, loyalty, _ in all_nobles])
+        if attempt_chance > 0 and random.random() < attempt_chance:
 
             if random.random() < success_chance:
                 coup_occurred = True
@@ -410,25 +410,6 @@ def check_coup_attempts(conn):
                     decrease_all_loyalty(conn, 4.0)
                     message = f"Попытка переворота провалилась. Уничтожены дворяне: {', '.join(eliminated_names)}. Многие увидели в этом слабость, лояльность снизилась на 4%."
                 show_coup_attempt_popup(successful=False, message_override=message)
-
-    else:
-        disloyal_count = sum(1 for _, loyalty, _ in all_nobles if loyalty < 30)
-        very_disloyal_count = sum(1 for _, loyalty, _ in all_nobles if loyalty < 15)
-
-        if disloyal_count >= 2:
-            if random.random() < 0.5:
-                coup_occurred = True
-                record_coup_attempt(conn, True)
-                show_coup_attempt_popup(successful=True)
-            else:
-                handle_failed_coup(conn, all_nobles)
-        elif very_disloyal_count >= 1:
-            if random.random() < 0.3:
-                coup_occurred = True
-                record_coup_attempt(conn, True)
-                show_coup_attempt_popup(successful=True)
-            else:
-                handle_failed_coup(conn, all_nobles)
 
     return coup_occurred
 

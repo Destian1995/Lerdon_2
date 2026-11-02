@@ -123,8 +123,10 @@ class MapAtmosphere(Widget):
         self._storm_key = self._plague_key = None
 
     def project(self, point):
-        return (self._origin[0] + point[0] * self._scale + 38.5,
-                self._origin[1] + point[1] * self._scale + 38.5)
+        from map_terrain import city_sprite_size
+        offset = city_sprite_size(self._scale) / 2
+        return (self._origin[0] + point[0] * self._scale + offset,
+                self._origin[1] + point[1] * self._scale + offset)
 
     def set_season(self, season):
         if season != self._season:

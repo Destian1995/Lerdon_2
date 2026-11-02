@@ -20,6 +20,57 @@ from game_loading import GameLoadingPanel
 
 
 class GameLoadingTests(unittest.TestCase):
+    def tutorial_start(self, map_factory, calls):
+        tree = ast.parse(Path('main.py').read_text(encoding='utf-8'))
+        cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'TutorialFactionScreen')
+        method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == '_start_tutorial')
+        root = FloatLayout()
+        root.add_widget(Widget())
+        app = SimpleNamespace(root=root)
+        owner = SimpleNamespace(selected_faction='Эльфы', conn=object(),
+                                start_btn=SimpleNamespace(disabled=False),
+                                _faction_btns={'Эльфы': SimpleNamespace(disabled=False)},
+                                FACTION_IDEOLOGY={'Эльфы': 'Смирение'})
+        def screen(*args, **kwargs):
+            self.assertTrue(kwargs['tutorial_enabled'])
+            self.assertEqual(kwargs['player_ideology'], 'Смирение')
+            calls.append('screen')
+            return Widget()
+        namespace = dict(App=SimpleNamespace(get_running_app=lambda: app), Clock=Clock,
+                         restore_from_backup=lambda conn: calls.append('restore'),
+                         MapWidget=map_factory, load_cities_from_db=lambda *args: [], GameScreen=screen)
+        exec(compile(ast.Module(body=[method], type_ignores=[]), 'main.py', 'exec'), namespace)
+        namespace['_start_tutorial'](owner, None)
+        self.panel = owner._game_loading
+        return owner, app, namespace['_start_tutorial']
+
+    def test_tutorial_starts_after_loading_and_ignores_duplicate_click(self):
+        calls = []
+        def make_map(**kwargs):
+            self.assertEqual(kwargs['selected_kingdom'], 'Эльфы')
+            self.assertIsNotNone(self.panel.parent)
+            calls.append('map')
+            return Widget()
+        owner, app, start = self.tutorial_start(make_map, calls)
+        self.assertTrue(owner.start_btn.disabled)
+        start(owner, None)
+        self.pump(lambda: owner._game_loading is None)
+        self.assertEqual(calls, ['restore', 'map', 'screen'])
+        self.assertEqual(len(app.root.children), 2)
+        self.assertEqual(app.selected_kingdom, 'Эльфы')
+
+    def test_tutorial_generation_error_keeps_menu_and_allows_retry(self):
+        calls = []
+        def broken_map(**kwargs):
+            raise RuntimeError('Synthetic city placement failure')
+        owner, app, start = self.tutorial_start(broken_map, calls)
+        self.pump(lambda: not owner.start_btn.disabled)
+        self.assertEqual(calls, ['restore'])
+        self.assertEqual(len(app.root.children), 1)
+        self.assertFalse(owner._faction_btns['Эльфы'].disabled)
+        self.panel.dismiss(animation=False)
+        self.assertIsNone(owner._game_loading)
+
     def pump(self, until, timeout=3):
         deadline = time.monotonic() + timeout
         while not until() and time.monotonic() < deadline:

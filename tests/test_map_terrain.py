@@ -9,7 +9,7 @@ import random
 import tempfile
 import unittest
 
-from map_terrain import TerrainMap, TerrainView, load_terrain, LAND, WATER, VOID
+from map_terrain import TerrainMap, TerrainView, load_terrain, city_sprite_size, LAND, WATER, VOID
 from map_roads import build_transport_network, dashed_segments
 
 
@@ -64,6 +64,14 @@ class TerrainAnnotationTests(unittest.TestCase):
         self.assertFalse(terrain.city_allowed(560, 300))
         self.assertFalse(terrain.city_allowed(530, 300, sprite_scale=.7))
 
+    def test_small_screen_icon_matches_the_land_footprint(self):
+        for scale in (.24, .27, .405, .6, .8, 1.15):
+            self.assertAlmostEqual(city_sprite_size(scale) / scale, 77 / max(.8, scale))
+        terrain = load_terrain('files/map/generate/map_5.png')
+        for x in range(100, 1100, 25):
+            for y in range(100, 700, 25):
+                self.assertEqual(terrain.city_allowed(x, y, .27), terrain.city_allowed(x, y, .8))
+
     def test_generation_on_every_map_at_two_sprite_scales(self):
         tree = ast.parse(Path('generate_map.py').read_text(encoding='utf-8'))
         names = ('generate_city_coords', 'select_faction_cities', 'generate_all_cities', 'manhattan')
@@ -74,20 +82,22 @@ class TerrainAnnotationTests(unittest.TestCase):
         exec(compile(ast.Module(body=functions, type_ignores=[]), 'generate_map.py', 'exec'), ns)
         for number in range(1, 8):
             terrain = load_terrain(f'files/map/generate/map_{number}.png')
-            for scale in (.8, 1.15):
-                rng.seed(2026 + number)
-                with contextlib.redirect_stdout(io.StringIO()):
-                    positions = ns['generate_all_cities'](terrain, sprite_scale=scale)
-                self.assertEqual(len(positions), 26)
-                self.assertTrue(all(terrain.city_allowed(*p, sprite_scale=scale) for p in positions))
-                reached = {0}
-                while True:
-                    following = {i for i, p in enumerate(positions) if any(
-                        abs(p[0] - positions[j][0]) + abs(p[1] - positions[j][1]) <= 280 for j in reached)}
-                    if following <= reached:
-                        break
-                    reached |= following
-                self.assertEqual(len(reached), 26)
+            for scale in (.27, .405, .6, .8, 1.15):
+                for seed in (2026 + number, 42, 501):
+                    with self.subTest(map=number, scale=scale, seed=seed):
+                        rng.seed(seed)
+                        with contextlib.redirect_stdout(io.StringIO()):
+                            positions = ns['generate_all_cities'](terrain, sprite_scale=scale)
+                        self.assertEqual(len(positions), 26)
+                        self.assertTrue(all(terrain.city_allowed(*p, sprite_scale=scale) for p in positions))
+                        reached = {0}
+                        while True:
+                            following = {i for i, p in enumerate(positions) if any(
+                                abs(p[0] - positions[j][0]) + abs(p[1] - positions[j][1]) <= 280 for j in reached)}
+                            if following <= reached:
+                                break
+                            reached |= following
+                        self.assertEqual(len(reached), 26)
 
     def test_actual_map_routes_keep_all_ground_segments_off_water(self):
         tree = ast.parse(Path('generate_map.py').read_text(encoding='utf-8'))

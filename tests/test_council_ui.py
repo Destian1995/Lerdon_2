@@ -26,7 +26,8 @@ class CouncilUITests(unittest.TestCase):
             CREATE TABLE season(id INTEGER,season_index INTEGER); INSERT INTO season VALUES(1,0);
             CREATE TABLE nobles(id INTEGER,priority INTEGER,loyalty REAL,status TEXT,name TEXT,ideology TEXT,attendance_history TEXT);
             INSERT INTO nobles VALUES(1,1,80,'active','Николай','Смирение','1,1,1'),
-            (2,2,75,'active','Генрих','Борьба','1,0,1'),(3,3,25,'active','Иван','Любит Эльфы','0,0,0');
+            (2,2,75,'active','Генрих','{"type":"greed","demand":3159}','1,0,1'),
+            (3,3,25,'active','Иван','Любит Эльфы','0,0,0');
             CREATE TABLE resources(faction TEXT,resource_type TEXT,amount REAL);
             INSERT INTO resources VALUES('Север','Кроны',500000),('Север','Рабочие',500);
         ''')
@@ -40,6 +41,8 @@ class CouncilUITests(unittest.TestCase):
             actions = [w for w in popup.content.walk() if isinstance(w, Button)]
             self.assertEqual(sum(w.text.startswith('Устранить') for w in actions), 3)
             self.assertFalse(any(w.text == 'Тайная служба' for w in actions))
+            self.assertFalse(any(w.text == 'Договориться' for w in actions))
+            self.assertFalse(any('Пороги лояльности' in text for text in labels))
             self.assertEqual(popup.advisor_grid.cols, 3)
             _, bottom = popup.advisor_grid.to_window(popup.advisor_grid.x, popup.advisor_grid.y)
             self.assertGreaterEqual(bottom, popup._window_action_dock.top)
