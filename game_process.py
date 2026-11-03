@@ -1424,7 +1424,9 @@ class GameScreen(Screen):
 
         # === Центральная область ===
         self.game_area = FloatLayout(size_hint=(0.7, 1), pos_hint={'x': 0.25, 'y': 0})
-        self.root_overlay.add_widget(self.game_area)
+        # Military badges and flags share this layer; all HUD siblings must
+        # stay above it for both drawing and touch dispatch.
+        self.root_overlay.add_widget(self.game_area, index=len(self.root_overlay.children))
         self.save_interface_element("GameArea", "center", self.game_area)
 
         # === Счётчик ходов ===

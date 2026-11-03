@@ -337,6 +337,51 @@ class CityWarEffectsTests(CityWarFixture):
             self.fx.attach_standards(None)
             root.remove_widget(self.layer)
 
+    def test_hud_stays_above_later_map_badges_and_flags_for_pixels_and_touches(self):
+        from types import SimpleNamespace
+        from kivy.graphics import Fbo,ClearColor,ClearBuffers
+        from map_city_effects import standard_layout
+        self.fx.sync(self.cities,{},5,[('Town','Север')]);self.layer.update(.1)
+        x,y,width,height=standard_layout(self.layer.project((300,300)),1,bounds=self.layer._bounds)
+        hits=[]
+        class HitLayer(Widget):
+            def on_touch_down(layer,touch):
+                if layer.collide_point(*touch.pos):
+                    hits.append(layer.kind);return True
+                return False
+        root=Widget(size=(1200,800))
+        badges=HitLayer(size=(1200,800));badges.kind='map'
+        hud=HitLayer(pos=(x,y),size=(width,height));hud.kind='hud'
+        with badges.canvas.before:
+            Color(1,0,0,1);Rectangle(pos=(x,y),size=(width,height))
+        with hud.canvas:
+            Color(0,0,1,1);Rectangle(pos=(x,y),size=(width,height))
+        root.add_widget(self.layer);root.add_widget(hud)
+        # Exercise the actual insertion from GameScreen.init_ui, with an
+        # already constructed HUD, rather than importing the player's DB.
+        tree=ast.parse(Path('game_process.py').read_text(encoding='utf-8'))
+        screen=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='GameScreen')
+        method=next(n for n in screen.body if isinstance(n,ast.FunctionDef) and n.name=='init_ui')
+        insertion=next(n for n in method.body if isinstance(n,ast.Expr) and isinstance(n.value,ast.Call)
+            and isinstance(n.value.func,ast.Attribute) and n.value.func.attr=='add_widget'
+            and n.value.args and isinstance(n.value.args[0],ast.Attribute) and n.value.args[0].attr=='game_area')
+        exec(compile(ast.Module(body=[insertion],type_ignores=[]),'game_process.py','exec'),
+             {'self':SimpleNamespace(root_overlay=root,game_area=badges)})
+        self.fx.attach_standards(badges)
+        fbo=Fbo(size=(1200,800),with_stencilbuffer=True)
+        with fbo:ClearColor(0,0,0,1);ClearBuffers()
+        fbo.add(root.canvas)
+        try:
+            for _ in range(3):
+                self.layer.update(.1)
+                fbo.draw();offset=(int(y+5)*1200+int(x+5))*4
+                self.assertEqual(tuple(fbo.pixels[offset:offset+3]),(0,0,255))
+                root.on_touch_down(SimpleNamespace(pos=(x+5,y+5)))
+                self.assertEqual(hits.pop(),'hud')
+        finally:
+            fbo.remove(root.canvas);self.fx.attach_standards(None)
+            root.remove_widget(self.layer)
+
     def test_opening_saved_state_does_not_replay_old_capture(self):
         record_battle(self.db, 'Town', 20_000_000, 20_000_000, 'Эльфы')
         new_layer = MapAtmosphere()
