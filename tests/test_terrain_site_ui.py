@@ -67,6 +67,9 @@ class TerrainSiteTests(unittest.TestCase):
         popup.open(animation=False)
         for size in ((1040,640),(640,360),(390,844),(320,568)):
             Window.size=size
+            # Windows applies SDL's native GL viewport asynchronously. Let it
+            # settle before requesting and checking the popup's final layout.
+            settle()
             popup.fit()
             settle()
             with self.subTest(size=size):

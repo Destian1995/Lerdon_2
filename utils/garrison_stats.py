@@ -4,14 +4,14 @@ import sqlite3
 from utils.faction_bonuses import combat_bonus_status, combat_multiplier,battle_spirit_multiplier
 
 
-def garrison_profiles(conn, city):
+def garrison_profiles(conn, city, faction=None):
     columns = {r[1] for r in conn.execute('PRAGMA table_info(garrisons)')}
     experience = 'COALESCE(g.experience,0)' if 'experience' in columns else '0'
     rows = conn.execute(f'''SELECT u.unit_class,u.attack,u.defense,u.durability,
         g.unit_count,{experience},u.unit_name FROM garrisons g JOIN units u ON u.unit_name=g.unit_name
         WHERE g.city_name=? AND g.unit_count>0''', (city,)).fetchall()
     owner = conn.execute('SELECT faction FROM cities WHERE name=?', (city,)).fetchone()
-    faction = owner[0] if owner else ''
+    faction = faction if faction is not None else (owner[0] if owner else '')
     walls = smithies = 0
     try:
         for kind, count in conn.execute('SELECT building_type,count FROM buildings WHERE city_name=?', (city,)):

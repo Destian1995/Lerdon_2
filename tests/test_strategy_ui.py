@@ -51,7 +51,7 @@ class StrategyUITests(unittest.TestCase):
         popup = self.popup(populated=True)
         self.assertTrue(popup.city_columns._wide)
         self.assertEqual(len(popup.city_columns.body.children), 2)
-        self.assertEqual(set(popup.city_action_buttons), {'move', 'army', 'build'})
+        self.assertEqual(set(popup.city_action_buttons), {'move', 'army', 'build', 'portal'})
         self.assertEqual(len(popup.attacking_units_box.children), 1)
         self.assertIn('25 / 25', popup.city_building_count.text)
         for button in popup.city_action_buttons.values():

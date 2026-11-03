@@ -132,7 +132,7 @@ def copy_training(conn,source,target,name):
 def _snapshot_training(conn,faction,camp,until):
     owners=dict(conn.execute('SELECT name,faction FROM cities'))
     owners[camp]=faction
-    for table in ('terrain_journeys','monster_expeditions'):
+    for table in ('terrain_journeys','monster_expeditions','portal_parties'):
         if conn.execute('SELECT 1 FROM sqlite_master WHERE name=?',(table,)).fetchone():
             owners.update(conn.execute(f'SELECT camp,faction FROM {table}'))
     conn.execute('DELETE FROM monster_training_ranks WHERE faction=?',(faction,))
@@ -325,6 +325,9 @@ def upgrade_artifact(conn,faction,table,aid,stat,hero,slot):
         data['name']=(data.get('name') or 'Артефакт')+' · Дар бездны'
         conn.execute(f'INSERT INTO {table}('+','.join(columns)+') VALUES('+','.join('?' for _ in columns)+')',
                      [data[c] for c in columns])
+        if table=='artifacts':
+            from portal_items import inherit
+            inherit(conn,aid,data['id'])
         conn.execute(f'UPDATE {equipment} SET artifact_id=? WHERE faction_name=? AND hero_name=? AND slot_type=? AND artifact_id=?',
                      (data['id'],faction,hero,slot,aid))
         if conn.execute("SELECT 1 FROM sqlite_master WHERE name='artifact_effects_log'").fetchone():
@@ -337,6 +340,16 @@ def upgrade_artifact(conn,faction,table,aid,stat,hero,slot):
 
 
 def artifact_visible(conn,faction,aid,table='artifacts'):
+    if table=='artifacts':
+        from portal_items import remaining,owner as timed_owner
+        left=remaining(conn,aid)
+        if left is not None:return left>0 and timed_owner(conn,aid)==faction
+        try:
+            owner=conn.execute('SELECT faction FROM portal_artifacts WHERE artifact_id=?',(aid,)).fetchone()
+            if owner:
+                return owner[0]==faction
+        except sqlite3.OperationalError:
+            pass
     try:
         owner=conn.execute('SELECT faction FROM monster_artifact_upgrades WHERE artifact_table=? AND artifact_id=?',
                            (table,aid)).fetchone()

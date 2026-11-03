@@ -21,6 +21,7 @@ from kivy.uix.spinner import Spinner, SpinnerOption
 from kivy.uix.textinput import TextInput
 
 from strategy_ui import GOLD, INK, SURFACE, TEXT, MUTED, StrategyButton, frame
+from otherworld_themes import asset_exists
 from utils.ui_text import bind_plain_text
 
 CLOSE_TEXT = {'закрыть', 'назад', 'закрыть окно', 'x', 'х', '×', '✕', '✖'}
@@ -74,7 +75,7 @@ def skin_button(button):
     if hasattr(button, 'background_normal'):
         def has_image():
             source = button.background_normal
-            return bool(source and os.path.isfile(source))
+            return bool(source and asset_exists(source))
         if not has_image():
             button.background_normal = button.background_down = ''
         def transparent(widget, value):
@@ -93,14 +94,14 @@ def skin_button(button):
         selected = getattr(button, 'state', 'normal') == 'down'
         disabled = getattr(button, 'disabled', False)
         fill.color.rgba = ((0.23, 0.17, 0.09, 1) if selected else SURFACE)
-        if hasattr(button, 'background_normal') and button.background_normal and os.path.isfile(button.background_normal):
+        if hasattr(button, 'background_normal') and button.background_normal and asset_exists(button.background_normal):
             fill.color.a = 0
         button._strategy_frame.outer_color.a = 0.25 if disabled else 0.85
         fill.update()
     button.bind(state=state, disabled=state)
     from ui_motion import ButtonMotion
     def feedback(level):
-        if hasattr(button, 'background_normal') and button.background_normal and os.path.isfile(button.background_normal):
+        if hasattr(button, 'background_normal') and button.background_normal and asset_exists(button.background_normal):
             return
         fill.color.rgba = tuple(a + (b - a) * level for a, b in zip(SURFACE, (0.24, 0.18, 0.10, 1)))
         button._strategy_frame.outer_color.a = 0.25 if button.disabled else 0.75 + level * 0.25

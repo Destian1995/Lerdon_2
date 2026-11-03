@@ -217,4 +217,7 @@ def current_effect_rows(conn, faction, season):
                  f"+{council['crowns']}% доход крон; +{council['crystals']}% добыча кристаллов; +{council['trade']:g}% к множителю торговли"))
     for target, points in sorted(council['relations'].items()):
         rows.append((f'Советники · {target}', '', f'+{points} п. отношений/ход, максимум отношений 100'))
+    from otherworld_quests import cap_turns
+    left=cap_turns(conn,faction)
+    if left:rows.append(('Награда Зазеркалья',f'{left} х.','+35% к лимитам крон, кристаллов, рабочих и населения'))
     return rows

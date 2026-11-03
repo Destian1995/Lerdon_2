@@ -2,6 +2,7 @@
 import math
 import os
 import random
+from otherworld_themes import asset_exists
 
 from kivy.clock import Clock
 from kivy.core.window import Window
@@ -26,7 +27,7 @@ PORTRAITS = {'Север': 'people', 'Эльфы': 'elfs', 'Вампиры': 'va
 
 
 def portrait_path(preferred, faction):
-    if preferred and os.path.isfile(preferred):
+    if preferred and asset_exists(preferred):
         return preferred
     path = f'files/sov/{PORTRAITS.get(faction, "")}.jpg'
     if os.path.isfile(path):
@@ -397,7 +398,7 @@ class BattleReport(Popup):
                 card = surface(BoxLayout(size_hint_y=None, height=dp(60), padding=dp(7), spacing=dp(8)), SURFACE,
                                (0.30, 0.37, 0.45, 1))
                 image = row.get('unit_image', '')
-                card.add_widget(Image(source=image if image and os.path.isfile(image) else 'files/pict/hire/class.png',
+                card.add_widget(Image(source=image if image and asset_exists(image) else 'files/pict/hire/class.png',
                                       size_hint_x=None, width=dp(40), mipmap=True))
                 detail = BoxLayout(orientation='vertical')
                 detail.add_widget(text_label(row.get('unit_name', '—'), 13, bold=True))

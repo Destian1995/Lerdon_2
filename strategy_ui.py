@@ -313,6 +313,10 @@ def build_city_window(popup):
     if owned and not popup._is_undead_city:
         action('army', 'Разместить армию', popup.place_army)
         action('build', 'Построить', lambda *_: popup._open_build_menu(), True)
+        def portal(*_):
+            from otherworld_ui import open_portal
+            open_portal(popup)
+        action('portal', 'Портал', portal)
     root.add_widget(actions)
     popup.content = root
     popup.garrison_widgets = {}

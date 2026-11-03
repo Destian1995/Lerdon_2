@@ -1044,7 +1044,8 @@ class FortressInfoPopup(Popup):
                 )
 
                 # Изображение юнита
-                img_src = unit_image if unit_image and os.path.exists(unit_image) else ''
+                from otherworld_themes import asset_exists
+                img_src = unit_image if unit_image and asset_exists(unit_image) else ''
                 from strategy_ui import frame
                 frame(card, (0.36, 0.43, 0.51, 1) if unit_class == '1' else (0.76, 0.60, 0.34, 1))
                 img_size = dp(56) if unit_class == '1' else dp(64)
@@ -1348,7 +1349,8 @@ class FortressInfoPopup(Popup):
         stats_panel = UnitStatsPanel(stats_icons, hero=unit_class != '1', size_hint_x=.55)
         body.add_widget(stats_panel)
 
-        if unit_image and os.path.exists(unit_image):
+        from otherworld_themes import asset_exists
+        if unit_image and asset_exists(unit_image):
             img = Image(
                 source=unit_image,
                 allow_stretch=True, keep_ratio=True,

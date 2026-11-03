@@ -4,13 +4,13 @@
 # Основные параметры приложения
 # ---------------------------------
 
-version = 7.0.11
+version = 8.0.0
 title = Легенды Лэрдона
 package.name = lerdonlegends
 package.domain = com.lerdonlegends
 source.main = main.py
 source.dir = .
-source.include_exts = py,png,jpg,ttf,mp3,mp4,db,sqlite3,json,txt
+source.include_exts = py,png,jpg,ttf,mp3,mp4,db,sqlite3,json,txt,atlas
 source.include_patterns = assets/*, files/*, ai_models/*, utils/*, *.py, game_data.db
 source.exclude_dirs = old, .git, __pycache__, .idea, .claude, .buildozer, bin, tests, tools, .release
 source.exclude_patterns = buildozer.spec, *.log, *.pyc, lerdon.db, assets/frontend-*, assets/responsive-*, assets/unified-*, assets/strategy-*, assets/battle-*, assets/tutorial-guide-*, assets/*review*, assets/*manifest*, assets/mobile-redesign/*, assets/city-smoke-bursts*, assets/event-news-ribbon*, assets/faction-standards*, assets/hero-city-effects*, assets/troop-movement*
@@ -55,7 +55,7 @@ android.release = True
 android.release_artifact = apk
 # Keep the legacy p4a prefix (10 + min API 21). Version 6.5.1 used 102160501.
 # A short code such as 70000 is LOWER and cannot update the existing store app.
-android.numeric_version = 102170011
+android.numeric_version = 102180000
 
 # ---------------------------------
 # Прочее

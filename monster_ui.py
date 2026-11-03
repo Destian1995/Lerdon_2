@@ -132,19 +132,14 @@ class MonsterPopup(Popup):
         self.art=Image(source=str(art_path(site['tier'],site.get('variant',1))),size_hint_x=.42,mipmap=True)
         self.body.add_widget(self.art)
         self.details=BoxLayout(orientation='vertical',spacing=dp(6))
-        self.summary=text_label('',16,size_hint_y=None)
-        self.summary.unbind(size=self.summary._strategy_text_sizer)
-        self.summary.bind(size=lambda w,v:setattr(w,'text_size',(v[0],None)),
-                          texture_size=lambda w,v:setattr(w,'height',v[1]+dp(8)))
-        scroll=ScrollView(do_scroll_x=False)
-        self.entries=BoxLayout(orientation='vertical',size_hint_y=None,spacing=dp(8))
-        self.entries.bind(minimum_height=self.entries.setter('height'))
-        self.entries.add_widget(self.summary)
+        from monster_stats_ui import MonsterStatsPanel
+        self.summary=MonsterStatsPanel(size_hint_y=.75)
+        self.details.add_widget(self.summary)
+        self.garrison_scroll=ScrollView(do_scroll_x=False,size_hint_y=.25)
         self.cards=BoxLayout(orientation='vertical',size_hint_y=None,spacing=dp(5))
         self.cards.bind(minimum_height=self.cards.setter('height'))
-        self.entries.add_widget(self.cards)
-        scroll.add_widget(self.entries)
-        self.details.add_widget(scroll)
+        self.garrison_scroll.add_widget(self.cards)
+        self.details.add_widget(self.garrison_scroll)
         self.body.add_widget(self.details)
         self.root_panel.add_widget(self.body)
         self.status=text_label('',13,MUTED,size_hint_y=None,height=dp(40))
@@ -178,7 +173,6 @@ class MonsterPopup(Popup):
         self.body.orientation='vertical' if stacked else 'horizontal'
         self.art.size_hint=(1,.4) if stacked else (.42,1)
         self.details.size_hint=(1,.6) if stacked else (.58,1)
-        self.summary.font_size=sp(13 if Window.height<dp(480) else 16)
         self.hunt.font_size=self.relic.font_size=sp(12 if Window.width<dp(700) else 15)
         self.actions.height=dp(64 if stacked else 48)
 
@@ -191,11 +185,13 @@ class MonsterPopup(Popup):
         city=self.conn.execute('SELECT name,faction FROM cities WHERE id=?',(self.site['parent_city'],)).fetchone()
         city_name=city[0] if city else '—'
         p=self.prize
-        loot=(f'{format_number(p["resources"])} крон и кристаллов, опыт' if p['resources'] else 'опыт и ветеранство')
-        if p['legendary']:
-            loot+='; улучшение артефакта +550%'
-        self.summary.text=(f'Защита: {format_number(p["defense"])}\n'
-                           f'Награда: {loot}\nВетеранство: {p["duration"]} х.')
+        self.summary.set_prize(p)
+        owned=bool(city and city[1]==self.faction)
+        self.summary.size_hint_y=.75 if owned else 1
+        self.garrison_scroll.size_hint_y=.25 if owned else None
+        self.garrison_scroll.height=0 if not owned else self.garrison_scroll.height
+        self.garrison_scroll.opacity=1 if owned else 0
+        self.garrison_scroll.disabled=not owned
         self.cards.clear_widgets()
         if city and city[1]==self.faction:
             attack=garrison_totals(self.conn,city_name)['attack']

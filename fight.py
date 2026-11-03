@@ -293,7 +293,7 @@ def is_unit_combat_ready(unit, army=None):
 
 def battle_chain(attacker, defender, city, user_faction, conn,
                  atk_hero_bonus=(0, 0, 0), def_hero_bonus=(0, 0, 0),
-                 atk_fraction='', def_fraction='', event_log=None):
+                 atk_fraction='', def_fraction='', event_log=None, damage_infrastructure=True):
     """Одна стычка: симметричные пропорциональные потери."""
     if attacker['unit_count'] <= 0 or defender['unit_count'] <= 0:
         return attacker, defender
@@ -430,7 +430,8 @@ def battle_chain(attacker, defender, city, user_faction, conn,
 
     # Урон по инфраструктуре (как в старой системе — каждая стычка)
     try:
-        damage_to_infrastructure(incoming_to_def, city, user_faction, conn)
+        if damage_infrastructure:
+            damage_to_infrastructure(incoming_to_def, city, user_faction, conn)
     except Exception as e:
         print(f"[WARN] damage_to_infrastructure: {e}")
 

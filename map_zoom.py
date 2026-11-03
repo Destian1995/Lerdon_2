@@ -144,6 +144,9 @@ class MapZoom:
     def restore(self):
         self.camera.configure(Window.size,self.rect())
         self.map_canvas.update(self.camera)
+        labels=getattr(self.owner,'_city_name_labels',None)
+        if labels is not None:
+            labels.apply(self.camera.zoom)
         self.restore_overlays()
         self.indicator.text = f'×{self.camera.zoom:.1f}'
         self.minus.disabled = self.camera.zoom <= 1.0+1e-9

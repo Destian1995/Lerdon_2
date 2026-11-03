@@ -108,6 +108,10 @@ class SeasonManager:
         Обновляет last_idx и пересчитывает все эффекты.
         """
         self.last_idx = new_idx
+        from portal_items import expire
+        if expire(conn):
+            self.apply_artifact_bonuses(conn)
+            return
         # Обновляем кэш артефактов перед пересчётом
         self._load_artifact_cache(conn, "both")
         # Пересчитываем все характеристики
@@ -198,6 +202,8 @@ class SeasonManager:
         """
         Обновляет лог артефактов и пересчитывает характеристики.
         """
+        from portal_items import expire
+        expire(conn)
         if self.last_idx is None:
             print("[ARTIFACT] Season not set, skipping artifact application.")
             return

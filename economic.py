@@ -1371,11 +1371,13 @@ class Faction:
             self.free_peoples = 0  # Все рабочие обнуляются, так как Кристаллы нет
 
         # Принудительные лимиты на сами поля (а не только на dict)
-        _res_cap = 12_000_000 if self.faction == 'Элины' else 10_000_000
+        from utils.resource_caps import caps
+        _limits = caps(self.conn,self.faction)
+        _res_cap = _limits['Кроны']
         self.money = max(min(round(self.money, 2), _res_cap), 0)
-        self.free_peoples = max(min(round(self.free_peoples, 2), 500_000), 0)
+        self.free_peoples = max(min(round(self.free_peoples, 2), _limits['Рабочие']), 0)
         self.raw_material = max(min(round(self.raw_material, 2), _res_cap), 0)
-        self.population = max(min(round(self.population, 2), 100_000_000), 0)
+        self.population = max(min(round(self.population, 2), _limits['Население']), 0)
 
         # Синхронизируем dict ресурсов
         self.resources.update({
@@ -1746,11 +1748,13 @@ class Faction:
     def _sync_resources(self):
         """Синхронизирует self.resources dict с внутренними полями и обновляет UI."""
         # Принудительные лимиты перед синхронизацией
-        _res_cap = 12_000_000 if self.faction == 'Элины' else 10_000_000
+        from utils.resource_caps import caps
+        _limits = caps(self.conn,self.faction)
+        _res_cap = _limits['Кроны']
         self.money = max(min(self.money, _res_cap), 0)
         self.raw_material = max(min(self.raw_material, _res_cap), 0)
-        self.population = max(min(self.population, 100_000_000), 0)
-        self.free_peoples = max(min(self.free_peoples, 500_000), 0)
+        self.population = max(min(self.population, _limits['Население']), 0)
+        self.free_peoples = max(min(self.free_peoples, _limits['Рабочие']), 0)
 
         self.resources['Кроны'] = self.money
         self.resources['Рабочие'] = self.free_peoples

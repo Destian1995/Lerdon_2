@@ -36,6 +36,8 @@ def load_artifacts_from_db(faction):
                 "artifact_type": row[7] if row[7] is not None else -1,
                 "is_created": row[8] if len(row) > 8 and row[8] is not None else 0
             }
+            from portal_items import remaining
+            artifact['turns_left']=remaining(faction.conn,row[0])
             # Проверяем, есть ли какие-то значимые статы (attack или defense > 0)
             if artifact['attack'] != 0 or artifact['defense'] != 0:
                 artifacts.append(artifact)
@@ -54,11 +56,14 @@ def load_hero_equipment_from_db(faction):
     try:
         cursor = faction.conn.cursor()
         # Добавлены pos_x, pos_y в SELECT
+        from portal_items import champions
+        eligible=champions(faction.conn,faction.faction)
+        selected=eligible[0] if eligible else None
         cursor.execute('''
             SELECT slot_type, artifact_id, image_url, pos_x, pos_y
             FROM hero_equipment
-            WHERE faction_name = ?
-        ''', (faction.faction,))
+            WHERE faction_name = ? AND (? IS NULL OR hero_name=?)
+        ''', (faction.faction,selected,selected))
         rows = cursor.fetchall()
         for slot_type, artifact_id, image_url, pos_x, pos_y in rows:
             # Сохраняем всю информацию, включая координаты (даже если они None)
@@ -136,7 +141,7 @@ def load_hero_image_from_db(faction):
             SELECT DISTINCT g.unit_image FROM garrisons g
             LEFT JOIN units u ON g.unit_name = u.unit_name
             WHERE u.faction = ? AND u.unit_class = "3"
-            LIMIT 1
+            ORDER BY u.unit_name LIMIT 1
         ''', (faction.faction,))  # Добавлена запятая здесь
         row = cursor.fetchone()
         print('Изображение героя:', row)
@@ -423,6 +428,7 @@ def open_artifacts_popup(faction, season_manager):
     :param faction: Экземпляр класса Faction
     """
     from kivy.metrics import dp
+    from otherworld_themes import asset_exists
     from kivy.utils import platform
     is_android = platform == 'android'
 
@@ -827,6 +833,10 @@ def open_artifacts_popup(faction, season_manager):
 
     # --- Создаём карточки артефактов один раз ---
     for artifact in artifacts_list:
+        # Keep personal portal items available to the equipment renderer, but
+        # sell them exclusively through the otherworld merchant.
+        if 'otherworld/' in artifact.get('image_url','').replace('\\','/'):
+            continue
         card = _build_artifact_card(artifact)
         if card is not None:
             all_artifact_widgets.append((artifact, card))
@@ -1061,7 +1071,7 @@ def open_artifacts_popup(faction, season_manager):
 
     hero_image_size = (hero_img_size_val, hero_img_size_val)
 
-    if hero_image_path and os.path.exists(hero_image_path):
+    if hero_image_path and asset_exists(hero_image_path):
         try:
             hero_image_widget = Image(
                 source=hero_image_path,
@@ -1131,7 +1141,7 @@ def open_artifacts_popup(faction, season_manager):
                             _sc.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
                                      size=lambda i, v: setattr(i._bg, 'size', v))
 
-                            if _art_img and os.path.exists(_art_img):
+                            if _art_img and asset_exists(_art_img):
                                 _sc.add_widget(Image(source=_art_img, size_hint=(1, 0.45),
                                                      allow_stretch=True, keep_ratio=True))
 
@@ -1143,6 +1153,9 @@ def open_artifacts_popup(faction, season_manager):
                             )
                             if _art_season:
                                 _info += f"\n[color=#AAAAAA]Сезон: {_art_season}[/color]"
+                            from portal_items import remaining
+                            _left=remaining(faction.conn,_art_id)
+                            if _left is not None:_info+=f'\n[color=#66DDFF]Осталось: {_left} ходов[/color]'
 
                             _il = Label(text=_info, markup=True,
                                         font_size=sp(13) if not is_android else sp(11),

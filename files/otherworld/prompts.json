@@ -1,0 +1,113 @@
+{
+  "generator": "Built-in image_gen",
+  "images": [
+    {
+      "key": "map",
+      "file": "files/otherworld/map/mirror_realm.png",
+      "prompt": "Use case: stylized-concept. Finished 3:2 landscape world-map background for a hand-painted medieval fantasy strategy game, top-down oblique cartographic view, the small magical realm beyond a dimensional portal. A single large connected emerald and violet mainland occupying most of the image, luminous turquoise sea only along the bottom edge and far side edges, a small sapphire lake at far northwest, jagged amethyst mountains clustered at far northeast, silvery forests and bright crystal outcrops as landscape accents, golden-green rolling grassy plains in the center and south with spacious flat clear areas for seven city sprites to be overlaid later. Intricate beautiful painterly terrain like a premium fantasy board-game map, tiny waterfalls and streams only at the outer perimeter, ancient otherworld atmosphere, sapphire/emerald/ivory/amethyst palette, gentle golden sunlight. No built-in cities, no buildings, no roads, no portals, no characters, no labels, no text, no icons, no frame, no border. Keep the middle 80% of the image dry connected traversable land, not floating islands. The entire image is map terrain, no sky/horizon.",
+      "transparent": false
+    },
+    {
+      "key": "city_gate",
+      "file": "files/otherworld/cities/gate.png",
+      "prompt": "Use case: stylized-concept. One premium hand-painted isometric fantasy city sprite for an enchanted otherworld strategy map. Gateway town centered on a monumental luminous violet circular portal, an ivory and silver walled settlement built around it, tall elegant silver spires and lavender crystal roofs. Cohesive architecture unlike ordinary medieval faction castles. Camera looks down at 40 degrees, compact settlement centered and entirely visible with generous transparent margins, clean recognizable silhouette at 80px map size, highly polished richly detailed painted game asset. Ground footprint limited to a small neat rocky base. No people, no text, no labels, no UI, no border, no watermark. True transparent background outside the settlement.",
+      "transparent": true
+    },
+    {
+      "key": "city_harbor",
+      "file": "files/otherworld/cities/harbor.png",
+      "prompt": "Use case: stylized-concept. One premium hand-painted isometric fantasy city sprite for an enchanted otherworld strategy map. Amethyst harbor city, graceful purple crystal towers and ivory waterfront buildings, carved silver docks with a tiny ornamental basin confined to the footprint. Cohesive architecture unlike ordinary medieval faction castles. Camera looks down at 40 degrees, compact settlement centered and entirely visible with generous transparent margins, clean recognizable silhouette at 80px map size, highly polished richly detailed painted game asset. Ground footprint limited to a small neat rocky base. No people, no text, no labels, no UI, no border, no watermark. True transparent background outside the settlement.",
+      "transparent": true
+    },
+    {
+      "key": "city_sanctuary",
+      "file": "files/otherworld/cities/sanctuary.png",
+      "prompt": "Use case: stylized-concept. One premium hand-painted isometric fantasy city sprite for an enchanted otherworld strategy map. Silver sanctuary city, layered alabaster palace with silver filigree roofs and lush turquoise ancient trees, protective crescent walls. Cohesive architecture unlike ordinary medieval faction castles. Camera looks down at 40 degrees, compact settlement centered and entirely visible with generous transparent margins, clean recognizable silhouette at 80px map size, highly polished richly detailed painted game asset. Ground footprint limited to a small neat rocky base. No people, no text, no labels, no UI, no border, no watermark. True transparent background outside the settlement.",
+      "transparent": true
+    },
+    {
+      "key": "city_moon",
+      "file": "files/otherworld/cities/moon.png",
+      "prompt": "Use case: stylized-concept. One premium hand-painted isometric fantasy city sprite for an enchanted otherworld strategy map. Moon citadel, deep midnight-blue towers with silver crescents, a luminous moonstone dome, slender violet spires and elegant pale stone walls. Cohesive architecture unlike ordinary medieval faction castles. Camera looks down at 40 degrees, compact settlement centered and entirely visible with generous transparent margins, clean recognizable silhouette at 80px map size, highly polished richly detailed painted game asset. Ground footprint limited to a small neat rocky base. No people, no text, no labels, no UI, no border, no watermark. True transparent background outside the settlement.",
+      "transparent": true
+    },
+    {
+      "key": "city_market",
+      "file": "files/otherworld/cities/market.png",
+      "prompt": "Use case: stylized-concept. One premium hand-painted isometric fantasy city sprite for an enchanted otherworld strategy map. Obsidian market city, striking black glass walls, ornate gold archways, burgundy and violet bazaar canopies and luminous crystal lanterns. Cohesive architecture unlike ordinary medieval faction castles. Camera looks down at 40 degrees, compact settlement centered and entirely visible with generous transparent margins, clean recognizable silhouette at 80px map size, highly polished richly detailed painted game asset. Ground footprint limited to a small neat rocky base. No people, no text, no labels, no UI, no border, no watermark. True transparent background outside the settlement.",
+      "transparent": true
+    },
+    {
+      "key": "city_dawn",
+      "file": "files/otherworld/cities/dawn.png",
+      "prompt": "Use case: stylized-concept. One premium hand-painted isometric fantasy city sprite for an enchanted otherworld strategy map. Towers of dawn, a cluster of three soaring ivory and warm gold towers with radiant amber crystal crowns, bright pale terraced walls. Cohesive architecture unlike ordinary medieval faction castles. Camera looks down at 40 degrees, compact settlement centered and entirely visible with generous transparent margins, clean recognizable silhouette at 80px map size, highly polished richly detailed painted game asset. Ground footprint limited to a small neat rocky base. No people, no text, no labels, no UI, no border, no watermark. True transparent background outside the settlement.",
+      "transparent": true
+    },
+    {
+      "key": "city_stars",
+      "file": "files/otherworld/cities/stars.png",
+      "prompt": "Use case: stylized-concept. One premium hand-painted isometric fantasy city sprite for an enchanted otherworld strategy map. Star crossroads city, a silver celestial observatory with an enormous astrolabe, sapphire domes, star-shaped luminous purple crystals and many small ivory houses. Cohesive architecture unlike ordinary medieval faction castles. Camera looks down at 40 degrees, compact settlement centered and entirely visible with generous transparent margins, clean recognizable silhouette at 80px map size, highly polished richly detailed painted game asset. Ground footprint limited to a small neat rocky base. No people, no text, no labels, no UI, no border, no watermark. True transparent background outside the settlement.",
+      "transparent": true
+    },
+    {
+      "key": "unit_sentinel",
+      "file": "files/otherworld/units/sentinel.png",
+      "prompt": "Use case: stylized-concept. Square premium illustrated unit portrait for a medieval fantasy strategy game, own roster from the Mirror Realm. Mirror sentinel, an imposing armored guardian in polished silver plate with violet crystalline insets, broad mirror shield and elegant spear, ivory cape, alert heroic pose. Full character filling the image with readable head and weapon, rich painterly game key art, elegant otherworld design, atmospheric dark sapphire and amethyst background with subtle magical mist. Cinematic rim light, exquisite material detail, strong silhouette readable as a small portrait. No text, no labels, no border, no UI, no watermark.",
+      "transparent": false
+    },
+    {
+      "key": "unit_archer",
+      "file": "files/otherworld/units/archer.png",
+      "prompt": "Use case: stylized-concept. Square premium illustrated unit portrait for a medieval fantasy strategy game, own roster from the Mirror Realm. Astral archer, an ethereal female elf-like ranger with a luminous sapphire bow and starlight arrows, midnight-blue silver-trimmed armor and violet flowing cloak. Full character filling the image with readable head and weapon, rich painterly game key art, elegant otherworld design, atmospheric dark sapphire and amethyst background with subtle magical mist. Cinematic rim light, exquisite material detail, strong silhouette readable as a small portrait. No text, no labels, no border, no UI, no watermark.",
+      "transparent": false
+    },
+    {
+      "key": "unit_rider",
+      "file": "files/otherworld/units/rider.png",
+      "prompt": "Use case: stylized-concept. Square premium illustrated unit portrait for a medieval fantasy strategy game, own roster from the Mirror Realm. Moon rider, armored cavalry warrior on a graceful pale spectral stag, crescent silver helmet, blue-violet plate and a long radiant moonstone lance. Full character filling the image with readable head and weapon, rich painterly game key art, elegant otherworld design, atmospheric dark sapphire and amethyst background with subtle magical mist. Cinematic rim light, exquisite material detail, strong silhouette readable as a small portrait. No text, no labels, no border, no UI, no watermark.",
+      "transparent": false
+    },
+    {
+      "key": "unit_weaver",
+      "file": "files/otherworld/units/weaver.png",
+      "prompt": "Use case: stylized-concept. Square premium illustrated unit portrait for a medieval fantasy strategy game, own roster from the Mirror Realm. Aether weaver, enigmatic arcane mage in layered ivory and indigo robes with faceted amethyst shoulder pieces, wielding a staff and a glowing dimensional orb. Full character filling the image with readable head and weapon, rich painterly game key art, elegant otherworld design, atmospheric dark sapphire and amethyst background with subtle magical mist. Cinematic rim light, exquisite material detail, strong silhouette readable as a small portrait. No text, no labels, no border, no UI, no watermark.",
+      "transparent": false
+    },
+    {
+      "key": "unit_golem",
+      "file": "files/otherworld/units/golem.png",
+      "prompt": "Use case: stylized-concept. Square premium illustrated unit portrait for a medieval fantasy strategy game, own roster from the Mirror Realm. Crystal golem, mighty bulky humanoid construct made from translucent amethyst and blue quartz encased in ornate silver armor, luminous cyan core in the chest, powerful grounded stance. Full character filling the image with readable head and weapon, rich painterly game key art, elegant otherworld design, atmospheric dark sapphire and amethyst background with subtle magical mist. Cinematic rim light, exquisite material detail, strong silhouette readable as a small portrait. No text, no labels, no border, no UI, no watermark.",
+      "transparent": false
+    },
+    {
+      "key": "artifact_blade",
+      "file": "files/otherworld/artifacts/blade.png",
+      "prompt": "Use case: stylized-concept. One square premium fantasy RPG inventory artifact icon, beautifully hand-painted high-detail material rendering. An elegant curved silver sword with a translucent amethyst blade reflecting a distant starlit world, intricate ivory and sapphire hilt. A single object, centered completely visible at 3/4 view with generous transparent margin, richly detailed and immediately readable at 64px, luminous highlights, cohesive enchanted Mirror Realm aesthetic. No writing, no letters, no UI, no border, no background, no watermark. True transparent background.",
+      "transparent": true
+    },
+    {
+      "key": "artifact_crown",
+      "file": "files/otherworld/artifacts/crown.png",
+      "prompt": "Use case: stylized-concept. One square premium fantasy RPG inventory artifact icon, beautifully hand-painted high-detail material rendering. An intricate celestial crown of silver and gold with floating amethyst star gems and a central radiant blue moonstone. A single object, centered completely visible at 3/4 view with generous transparent margin, richly detailed and immediately readable at 64px, luminous highlights, cohesive enchanted Mirror Realm aesthetic. No writing, no letters, no UI, no border, no background, no watermark. True transparent background.",
+      "transparent": true
+    },
+    {
+      "key": "artifact_armor",
+      "file": "files/otherworld/artifacts/armor.png",
+      "prompt": "Use case: stylized-concept. One square premium fantasy RPG inventory artifact icon, beautifully hand-painted high-detail material rendering. A complete torso breastplate of layered silver armor and translucent indigo crystal, graceful arcane filigree and a radiant aether core. A single object, centered completely visible at 3/4 view with generous transparent margin, richly detailed and immediately readable at 64px, luminous highlights, cohesive enchanted Mirror Realm aesthetic. No writing, no letters, no UI, no border, no background, no watermark. True transparent background.",
+      "transparent": true
+    },
+    {
+      "key": "artifact_ring",
+      "file": "files/otherworld/artifacts/ring.png",
+      "prompt": "Use case: stylized-concept. One square premium fantasy RPG inventory artifact icon, beautifully hand-painted high-detail material rendering. A magnificent ancient silver signet ring enclosing a tiny luminous violet dimensional vortex, sapphire and amethyst gemstones. A single object, centered completely visible at 3/4 view with generous transparent margin, richly detailed and immediately readable at 64px, luminous highlights, cohesive enchanted Mirror Realm aesthetic. No writing, no letters, no UI, no border, no background, no watermark. True transparent background.",
+      "transparent": true
+    },
+    {
+      "key": "artifact_boots",
+      "file": "files/otherworld/artifacts/boots.png",
+      "prompt": "Use case: stylized-concept. One premium fantasy RPG inventory icon: a matching pair of exquisite boots made from dark indigo leather and polished silver armor with sapphire and amethyst inlays, luminous blue soles suggesting walking between worlds, elegant engraved filigree without lettering. Cohesive Mirror Realm enchanted equipment aesthetic. Single pair of boots shown at 3/4 angle, centered completely visible with generous transparent margins, square composition. Beautiful detailed painterly game asset, strong readable silhouette at 64px. No writing, no labels, no UI, no border, no background, no watermark. True transparent background.",
+      "transparent": true
+    }
+  ]
+}

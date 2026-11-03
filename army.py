@@ -397,7 +397,7 @@ def load_unit_data(faction, conn):
     cursor = conn.cursor()
     cursor.execute("""
         SELECT unit_name, consumption, cost_money, cost_time, image_path, attack, defense, durability, unit_class
-        FROM units WHERE faction = ?
+        FROM units WHERE faction = ? AND unit_name NOT LIKE 'Странник:%'
     """, (faction,))
     rows = cursor.fetchall()
 

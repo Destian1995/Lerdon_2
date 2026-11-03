@@ -268,6 +268,20 @@ def clear_tables(conn):
         "monster_expeditions",
         "monster_artifact_upgrades",
         "monster_training_ranks",
+        "portal_worlds",
+        "portal_cities",
+        "portal_roads",
+        "portal_parties",
+        "portal_market",
+        "portal_battles",
+        "portal_presentation",
+        "portal_artifacts",
+        "portal_timed_items",
+        "portal_beam_journeys",
+        "portal_quest_runs",
+        "portal_quest_rewards",
+        "portal_quest_buffs",
+        "portal_quest_history",
     ]
 
     cursor = conn.cursor()
@@ -978,6 +992,8 @@ class MapWidget(Widget):
         for widget in list(self.children):
             if widget is not getattr(self, '_map_atmosphere', None):
                 self.remove_widget(widget)
+        from map_city_labels import CityLabels
+        self._city_name_labels=CityLabels()
         self.fortress_icon_widgets.clear()
         self.fortress_data_for_canvas.clear()
 
@@ -1083,6 +1099,7 @@ class MapWidget(Widget):
             text_y = drawn_y - text_height - 5
 
             outline_width = 2
+            glyphs=[]
 
             with self.canvas:  # ← Исправлены отступы
                 Color(1, 1, 1, 1)
@@ -1098,18 +1115,22 @@ class MapWidget(Widget):
                 ]
 
                 for offset_x, offset_y in offsets:
-                    Rectangle(
+                    glyph=Rectangle(
                         texture=text_texture,
                         pos=(text_x + offset_x, text_y + offset_y),
                         size=(text_width, text_height)
                     )
+                    glyphs.append((glyph,offset_x,offset_y))
 
                 Color(0, 0, 0, 1)
-                Rectangle(
+                glyph=Rectangle(
                     texture=text_texture,
                     pos=(text_x, text_y),
                     size=(text_width, text_height)
                 )
+                glyphs.append((glyph,0,0))
+
+            self._city_name_labels.add(drawn_x+icon_size/2,drawn_y-5,text_texture.size,glyphs)
 
             draw_city_badges(self,terrain_cities.get(fortress_name),drawn_x,drawn_y,icon_size,text_y)
 

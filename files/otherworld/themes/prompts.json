@@ -1,0 +1,145 @@
+{
+  "generator": "Built-in image_gen",
+  "images": [
+    {
+      "key": "north_map",
+      "faction": "Север",
+      "file": "files/otherworld/themes/north/map.png",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive frost-blue Nordic realm, silver and blue steel, snowy plains, crystalline ice, rugged ancient stone, cyan magic, northern lights. No text, no letters, no logos, no watermark. Landscape 3:2 top-down oblique world map of one compact connected continent. Broad uninterrupted dry plains in the middle 80%, mountains ONLY at the far northeast corner, lake ONLY in far northwest corner, sea ONLY along far left, far right and bottom perimeter. Scatter small themed forests, crystals and ruins near the perimeter, keep seven large flat clear central and southern places for game cities to be overlaid. No roads, no cities, no buildings, no characters, no sky, no interface, no frame. The entire image is painted map terrain, graceful cliffs and beautiful landscape detail."
+    },
+    {
+      "key": "north_cities",
+      "faction": "Север",
+      "file": "files/otherworld/themes/north/cities.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive frost-blue Nordic realm, silver and blue steel, snowy plains, crystalline ice, rugged ancient stone, cyan magic, northern lights. No text, no letters, no logos, no watermark. A SQUARE sprite atlas laid out in a STRICT 3 by 3 equal-cell grid, nine independent isometric city sprites. Each city entirely inside its own cell, ample transparent empty margin, same scale, no overlap, no dividers or frames. Row 1 left-to-right: a dimensional gateway city, a harbor city, a sanctuary city. Row 2: a moon citadel, an exotic market town, three tall dawn towers. Row 3: a celestial crossroads city, a small watchtower, a small shrine. All buildings match the faction materials and magic described above. Compact distinctive silhouettes, intricate painted architecture, small tidy stone ground footprint. TRUE TRANSPARENT background between sprites, no text, no numbers."
+    },
+    {
+      "key": "north_units",
+      "faction": "Север",
+      "file": "files/otherworld/themes/north/units.png",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive frost-blue Nordic realm, silver and blue steel, snowy plains, crystalline ice, rugged ancient stone, cyan magic, northern lights. No text, no letters, no logos, no watermark. A LANDSCAPE 3:2 portrait atlas laid out as a STRICT 3 columns by 2 rows equal square panels, six separate character portraits. Every portrait confined to its panel with no crossing borders, no labels, no dividers. Characters in exact reading order left to right, top row then bottom row: ice sentry; frost bow ranger; wolf rider; rune mage; ice golem; fairy frost king. Rich individual dark themed backgrounds, readable faces and weapons, unique silhouettes, cinematic rim light, close full character portraits filling each square. The six panels have exactly equal size and aligned straight grid edges."
+    },
+    {
+      "key": "north_artifacts",
+      "faction": "Север",
+      "file": "files/otherworld/themes/north/artifacts.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive frost-blue Nordic realm, silver and blue steel, snowy plains, crystalline ice, rugged ancient stone, cyan magic, northern lights. No text, no letters, no logos, no watermark. A LANDSCAPE 3:2 inventory sprite atlas, STRICT 3 columns by 2 rows equal square cells. Six separate powerful magical artifact icons in exact reading order: a sword; a crown; a pair of armored boots; a breastplate; a magnificent ring; a unique large heart-shaped dimensional crystal in an ornate reliquary (ultimate quest relic). All six match the faction style above. Each object centered completely inside its own cell with generous transparent margin, no overlap, consistent scale, no frames, no dividers, no labels. True transparent background, only isolated illustrated objects with subtle magical glow."
+    },
+    {
+      "key": "elves_map",
+      "faction": "Эльфы",
+      "file": "files/otherworld/themes/elves/map.png",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive emerald enchanted elven realm, living ancient trees, elegant silver filigree, luminous leaves and flowers, jade magic, warm green twilight. No text, no letters, no logos, no watermark. Landscape 3:2 top-down oblique world map of one compact connected continent. Broad uninterrupted dry plains in the middle 80%, mountains ONLY at the far northeast corner, lake ONLY in far northwest corner, sea ONLY along far left, far right and bottom perimeter. Scatter small themed forests, crystals and ruins near the perimeter, keep seven large flat clear central and southern places for game cities to be overlaid. No roads, no cities, no buildings, no characters, no sky, no interface, no frame. The entire image is painted map terrain, graceful cliffs and beautiful landscape detail."
+    },
+    {
+      "key": "elves_cities",
+      "faction": "Эльфы",
+      "file": "files/otherworld/themes/elves/cities.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive emerald enchanted elven realm, living ancient trees, elegant silver filigree, luminous leaves and flowers, jade magic, warm green twilight. No text, no letters, no logos, no watermark. A SQUARE sprite atlas laid out in a STRICT 3 by 3 equal-cell grid, nine independent isometric city sprites. Each city entirely inside its own cell, ample transparent empty margin, same scale, no overlap, no dividers or frames. Row 1 left-to-right: a dimensional gateway city, a harbor city, a sanctuary city. Row 2: a moon citadel, an exotic market town, three tall dawn towers. Row 3: a celestial crossroads city, a small watchtower, a small shrine. All buildings match the faction materials and magic described above. Compact distinctive silhouettes, intricate painted architecture, small tidy stone ground footprint. TRUE TRANSPARENT background between sprites, no text, no numbers."
+    },
+    {
+      "key": "elves_units",
+      "faction": "Эльфы",
+      "file": "files/otherworld/themes/elves/units.png",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive emerald enchanted elven realm, living ancient trees, elegant silver filigree, luminous leaves and flowers, jade magic, warm green twilight. No text, no letters, no logos, no watermark. A LANDSCAPE 3:2 portrait atlas laid out as a STRICT 3 columns by 2 rows equal square panels, six separate character portraits. Every portrait confined to its panel with no crossing borders, no labels, no dividers. Characters in exact reading order left to right, top row then bottom row: living-tree guardian; leaf bow ranger; white stag rider; nature spellweaver; ancient treant; fairy thorn queen. Rich individual dark themed backgrounds, readable faces and weapons, unique silhouettes, cinematic rim light, close full character portraits filling each square. The six panels have exactly equal size and aligned straight grid edges."
+    },
+    {
+      "key": "elves_artifacts",
+      "faction": "Эльфы",
+      "file": "files/otherworld/themes/elves/artifacts.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive emerald enchanted elven realm, living ancient trees, elegant silver filigree, luminous leaves and flowers, jade magic, warm green twilight. No text, no letters, no logos, no watermark. A LANDSCAPE 3:2 inventory sprite atlas, STRICT 3 columns by 2 rows equal square cells. Six separate powerful magical artifact icons in exact reading order: a sword; a crown; a pair of armored boots; a breastplate; a magnificent ring; a unique large heart-shaped dimensional crystal in an ornate reliquary (ultimate quest relic). All six match the faction style above. Each object centered completely inside its own cell with generous transparent margin, no overlap, consistent scale, no frames, no dividers, no labels. True transparent background, only isolated illustrated objects with subtle magical glow."
+    },
+    {
+      "key": "vampires_map",
+      "faction": "Вампиры",
+      "file": "files/otherworld/themes/vampires/map.png",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive crimson and violet gothic vampire realm, black obsidian, blood red crystals, ruined dark forests, purple night, moonlit mist. No text, no letters, no logos, no watermark. Landscape 3:2 top-down oblique world map of one compact connected continent. Broad uninterrupted dry plains in the middle 80%, mountains ONLY at the far northeast corner, lake ONLY in far northwest corner, sea ONLY along far left, far right and bottom perimeter. Scatter small themed forests, crystals and ruins near the perimeter, keep seven large flat clear central and southern places for game cities to be overlaid. No roads, no cities, no buildings, no characters, no sky, no interface, no frame. The entire image is painted map terrain, graceful cliffs and beautiful landscape detail."
+    },
+    {
+      "key": "vampires_cities",
+      "faction": "Вампиры",
+      "file": "files/otherworld/themes/vampires/cities.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive crimson and violet gothic vampire realm, black obsidian, blood red crystals, ruined dark forests, purple night, moonlit mist. No text, no letters, no logos, no watermark. A SQUARE sprite atlas laid out in a STRICT 3 by 3 equal-cell grid, nine independent isometric city sprites. Each city entirely inside its own cell, ample transparent empty margin, same scale, no overlap, no dividers or frames. Row 1 left-to-right: a dimensional gateway city, a harbor city, a sanctuary city. Row 2: a moon citadel, an exotic market town, three tall dawn towers. Row 3: a celestial crossroads city, a small watchtower, a small shrine. All buildings match the faction materials and magic described above. Compact distinctive silhouettes, intricate painted architecture, small tidy stone ground footprint. TRUE TRANSPARENT background between sprites, no text, no numbers."
+    },
+    {
+      "key": "vampires_units",
+      "faction": "Вампиры",
+      "file": "files/otherworld/themes/vampires/units.png",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive crimson and violet gothic vampire realm, black obsidian, blood red crystals, ruined dark forests, purple night, moonlit mist. No text, no letters, no logos, no watermark. A LANDSCAPE 3:2 portrait atlas laid out as a STRICT 3 columns by 2 rows equal square panels, six separate character portraits. Every portrait confined to its panel with no crossing borders, no labels, no dividers. Characters in exact reading order left to right, top row then bottom row: blood knight guardian; shadow archer; spectral bat-wing horse rider; blood mage; obsidian gargoyle; fairy night empress. Rich individual dark themed backgrounds, readable faces and weapons, unique silhouettes, cinematic rim light, close full character portraits filling each square. The six panels have exactly equal size and aligned straight grid edges."
+    },
+    {
+      "key": "vampires_artifacts",
+      "faction": "Вампиры",
+      "file": "files/otherworld/themes/vampires/artifacts.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive crimson and violet gothic vampire realm, black obsidian, blood red crystals, ruined dark forests, purple night, moonlit mist. No text, no letters, no logos, no watermark. A LANDSCAPE 3:2 inventory sprite atlas, STRICT 3 columns by 2 rows equal square cells. Six separate powerful magical artifact icons in exact reading order: a sword; a crown; a pair of armored boots; a breastplate; a magnificent ring; a unique large heart-shaped dimensional crystal in an ornate reliquary (ultimate quest relic). All six match the faction style above. Each object centered completely inside its own cell with generous transparent margin, no overlap, consistent scale, no frames, no dividers, no labels. True transparent background, only isolated illustrated objects with subtle magical glow."
+    },
+    {
+      "key": "adepts_map",
+      "faction": "Адепты",
+      "file": "files/otherworld/themes/adepts/map.png",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive amber orange and indigo arcane adept realm, ancient bronze astral rings, orange crystals, mysterious observatories, sand and stone, dimensional magic. No text, no letters, no logos, no watermark. Landscape 3:2 top-down oblique world map of one compact connected continent. Broad uninterrupted dry plains in the middle 80%, mountains ONLY at the far northeast corner, lake ONLY in far northwest corner, sea ONLY along far left, far right and bottom perimeter. Scatter small themed forests, crystals and ruins near the perimeter, keep seven large flat clear central and southern places for game cities to be overlaid. No roads, no cities, no buildings, no characters, no sky, no interface, no frame. The entire image is painted map terrain, graceful cliffs and beautiful landscape detail."
+    },
+    {
+      "key": "adepts_cities",
+      "faction": "Адепты",
+      "file": "files/otherworld/themes/adepts/cities.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive amber orange and indigo arcane adept realm, ancient bronze astral rings, orange crystals, mysterious observatories, sand and stone, dimensional magic. No text, no letters, no logos, no watermark. A SQUARE sprite atlas laid out in a STRICT 3 by 3 equal-cell grid, nine independent isometric city sprites. Each city entirely inside its own cell, ample transparent empty margin, same scale, no overlap, no dividers or frames. Row 1 left-to-right: a dimensional gateway city, a harbor city, a sanctuary city. Row 2: a moon citadel, an exotic market town, three tall dawn towers. Row 3: a celestial crossroads city, a small watchtower, a small shrine. All buildings match the faction materials and magic described above. Compact distinctive silhouettes, intricate painted architecture, small tidy stone ground footprint. TRUE TRANSPARENT background between sprites, no text, no numbers."
+    },
+    {
+      "key": "adepts_units",
+      "faction": "Адепты",
+      "file": "files/otherworld/themes/adepts/units.png",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive amber orange and indigo arcane adept realm, ancient bronze astral rings, orange crystals, mysterious observatories, sand and stone, dimensional magic. No text, no letters, no logos, no watermark. A LANDSCAPE 3:2 portrait atlas laid out as a STRICT 3 columns by 2 rows equal square panels, six separate character portraits. Every portrait confined to its panel with no crossing borders, no labels, no dividers. Characters in exact reading order left to right, top row then bottom row: arcane bronze sentinel; crystal crossbow ranger; astral construct rider; geometric star mage; bronze crystal golem; fairy astral vizier. Rich individual dark themed backgrounds, readable faces and weapons, unique silhouettes, cinematic rim light, close full character portraits filling each square. The six panels have exactly equal size and aligned straight grid edges."
+    },
+    {
+      "key": "adepts_artifacts",
+      "faction": "Адепты",
+      "file": "files/otherworld/themes/adepts/artifacts.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive amber orange and indigo arcane adept realm, ancient bronze astral rings, orange crystals, mysterious observatories, sand and stone, dimensional magic. No text, no letters, no logos, no watermark. A LANDSCAPE 3:2 inventory sprite atlas, STRICT 3 columns by 2 rows equal square cells. Six separate powerful magical artifact icons in exact reading order: a sword; a crown; a pair of armored boots; a breastplate; a magnificent ring; a unique large heart-shaped dimensional crystal in an ornate reliquary (ultimate quest relic). All six match the faction style above. Each object centered completely inside its own cell with generous transparent margin, no overlap, consistent scale, no frames, no dividers, no labels. True transparent background, only isolated illustrated objects with subtle magical glow."
+    },
+    {
+      "key": "elines_map",
+      "faction": "Элины",
+      "file": "files/otherworld/themes/elines/map.png",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive ivory and warm gold classical Hellenic realm, marble temples, laurel, radiant sunlight, bright turquoise sea, green Mediterranean plains, solar magic. No text, no letters, no logos, no watermark. Landscape 3:2 top-down oblique world map of one compact connected continent. Broad uninterrupted dry plains in the middle 80%, mountains ONLY at the far northeast corner, lake ONLY in far northwest corner, sea ONLY along far left, far right and bottom perimeter. Scatter small themed forests, crystals and ruins near the perimeter, keep seven large flat clear central and southern places for game cities to be overlaid. No roads, no cities, no buildings, no characters, no sky, no interface, no frame. The entire image is painted map terrain, graceful cliffs and beautiful landscape detail."
+    },
+    {
+      "key": "elines_cities",
+      "faction": "Элины",
+      "file": "files/otherworld/themes/elines/cities.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive ivory and warm gold classical Hellenic realm, marble temples, laurel, radiant sunlight, bright turquoise sea, green Mediterranean plains, solar magic. No text, no letters, no logos, no watermark. A SQUARE sprite atlas laid out in a STRICT 3 by 3 equal-cell grid, nine independent isometric city sprites. Each city entirely inside its own cell, ample transparent empty margin, same scale, no overlap, no dividers or frames. Row 1 left-to-right: a dimensional gateway city, a harbor city, a sanctuary city. Row 2: a moon citadel, an exotic market town, three tall dawn towers. Row 3: a celestial crossroads city, a small watchtower, a small shrine. All buildings match the faction materials and magic described above. Compact distinctive silhouettes, intricate painted architecture, small tidy stone ground footprint. TRUE TRANSPARENT background between sprites, no text, no numbers."
+    },
+    {
+      "key": "elines_units",
+      "faction": "Элины",
+      "file": "files/otherworld/themes/elines/units.png",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive ivory and warm gold classical Hellenic realm, marble temples, laurel, radiant sunlight, bright turquoise sea, green Mediterranean plains, solar magic. No text, no letters, no logos, no watermark. A LANDSCAPE 3:2 portrait atlas laid out as a STRICT 3 columns by 2 rows equal square panels, six separate character portraits. Every portrait confined to its panel with no crossing borders, no labels, no dividers. Characters in exact reading order left to right, top row then bottom row: solar hoplite guardian; golden bow archer; pegasus rider; sun oracle mage; marble colossus; fairy laurel monarch. Rich individual dark themed backgrounds, readable faces and weapons, unique silhouettes, cinematic rim light, close full character portraits filling each square. The six panels have exactly equal size and aligned straight grid edges."
+    },
+    {
+      "key": "elines_artifacts",
+      "faction": "Элины",
+      "file": "files/otherworld/themes/elines/artifacts.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Premium hand-painted fantasy strategy game art, richly detailed, cohesive ivory and warm gold classical Hellenic realm, marble temples, laurel, radiant sunlight, bright turquoise sea, green Mediterranean plains, solar magic. No text, no letters, no logos, no watermark. A LANDSCAPE 3:2 inventory sprite atlas, STRICT 3 columns by 2 rows equal square cells. Six separate powerful magical artifact icons in exact reading order: a sword; a crown; a pair of armored boots; a breastplate; a magnificent ring; a unique large heart-shaped dimensional crystal in an ornate reliquary (ultimate quest relic). All six match the faction style above. Each object centered completely inside its own cell with generous transparent margin, no overlap, consistent scale, no frames, no dividers, no labels. True transparent background, only isolated illustrated objects with subtle magical glow."
+    }
+  ]
+}

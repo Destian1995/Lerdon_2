@@ -1,0 +1,36 @@
+{
+  "generator": "Built-in image_gen",
+  "use_case": "stylized-concept",
+  "images": [
+    {
+      "key": "north",
+      "file": "files/portals/portal_north.png",
+      "faction": "Север",
+      "prompt": "Use case: stylized-concept. Asset type: finished landscape 3:2 illustration for the portal entrance panel of a Russian medieval fantasy strategy game, no interface. A magnificent magical gateway to a distant world, central readable silhouette, fully visible arch with generous margins, viewed from the front at a slight three-quarter angle. Rich hand-painted fantasy game key art, detailed stone and metal, cinematic lighting, powerful luminous magic, dark atmospheric surroundings so the portal glows. One portal only, no people, no lettering, no symbols that look like text, no logos, no UI, no watermark. The portal opening reveals a tantalizing otherworld landscape. A northern human faction: imposing ancient Nordic stone gateway covered in frost, carved interlaced ornament without letters, blue steel buttresses, ice crystals, bright cyan and sapphire swirling dimensional light, snowy craggy mountains and dark fir trees. Cold heroic blue, silver and white palette."
+    },
+    {
+      "key": "elves",
+      "file": "files/portals/portal_elves.png",
+      "faction": "Эльфы",
+      "prompt": "Use case: stylized-concept. Asset type: finished landscape 3:2 illustration for the portal entrance panel of a Russian medieval fantasy strategy game, no interface. A magnificent magical gateway to a distant world, central readable silhouette, fully visible arch with generous margins, viewed from the front at a slight three-quarter angle. Rich hand-painted fantasy game key art, detailed stone and metal, cinematic lighting, powerful luminous magic, dark atmospheric surroundings so the portal glows. One portal only, no people, no lettering, no symbols that look like text, no logos, no UI, no watermark. The portal opening reveals a tantalizing otherworld landscape. An elven faction: graceful living arch formed by intertwined ancient trees and elegant silver filigree, lush moss, emerald leaves, pale flowers, floating fireflies, luminous jade and turquoise spiral inside, enchanted green forest at twilight. Elegant emerald, green and silver palette."
+    },
+    {
+      "key": "vampires",
+      "file": "files/portals/portal_vampires.png",
+      "faction": "Вампиры",
+      "prompt": "Use case: stylized-concept. Asset type: finished landscape 3:2 illustration for the portal entrance panel of a Russian medieval fantasy strategy game, no interface. A magnificent magical gateway to a distant world, central readable silhouette, fully visible arch with generous margins, viewed from the front at a slight three-quarter angle. Rich hand-painted fantasy game key art, detailed stone and metal, cinematic lighting, powerful luminous magic, dark atmospheric surroundings so the portal glows. One portal only, no people, no lettering, no symbols that look like text, no logos, no UI, no watermark. The portal opening reveals a tantalizing otherworld landscape. A vampire faction: tall gothic obsidian arch with ornate bat-wing supports, dark burgundy rose vines and finely crafted black metal, red crystals, rich crimson and amethyst dimensional vortex, moonlit ruined castle courtyard with low mist. Dramatic crimson, violet and black palette."
+    },
+    {
+      "key": "adepts",
+      "file": "files/portals/portal_adepts.png",
+      "faction": "Адепты",
+      "prompt": "Use case: stylized-concept. Asset type: finished landscape 3:2 illustration for the portal entrance panel of a Russian medieval fantasy strategy game, no interface. A magnificent magical gateway to a distant world, central readable silhouette, fully visible arch with generous margins, viewed from the front at a slight three-quarter angle. Rich hand-painted fantasy game key art, detailed stone and metal, cinematic lighting, powerful luminous magic, dark atmospheric surroundings so the portal glows. One portal only, no people, no lettering, no symbols that look like text, no logos, no UI, no watermark. The portal opening reveals a tantalizing otherworld landscape. An arcane adept faction: precise monumental gateway made from interlocking dark bronze and brass rings suspended around faceted amber crystals, geometric arcane energy without writing, brilliant orange and violet dimensional core, ancient stone observatory. Rich amber, orange, antique gold and deep indigo palette."
+    },
+    {
+      "key": "elines",
+      "file": "files/portals/portal_elines.png",
+      "faction": "Элины",
+      "prompt": "Use case: stylized-concept. Asset type: finished landscape 3:2 illustration for the portal entrance panel of a Russian medieval fantasy strategy game, no interface. A magnificent magical gateway to a distant world, central readable silhouette, fully visible arch with generous margins, viewed from the front at a slight three-quarter angle. Rich hand-painted fantasy game key art, detailed stone and metal, cinematic lighting, powerful luminous magic, dark atmospheric surroundings so the portal glows. One portal only, no people, no lettering, no symbols that look like text, no logos, no UI, no watermark. The portal opening reveals a tantalizing otherworld landscape. A classical Hellenic faction: majestic white marble gateway with Corinthian columns and gilded laurel relief, golden circular celestial opening, radiant solar swirls and turquoise distant sky, seaside classical sanctuary. Refined ivory, warm gold and azure palette."
+    }
+  ]
+}

@@ -165,6 +165,40 @@ class ZoomUITests(unittest.TestCase):
         self.assertEqual(self.clicks,[(700,350)])
         self.assertEqual(touch.pos,screen_point)
 
+    def test_city_names_grow_to_one_point_three_without_rebuilding_map(self):
+        from map_city_labels import CityLabels
+        glyph=Rectangle(pos=(600,320),size=(200,30))
+        outline=Rectangle(pos=(598,318),size=(200,30))
+        labels=self.owner._city_name_labels=CityLabels()
+        labels.add(700,350,(200,30),[(glyph,0,0),(outline,-2,-2)])
+        geometry=self.owner._road_geometry
+        self.zoom.change(.5)
+        self.assertAlmostEqual(glyph.size[0]*self.zoom.camera.zoom,260,places=4)
+        self.assertAlmostEqual(glyph.size[1]*self.zoom.camera.zoom,39,places=4)
+        self.assertAlmostEqual(glyph.pos[0]+glyph.size[0]/2,700,places=4)
+        self.assertAlmostEqual(glyph.pos[1]+glyph.size[1],350,places=4)
+        self.assertAlmostEqual((glyph.pos[0]-outline.pos[0])*1.5,2.6,places=4)
+        before=tuple(glyph.size)
+        self.zoom.camera.move(60,30);self.zoom.restore()
+        self.assertEqual(tuple(glyph.size),before)
+        self.assertIs(self.owner._road_geometry,geometry)
+        self.assertEqual(self.redraws,[])
+        self.zoom.reset()
+        self.assertEqual(tuple(glyph.size),(200,30))
+        self.assertEqual(tuple(glyph.pos),(600,320))
+
+    def test_city_name_scale_is_smooth_and_new_labels_use_current_zoom(self):
+        from map_city_labels import CityLabels,label_scale
+        screen_scales=[label_scale(z)*z for z in (1,1.1,1.2,1.3,1.4,1.5)]
+        for actual,expected in zip(screen_scales,(1,1.06,1.12,1.18,1.24,1.3)):
+            self.assertAlmostEqual(actual,expected)
+        self.zoom.change(.5)
+        glyph=Rectangle(size=(100,20))
+        self.owner._city_name_labels=CityLabels()
+        self.owner._city_name_labels.add(400,300,(100,20),[(glyph,0,0)])
+        self.zoom.restore()
+        self.assertAlmostEqual(glyph.size[0]*1.5,130,places=4)
+
     def test_real_window_dispatch_keeps_buttons_and_city_taps_separate(self):
         from kivy.tests.common import UnitTestTouch
         plus=UnitTestTouch(*self.zoom.plus.center)

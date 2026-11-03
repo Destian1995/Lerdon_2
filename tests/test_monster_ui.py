@@ -36,8 +36,8 @@ class MonsterUITests(unittest.TestCase):
             with self.subTest(size=size,density=density):
                 self.assertGreater(popup.art.width,60)
                 self.assertGreater(popup.art.height,60)
-                self.assertGreater(popup.summary.texture_size[1],40)
-                self.assertLess(popup.summary.height,2000*density)
+                self.assertEqual(len(popup.summary.tiles),3)
+                self.assertGreater(popup.summary.height,60)
                 self.assertLessEqual(popup.right,Window.width+1)
                 self.assertGreaterEqual(popup.hunt.y,popup.y)
                 self.assertLessEqual(popup.hunt.top,popup.top)
@@ -58,10 +58,25 @@ class MonsterUITests(unittest.TestCase):
         eid=begin_hunt(self.db,7,'Север');resolve_hunt(self.db,eid);finish_hunt(self.db,eid)
         popup=MonsterPopup(self.map,sites(self.db)[-1])
         popup.open(animation=False);settle()
-        self.assertEqual(popup.summary.text.count('\n'),2)
-        self.assertIn('Награда: опыт и ветеранство',popup.summary.text)
-        self.assertIn('Ветеранство: 9 х.',popup.summary.text)
-        self.assertNotIn('550%',popup.summary.text)
+        self.assertEqual(popup.summary.reward.value.text,'+1 опыта войскам')
+        self.assertEqual(popup.summary.training.value.text,'9 х.')
+        self.assertNotIn('550%',popup.summary.reward.value.text)
+
+    def test_foreign_lair_has_large_coloured_stat_cards(self):
+        Window.size=(1280,576);settle()
+        self.db.execute("UPDATE cities SET faction='Эльфы' WHERE name='Home'")
+        popup=MonsterPopup(self.map,sites(self.db)[0])
+        popup.open(animation=False);settle()
+        self.assertGreaterEqual(popup.summary.defense.value.font_size,26)
+        self.assertGreaterEqual(popup.summary.training.value.font_size,26)
+        self.assertGreaterEqual(popup.summary.reward.value.font_size,20)
+        for tile in popup.summary.tiles:
+            self.assertGreaterEqual(tile.icon.width,36)
+            self.assertGreaterEqual(tile.y,popup.body.y-1)
+            self.assertLessEqual(tile.top,popup.body.top+1)
+            self.assertLessEqual(tile.value.texture_size[1],tile.value.height+1)
+        self.assertNotEqual(popup.summary.defense.value.color,popup.summary.training.value.color)
+        popup.export_to_png('.release/monster-colourful-stats.png')
 
     def test_lair_and_clash_use_the_same_persisted_appearance(self):
         self.db.execute('UPDATE monster_sites SET variant=4 WHERE id=6')
