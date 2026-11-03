@@ -8,6 +8,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.image import Image
 from kivy.uix.label import Label
+from kivy.uix.carousel import Carousel
 from strategy_ui import surface,StrategyButton,INK,TEXT,MUTED,GOLD
 from utils.ui_text import bind_plain_text
 
@@ -74,6 +75,47 @@ class FitButton(StrategyButton):
         self.font_size=fitting_font(self,self.width-12,self.height-6,9,max(9,self.maximum))
 
 
+class CardPager(BoxLayout):
+    """One readable card per page, with both swiping and explicit navigation."""
+    def __init__(self,accent=GOLD,**kwargs):
+        super().__init__(orientation='vertical',spacing=6,**kwargs)
+        self.carousel=Carousel(direction='right',loop=False,anim_move_duration=.18,anim_cancel_duration=.12)
+        self.nav=BoxLayout(size_hint_y=None,height=40,spacing=8)
+        self.previous=FitButton(text='Назад',accent=accent)
+        self.counter=FitLabel(text='0 / 0',halign='center',size_hint_x=.55,color=MUTED)
+        self.next=FitButton(text='Далее',accent=accent)
+        for widget in (self.previous,self.counter,self.next):self.nav.add_widget(widget)
+        super().add_widget(self.carousel);super().add_widget(self.nav)
+        self.previous.bind(on_release=lambda *_:self.select(self.page_index-1))
+        self.next.bind(on_release=lambda *_:self.select(self.page_index+1))
+        self.carousel.bind(index=self.update_nav,slides=self.update_nav)
+        self.bind(size=self.fit);self.fit();self.update_nav()
+
+    @property
+    def pages(self):return self.carousel.slides
+
+    @property
+    def page_index(self):return self.carousel.index or 0
+
+    def select(self,index):
+        if self.pages:self.carousel.index=max(0,min(index,len(self.pages)-1))
+
+    def clear_cards(self):self.carousel.clear_widgets()
+
+    def add_card(self,card):self.carousel.add_widget(card)
+
+    def update_nav(self,*_):
+        count=len(self.pages);index=self.page_index
+        self.counter.text=f'{index+1} / {count}' if count else '0 / 0'
+        self.previous.disabled=not count or index==0
+        self.next.disabled=not count or index==count-1
+
+    def fit(self,*_):
+        self.nav.height=min(48,max(36,self.height*.15))
+        self.previous.maximum=self.next.maximum=min(sp(18),max(14,self.height*.075))
+        self.counter.maximum=min(sp(17),max(14,self.height*.07))
+
+
 class ArmyCard(BoxLayout):
     def __init__(self,name,count,image,experience,accent,**kwargs):
         super().__init__(spacing=4,**kwargs)
@@ -118,27 +160,28 @@ class MarketCard(BoxLayout):
         super().__init__(orientation='vertical',**kwargs)
         surface(self,INK,GOLD)
         compact_frame(self)
-        self.header=BoxLayout(spacing=4)
-        self.header.size_hint_y=None
+        self.header=BoxLayout(spacing=10)
         self.art=Image(source=image,size_hint_x=None,mipmap=True) if image else None
         if self.art:self.header.add_widget(self.art)
+        copy=BoxLayout(orientation='vertical',spacing=6)
         self.title_label=FitLabel(text=title,bold=True,color=GOLD,maximum=sp(17))
-        self.header.add_widget(self.title_label)
+        copy.add_widget(self.title_label)
         self.details=FitLabel(text=subtitle,color=MUTED,maximum=sp(14))
+        copy.add_widget(self.details)
+        self.header.add_widget(copy)
         self.button=FitButton(text=caption,size_hint_y=None)
         self.button.bind(on_release=callback)
-        for child in (self.header,self.details,self.button):self.add_widget(child)
+        for child in (self.header,self.button):self.add_widget(child)
         self.bind(size=self.fit);self.fit()
 
     def fit(self,*_):
         self.padding=(min(8,self.width*.06),min(6,max(2,self.height*.025)))
         self.spacing=min(3,self.height*.012)
-        self.header.height=max(24,self.height*.28)
-        self.button.height=min(40,max(23,self.height*.26))
-        self.button.maximum=min(sp(15),max(10,self.button.height*.4))
-        self.title_label.maximum=min(sp(18),max(10,self.height*.17))
-        self.details.maximum=min(sp(14),max(9,self.height*.125))
-        if self.art:self.art.width=min(56,self.width*.25,self.height*.36)
+        self.button.height=min(50,max(36,self.height*.23))
+        self.button.maximum=min(sp(20),max(14,self.button.height*.40))
+        self.title_label.maximum=min(sp(26),max(16,self.height*.13))
+        self.details.maximum=min(sp(21),max(14,self.height*.10))
+        if self.art:self.art.width=min(self.width*.39,self.height*.64)
 
 
 class QuestCard(BoxLayout):

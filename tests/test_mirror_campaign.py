@@ -101,6 +101,30 @@ class MirrorCampaignTests(unittest.TestCase):
             self.assertEqual(len(w.cities(self.db,faction)),7)
         self.assertEqual(len(maps),5);self.assertEqual(len(portraits),25);self.assertEqual(len(relics),25)
 
+    def test_every_unit_role_has_different_attack_and_defense_in_each_faction(self):
+        rosters=[w.unit_offers(self.db,faction) for faction in THEMES]
+        for role in range(5):
+            self.assertEqual(len({roster[role]['attack'] for roster in rosters}),5)
+            self.assertEqual(len({roster[role]['defense'] for roster in rosters}),5)
+        self.assertGreater(rosters[0][4]['defense'],rosters[1][4]['defense'])
+
+    def test_old_hired_units_upgrade_without_resetting_party_xp_or_market_stock(self):
+        w.recruit(self.db,'Север',2)
+        name='Странник: '+w.unit_offers(self.db,'Север')[1]['unit_name']+' / Север'
+        self.db.execute('UPDATE units SET attack=1,defense=1 WHERE unit_name=?',(name,))
+        self.db.execute('UPDATE portal_presentation SET version=1')
+        self.db.commit()
+        before={table:list(self.db.execute('SELECT * FROM '+table))
+                for table in ('garrisons','portal_market','portal_parties','portal_roads')}
+        w.upgrade_world(self.db)
+        offer=w.unit_offers(self.db,'Север')[1]
+        self.assertEqual(self.db.execute('SELECT attack,defense FROM units WHERE unit_name=?',(name,)).fetchone(),
+                         (offer['attack'],offer['defense']))
+        for table,rows in before.items():self.assertEqual(list(self.db.execute('SELECT * FROM '+table)),rows)
+        self.db.execute('UPDATE units SET attack=999 WHERE unit_name=?',(name,))
+        w.upgrade_world(self.db)
+        self.assertEqual(self.db.execute('SELECT attack FROM units WHERE unit_name=?',(name,)).fetchone()[0],999)
+
     def test_only_class_three_can_buy_and_wrong_class_does_not_spend(self):
         self.db.execute("UPDATE units SET unit_class='2' WHERE unit_name='Hero'");self.db.commit()
         before=list(self.db.execute('SELECT * FROM resources'))

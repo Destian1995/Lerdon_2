@@ -1,6 +1,5 @@
 """A compact journal that exposes the actual, location-gated quest actions."""
 from kivy.metrics import dp
-from kivy.uix.gridlayout import GridLayout
 from otherworld_ui import WorldPopup,_button,_busy,_refresh_main,_screen
 from otherworld_themes import theme
 from strategy_ui import GOLD
@@ -17,7 +16,8 @@ class QuestJournal(WorldPopup):
         from mirror_layout import FitLabel
         self.feedback=FitLabel(text='',maximum=15,color=GOLD,size_hint_y=None,height=0)
         self.root.add_widget(self.feedback)
-        self.cards=GridLayout(cols=2,spacing=dp(8))
+        from mirror_layout import CardPager
+        self.cards=CardPager(accent=self.accent)
         self.root.add_widget(self.cards)
         self.close_button=_button('Вернуться на карту',self.dismiss,size_hint_y=None,height=dp(46),accent=self.accent)
         self.root.add_widget(self.close_button)
@@ -33,17 +33,17 @@ class QuestJournal(WorldPopup):
         self.header.children[0].width=self.header.height
         self.heading.font_size=min(dp(22),self.header.height*.6,w*.036)
         self.feedback.height=min(dp(42),h*.09) if self.feedback.text else 0
-        self.close_button.height=min(dp(46),h*.10)
+        self.close_button.height=min(54,max(40,h*.12))
         self.close_button.font_size=min(dp(15),self.close_button.height*.4)
-        self.cards.cols=1 if w<h*.9 else 2
 
     def card(self,title,copy,buttons=()):
         from mirror_layout import QuestCard
-        self.cards.add_widget(QuestCard(title,copy,buttons,self.accent))
+        self.cards.add_card(QuestCard(title,copy,buttons,self.accent))
         self._layout_event()
 
     def refresh(self):
-        self.cards.clear_widgets()
+        selected=self.cards.page_index
+        self.cards.clear_cards()
         run=quests.state(self.conn,self.faction)
         p=worlds.party(self.conn,self.faction)
         here=p['city_id'] if p else 0
@@ -84,7 +84,7 @@ class QuestJournal(WorldPopup):
             from mirror_allegiance_ui import AllegianceCard
             from utils.helpers import format_number
             defense=format_number(worlds.QUEST_GARRISON_DEFENSE).replace('.0 ',' ')
-            self.cards.add_widget(AllegianceCard(war['title']+'  ·  '+str(stage)+'/3',
+            self.cards.add_card(AllegianceCard(war['title']+'  ·  '+str(stage)+'/3',
                 (war['premise']+'\n\n' if stage==0 else '')+tasks[stage],buttons,self.accent,
                 self.faction,stage,tasks[stage]+'\nЗащита: '+defense+' · Награда: артефакт на 25 ходов.'))
             self._layout_event()
@@ -97,6 +97,7 @@ class QuestJournal(WorldPopup):
             self.card('Ваши награды',summary,[('Забрать награды',lambda *_:self.perform(lambda:quests.claim(self.conn,self.faction)),bool(eligible))])
         left=quests.cap_turns(self.conn,self.faction)
         if left:self.card('Благословение Зазеркалья',f'Лимиты крон, кристаллов, рабочих и населения увеличены на 35%.\nОсталось {left} ходов. Бонус не складывается сам с собой.')
+        self.cards.select(selected)
 
     def step(self,kind,choice=None):
         def action():

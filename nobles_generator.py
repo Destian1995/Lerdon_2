@@ -10,7 +10,7 @@ from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.uix.widget import Widget
 from kivy.graphics import Color, RoundedRectangle
-from kivy.clock import Clock
+from kivy.clock import Clock, mainthread
 
 EVENT_COUNT_FOR_SYMPATHIES = 3  # После N мероприятий появляются симпатии (взгляды)
 SHOW_SYMPATHIES = False         # Флаг, показывать ли симпатии
@@ -449,6 +449,7 @@ def handle_failed_coup(conn, all_nobles):
 
     show_coup_attempt_popup(successful=False, message_override=message)
 
+@mainthread
 def show_coup_attempt_popup(successful=False, message_override=None):
     """Отображает popup с информацией о попытке переворота. (БЕЗ КНОПОК, авто-скрытие)"""
     try:

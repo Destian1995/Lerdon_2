@@ -67,17 +67,25 @@ def upgrade_world(conn):
     ensure_schema(conn)
     if not conn.execute('SELECT 1 FROM portal_worlds WHERE id=1').fetchone():
         return
-    if conn.execute('SELECT 1 FROM portal_presentation WHERE world_id=1 AND version>=1').fetchone():
+    row=conn.execute('SELECT version FROM portal_presentation WHERE world_id=1').fetchone()
+    version=row[0] if row else 0
+    if version>=2:
         return
     with atomic(conn):
-        conn.execute('UPDATE portal_worlds SET background=? WHERE id=1',(BACKGROUND,))
-        for cid,(x,y) in enumerate(CITY_POSITIONS,1):
-            conn.execute('UPDATE portal_cities SET x=?,y=? WHERE id=?',(x,y,cid))
-        conn.execute('DELETE FROM portal_roads')
-        conn.executemany('INSERT INTO portal_roads VALUES(?,?)',CITY_ROADS)
-        # Old market keys referred to ordinary faction goods, not local goods.
-        conn.execute("DELETE FROM portal_market WHERE kind IN ('unit','artifact')")
-        conn.execute('INSERT OR REPLACE INTO portal_presentation VALUES(1,1)')
+        if version<1:
+            conn.execute('UPDATE portal_worlds SET background=? WHERE id=1',(BACKGROUND,))
+            for cid,(x,y) in enumerate(CITY_POSITIONS,1):
+                conn.execute('UPDATE portal_cities SET x=?,y=? WHERE id=?',(x,y,cid))
+            conn.execute('DELETE FROM portal_roads')
+            conn.executemany('INSERT INTO portal_roads VALUES(?,?)',CITY_ROADS)
+            # Old market keys referred to ordinary faction goods, not local goods.
+            conn.execute("DELETE FROM portal_market WHERE kind IN ('unit','artifact')")
+        from otherworld_themes import THEMES
+        for faction in THEMES:
+            for unit in unit_catalog(faction):
+                conn.execute('UPDATE units SET attack=?,defense=? WHERE unit_name=? AND faction=?',
+                             (unit['attack'],unit['defense'],'Странник: '+unit['unit_name']+' / '+faction,faction))
+        conn.execute('INSERT OR REPLACE INTO portal_presentation VALUES(1,2)')
 
 
 def _dicts(cursor):

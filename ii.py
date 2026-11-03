@@ -4338,7 +4338,6 @@ class AIController:
         our_strength = ctx.get('our_strength', 0)
         player_strength = ctx.get('player_strength', 0)
         we_stronger = our_strength > player_strength * 1.2
-        we_equal = 0.8 < (our_strength / max(1, player_strength)) < 1.2
 
         sent = False
 
@@ -4355,7 +4354,7 @@ class AIController:
 
         if self.faction == 'Вампиры' and not sent:
             sent = self._vampires_diplomacy(personality, traits, ctx, relations,
-                                             same_ideology, we_stronger, we_equal)
+                                             same_ideology, we_stronger)
 
         elif self.faction == 'Север' and not sent:
             sent = self._north_diplomacy(personality, traits, ctx, relations,

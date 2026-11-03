@@ -31,7 +31,10 @@ class OtherworldUITests(unittest.TestCase):
         city=otherworlds.cities(self.db)[0]
         popup=ForeignCityPopup(overview,city);popup.open(animation=False);settle()
         popup.show_market('units');settle()
-        self.assertEqual(len(popup.offers.children),5)
+        self.assertEqual(len(popup.offers.pages),5)
+        self.assertEqual(popup.offers.page_index,0)
+        popup.offers.next.dispatch('on_release');settle()
+        self.assertEqual(popup.offers.page_index,1)
         self.assertGreater(popup.army_box.parent.height,100)
         self.assertGreater(popup.market.height,100)
         self.assertFalse(popup.battle_button.disabled)
@@ -65,6 +68,31 @@ class OtherworldUITests(unittest.TestCase):
         self.assertEqual(otherworlds.party(self.db,'Север')['city_id'],neighbor)
         self.assertTrue(overview.map.beam.finished)
         self.assertIsNone(otherworlds.beam(self.db,'Север'))
+
+    def test_swipe_selects_unit_and_purchase_keeps_the_selected_card(self):
+        from kivy.tests.common import UnitTestTouch
+        import otherworlds
+        overview=OtherworldMap(self.db,'Север');overview.open(animation=False);settle()
+        popup=ForeignCityPopup(overview,otherworlds.cities(self.db,'Север')[0])
+        popup.open(animation=False);popup.show_market('units');settle()
+        carousel=popup.offers.carousel
+        x,y=carousel.x+carousel.width*.8,carousel.center_y
+        end_x=carousel.x+carousel.width*.15
+        touch=UnitTestTouch(x,y)
+        touch.touch_down()
+        touch.touch_move(x-25,y)
+        touch.touch_move(end_x,y)
+        touch.touch_up();settle();settle()
+        self.assertEqual(popup.offers.page_index,1)
+        unit=otherworlds.unit_offers(self.db,'Север')[1]
+        current=popup.offers.carousel.current_slide
+        self.assertEqual(current.title_label.text,unit['unit_name'])
+        current.button.dispatch('on_release');settle()
+        self.assertEqual(popup.offers.page_index,1)
+        camp=otherworlds.party(self.db,'Север')['camp']
+        row=self.db.execute('SELECT unit_count FROM garrisons WHERE city_name=? AND unit_name=?',
+                            (camp,'Странник: '+unit['unit_name']+' / Север')).fetchone()
+        self.assertEqual(row,(100,))
 
 
 if __name__=='__main__': unittest.main()

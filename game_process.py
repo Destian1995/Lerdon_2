@@ -27,6 +27,10 @@ _active_game_screen = None
 
 def refresh_map():
     """Принудительное обновление карты и индикаторов. Вызывать после боя/перемещения."""
+    import threading
+    if threading.current_thread() is not threading.main_thread():
+        Clock.schedule_once(lambda dt: refresh_map())
+        return
     gs = _active_game_screen
     if gs:
         gs._prev_star_levels = None
@@ -264,6 +268,13 @@ class ResourceBox(BoxLayout):
         self._bg_rect.size = self.size
 
     def update_resources(self, delta=None):
+        # Diplomacy/resource payments can notify the HUD from the AI worker.
+        # Creating/replacing widget canvases there is unsafe on Android.
+        import threading
+        if threading.current_thread() is not threading.main_thread():
+            pending_delta = dict(delta) if delta is not None else None
+            Clock.schedule_once(lambda dt: self.update_resources(delta=pending_delta))
+            return
         if delta is None:
             delta = {}
         else:

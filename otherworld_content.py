@@ -21,6 +21,15 @@ _UNITS=(
     ('Кристальный голем','golem',115,250,80,420,4.5,'infantry'),
 )
 
+# Each role has its own faction profile, rather than a shared roster multiplier.
+UNIT_PROFILES={
+    'Север': ((78,190),(152,72),(180,128),(225,112),(140,340)),
+    'Эльфы': ((98,135),(218,62),(210,105),(265,88),(155,285)),
+    'Вампиры': ((125,148),(195,70),(255,118),(310,76),(185,265)),
+    'Адепты': ((86,175),(182,98),(192,150),(285,124),(165,320)),
+    'Элины': ((108,162),(202,84),(235,138),(248,106),(172,305)),
+}
+
 
 def unit_catalog(faction=None):
     result=[dict(id=i,unit_name=name,faction='Зазеркалье',image_path=ROOT+'units/'+key+'.png',
@@ -32,8 +41,9 @@ def unit_catalog(faction=None):
         from otherworld_themes import theme,image_path
         skin=theme(faction)
         for item,(_,key,*_) in zip(result,_UNITS):
+            attack,defense=UNIT_PROFILES.get(faction,UNIT_PROFILES['Адепты'])[item['id']-1]
             item.update(unit_name=skin['units'][item['id']-1],image_path=image_path(faction,'units',key),
-                        attack=round(item['attack']*skin['attack']),defense=round(item['defense']*skin['defense']))
+                        attack=attack,defense=defense)
     return result
 
 

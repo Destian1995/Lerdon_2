@@ -49,37 +49,42 @@ class MirrorSmallScreenTests(unittest.TestCase):
             self.assertLessEqual(text.texture.height,label.height-(6 if isinstance(label,FitButton) else 1)+.01,
                                  (label.text,label.size,label.font_size,text.texture.height))
 
-    def test_all_five_goods_and_seven_army_groups_are_visible_without_scrolling(self):
+    def test_goods_and_army_are_readable_one_card_at_a_time(self):
         city=ForeignCityPopup(self.owner,w.cities(self.db,'Север')[0]);city.open(animation=False);settle()
         for size,density in [((640,360),1),((1280,576),2),((390,844),1)]:
             Window.size=size;Metrics.density=density;settle();city.fit();settle()
             for mode in ('units','artifacts','resources'):
                 with self.subTest(size=size,density=density,mode=mode):
                     city.show_market(mode);settle()
-                    self.assertEqual(len(city.offers.children),2 if mode=='resources' else 5)
-                    self.assertEqual(len(city.army_box.children),7)
-                    self.assertFalse(any(isinstance(widget,ScrollView) for widget in city.root.walk()))
-                    for card in city.offers.children:
-                        self.inside(card,city.offers);self.inside(card.button,card)
-                        self.assertGreaterEqual(card.button.height,22)
-                    for card in city.army_box.children:self.inside(card,city.army_box)
+                    self.assertEqual(len(city.offers.pages),2 if mode=='resources' else 5)
+                    self.assertEqual(len(city.army_box.pages),7)
+                    for index,card in enumerate(city.offers.pages):
+                        city.offers.select(index);settle()
+                        self.assertIs(city.offers.carousel.current_slide,card)
+                        self.inside(card.button,card)
+                        self.assertGreaterEqual(card.button.height,36)
+                        self.assertGreaterEqual(card.title_label.font_size,12)
+                        self.readable(card)
+                    self.assertEqual(city.offers.counter.text,f'{len(city.offers.pages)} / {len(city.offers.pages)}')
+                    city.army_box.select(6);settle()
+                    self.assertIs(city.army_box.carousel.current_slide,city.army_box.pages[6])
                     self.inside(city.guard_label,city.army_panel)
                     self.inside(city.action_bar,city.root)
-                    self.readable(city.root)
+                    self.readable(city.army_box.carousel.current_slide)
 
-    def test_accusation_choices_and_both_quests_fit_together(self):
+    def test_accusation_choices_and_quests_can_be_paged(self):
         q.begin(self.db,'Север',random.Random(54))
         d=q.details(q.state(self.db,'Север'))['detective']
         for place,kind in zip(d['cities'],('witness','ledger')):
             self.db.execute('UPDATE portal_parties SET city_id=?',(place,));self.db.commit()
             q.action(self.db,'Север',kind)
         journal=QuestJournal(self.owner);journal.open(animation=False);settle()
-        self.assertEqual(len(journal.cards.children),2)
-        self.assertFalse(any(isinstance(widget,ScrollView) for widget in journal.root.walk()))
-        for card in journal.cards.children:
-            self.inside(card,journal.cards)
+        self.assertEqual(len(journal.cards.pages),2)
+        for index,card in enumerate(journal.cards.pages):
+            journal.cards.select(index);settle()
+            self.assertIs(journal.cards.carousel.current_slide,card)
             for button in card.buttons.children:self.inside(button,card)
-        self.readable(journal.root)
+            self.readable(card)
         # A repeat run can still have the previous cap buff plus an unclaimed
         # war reward while the detective case is at its accusation stage.
         war=q.details(q.state(self.db,'Север'))['war']
@@ -87,8 +92,9 @@ class MirrorSmallScreenTests(unittest.TestCase):
         self.db.execute("INSERT INTO portal_quest_rewards VALUES('Север',1,102,NULL)")
         self.db.execute("INSERT INTO portal_quest_buffs VALUES('Север',25)");self.db.commit()
         journal.refresh();settle()
-        self.assertEqual(len(journal.cards.children),4)
-        self.readable(journal.root)
+        self.assertEqual(len(journal.cards.pages),4)
+        for index,card in enumerate(journal.cards.pages):
+            journal.cards.select(index);settle();self.readable(card)
 
     def test_map_fills_window_and_zoomed_tap_drag_and_reset_keep_correct_city(self):
         m=self.owner.map

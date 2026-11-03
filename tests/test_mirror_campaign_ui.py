@@ -27,7 +27,7 @@ class MirrorCampaignUITests(unittest.TestCase):
     def test_journal_records_clues_and_fits_small_landscape_screen(self):
         journal=QuestJournal(self.map);journal.open(animation=False);settle()
         journal.perform(lambda:q.begin(self.db,'Север'))
-        self.assertEqual(len(journal.cards.children),2)
+        self.assertEqual(len(journal.cards.pages),2)
         witness=q.details(q.state(self.db,'Север'))['detective']['cities'][0]
         self.db.execute("UPDATE portal_parties SET city_id=? WHERE faction='Север'",(witness,))
         self.db.execute('UPDATE turn_check_move SET moves_left=10');self.db.commit()
@@ -35,7 +35,7 @@ class MirrorCampaignUITests(unittest.TestCase):
         self.assertEqual(q.state(self.db,'Север')['detective'],1)
         token=q.details(q.state(self.db,'Север'))['detective']['tokens'][q.state(self.db,'Север')['culprit']]
         self.assertNotIn(token,journal.feedback.text)
-        self.assertTrue(any(token in card.copy.text for card in journal.cards.children))
+        self.assertTrue(any(token in card.copy.text for card in journal.cards.pages))
         Window.size=(640,360);settle();journal.fit();settle()
         self.assertGreater(journal.cards.parent.height,80)
         self.assertGreaterEqual(journal.root.children[0].y,journal.y)
@@ -57,7 +57,7 @@ class MirrorCampaignUITests(unittest.TestCase):
         war=q.details(q.state(self.db,'Север'))['war']
         self.db.execute("UPDATE portal_parties SET city_id=? WHERE faction='Север'",(war['embassy'],));self.db.commit()
         journal=QuestJournal(self.map);journal.open(animation=False);settle()
-        card=next(c for c in journal.cards.children if isinstance(c,AllegianceCard))
+        card=next(c for c in journal.cards.pages if isinstance(c,AllegianceCard))
         self.assertIn('170',card.defense_copy.text)
         self.assertEqual(len(card.buttons.children),2)
         for button in card.buttons.children:
@@ -78,7 +78,7 @@ class MirrorCampaignUITests(unittest.TestCase):
         def at(city):
             self.db.execute("UPDATE portal_parties SET city_id=? WHERE faction='Север'",(city,));self.db.commit()
             journal.refresh();settle()
-        def copy():return journal.feedback.text+'\n'+'\n'.join(c.copy.text for c in journal.cards.children)
+        def copy():return journal.feedback.text+'\n'+'\n'.join(c.copy.text for c in journal.cards.pages)
         at(d['cities'][0]);journal.step('witness');settle()
         self.assertIn('Улика свидетеля:',copy());self.assertNotIn('Записи:',copy())
         at(d['cities'][1])
@@ -89,7 +89,7 @@ class MirrorCampaignUITests(unittest.TestCase):
         at(d['cities'][2])
         self.assertFalse(journal.feedback.text)
         for token in d['tokens']:self.assertNotIn(token,copy())
-        buttons=[b for c in journal.cards.children for b in c.buttons.children if b.text.startswith('Обвинить:')]
+        buttons=[b for c in journal.cards.pages for b in c.buttons.children if b.text.startswith('Обвинить:')]
         self.assertEqual(len(buttons),3);self.assertTrue(all(not b.disabled for b in buttons))
         journal.step('accuse',d['suspects'][run['culprit']]);settle()
         for token in d['tokens']:self.assertNotIn(token,copy())

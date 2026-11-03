@@ -6,7 +6,6 @@ from kivy.core.window import Window
 from kivy.graphics import Color, Ellipse, Line, Rectangle,Canvas
 from kivy.metrics import dp,sp
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.gridlayout import GridLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.stencilview import StencilView
 from kivy.uix.image import Image
@@ -44,6 +43,8 @@ def _busy(conn):
 
 def _button(text,callback,**kwargs):
     result=StrategyButton(text=text,**kwargs)
+    from mirror_layout import compact_frame
+    compact_frame(result)
     result.bind(on_release=callback)
     return result
 
@@ -52,6 +53,8 @@ class WorldPopup(Popup):
     def __init__(self,title,accent=PURPLE,**kwargs):
         self.accent=accent
         self.root=surface(BoxLayout(orientation='vertical',padding=dp(12),spacing=dp(8)),INK,accent)
+        from mirror_layout import compact_frame
+        compact_frame(self.root)
         self.root._strategy_fixed_layout=True
         header=BoxLayout(size_hint_y=None,height=dp(44),spacing=dp(8))
         self.header=header
@@ -182,6 +185,11 @@ class WorldMapCanvas(StencilView):
                     Color(1,1,1,1);Rectangle(texture=marker.texture,pos=(x+size*.28+6,y+icon_height*.45+1),size=marker.texture.size)
 
     def on_touch_down(self,touch):
+        # HUD surfaces must not start a map drag or open a city underneath.
+        if any(widget.collide_point(*touch.pos) for name in
+               ('header','resource_panel','status','action_bar','zoom_controls')
+               if (widget:=getattr(self.owner,name,None)) is not None):
+            return False
         if not self.collide_point(*touch.pos):
             return super().on_touch_down(touch)
         if _busy(self.owner.conn):
@@ -245,9 +253,26 @@ class OtherworldMap(WorldPopup):
         self.header.pos_hint={'top':1}
         self.header.padding=5
         surface(self.header,INK,self.accent)
-        self.status=FitLabel(text='',maximum=sp(15),color=GREEN)
-        self.header.add_widget(self.status,index=1)
+        self.map_close=self.header.children[0]
+        self.header.remove_widget(self.map_close)
+        self.map_close.size_hint=(None,None)
+        self.stage.add_widget(self.map_close)
+        self.heading.text=theme(faction)['name']
+        self.status=FitLabel(text='',maximum=22,color=GREEN,size_hint=(None,None),halign='center')
+        surface(self.status,INK,self.accent)
+        self.stage.add_widget(self.status)
         self.stage.add_widget(self.header)
+        self.resource_panel=surface(BoxLayout(orientation='vertical',size_hint=(None,None),padding=8,spacing=4),INK,self.accent)
+        self.resource_labels={}
+        for resource,icon in [('Кроны','coin'),('Кристаллы','crystal')]:
+            row=BoxLayout(spacing=8)
+            row.add_widget(Image(source=f'files/status/resource_box/{icon}.png',size_hint_x=.24))
+            label=FitLabel(text='',maximum=23,bold=True)
+            self.resource_labels[resource]=label;row.add_widget(label)
+            self.resource_panel.add_widget(row)
+        self.stage.add_widget(self.resource_panel)
+        from mirror_layout import compact_frame
+        for panel in (self.header,self.status,self.resource_panel):compact_frame(panel)
         self.message=FitLabel(text='',maximum=sp(13),color=GREEN,size_hint=(None,None))
         self.stage.add_widget(self.message)
         bar=BoxLayout(size_hint_y=None,height=dp(48),spacing=dp(8))
@@ -266,8 +291,8 @@ class OtherworldMap(WorldPopup):
         self.zoom_minus=_button('−',lambda *_:self.map.change_zoom(-.1),accent=self.accent)
         self.zoom_plus=_button('+',lambda *_:self.map.change_zoom(.1),accent=self.accent)
         for button in (self.zoom_minus,self.zoom_label,self.zoom_plus):self.zoom_controls.add_widget(button)
-        self.zoom_controls.size_hint=(1.1,1)
-        self.action_bar.add_widget(self.zoom_controls,index=2)
+        self.stage.add_widget(self.zoom_controls)
+        compact_frame(self.zoom_controls)
         self.stage.bind(size=self._layout_event,pos=self._layout_event)
         self._poll=Clock.schedule_interval(self.refresh,.5)
         self.bind(on_dismiss=lambda *_:self._poll.cancel())
@@ -285,18 +310,35 @@ class OtherworldMap(WorldPopup):
         if not hasattr(self,'zoom_controls'):return
         self.root.padding=3;self.root.spacing=0
         x,y=self.stage.pos;w,h=self.stage.size
-        self.header.pos=(x,y+h-min(66,h*.125));self.header.size=(w,min(66,h*.125))
-        self.heading.font_size=min(sp(23),self.header.height*.40,w*.025)
-        self.heading.size_hint_x=.95;self.status.size_hint_x=1.2
-        self.header.children[0].width=self.header.height*.85
-        self.action_bar.pos=(x+4,y+4);self.action_bar.width=w-8
-        self.action_bar.height=min(48,h*.115);self.action_bar.spacing=min(8,w*.008)
+        portrait=w<h
+        resource_width=min(230,w*.30 if not portrait else w*.46)
+        self.resource_panel.size=(resource_width,min(132,max(82,h*.23)))
+        self.resource_panel.pos=(x+8,y+h-self.resource_panel.height-8)
+        for label in self.resource_labels.values():label.maximum=min(24,max(16,h*.04))
+        self.header.size=(min(500,w-resource_width-90),min(64,max(44,h*.115)))
+        self.header.pos=(max(self.resource_panel.right+10,x+(w-self.header.width)/2),y+h-self.header.height-8)
+        self.heading.font_size=min(28,max(18,h*.046),self.header.width*.063)
+        self.map_close.size=(self.header.height,self.header.height)
+        self.map_close.pos=(x+w-self.map_close.width-8,y+h-self.map_close.height-8)
+        self.status.size=(resource_width,min(62,max(44,h*.11)))
+        self.status.pos=(self.resource_panel.x,self.resource_panel.y-self.status.height-6)
+        if portrait:
+            self.header.size=(w-self.map_close.width-24,self.header.height)
+            self.header.pos=(x+8,y+h-self.header.height-8)
+            self.heading.font_size=min(25,max(18,w*.055))
+            self.resource_panel.pos=(x+8,self.header.y-self.resource_panel.height-8)
+            self.status.size=(max(1,w-resource_width-24),self.resource_panel.height)
+            self.status.pos=(self.resource_panel.right+8,self.resource_panel.y)
+        self.status.maximum=min(22,max(14,h*.035))
+        self.action_bar.pos=(x+8,y+8);self.action_bar.width=w-16
+        self.action_bar.height=min(68,max(46,h*.115));self.action_bar.spacing=8
         self.return_button.text='Вернуться через портал' if w>850 else 'Портал'
-        for button in self.action_bar.children:button.font_size=min(sp(15),self.action_bar.height*.36)
-        for button in self.zoom_controls.children:button.font_size=min(sp(18),self.zoom_controls.height*.38)
-        self.zoom_label.font_size=min(14,w*.019)
-        self.message.pos=(x+8,self.action_bar.top+6)
-        self.message.size=(max(1,w*.33),min(30,h*.06))
+        for button in self.action_bar.children:button.font_size=min(21,max(14,h*.033))
+        self.zoom_controls.size=(min(234,max(160,w*.20)),min(60,max(42,h*.10)))
+        self.zoom_controls.pos=(x+(w-self.zoom_controls.width)/2,self.action_bar.top+10)
+        for button in self.zoom_controls.children:button.font_size=min(23,max(17,h*.038))
+        self.message.pos=(x+8,self.action_bar.top+10)
+        self.message.size=(max(1,(w-self.zoom_controls.width)/2-20),self.zoom_controls.height)
 
     def refresh(self,*_):
         from portal_items import expire
@@ -310,7 +352,9 @@ class OtherworldMap(WorldPopup):
         c=next(c for c in self.map.nodes if c['id']==p['city_id'])
         resources=dict(self.conn.execute('SELECT resource_type,amount FROM resources WHERE faction=?',(self.faction,)))
         row=self.conn.execute('SELECT moves_left FROM turn_check_move WHERE faction=?',(self.faction,)).fetchone()
-        self.status.text=f'Кроны: {format_number(resources.get("Кроны",0))} · Кристаллы: {format_number(resources.get("Кристаллы",0))}\n{c["name"]} · Действий: {row[0] if row else 0}'
+        for resource,label in self.resource_labels.items():
+            label.text=resource+'\n'+format_number(resources.get(resource,0))
+        self.status.text=f'{c["name"]} · Действий: {row[0] if row else 0}'
         self.return_button.disabled=p['city_id']!=1 or _busy(self.conn)
         self.next_turn_button.disabled=_busy(self.conn)
         if self.map._current_city!=p['city_id']:self.map.draw()
@@ -387,7 +431,8 @@ class ForeignCityPopup(WorldPopup):
         self.army_totals=FitLabel(text='',color=GREEN,size_hint_y=None)
         self.guard_label=FitLabel(text='',color=GOLD,size_hint_y=None)
         left.add_widget(self.army_title);left.add_widget(self.army_totals)
-        self.army_box=GridLayout(cols=1,spacing=dp(5))
+        from mirror_layout import CardPager
+        self.army_box=CardPager(accent=self.accent)
         left.add_widget(self.army_box);left.add_widget(self.guard_label)
         self.market=surface(BoxLayout(orientation='vertical',padding=dp(10),spacing=dp(8)),SURFACE,GOLD)
         from mirror_layout import compact_frame
@@ -400,7 +445,8 @@ class ForeignCityPopup(WorldPopup):
             button=_button(title,lambda *_,k=key:self.show_market(k))
             self.tab_buttons[key]=button;tabs.add_widget(button)
         self.market.add_widget(tabs)
-        self.offers=GridLayout(cols=2,spacing=dp(6))
+        from mirror_layout import CardPager
+        self.offers=CardPager(accent=GOLD)
         self.market.add_widget(self.offers)
         body.add_widget(left);body.add_widget(self.market);self.root.add_widget(body)
         self.feedback=FitLabel(text='',maximum=sp(14),color=GREEN,size_hint_y=None,height=dp(24))
@@ -431,13 +477,13 @@ class ForeignCityPopup(WorldPopup):
         self.info.height=min(dp(30),h*.052);self.info.maximum=min(sp(14),self.info.height*.7)
         hint=getattr(self,'_market_hint','')
         self.feedback.height=min(dp(32),h*.063) if self.feedback.text and self.feedback.text!=hint else 0
-        self.action_bar.height=min(dp(48),h*.10)
+        self.action_bar.height=min(64,max(42,h*.12))
         self.action_bar.spacing=gap
-        for button in self.action_bar.children:button.font_size=min(sp(15),self.action_bar.height*.36)
+        for button in self.action_bar.children:button.font_size=min(20,self.action_bar.height*.36)
         portrait=w<h*.9
         self.body.orientation='vertical' if portrait else 'horizontal';self.body.spacing=gap
-        self.army_panel.size_hint=(1,.48) if portrait else (.40,1)
-        self.market.size_hint=(1,.52) if portrait else (.60,1)
+        self.army_panel.size_hint=(1,.35) if portrait else (.34,1)
+        self.market.size_hint=(1,.65) if portrait else (.66,1)
         for panel in (self.army_panel,self.market):
             panel.padding=max(8,min(dp(10),h*.018));panel.spacing=gap*.6
         self.army_title.height=self.market_title.height=min(dp(28),h*.052)
@@ -448,10 +494,6 @@ class ForeignCityPopup(WorldPopup):
         self.guard_label.maximum=min(sp(14),h*.03)
         self.tabs.height=min(dp(40),h*.08)
         for button in self.tabs.children:button.font_size=min(sp(15),self.tabs.height*.4)
-        self.offers.cols=1 if self.mode=='resources' else (3 if self.offers.width>=300 and self.offers.height<430 else 2)
-        self.army_box.spacing=min(dp(5),h*.008)
-        from mirror_layout import army_columns
-        self.army_box.cols=army_columns(self.army_box)
 
     def present(self):
         p=worlds.party(self.conn,self.faction)
@@ -459,7 +501,8 @@ class ForeignCityPopup(WorldPopup):
 
     def refresh(self):
         from utils.garrison_stats import garrison_profiles,garrison_totals
-        p=self.present();self.army_box.clear_widgets()
+        selected=self.army_box.page_index
+        p=self.present();self.army_box.clear_cards()
         self.info.text=('Чужой город · '+('Ваш отряд здесь' if p else 'Отряд в другом городе')+f' · Цены: {self.city["price"]}%')
         if p:
             profiles=garrison_profiles(self.conn,p['camp'],faction=self.faction)
@@ -468,11 +511,12 @@ class ForeignCityPopup(WorldPopup):
             for name,count,image,exp,*_ in worlds._camp_units(self.conn,p['camp']):
                 from mirror_layout import ArmyCard
                 label=name.removeprefix('Странник: ').split(' / ')[0]
-                self.army_box.add_widget(ArmyCard(label,format_number(count),image,exp,self.accent))
+                self.army_box.add_card(ArmyCard(label,format_number(count),image,exp,self.accent))
         else:
             from mirror_layout import FitLabel
             self.army_totals.text='Ваш отряд в другом городе'
-            self.army_box.add_widget(FitLabel(text='Независимый город\n'+format_number(self.city['guards'])+' бойцов',color=GOLD))
+            self.army_box.add_card(FitLabel(text='Независимый город\n'+format_number(self.city['guards'])+' бойцов',color=GOLD))
+        self.army_box.select(selected)
         guard,target=worlds.guard_profile(self.conn,self.faction,self.city)
         self.guard_label.text=((target or 'Стража')+': '+format_number(guard['unit_count'])+' бойцов\n'+
             f'АТК {guard["attack"]}  /  ЗАЩ {guard["defense"]} · Общая защита '+format_number(guard['defense']*guard['unit_count'])+'\n'+
@@ -487,10 +531,11 @@ class ForeignCityPopup(WorldPopup):
         self.show_market(self.mode)
 
     def show_market(self,mode):
+        selected=self.offers.page_index if mode==self.mode else 0
         if mode!=self.mode:self.feedback.text=''
         self._market_hint=''
         self.info.text=('Чужой город · '+('Ваш отряд здесь' if self.present() else 'Отряд в другом городе')+f' · Цены: {self.city["price"]}%')
-        self.mode=mode;self.offers.clear_widgets()
+        self.mode=mode;self.offers.clear_cards()
         self.offer_buttons=[]
         for key,button in self.tab_buttons.items():button.set_selected(key==mode)
         def offer(title,subtitle,callback,image=None):
@@ -499,7 +544,7 @@ class ForeignCityPopup(WorldPopup):
             button=card.button
             button.disabled=not bool(self.present())
             self.offer_buttons.append(button)
-            self.offers.add_widget(card)
+            self.offers.add_card(card)
         if mode=='resources':
             for buy,title,base in [(True,'Купить 10 тыс. кристаллов',15000),(False,'Продать 10 тыс. кристаллов',10000)]:
                 offer(title,('Цена: ' if buy else 'Вы получите: ')+format_number(worlds.price(self.city,base))+' крон',
@@ -527,6 +572,7 @@ class ForeignCityPopup(WorldPopup):
             self.feedback.text=('Получатель: '+eligible[0]+' [3 класс] · Сила ×3,3') if eligible else 'Артефакты доступны только героям 3 класса в отряде.'
             self._market_hint=self.feedback.text
             self.info.text+=' · '+('Герой 3: '+eligible[0]+' · Сила ×3,3' if eligible else 'Нужен герой 3 класса')
+        self.offers.select(selected)
         self._layout_event()
 
     def act(self,callback,success='Готово'):
