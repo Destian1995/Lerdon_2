@@ -37,6 +37,17 @@ def details(run):
     return json.loads(run['scenario']) if run and run.get('scenario') else legacy()
 
 
+def local_detective_clue(run,city_id):
+    """Each clue stays at its source; the accusation never displays evidence."""
+    if not run or not 1<=run['detective']<3:return ''
+    d=details(run)['detective']
+    if city_id==d['cities'][0]:
+        return 'Улика свидетеля: '+d['tokens'][run['culprit']]+'.'
+    if run['detective']>=2 and city_id==d['cities'][1]:
+        return 'Записи: '+'; '.join(n+' — '+t for n,t in zip(d['suspects'],d['tokens']))+'.'
+    return ''
+
+
 def pending(conn,faction):
     ensure_schema(conn)
     return [r[0] for r in conn.execute('SELECT reward FROM portal_quest_rewards WHERE faction=? AND artifact_id IS NULL ORDER BY cycle,reward',(faction,))]
@@ -98,7 +109,7 @@ def begin(conn,faction,rng=None):
 
 
 def action(conn,faction,kind,choice=None):
-    from otherworlds import atomic,_party_city,_move,_pay
+    from otherworlds import atomic,_party_city,_pay
     from utils.resource_payments import ensure_resource_schema
     ensure_resource_schema(conn)
     run=state(conn,faction)
@@ -108,16 +119,13 @@ def action(conn,faction,kind,choice=None):
     with atomic(conn):
         _,city=_party_city(conn,faction)
         if kind=='witness' and run['detective']==0 and city['id']==detective['cities'][0]:
-            _move(conn,faction)
             conn.execute('UPDATE portal_quest_runs SET detective=1 WHERE faction=?',(faction,))
             return detective['witness']+': '+tokens[run['culprit']]+'. Следующий шаг указан в журнале.'
         if kind=='ledger' and run['detective']==1 and city['id']==detective['cities'][1]:
-            _move(conn,faction)
             conn.execute('UPDATE portal_quest_runs SET detective=2 WHERE faction=?',(faction,))
             return detective['ledger']+': '+ '; '.join(n+' — '+t for n,t in zip(suspects,tokens))+'. Место предъявления обвинения указано в журнале.'
         if kind=='accuse' and run['detective']==2 and city['id']==detective['cities'][2]:
             if choice not in suspects:raise ValueError('Выберите подозреваемого.')
-            _move(conn,faction)
             if choice!=suspects[run['culprit']]:
                 conn.execute('UPDATE portal_quest_runs SET detective=0 WHERE faction=?',(faction,))
                 return 'Обвинение не подтвердилось. Награды нет: снова опросите свидетеля и проверьте книгу.'
@@ -126,12 +134,11 @@ def action(conn,faction,kind,choice=None):
             return detective['solved']+' «Венец истины» доступен герою 3 класса на 25 ходов.'
         if kind=='side' and run['war']==0 and city['id']==war['embassy']:
             if choice not in war['sides']:raise ValueError('Выберите одну из двух сторон конфликта.')
-            _move(conn,faction)
             conn.execute('UPDATE portal_quest_runs SET war=1,side=? WHERE faction=?',(choice,faction))
             return 'Вы поддержали '+choice+'. Припасы: '+str(war['amount'])+' · '+war['resource']+'.'
         supply_city=war['supplies'][0 if run['side']==war['sides'][0] else 1]
         if kind=='supply' and run['war']==1 and city['id']==supply_city:
-            _move(conn,faction);_pay(conn,faction,war['resource'],war['amount'])
+            _pay(conn,faction,war['resource'],war['amount'])
             conn.execute('UPDATE portal_quest_runs SET war=2 WHERE faction=?',(faction,))
             return 'Союзники получили припасы. Победите противостоящий двор в городе, указанном в журнале.'
         raise ValueError('Это действие доступно на другом этапе или в другом городе.')

@@ -53,7 +53,7 @@ class MonsterBattleTests(unittest.TestCase):
         captions={caption:value for caption,value,_ in report.rows}
         self.assertEqual(captions['Кроны'],'+850 000')
         self.assertEqual(captions['Кристаллы'],'+850 000')
-        self.assertEqual(captions['Усиление войск'],'9 х.')
+        self.assertEqual(captions['Усиление войск'],'16 х.')
         self.assertIn('Дар бездны',captions)
         self.assertFalse(any('Потери' in w.text for w in report.content.walk() if isinstance(w,Label)))
         self.assertEqual(list(self.db.iterdump()),snapshot)

@@ -13,6 +13,7 @@ from utils.resource_payments import ensure_resource_schema
 from otherworld_content import BACKGROUND,CITY_POSITIONS,CITY_ROADS,unit_catalog,artifact_catalog
 
 WORLD_NAME = 'Зазеркалье'
+QUEST_GARRISON_DEFENSE = 170_000_000
 CITY_NAMES = ('Врата странников', 'Аметистовая гавань', 'Серебряный приют',
               'Лунный предел', 'Обсидиановый торг', 'Башни рассвета', 'Звёздный перекрёсток')
 
@@ -364,9 +365,9 @@ def guard_profile(conn,faction,city):
     from otherworld_quests import war_target
     from otherworld_themes import image_path
     target=war_target(conn,faction,city['id'])
-    count=city['guards']*(4 if target else 1)
+    count=100_000 if target else city['guards']
     attack=round((45+city['id']*15)*(1.5 if target else 1))
-    defense=round((75+city['id']*20)*(1.5 if target else 1))
+    defense=QUEST_GARRISON_DEFENSE//count if target else 75+city['id']*20
     guard=dict(unit_name=target or 'Стражи '+city['name'],unit_count=count,initial_count=count,
                unit_image=image_path(faction,'units','boss') if target else unit_catalog(faction)[0]['image_path'],
                unit_class='1',attack=attack,defense=defense,durability=0,
@@ -403,7 +404,6 @@ def fight_guards(conn,faction,skirmish=None):
                              unit_type=kind,initiative=50,morale=100,crit_chance=5))
         if not army:
             raise ValueError('Для боя нужны обычные войска в отряде.')
-        _move(conn,faction)
         from otherworld_quests import battle_won
         guard,target=guard_profile(conn,faction,city)
         initial=sum(u['unit_count'] for u in army);frames=[]

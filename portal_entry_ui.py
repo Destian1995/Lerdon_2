@@ -72,7 +72,7 @@ class PortalEntryPopup(WorldPopup):
         for label in (self.faction_label,self.title_label,self.source_label):
             self.details.add_widget(label)
         self.rules=[
-            PassageRule('1 действие','Портал, дорога или бой','files/pict/hire/sword.png',self.accent),
+            PassageRule('1 действие','Только портал и дорога','files/pict/hire/sword.png',self.accent),
             PassageRule('Чужие города','Торговля и бои без захвата','files/buildings/poly.png',self.accent),
             PassageRule('Обратный путь','Через Врата странников','files/status/resource_box/crystal.png',self.accent),
         ]

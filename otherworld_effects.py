@@ -33,7 +33,7 @@ class MirrorEffects(Widget):
         w=self.map_widget
         beam=getattr(w,'beam',None)
         if beam and not beam.finished:beam.update(dt)
-        scale=min(w.width/1200,w.height/800)
+        scale=min(w.width/1200,w.height/800)*w.camera.zoom
         for i,(color,shape) in enumerate(self.motes):
             node=w.nodes[i%len(w.nodes)]
             phase=self.age*(.22+i%4*.04)+i*1.7

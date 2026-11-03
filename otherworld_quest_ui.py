@@ -1,10 +1,9 @@
 """A compact journal that exposes the actual, location-gated quest actions."""
 from kivy.metrics import dp
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.scrollview import ScrollView
+from kivy.uix.gridlayout import GridLayout
 from otherworld_ui import WorldPopup,_button,_busy,_refresh_main,_screen
 from otherworld_themes import theme
-from strategy_ui import surface,text_label,SURFACE,GOLD,MUTED,TEXT
+from strategy_ui import GOLD
 from city_war import current_turn
 import otherworlds as worlds
 import otherworld_quests as quests
@@ -13,37 +12,42 @@ import otherworld_quests as quests
 class QuestJournal(WorldPopup):
     def __init__(self,owner,**kwargs):
         self.owner,self.conn,self.faction=owner,owner.conn,owner.faction
+        self._feedback_city=None
         super().__init__('ЗАДАНИЯ  /  '+theme(self.faction)['name'],accent=owner.accent,**kwargs)
-        self.feedback=text_label('',15,GOLD,size_hint_y=None,height=dp(48))
+        from mirror_layout import FitLabel
+        self.feedback=FitLabel(text='',maximum=15,color=GOLD,size_hint_y=None,height=0)
         self.root.add_widget(self.feedback)
-        scroll=ScrollView(do_scroll_x=False)
-        self.cards=BoxLayout(orientation='vertical',size_hint_y=None,spacing=dp(10))
-        self.cards.bind(minimum_height=self.cards.setter('height'))
-        scroll.add_widget(self.cards);self.root.add_widget(scroll)
-        self.root.add_widget(_button('Вернуться на карту',self.dismiss,size_hint_y=None,height=dp(46),accent=self.accent))
+        self.cards=GridLayout(cols=2,spacing=dp(8))
+        self.root.add_widget(self.cards)
+        self.close_button=_button('Вернуться на карту',self.dismiss,size_hint_y=None,height=dp(46),accent=self.accent)
+        self.root.add_widget(self.close_button)
+        self.cards.bind(size=self._layout_event)
+        self.feedback.bind(text=self._layout_event)
         self.refresh()
 
+    def layout_content(self):
+        if not hasattr(self,'close_button'):return
+        h,w=self.root.height,self.root.width
+        self.root.padding=min(dp(12),h*.018);self.root.spacing=min(dp(8),h*.014)
+        self.header.height=min(dp(46),h*.095)
+        self.header.children[0].width=self.header.height
+        self.heading.font_size=min(dp(22),self.header.height*.6,w*.036)
+        self.feedback.height=min(dp(42),h*.09) if self.feedback.text else 0
+        self.close_button.height=min(dp(46),h*.10)
+        self.close_button.font_size=min(dp(15),self.close_button.height*.4)
+        self.cards.cols=1 if w<h*.9 else 2
+
     def card(self,title,copy,buttons=()):
-        card=surface(BoxLayout(orientation='vertical',size_hint_y=None,padding=dp(12),spacing=dp(8)),SURFACE,self.accent)
-        card.bind(minimum_height=card.setter('height'))
-        card.add_widget(text_label(title,21,self.accent,bold=True,size_hint_y=None,height=dp(34)))
-        label=text_label(copy,16,TEXT,size_hint_y=None,height=dp(108))
-        label.unbind(size=label._strategy_text_sizer)
-        label.bind(width=lambda w,v:setattr(w,'text_size',(v,None)),
-                   texture_size=lambda w,v:setattr(w,'height',v[1]+dp(6)))
-        label.text_size=(label.width,None)
-        card.add_widget(label)
-        for caption,callback,enabled in buttons:
-            button=_button(caption,callback,size_hint_y=None,height=dp(44),accent=self.accent)
-            button.disabled=not enabled
-            card.add_widget(button)
-        self.cards.add_widget(card)
+        from mirror_layout import QuestCard
+        self.cards.add_widget(QuestCard(title,copy,buttons,self.accent))
+        self._layout_event()
 
     def refresh(self):
         self.cards.clear_widgets()
         run=quests.state(self.conn,self.faction)
         p=worlds.party(self.conn,self.faction)
         here=p['city_id'] if p else 0
+        if self._feedback_city!=here:self.feedback.text=''
         names=theme(self.faction)['cities']
         now=current_turn(self.conn)
         if not run or run['finished_turn'] is not None:
@@ -56,28 +60,34 @@ class QuestJournal(WorldPopup):
         else:
             scenario=quests.details(run);detective=scenario['detective'];war=scenario['war']
             stage=run['detective']
-            clue=''
-            if stage>=1:clue='Улика свидетеля: '+detective['tokens'][run['culprit']]+'.\n'
-            if stage>=2:clue+=detective['ledger']+': '+ '; '.join(n+' — '+t for n,t in zip(detective['suspects'],detective['tokens']))+'.\n'
+            clue=quests.local_detective_clue(run,here)
+            if clue:clue+='\n'
             places=detective['cities']
             tasks=(f'Опросите свидетеля: {names[places[0]-1]}.',f'Изучите записи: {names[places[1]-1]}.',f'Предъявите обвинение: {names[places[2]-1]}.',detective['solved'])
             buttons=[]
-            if stage==0:buttons=[('Опросить свидетеля · 1 действие',lambda *_:self.step('witness'),here==places[0])]
-            if stage==1:buttons=[('Изучить записи · 1 действие',lambda *_:self.step('ledger'),here==places[1])]
+            if stage==0:buttons=[('Опросить свидетеля',lambda *_:self.step('witness'),here==places[0])]
+            if stage==1:buttons=[('Изучить записи',lambda *_:self.step('ledger'),here==places[1])]
             if stage==2:
-                buttons=[('Обвинить: '+name+' · 1 действие',lambda *_,n=name:self.step('accuse',n),here==places[2]) for name in detective['suspects']]
-            self.card(detective['title']+'  ·  '+str(stage)+'/3',detective['premise']+'\n'+clue+tasks[stage]+'\nНаграда: Венец истины · 25 ходов.',buttons)
+                buttons=[('Обвинить: '+name,lambda *_,n=name:self.step('accuse',n),here==places[2]) for name in detective['suspects']]
+                if here==places[2]:tasks=(*tasks[:2],'Кого вы обвиняете? Вспомните подсказки из других городов.',tasks[3])
+            self.card(detective['title']+'  ·  '+str(stage)+'/3',(detective['premise']+'\n' if stage==0 else '')+clue+tasks[stage]+'\nНаграда: Венец истины · 25 ходов.',buttons)
             stage=run['war'];side=run['side']
             supply_city=war['supplies'][0 if side==war['sides'][0] else 1]
             supply=names[supply_city-1]
-            tasks=(f'Посетите посольство: {names[war["embassy"]-1]}. Выберите сторону.',
+            tasks=(f'Посольство: {names[war["embassy"]-1]}.',
                    f'Ваш союзник: {side}. Припасы: {war["amount"]} · {war["resource"]}. Место: {supply}.',
                    f'Сразитесь с противником: {names[war["target"]-1]}. Бой доступен в окне города.',
                    f'{side} победил благодаря вашей помощи.')
             buttons=[]
-            if stage==0:buttons=[('Поддержать: '+name+' · 1 действие',lambda *_,n=name:self.step('side',n),here==war['embassy']) for name in war['sides']]
-            if stage==1:buttons=[('Доставить припасы · 1 действие',lambda *_:self.step('supply'),here==supply_city)]
-            self.card(war['title']+'  ·  '+str(stage)+'/3',war['premise']+'\n'+tasks[stage]+'\nНаграда: Клинок союзного двора · 25 ходов.',buttons)
+            if stage==0:buttons=[('Поддержать: '+name,lambda *_,n=name:self.step('side',n),here==war['embassy']) for name in war['sides']]
+            if stage==1:buttons=[('Доставить припасы',lambda *_:self.step('supply'),here==supply_city)]
+            from mirror_allegiance_ui import AllegianceCard
+            from utils.helpers import format_number
+            defense=format_number(worlds.QUEST_GARRISON_DEFENSE).replace('.0 ',' ')
+            self.cards.add_widget(AllegianceCard(war['title']+'  ·  '+str(stage)+'/3',
+                (war['premise']+'\n\n' if stage==0 else '')+tasks[stage],buttons,self.accent,
+                self.faction,stage,tasks[stage]+'\nЗащита: '+defense+' · Награда: артефакт на 25 ходов.'))
+            self._layout_event()
         pending=quests.pending(self.conn,self.faction)
         if pending:
             from portal_items import champions
@@ -89,10 +99,15 @@ class QuestJournal(WorldPopup):
         if left:self.card('Благословение Зазеркалья',f'Лимиты крон, кристаллов, рабочих и населения увеличены на 35%.\nОсталось {left} ходов. Бонус не складывается сам с собой.')
 
     def step(self,kind,choice=None):
-        self.perform(lambda:quests.action(self.conn,self.faction,kind,choice))
+        def action():
+            result=quests.action(self.conn,self.faction,kind,choice)
+            return 'Подсказка получена. Запомните её перед уходом.' if kind in ('witness','ledger') else result
+        self.perform(action)
 
     def perform(self,callback):
         if _busy(self.conn):return
+        p=worlds.party(self.conn,self.faction)
+        self._feedback_city=p['city_id'] if p else 0
         try:
             result=callback()
             self.feedback.text=result if isinstance(result,str) else 'Награды получены. Они будут действовать 25 ходов.'

@@ -189,7 +189,7 @@ class TerrainGenerationTests(unittest.TestCase):
                     import json
                     for lair in lairs:
                         self.assertTrue(view.path_clear(json.loads(lair['road']),'land'))
-                        self.assertEqual(reward(lair['tier'])['duration'],lair['tier']+2)
+                        self.assertEqual(reward(lair['tier'])['duration'],(7,9,10,12,13,15,16)[lair['tier']-1])
                     self.assertEqual(list(conn.execute('SELECT city1,city2 FROM roads')),roads_before)
                     self.assertEqual(conn.execute('SELECT COUNT(*) FROM cities').fetchone()[0],26)
                     from utils.city_terrain import read_all

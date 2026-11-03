@@ -33,7 +33,9 @@ class MirrorCampaignUITests(unittest.TestCase):
         self.db.execute('UPDATE turn_check_move SET moves_left=10');self.db.commit()
         journal.step('witness');settle()
         self.assertEqual(q.state(self.db,'Север')['detective'],1)
-        self.assertIn(q.details(q.state(self.db,'Север'))['detective']['tokens'][q.state(self.db,'Север')['culprit']],journal.feedback.text)
+        token=q.details(q.state(self.db,'Север'))['detective']['tokens'][q.state(self.db,'Север')['culprit']]
+        self.assertNotIn(token,journal.feedback.text)
+        self.assertTrue(any(token in card.copy.text for card in journal.cards.children))
         Window.size=(640,360);settle();journal.fit();settle()
         self.assertGreater(journal.cards.parent.height,80)
         self.assertGreaterEqual(journal.root.children[0].y,journal.y)
@@ -47,6 +49,50 @@ class MirrorCampaignUITests(unittest.TestCase):
         city.artifact(item);settle()
         self.assertTrue(city.offer_buttons[0].disabled)
         self.assertIn('Действует',city.offer_buttons[0].text)
+
+    def test_illustrated_allegiance_choices_show_170_million_defense_and_select_real_side(self):
+        from mirror_allegiance_ui import AllegianceCard,AllegianceChoice
+        import random
+        q.begin(self.db,'Север',random.Random(54))
+        war=q.details(q.state(self.db,'Север'))['war']
+        self.db.execute("UPDATE portal_parties SET city_id=? WHERE faction='Север'",(war['embassy'],));self.db.commit()
+        journal=QuestJournal(self.map);journal.open(animation=False);settle()
+        card=next(c for c in journal.cards.children if isinstance(c,AllegianceCard))
+        self.assertIn('170',card.defense_copy.text)
+        self.assertEqual(len(card.buttons.children),2)
+        for button in card.buttons.children:
+            self.assertIsInstance(button,AllegianceChoice)
+            self.assertTrue(button.art.texture)
+            self.assertFalse(button.disabled)
+            self.assertGreaterEqual(button.name.font_size,12)
+        button=card.buttons.children[0];side=button.text.removeprefix('Поддержать: ')
+        button.dispatch('on_release');settle()
+        self.assertEqual(q.state(self.db,'Север')['side'],side)
+        self.assertEqual(q.state(self.db,'Север')['war'],1)
+
+    def test_journal_does_not_carry_hints_to_accusation_city_or_after_case_is_solved(self):
+        import random
+        q.begin(self.db,'Север',random.Random(54))
+        run=q.state(self.db,'Север');d=q.details(run)['detective']
+        journal=QuestJournal(self.map);journal.open(animation=False);settle()
+        def at(city):
+            self.db.execute("UPDATE portal_parties SET city_id=? WHERE faction='Север'",(city,));self.db.commit()
+            journal.refresh();settle()
+        def copy():return journal.feedback.text+'\n'+'\n'.join(c.copy.text for c in journal.cards.children)
+        at(d['cities'][0]);journal.step('witness');settle()
+        self.assertIn('Улика свидетеля:',copy());self.assertNotIn('Записи:',copy())
+        at(d['cities'][1])
+        self.assertFalse(journal.feedback.text)
+        self.assertNotIn('Улика свидетеля:',copy())
+        journal.step('ledger');settle()
+        self.assertIn('Записи:',copy());self.assertNotIn('Улика свидетеля:',copy())
+        at(d['cities'][2])
+        self.assertFalse(journal.feedback.text)
+        for token in d['tokens']:self.assertNotIn(token,copy())
+        buttons=[b for c in journal.cards.children for b in c.buttons.children if b.text.startswith('Обвинить:')]
+        self.assertEqual(len(buttons),3);self.assertTrue(all(not b.disabled for b in buttons))
+        journal.step('accuse',d['suspects'][run['culprit']]);settle()
+        for token in d['tokens']:self.assertNotIn(token,copy())
 
     def test_closing_map_during_beam_saves_arrival_and_stops_effects(self):
         neighbor=self.db.execute('SELECT city2 FROM portal_roads WHERE city1=1 LIMIT 1').fetchone()[0]

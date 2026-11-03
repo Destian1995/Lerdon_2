@@ -47,10 +47,10 @@ class HuntTests(unittest.TestCase):
     def test_exact_seven_reward_levels(self):
         for tier in range(1,8):
             p=reward(tier)
-            self.assertEqual(p['duration'],tier+2)
+            self.assertEqual(p['duration'],(7,9,10,12,13,15,16)[tier-1])
             self.assertEqual(p['defense'],90_000_000+25_000_000*(tier-1))
             self.assertEqual(p['resources'],250_000+100_000*(tier-1))
-        self.assertEqual(reward(7),dict(defense=240_000_000,duration=9,resources=850_000,legendary=True))
+        self.assertEqual(reward(7),dict(defense=240_000_000,duration=16,resources=850_000,legendary=True))
 
     def test_troops_leave_before_arrival_rewards_once_and_return_without_xp_loss(self):
         eid=begin_hunt(self.db,1,'Север')
@@ -63,7 +63,9 @@ class HuntTests(unittest.TestCase):
         finish_hunt(self.db,eid);finish_hunt(self.db,eid)
         self.assertEqual(self.db.execute("SELECT unit_count,experience FROM garrisons WHERE unit_name='troop'").fetchone(),(250,1))
         self.assertEqual(effective_experience(self.db,'Север',0),3)
-        self.turn(3)
+        self.turn(6)
+        self.assertEqual(effective_experience(self.db,'Север',0),3)
+        self.turn(7)
         self.assertEqual(effective_experience(self.db,'Север',0),0)
         self.assertEqual(effective_experience(self.db,'Север',7),7)
 
@@ -76,7 +78,7 @@ class HuntTests(unittest.TestCase):
         boosted=garrison_totals(self.db,'Home')
         self.assertGreater(boosted['attack'],before['attack'])
         self.assertGreater(boosted['defense'],before['defense'])
-        self.turn(3)
+        self.turn(7)
         self.assertEqual(garrison_totals(self.db,'Home'),earned)
 
     def test_faction_cooldown_applies_across_all_lairs_exactly_five_turns(self):
@@ -116,7 +118,7 @@ class HuntTests(unittest.TestCase):
     def test_legendary_perk_once_per_faction_and_clones_only_owned_item(self):
         eid=begin_hunt(self.db,7,'Север')
         self.assertTrue(resolve_hunt(self.db,eid)['new_relic']);finish_hunt(self.db,eid)
-        self.assertEqual(progress(self.db,'Север')['veteran_until'],9)
+        self.assertEqual(progress(self.db,'Север')['veteran_until'],16)
         data=upgrade_artifact(self.db,'Север','artifacts',1,'attack','hero','0')
         self.assertEqual(data['attack'],670)
         self.assertEqual(data['defense'],25)
@@ -138,7 +140,7 @@ class HuntTests(unittest.TestCase):
     def test_ai_chooses_strongest_beatable_lair_and_cannot_repeat_same_turn(self):
         from monster_ai import try_hunt
         self.assertTrue(try_hunt(self.db,'Север'))
-        self.assertEqual(progress(self.db,'Север')['veteran_until'],9)
+        self.assertEqual(progress(self.db,'Север')['veteran_until'],16)
         self.assertEqual(progress(self.db,'Север')['relic_used'],1)
         self.assertFalse(try_hunt(self.db,'Север'))
 
@@ -154,7 +156,7 @@ class HuntTests(unittest.TestCase):
         self.assertFalse(result['new_relic'])
         self.assertFalse(result['legendary'])
         self.assertEqual(progress(self.db,'Эльфы')['relic_earned'],0)
-        self.assertEqual(progress(self.db,'Эльфы')['veteran_until'],14)
+        self.assertEqual(progress(self.db,'Эльфы')['veteran_until'],21)
         self.assertEqual(list(self.db.execute('SELECT * FROM resources ORDER BY faction,resource_type')),original)
         resolve_hunt(self.db,eid);finish_hunt(self.db,eid)
         self.assertEqual(self.db.execute("SELECT experience FROM garrisons WHERE unit_name='troop'").fetchone()[0],2)
@@ -194,7 +196,7 @@ class HuntTests(unittest.TestCase):
                     self.assertEqual(natural,xp+1)
                     self.assertEqual(effective_experience(db,'Север',natural,'Home','troop'),target)
                     self.assertAlmostEqual(experience_multiplier(db,'Север',natural,'Home','troop'),mult)
-                    db.execute('UPDATE turn SET turn_count=3')
+                    db.execute('UPDATE turn SET turn_count=7')
                     expected=1.25 if natural>=7 else 1.15 if natural>=3 else 1.05
                     self.assertAlmostEqual(experience_multiplier(db,'Север',natural,'Home','troop'),expected)
                 finally:db.close()

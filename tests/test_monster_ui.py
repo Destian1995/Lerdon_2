@@ -59,7 +59,7 @@ class MonsterUITests(unittest.TestCase):
         popup=MonsterPopup(self.map,sites(self.db)[-1])
         popup.open(animation=False);settle()
         self.assertEqual(popup.summary.reward.value.text,'+1 опыта войскам')
-        self.assertEqual(popup.summary.training.value.text,'9 х.')
+        self.assertEqual(popup.summary.training.value.text,'16 х.')
         self.assertNotIn('550%',popup.summary.reward.value.text)
 
     def test_foreign_lair_has_large_coloured_stat_cards(self):

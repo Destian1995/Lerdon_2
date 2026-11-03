@@ -17,13 +17,14 @@ VARIANT_NAMES=(
     ('Ледяной змей','Ледяная виверна','Волк вечной зимы','Снежная химера','Грозовая птица'),
     ('Владыка бездны','Дракон бездны','Жнец душ','Титан пустоты','Падший серафим'))
 COOLDOWN=5
+TRAINING_TURNS=(7,9,10,12,13,15,16)
 
 
 def reward(tier):
     if not isinstance(tier,int) or not 1<=tier<=7:
         raise ValueError('Неизвестный уровень монстра.')
     return dict(defense=90_000_000+(tier-1)*25_000_000,
-                duration=tier+2,resources=250_000+(tier-1)*100_000,
+                duration=TRAINING_TURNS[tier-1],resources=250_000+(tier-1)*100_000,
                 legendary=tier==7)
 
 

@@ -1,5 +1,6 @@
 import ast
 import math
+import json
 from pathlib import Path
 import random
 import sqlite3
@@ -49,7 +50,45 @@ class MirrorCampaignTests(unittest.TestCase):
         def win(unit,guard,*args,**kwargs):guard['unit_count']=0
         result=w.fight_guards(self.db,'Север',win)
         self.assertTrue(result['quest_win'])
-        self.assertEqual(result['guards'][0]['initial_count'],(250+war['target']*120)*4)
+        self.assertEqual(result['guards'][0]['initial_count']*result['guards'][0]['defense'],170_000_000)
+
+    def test_clues_stay_in_source_cities_and_never_appear_at_accusation_or_after_solving(self):
+        q.begin(self.db,'Север',random.Random(54))
+        run=q.state(self.db,'Север');d=q.details(run)['detective']
+        witness,ledger,accusation=d['cities']
+        self.assertTrue(all(not q.local_detective_clue(run,city) for city in range(1,8)))
+
+        self.at(witness);q.action(self.db,'Север','witness')
+        run=q.state(self.db,'Север')
+        self.assertIn(d['tokens'][run['culprit']],q.local_detective_clue(run,witness))
+        self.assertFalse(q.local_detective_clue(run,ledger))
+        self.at(ledger);q.action(self.db,'Север','ledger')
+        run=q.state(self.db,'Север')
+        self.assertNotIn('Записи:',q.local_detective_clue(run,witness))
+        self.assertNotIn('Улика свидетеля:',q.local_detective_clue(run,ledger))
+        for name,token in zip(d['suspects'],d['tokens']):self.assertIn(name+' — '+token,q.local_detective_clue(run,ledger))
+        for city in set(range(1,8))-{witness,ledger}:
+            self.assertEqual(q.local_detective_clue(run,city),'')
+        self.at(accusation);q.action(self.db,'Север','accuse',d['suspects'][run['culprit']])
+        run=q.state(self.db,'Север')
+        self.assertTrue(all(not q.local_detective_clue(run,city) for city in range(1,8)))
+
+    def test_quest_garrison_has_exactly_170_million_defense_for_either_side_in_any_city(self):
+        q.begin(self.db,'Север',random.Random(54))
+        scenario=q.details(q.state(self.db,'Север'));war=scenario['war']
+        for side in war['sides']:
+            for city in w.cities(self.db,'Север'):
+                war['target']=city['id']
+                self.db.execute("UPDATE portal_quest_runs SET war=2,side=?,scenario=? WHERE faction='Север'",
+                                (side,json.dumps(scenario)))
+                guard,enemy=w.guard_profile(self.db,'Север',city)
+                self.assertEqual(guard['initial_count']*guard['defense'],170_000_000)
+                self.assertEqual(guard['units_stats']['Защита'],guard['defense'])
+                self.assertNotEqual(enemy,side)
+        self.db.execute("UPDATE portal_quest_runs SET war=0 WHERE faction='Север'")
+        normal,_=w.guard_profile(self.db,'Север',city)
+        self.assertEqual(normal['unit_count'],city['guards'])
+        self.assertEqual(normal['defense'],75+city['id']*20)
 
     def test_all_factions_have_independent_art_rosters_and_city_names(self):
         maps=set();portraits=set();relics=set()
@@ -117,7 +156,7 @@ class MirrorCampaignTests(unittest.TestCase):
         self.turn(5);items.expire(self.db)
         self.assertIsNone(self.db.execute('SELECT artifact_id FROM hero_equipment').fetchone()[0])
 
-    def test_wrong_accusation_costs_action_and_requires_new_evidence(self):
+    def test_wrong_accusation_is_free_but_requires_new_evidence(self):
         q.begin(self.db,'Север',random.Random(1))
         d=q.details(q.state(self.db,'Север'))['detective']
         self.at(d['cities'][0]);q.action(self.db,'Север','witness')
@@ -128,7 +167,23 @@ class MirrorCampaignTests(unittest.TestCase):
         q.action(self.db,'Север','accuse',d['suspects'][(culprit+1)%3])
         self.assertEqual(q.state(self.db,'Север')['detective'],0)
         self.assertEqual(q.pending(self.db,'Север'),[])
-        self.assertEqual(self.db.execute('SELECT moves_left FROM turn_check_move').fetchone()[0],before-1)
+        self.assertEqual(self.db.execute('SELECT moves_left FROM turn_check_move').fetchone()[0],before)
+
+    def test_complete_quests_and_battle_at_zero_moves_only_travel_spends_actions(self):
+        self.db.execute('UPDATE turn_check_move SET moves_left=0');self.db.commit()
+        q.begin(self.db,'Север',random.Random(45))
+        self.solve_detective();self.solve_war()
+        self.assertEqual(len(q.claim(self.db,'Север')),3)
+        self.assertEqual(self.db.execute('SELECT moves_left FROM turn_check_move').fetchone()[0],0)
+        self.assertEqual(self.db.execute('SELECT turn_count FROM turn').fetchone()[0],0)
+        source=w.party(self.db,'Север')['city_id']
+        neighbor=self.db.execute('SELECT CASE WHEN city1=? THEN city2 ELSE city1 END FROM portal_roads WHERE city1=? OR city2=? LIMIT 1',
+                                 (source,source,source)).fetchone()[0]
+        with self.assertRaises(ValueError):w.begin_beam(self.db,'Север',neighbor)
+        self.db.execute('UPDATE turn_check_move SET moves_left=1');self.db.commit()
+        w.begin_beam(self.db,'Север',neighbor);w.finish_beam(self.db,'Север')
+        self.assertEqual(w.party(self.db,'Север')['city_id'],neighbor)
+        self.assertEqual(self.db.execute('SELECT moves_left FROM turn_check_move').fetchone()[0],0)
 
     def test_campaign_rewards_repeat_delay_and_resource_caps_do_not_stack(self):
         q.begin(self.db,'Север',random.Random(2))
