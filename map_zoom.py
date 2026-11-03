@@ -168,7 +168,10 @@ class MapZoom:
             self.restore()
 
     def down(self, touch):
-        if self.blocked() or not self.camera.contains(*touch.pos):
+        inside_viewport = (0 <= touch.x <= self.camera.viewport[0]
+                           and 0 <= touch.y <= self.camera.viewport[1])
+        if (self.blocked() or not inside_viewport or
+                (self.camera.zoom <= 1 and not self.camera.contains(*touch.pos))):
             return False
         button = getattr(touch,'button',None) or ''
         if button in ('scrollup','scrolldown'):

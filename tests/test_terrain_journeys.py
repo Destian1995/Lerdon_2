@@ -121,7 +121,7 @@ class JourneyTests(unittest.TestCase):
         self.db.execute("INSERT INTO garrisons VALUES('A','hero',1,'',0)")
         before = garrison_totals(self.db,'A')
         self.assertEqual(before['count'],101)
-        self.assertEqual(before['attack'],20340)  # (10*1.15+190)*100 + hero.
+        self.assertEqual(before['attack'],41590)  # (10+190)*1.8*1.15*100 + hero.
         self.send()
         after = garrison_totals(self.db,'A')
         self.assertLess(after['attack'],before['attack'])
@@ -135,6 +135,17 @@ class JourneyTests(unittest.TestCase):
         after=garrison_totals(self.db,'A')
         self.assertEqual(after['attack'],before['attack'])
         self.assertEqual(after['defense'],int(before['defense']*1.3))
+
+    def test_lowland_reduces_total_defense_including_hero_without_reducing_attack(self):
+        from utils.city_terrain import ensure_schema as relief_schema
+        self.db.execute("INSERT INTO units VALUES('hero','Север','2',190,95,0,1,'')")
+        self.db.execute("INSERT INTO garrisons VALUES('A','hero',1,'',0)")
+        before=garrison_totals(self.db,'A')
+        relief_schema(self.db)
+        self.db.execute("INSERT INTO city_terrain VALUES('A','lowland',0,0,NULL)")
+        after=garrison_totals(self.db,'A')
+        self.assertEqual(after['attack'],before['attack'])
+        self.assertEqual(after['defense'],int(before['defense']*.8))
 
 
 class TerrainGenerationTests(unittest.TestCase):
@@ -166,6 +177,20 @@ class TerrainGenerationTests(unittest.TestCase):
                                        'CREATE TABLE roads(id,city1,city2);'
                                        'CREATE TABLE garrisons(city_name,unit_name,unit_count,unit_image);')
                     ns['generate_map_and_cities'](conn,terrain)
+                    from monster_sites import sites as monster_sites,reward
+                    lairs=monster_sites(conn)
+                    self.assertIn(len(lairs),(6,7))
+                    self.assertIn(7,{s['tier'] for s in lairs})
+                    self.assertEqual(len(lairs),len({s['tier'] for s in lairs}))
+                    self.assertTrue(all(1<=s['variant']<=5 for s in lairs))
+                    roads_before=list(conn.execute('SELECT city1,city2 FROM roads'))
+                    from map_terrain import TerrainView
+                    view=TerrainView(terrain)
+                    import json
+                    for lair in lairs:
+                        self.assertTrue(view.path_clear(json.loads(lair['road']),'land'))
+                        self.assertEqual(reward(lair['tier'])['duration'],lair['tier']+2)
+                    self.assertEqual(list(conn.execute('SELECT city1,city2 FROM roads')),roads_before)
                     self.assertEqual(conn.execute('SELECT COUNT(*) FROM cities').fetchone()[0],26)
                     from utils.city_terrain import read_all
                     geography=read_all(conn)

@@ -25,20 +25,22 @@ class CameraTests(unittest.TestCase):
             self.assertAlmostEqual(point[0],original[0])
             self.assertAlmostEqual(point[1],original[1])
 
-    def test_pan_cannot_move_beyond_map_edges_and_reset_restores_center(self):
+    def test_pan_allows_quarter_map_beyond_edges_and_reset_restores_center(self):
         camera=MapCamera((1200,800),(0,0,1200,800))
         camera.set_zoom(1.5)
         camera.move(10000,-10000)
-        self.assertEqual(camera.pan,(300,-200))
+        self.assertEqual(camera.pan,(750,-500))
+        self.assertEqual(camera.project(0,0)[0],450)
+        self.assertEqual(camera.project(1200,800)[1],500)
         camera.reset()
         self.assertEqual(camera.translation,(0,0))
 
-    def test_axes_that_still_fit_cannot_be_dragged_into_empty_space(self):
+    def test_wide_screen_can_pan_horizontally_even_when_map_fits(self):
         camera=MapCamera((1280,576),(251.2,28.8,777.6,518.4))
         camera.set_zoom(1.5)
         camera.move(10000,10000)
-        self.assertEqual(camera.pan[0],0)
-        self.assertAlmostEqual(camera.pan[1],100.8)
+        self.assertAlmostEqual(camera.pan[0],234.8)
+        self.assertAlmostEqual(camera.pan[1],295.2)
 
     def test_resize_keeps_zoom_and_clamps_pan(self):
         camera=MapCamera((1200,800),(60,40,1080,720))
@@ -46,8 +48,15 @@ class CameraTests(unittest.TestCase):
         camera.move(100,100)
         camera.configure((640,360),(77,18,486,324))
         self.assertEqual(camera.zoom,1.5)
-        self.assertLessEqual(abs(camera.pan[0]),44.5)
-        self.assertLessEqual(abs(camera.pan[1]),63)
+        self.assertLessEqual(abs(camera.pan[0]),226.75)
+        self.assertLessEqual(abs(camera.pan[1]),184.5)
+
+    def test_zooming_out_restores_overview_after_overscrolling(self):
+        camera=MapCamera((1280,576),(251.2,28.8,777.6,518.4))
+        camera.set_zoom(1.5)
+        camera.move(-10000,10000)
+        camera.set_zoom(1)
+        self.assertEqual(camera.pan,(0,0))
 
 
 from strategy_ui_fixture import *
@@ -192,6 +201,20 @@ class ZoomUITests(unittest.TestCase):
         self.zoom.move(touch)
         self.zoom.up(touch)
         self.assertNotEqual(self.zoom.camera.pan,(0,0))
+        self.assertEqual(self.clicks,[])
+
+    def test_drag_can_start_in_empty_margin_after_panning(self):
+        self.zoom.change(.5)
+        self.zoom.camera.move(10000,0)
+        self.zoom.restore()
+        touch=Touch(100,400)
+        self.assertFalse(self.zoom.camera.contains(*touch.pos))
+        self.assertTrue(self.zoom.down(touch))
+        before=self.zoom.camera.pan[0]
+        touch.pos=(50,400)
+        self.zoom.move(touch)
+        self.zoom.up(touch)
+        self.assertLess(self.zoom.camera.pan[0],before)
         self.assertEqual(self.clicks,[])
 
     def test_pinch_is_bounded_and_releases_do_not_trigger_city_clicks(self):

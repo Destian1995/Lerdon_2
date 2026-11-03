@@ -263,6 +263,11 @@ def clear_tables(conn):
         "faction_victories",
         "battle_smoke",
         "city_war_state",
+        "monster_sites",
+        "monster_progress",
+        "monster_expeditions",
+        "monster_artifact_upgrades",
+        "monster_training_ranks",
     ]
 
     cursor = conn.cursor()
@@ -675,7 +680,8 @@ class MapWidget(Widget):
             roads = tuple(cursor.fetchall())
             effects = []
             for table in ('undead_invasion', 'plague_effects', 'season',
-                          'city_war_state', 'turn', 'buildings', 'map_features', 'terrain_journeys', 'city_terrain'):
+                          'city_war_state', 'turn', 'buildings', 'map_features', 'terrain_journeys', 'city_terrain',
+                          'monster_sites','monster_progress','monster_expeditions'):
                 cursor.execute('SELECT name FROM sqlite_master WHERE type = ? AND name = ?', ('table', table))
                 if cursor.fetchone():
                     # Имена таблиц заданы константами, не пользовательским вводом.
@@ -1146,6 +1152,9 @@ class MapWidget(Widget):
         elif layer.canvas not in self.canvas.children:
             self.canvas.add(layer.canvas)
         layer.set_storms(self._undead_shield_data)
+        from monster_sites import sites as monster_sites
+        from city_war import current_turn as monster_turn
+        layer.monster_signals.sync(monster_sites(self.conn),monster_turn(self.conn))
         from city_war import read_city_war_states, current_turn
         war_cities = []
         for name, faction, coords in self.conn.execute('SELECT name, faction, coordinates FROM cities'):
@@ -1350,6 +1359,8 @@ class MapWidget(Widget):
     def draw_terrain_features(self):
         from map_features_ui import draw_waypoints
         draw_waypoints(self)
+        from monster_ui import draw_monsters
+        draw_monsters(self)
 
     def calculate_manhattan_distance(self, source_coords, destination_coords):
         """Вычисляет манхэттенское расстояние между точками"""
@@ -1357,6 +1368,9 @@ class MapWidget(Widget):
 
     def check_fortress_click(self, touch):
         """Проверяет нажатие на крепость (использует сохранённые оригинальные координаты)."""
+        from monster_ui import inspect_monster
+        if inspect_monster(self,touch):
+            return
         from map_features_ui import inspect_waypoint
         if inspect_waypoint(self,touch):
             return

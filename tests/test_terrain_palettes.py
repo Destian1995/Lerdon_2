@@ -62,6 +62,16 @@ class PaletteTests(unittest.TestCase):
         self.assertEqual(local_palette(None,200,300)[0],'green')
         self.assertEqual(icon_path('forest',3,'green').stem,'forest_3_green')
 
+    def test_corrupted_regions_use_unique_dead_art_for_all_species(self):
+        from map_terrain import CORRUPTION
+        terrain=SimpleNamespace(kind_at=lambda *_:CORRUPTION,foliage_palette=None)
+        self.assertEqual(local_palette(terrain,100,100)[0],'dead')
+        for kind,count in (('forest',5),('swamp',4)):
+            paths=[icon_path(kind,v,'dead') for v in range(1,count+1)]
+            self.assertEqual(len(set(paths)),count)
+            self.assertTrue(all(p.is_file() for p in paths))
+            self.assertTrue(all('Осен' not in icon_name(kind,v,'dead') for v in range(1,count+1)))
+
 
 if __name__=='__main__':
     unittest.main()

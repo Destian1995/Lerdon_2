@@ -28,7 +28,7 @@ def waiting_groups(conn,feature_id,moving=()):
         for name,count,image,exp in conn.execute(
                 f'SELECT unit_name,unit_count,unit_image,{experience} FROM garrisons WHERE city_name=? AND unit_count>0',
                 (camp['camp'],)):
-            unit=group['units'].setdefault((name,exp),dict(name=name,count=0,image=image or '',experience=exp))
+            unit=group['units'].setdefault((name,exp),dict(name=name,count=0,image=image or '',experience=exp,training_city=camp['camp']))
             unit['count']+=count
     result=[]
     for group in groups.values():
@@ -169,6 +169,8 @@ class TerrainSitePopup(Popup):
                                         f'Продолжит путь через {group["remaining"]} х.',12,accent,
                                         size_hint_y=None,height=dp(38)))
             for unit in group['units']:
+                from monster_sites import effective_experience
+                unit=dict(unit,experience=effective_experience(self.conn,group['faction'],unit['experience'],unit.get('training_city'),unit['name']))
                 panel.add_widget(self.unit_card(unit,accent))
             self.cards.add_widget(panel)
 

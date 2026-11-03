@@ -16,13 +16,19 @@ WARM_NAMES = ('Осенняя дубрава','Золотая лиственни
 
 def local_palette(terrain,x,y):
     """Reviewed background colours, sampled in world space, never screen space."""
+    from map_terrain import CORRUPTION
+    kind_at=getattr(terrain,'kind_at',lambda *_:None)
+    dead = terrain and sum(kind_at(x+dx,y+dy)==CORRUPTION
+                           for dx in (-30,0,30) for dy in (-30,0,30)) >= 2
     palette=getattr(terrain,'foliage_palette',None)
     if not palette:
-        return 'green',(105,125,65)
+        return ('dead' if dead else 'green'),(105,125,65)
     width,height=palette['grid_size']
     ix=max(0,min(width-1,int(x/terrain.world_width*width)))
     iy=max(0,min(height-1,int((1-y/terrain.world_height)*height)))
     r,g,b,warm=palette['cells'][iy*width+ix]
+    if dead or (max(r,g,b)-min(r,g,b)<20 and g<115):
+        return 'dead',(r,g,b)
     return ('warm' if warm else 'green'),(r,g,b)
 
 
@@ -60,7 +66,9 @@ def icon_path(kind, variant, palette=None):
     if kind not in VARIANTS or not 1 <= variant <= len(VARIANTS[kind]):
         raise ValueError('Неизвестный вариант леса или болота.')
     suffix=''
-    if kind=='forest':
+    if palette=='dead':
+        suffix='_dead'
+    elif kind=='forest':
         if palette=='green' and variant==3:
             suffix='_green'
         elif palette=='warm' and variant!=3:
@@ -69,6 +77,9 @@ def icon_path(kind, variant, palette=None):
 
 
 def icon_name(kind, variant, palette=None):
+    if palette=='dead':
+        return {'forest':('Мёртвая роща','Сухой бор','Лес безмолвия','Мёртвые берёзы','Пепельная чаща'),
+                'swamp':('Безжизненные топи','Смоляная трясина','Затонувший лес','Мёртвое болото')}[kind][variant-1]
     if kind=='forest' and palette=='warm':
         return WARM_NAMES[variant-1]
     if kind=='forest' and palette=='green' and variant==3:
@@ -76,7 +87,7 @@ def icon_name(kind, variant, palette=None):
     return VARIANTS[kind][variant-1]
 
 
-@lru_cache(maxsize=14)
+@lru_cache(maxsize=32)
 def _texture(path):
     from kivy.core.image import Image as CoreImage
     return CoreImage(path,mipmap=True).texture

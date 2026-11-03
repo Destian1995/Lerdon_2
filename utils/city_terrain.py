@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import sqlite3
 
 MOUNTAIN_DEFENSE = .30
+LOWLAND_DEFENSE_PENALTY = .20
 LOWLAND_CROWNS = .15
 WATERSIDE_CRYSTALS = .20
 WATER_REACH = 80
@@ -20,7 +21,11 @@ class CityTerrain:
 
     @property
     def defense_multiplier(self):
-        return 1+MOUNTAIN_DEFENSE if self.landform == 'highland' else 1.0
+        if self.landform == 'highland':
+            return 1+MOUNTAIN_DEFENSE
+        if self.landform == 'lowland':
+            return 1-LOWLAND_DEFENSE_PENALTY
+        return 1.0
 
     @property
     def badges(self):
@@ -28,7 +33,7 @@ class CityTerrain:
         if self.landform == 'highland':
             badges.append('Горы: +30% ЗАЩ')
         elif self.landform == 'lowland':
-            badges.append('Низина: +15% крон')
+            badges.append('Низина: −20% ЗАЩ; +15% крон')
         if self.waterside:
             badges.append('Берег: +20% крист.')
         return badges
@@ -39,7 +44,8 @@ class CityTerrain:
         if self.landform == 'highland':
             rows.append('Горный город: +30% к боевой защите всего гарнизона, включая героев. Действует при обороне.')
         elif self.landform == 'lowland':
-            rows.append('Низина: +15% к доле города в положительном доходе крон фракции.')
+            rows.append('Низина: −20% к боевой защите всего гарнизона, включая героев. Действует при обороне.')
+            rows.append('+15% к доле города в положительном доходе крон фракции.')
         else:
             rows.append('Равнина: обычная высота, без бонуса к защите или доходу крон.')
         if self.waterside:

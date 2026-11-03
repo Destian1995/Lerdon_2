@@ -857,9 +857,11 @@ class FortressInfoPopup(Popup):
     def get_garrison(self):
         """Получает гарнизон города из таблицы garrisons и отображает его с учетом класса и специализации юнитов."""
         try:
+            from utils.garrison_stats import garrison_profiles,garrison_totals
+            profiles=garrison_profiles(self.conn,self.city_name)
+            self.garrison_profiles_snapshot=profiles
             if hasattr(self, 'garrison_attack_total'):
-                from utils.garrison_stats import garrison_totals
-                totals = garrison_totals(self.conn, self.city_name)
+                totals = garrison_totals(self.conn, self.city_name,profiles)
                 self.garrison_totals_snapshot = totals
                 self.garrison_attack_total.text = format_number(totals['attack'])
                 self.garrison_defense_total.text = format_number(totals['defense'])
@@ -963,6 +965,9 @@ class FortressInfoPopup(Popup):
             for row_data in garrison_data:
                 unit_name, unit_count, unit_image = row_data[0], row_data[1], row_data[2]
                 unit_exp = row_data[3] if len(row_data) > 3 else 0
+                from monster_sites import effective_experience,experience_multiplier
+                _rank_exp = effective_experience(self.conn,self.ai_fraction,unit_exp,self.city_name,unit_name)
+                _unit_exp_mult = experience_multiplier(self.conn,self.ai_fraction,unit_exp,self.city_name,unit_name)
                 unit_class = '1'
                 specialization_icon_path = None
                 unit_attack = 0
@@ -1076,14 +1081,16 @@ class FortressInfoPopup(Popup):
                     info.add_widget(cnt_lbl)
 
                     # Уровень опыта
-                    if unit_exp >= 7:
+                    if _rank_exp >= 7:
                         rank_text = f"[color=#FF4444]Элита[/color] (+25%) [{unit_exp} побед]"
-                    elif unit_exp >= 3:
+                    elif _rank_exp >= 3:
                         rank_text = f"[color=#FFD700]Ветеран[/color] (+15%) [{unit_exp} побед]"
-                    elif unit_exp >= 1:
+                    elif _rank_exp >= 1:
                         rank_text = f"[color=#88CCFF]Воин[/color] (+5%) [{unit_exp} побед]"
                     else:
                         rank_text = "[color=#888888]Новобранец[/color]"
+                    if _unit_exp_mult>1.25:
+                        rank_text += ' [color=#66CC66]ещё +15%[/color]'
                     exp_lbl = Label(
                         text=rank_text, markup=True,
                         font_size=sp(10), halign='left', valign='middle',
@@ -1097,24 +1104,22 @@ class FortressInfoPopup(Popup):
                 # Бонус фракции — справа в карточке (с учётом опыта)
                 if unit_class == '1':
                     # Множитель опыта
-                    if unit_exp >= 7:
-                        _exp_mult = 1.25
-                    elif unit_exp >= 3:
-                        _exp_mult = 1.15
-                    elif unit_exp >= 1:
-                        _exp_mult = 1.05
-                    else:
-                        _exp_mult = 1.0
+                    _exp_mult = _unit_exp_mult
 
                     from utils.faction_bonuses import combat_multiplier, combat_bonus_status
                     _faction_mult = combat_multiplier(self.ai_fraction, self.conn)
                     _bonus_name, _bonus_active, _, _bonus_power = combat_bonus_status(
                         self.ai_fraction, unit_attack, unit_defense, unit_durability,
                         (_hero_bonus_atk, _hero_bonus_def, _hero_bonus_dur))
+                    unit_profile=profiles.get(unit_name)
+                    if unit_profile:
+                        _bonus_name=unit_profile['bonus_name']
+                        _bonus_active=unit_profile['bonus_active']
                     _faction_bonus_text = None
                     if _bonus_name:
                         if _bonus_active:
-                            _faction_bonus_text = f'[color=#66CC66]{_bonus_name}\nПрименяется\n{format_number(int(_bonus_power * _faction_mult * _exp_mult))}[/color]'
+                            effective_power=(unit_profile['attack'] if _bonus_name=='Шквал' else unit_profile['defense']) if unit_profile else _bonus_power*_faction_mult*_exp_mult
+                            _faction_bonus_text = f'[color=#66CC66]{_bonus_name}\nПрименяется\n{format_number(effective_power)}[/color]'
                         else:
                             _faction_bonus_text = f'[color=#999999]{_bonus_name}\nНе применяется[/color]'
                     if _faction_bonus_text:
@@ -1210,26 +1215,15 @@ class FortressInfoPopup(Popup):
         body = BoxLayout(orientation='horizontal', spacing=dp(8), size_hint=(1, 1))
 
         # === Левая часть: характеристики (заполняет всю высоту) ===
-        stats_box = BoxLayout(
-            orientation='vertical', size_hint_x=0.55,
-            spacing=dp(6), padding=[dp(8), dp(8)],
-        )
-        # Формат: (base+hero) × count = total (для юнитов класса 1)
         _cnt = max(count, 1)
+        from monster_sites import experience_multiplier
         _has_hero = unit_class == '1' and (hero_bonus_atk > 0 or hero_bonus_def > 0 or hero_bonus_dur > 0)
         if unit_class == '1':
             _eff_atk = attack + hero_bonus_atk
             _eff_def = defense + hero_bonus_def
             _eff_dur = durability + hero_bonus_dur
             # Множитель опыта
-            if unit_exp >= 7:
-                _exp_m = 1.25
-            elif unit_exp >= 3:
-                _exp_m = 1.15
-            elif unit_exp >= 1:
-                _exp_m = 1.05
-            else:
-                _exp_m = 1.0
+            _exp_m = experience_multiplier(self.conn,self.ai_fraction,unit_exp,self.city_name,name)
             from utils.faction_bonuses import combat_multiplier
             _faction_mult = combat_multiplier(self.ai_fraction, self.conn)
             _shkval_active = self.ai_fraction == 'Север' and attack > 0 and _eff_atk / attack >= 20
@@ -1258,13 +1252,21 @@ class FortressInfoPopup(Popup):
                     _def_text = f'({format_number(defense)}+{format_number(hero_bonus_def)}) × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'
                 _dur_text = f'({format_number(durability)}+{format_number(hero_bonus_dur)}) × {format_number(_cnt)} = {format_number(_eff_dur * _cnt)}'
             else:
-                _atk_text = f'{format_number(attack)} × {format_number(_cnt)} = {format_number(attack * _cnt)}'
-                _def_text = f'{format_number(defense)} × {format_number(_cnt)} = {format_number(defense * _cnt)}'
+                _atk_text = f'{format_number(_eff_atk)} × {format_number(_cnt)} = {format_number(_eff_atk * _cnt)}'
+                _def_text = f'{format_number(_eff_def)} × {format_number(_cnt)} = {format_number(_eff_def * _cnt)}'
                 _dur_text = f'{format_number(durability)} × {format_number(_cnt)} = {format_number(durability * _cnt)}'
         else:
             _atk_text = format_number(attack)
             _def_text = format_number(defense)
             _dur_text = format_number(durability)
+
+        unit_profile=None
+        if unit_class=='1':
+            from utils.garrison_stats import garrison_profiles
+            unit_profile=garrison_profiles(self.conn,self.city_name).get(name)
+            if unit_profile:
+                _atk_text=f'{format_number(unit_profile["attack"])} × {format_number(_cnt)} = {format_number(unit_profile["attack"]*_cnt)}'
+                _def_text=f'{format_number(unit_profile["defense"])} × {format_number(_cnt)} = {format_number(unit_profile["defense"]*_cnt)} (с ½ живучести)'
 
         # Цвет морали: зелёный ≥50, красный <50
         if morale >= 50:
@@ -1313,10 +1315,19 @@ class FortressInfoPopup(Popup):
             ]
 
         if unit_class == '1':
+            from monster_sites import progress
+            from city_war import current_turn
+            training_left = progress(self.conn,self.ai_fraction)['veteran_until']-current_turn(self.conn)
+            if training_left>0:
+                training_status='Элита: ещё +15%' if _exp_m>1.25 else 'Применяется'
+                stats_icons.append(('Ветеранство','files/pict/hire/strong.png',
+                                    f'[color=#66CC66]{training_status}, ещё {training_left} х.[/color]'))
             from utils.faction_bonuses import combat_bonus_status, combat_multiplier
             name, active, _, _ = combat_bonus_status(
                 self.ai_fraction, attack, defense, durability,
                 (hero_bonus_atk, hero_bonus_def, hero_bonus_dur))
+            if unit_profile:
+                name,active=unit_profile['bonus_name'],unit_profile['bonus_active']
             if name:
                 status = 'Применяется' if active else 'Не применяется'
                 color = '66CC66' if active else '999999'
@@ -1325,35 +1336,18 @@ class FortressInfoPopup(Popup):
                                     f'[color=#{color}]{status} (×{mult:g})[/color]'))
 
         from utils.city_terrain import defense_multiplier
-        if defense_multiplier(self.conn,self.city_name)>1:
+        terrain_defense = defense_multiplier(self.conn,self.city_name)
+        if terrain_defense>1:
             stats_icons.append(('Высота','files/pict/hire/shield.png',
                                 '[color=#66CC66]+30% к боевой защите гарнизона[/color]'))
+        elif terrain_defense<1:
+            stats_icons.append(('Низина','files/pict/hire/shield.png',
+                                '[color=#FF6644]−20% к боевой защите гарнизона[/color]'))
 
-        # Распорка сверху чтобы статы были по центру
-        stats_box.add_widget(Widget(size_hint_y=1))
-        for label, icon, val in stats_icons:
-            row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(32), spacing=dp(6))
-            row.add_widget(Image(source=icon, size_hint=(None, None), size=(dp(28), dp(28)),
-                                 allow_stretch=True, keep_ratio=True, mipmap=True))
-            stat_lbl = Label(
-                text=f'[color=#CCCCCC]{label}:[/color] [b]{val}[/b]',
-                markup=True, font_size=sp(16),
-                color=(0.9, 0.9, 0.9, 1),
-                halign='left', valign='middle',
-            )
-            stat_lbl.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
-            stat_lbl.bind(texture_size=lambda w, value, row=row: setattr(row, 'height', max(dp(32), value[1] + dp(6))))
-            row.add_widget(stat_lbl)
-            stats_box.add_widget(row)
-        # Распорка снизу
-        stats_box.add_widget(Widget(size_hint_y=1))
-        stats_box.size_hint = (1, None)
-        stats_box.bind(minimum_height=stats_box.setter('height'))
-        stats_scroll = ScrollView(do_scroll_x=False, size_hint_x=.55)
-        stats_scroll.add_widget(stats_box)
-        body.add_widget(stats_scroll)
+        from unit_stats_ui import UnitStatsPanel
+        stats_panel = UnitStatsPanel(stats_icons, hero=unit_class != '1', size_hint_x=.55)
+        body.add_widget(stats_panel)
 
-        # === Правая часть: изображение (заполняет область, сохраняя пропорции) ===
         if unit_image and os.path.exists(unit_image):
             img = Image(
                 source=unit_image,
@@ -1363,6 +1357,15 @@ class FortressInfoPopup(Popup):
             from portrait_ui import style_portrait_image
             style_portrait_image(img, enabled=True)
             body.add_widget(img)
+
+            def fit_card(*_):
+                stacked = body.height > body.width
+                body.orientation = 'vertical' if stacked else 'horizontal'
+                stats_panel.size_hint = (1, .55) if stacked else (.55, 1)
+                img.size_hint = (1, .45) if stacked else (.45, 1)
+
+            body.bind(size=fit_card)
+            fit_card()
 
         content.add_widget(body)
 
@@ -2266,6 +2269,8 @@ class FortressInfoPopup(Popup):
                 return
 
             unit_image = source_unit[1]
+            from monster_sites import copy_training
+            copy_training(self.conn,source_fortress_name,destination_fortress_name,unit_name)
             remaining_count = source_unit[0] - taken_count
 
             # Обновляем или удаляем из исходного города

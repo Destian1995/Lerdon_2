@@ -222,7 +222,7 @@ def build_city_window(popup):
         if relief.landform == 'highland':
             short.append('Горы: ЗАЩ +30%')
         elif relief.landform == 'lowland':
-            short.append('Низина: кроны +15%')
+            short.append('Низина: защита −20%, кроны +15%')
         if relief.waterside:
             short.append('Крист. +20%')
         terrain_label=text_label(' · '.join(short),10,GOLD,size_hint_y=.65)
@@ -259,7 +259,7 @@ def build_city_window(popup):
         show_message('Характеристики гарнизона',
                      f"Бойцов: {number(snapshot['count'])}\nОбщая атака: {number(snapshot['attack'])}\n"
                      f"Общая защита: {number(snapshot['defense'])}\n\n"
-                     'Учтены герои, опыт, фракционные бонусы, укрепления и высота города. '
+                     'Учтены герои, опыт, временное усиление, боевой дух, фракционные бонусы, укрепления и высота города. '
                      'Боевая защита включает половину живучести. Войска в походе в гарнизон не входят.')
         return True
     totals.bind(on_touch_down=inspect_totals)

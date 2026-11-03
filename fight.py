@@ -314,6 +314,8 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     # Сохраняем базовый урон до бонусов (для Шквала Севера)
     atk_base_attack = atk_attack
     def_base_attack = def_attack
+    atk_base_attack = attacker.get('_faction_base_attack',atk_base_attack)
+    def_base_attack = defender.get('_faction_base_attack',def_base_attack)
 
     # Бонус от героев 2+ класса: сырые характеристики прибавляются к каждому юниту 1 класса
     # Зомби нежити не получают бафф от Низара (непослушные)
@@ -336,6 +338,8 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     # Адепты: Оплот — если защита увеличена в 20+ раз от базовой, +55% защиты.
     atk_base_defense = calculate_unit_power(attacker, is_attacking=False)
     def_base_defense = calculate_unit_power(defender, is_attacking=False)
+    atk_base_defense = attacker.get('_faction_base_defense',atk_base_defense)
+    def_base_defense = defender.get('_faction_base_defense',def_base_defense)
     oplot_mult = ADEPT_MULTIPLIER * _get_season_mult('Адепты', conn) if atk_fraction == 'Адепты' or def_fraction == 'Адепты' else ADEPT_MULTIPLIER
     if atk_fraction == 'Адепты' and get_unit_class(attacker) == 1 and atk_base_defense > 0:
         if atk_defense / atk_base_defense >= 20.0:
@@ -343,6 +347,15 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     if def_fraction == 'Адепты' and get_unit_class(defender) == 1 and def_base_defense > 0:
         if def_defense / def_base_defense >= 20.0:
             def_defense = int(def_defense * oplot_mult)
+
+    # Experience strengthens the complete soldier, including hero auras.
+    # Faction thresholds above stay based on the untrained base stats.
+    atk_experience = attacker.get('_experience_multiplier',1.0)
+    def_experience = defender.get('_experience_multiplier',1.0)
+    atk_attack *= atk_experience
+    atk_defense *= atk_experience
+    def_attack *= def_experience
+    def_defense *= def_experience
 
     # City relief belongs to the defending army, including initiative reversals.
     atk_defense *= attacker.get('_terrain_defense_multiplier',1.0)
@@ -511,6 +524,8 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         # Загружаем опыт для каждого юнита
         for army, city in [(atk_army, attacking_city), (def_army, defending_city)]:
             for u in army:
+                u['_faction_base_attack'] = calculate_unit_power(u,True)
+                u['_faction_base_defense'] = calculate_unit_power(u,False)
                 _cur.execute(
                     "SELECT COALESCE(experience, 0) FROM garrisons WHERE city_name = ? AND unit_name = ?",
                     (city, u['unit_name'])
@@ -519,20 +534,11 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                 u['experience'] = row[0] if row else 0
 
                 # Бонус от опыта (побед): Новобранец(0), Воин(1+: +5%), Ветеран(3+: +15%), Элита(7+: +25%)
-                exp = u['experience']
-                if exp >= 7:
-                    exp_mult = 1.25
-                elif exp >= 3:
-                    exp_mult = 1.15
-                elif exp >= 1:
-                    exp_mult = 1.05
-                else:
-                    exp_mult = 1.0
+                from monster_sites import experience_multiplier
+                exp_mult = experience_multiplier(conn, attacking_fraction if city == attacking_city else defending_fraction,
+                                                 u['experience'],city,u['unit_name'])
 
-                if exp_mult > 1.0 and get_unit_class(u) == 1:
-                    stats = u.get('units_stats', {})
-                    stats['Урон'] = stats.get('Урон', 0) * exp_mult
-                    stats['Защита'] = stats.get('Защита', 0) * exp_mult
+                u['_experience_multiplier'] = exp_mult if get_unit_class(u)==1 else 1.0
     except Exception as e:
         print(f"[EXP] Ошибка загрузки опыта: {e}")
 
@@ -1488,6 +1494,9 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
             _exp_count = 0
             for u in _win_army:
                 if get_unit_class(u) == 1 and u['unit_count'] > 0:
+                    from monster_sites import copy_training
+                    copy_training(conn,attacking_city if _side=='атакующий' else defending_city,
+                                  _win_city,u['unit_name'])
                     cursor.execute("""
                         UPDATE garrisons SET experience = COALESCE(experience, 0) + 1
                         WHERE city_name = ? AND unit_name = ? AND unit_count > 0

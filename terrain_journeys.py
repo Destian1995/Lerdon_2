@@ -193,7 +193,10 @@ def _experience(conn):
     return 'experience' in {r[1] for r in conn.execute('PRAGMA table_info(garrisons)')}
 
 
-def _credit(conn, city, name, count, image, exp=0):
+def _credit(conn, city, name, count, image, exp=0,training_source=None):
+    if training_source:
+        from monster_sites import copy_training
+        copy_training(conn,training_source,city,name)
     if _experience(conn):
         conn.execute('''INSERT INTO garrisons(city_name,unit_name,unit_count,unit_image,experience)
             VALUES(?,?,?,?,?) ON CONFLICT(city_name,unit_name) DO UPDATE SET
@@ -261,7 +264,7 @@ def start_journey(conn, faction, source, destination, units, mode='move'):
         conn.execute('UPDATE terrain_journeys SET camp=? WHERE id=?',(camp,cur.lastrowid))
         for name,count,image,exp in snapshots:
             conn.execute('UPDATE garrisons SET unit_count=unit_count-? WHERE city_name=? AND unit_name=?', (count,source,name))
-            _credit(conn,camp,name,count,image,exp)
+            _credit(conn,camp,name,count,image,exp,training_source=source)
         conn.execute('DELETE FROM garrisons WHERE unit_count<=0')
     journey = dict(faction=faction,camp=camp,route=json.dumps(chain),destination=destination)
     _queue_leg(conn,journey,(0,0),(stops[0]['edge'],stops[0]['ratio']))
@@ -381,7 +384,7 @@ def _finish(conn, row):
                 _credit(conn,target,substitute[0],count,substitute[1],exp)
         else:
             for name,count,image,exp,*_ in units:
-                _credit(conn,target,name,count,image,exp)
+                _credit(conn,target,name,count,image,exp,training_source=camp)
     elif units:
         defenders = _camp_units(conn,target)
         def army(rows):
@@ -393,7 +396,7 @@ def _finish(conn, row):
             fight(camp,target,army(defenders),army(units),faction,owner,conn)
         else:
             for name,count,image,exp,*_ in units:
-                _credit(conn,target,name,count,image,exp)
+                _credit(conn,target,name,count,image,exp,training_source=camp)
             conn.execute('UPDATE cities SET faction=? WHERE name=?',(faction,target))
             conn.execute('UPDATE buildings SET faction=? WHERE city_name=?',(faction,target))
             record_capture(conn,target,faction)

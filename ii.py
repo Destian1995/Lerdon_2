@@ -1080,6 +1080,9 @@ class AIController:
             artifacts_equipped_count = 0
             for artifact in artifact_list:
                 art_id = artifact['id']
+                from monster_sites import artifact_visible
+                if not artifact_visible(self.db_connection,self.faction,art_id,'artifacts_ai'):
+                    continue
                 art_cost = artifact['cost']
                 art_type = artifact['artifact_type']
 
@@ -2260,6 +2263,8 @@ class AIController:
             if start_journey(self.db_connection,self.faction,from_city_name,to_city_name,
                              [dict(unit_name=unit_name,unit_count=unit_count)]):
                 return
+            from monster_sites import copy_training
+            copy_training(self.db_connection,from_city_name,to_city_name,unit_name)
             self.cursor.execute("""
                 UPDATE garrisons
                 SET unit_count = unit_count - ?

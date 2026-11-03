@@ -22,6 +22,9 @@ def load_artifacts_from_db(faction):
         ''')
         rows = cursor.fetchall()
         for row in rows:
+            from monster_sites import artifact_visible
+            if not artifact_visible(faction.conn,faction.faction,row[0]):
+                continue
             artifact = {
                 "id": row[0],
                 "attack": row[1] if row[1] is not None else 0,

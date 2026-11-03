@@ -1605,6 +1605,8 @@ class GameScreen(Screen):
                 self.ensure_rebellion_ai_controller()
                 from terrain_journeys import advance_journeys
                 advance_journeys(self.conn,self.turn_counter)
+                from monster_sites import recover_hunts
+                recover_hunts(self.conn)
 
                 invasion_triggered, invasion_msg = check_and_trigger_invasion(
                     self.conn, self.turn_counter, self.selected_faction
@@ -1630,6 +1632,8 @@ class GameScreen(Screen):
                             lambda dt, fn=faction_name, i=idx, o=overlay: o.set_faction(fn, i)
                         )
                     ai_controller.make_turn()
+                    from monster_ai import try_hunt
+                    try_hunt(self.conn,faction_name,ai_controller)
 
                 self.enforce_garrison_hero_limits()
                 self.update_destroyed_factions()

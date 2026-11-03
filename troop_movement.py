@@ -189,6 +189,13 @@ def play_ai_marches(screen):
         end_turn.disabled = True
     for (chain, faction, destination, start, end, camp, capture), (count, total,has_hero) in grouped.items():
         def provider(chain=chain, start=start, end=end):
+            if chain[0]=='@monster':
+                import json
+                path=json.loads(chain[1])
+                path=path+list(reversed(path[:-1]))
+                projected=[(map_widget.map_pos[0]+x*map_widget.map_scale,
+                            map_widget.map_pos[1]+y*map_widget.map_scale) for x,y in path]
+                return MarchRoute(projected,[True]*(len(projected)-1))
             size = city_sprite_size(map_widget.map_scale)
             centers = {cid: (map_widget.map_pos[0] + x * map_widget.map_scale + size / 2,
                              map_widget.map_pos[1] + y * map_widget.map_scale + size * 30 / 77)

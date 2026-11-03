@@ -77,8 +77,10 @@ class MapAtmosphere(Widget):
         self.city_effects = CityEffects(self)
         from troop_movement import MarchLayer
         self.marches = MarchLayer(self)
+        from monster_signals import MonsterSignals
+        self.monster_signals = MonsterSignals(self)
         for group in (self._weather_group, self._plague_group, self._storm_group,
-                      self.city_effects.group, self.marches.group):
+                      self.city_effects.group, self.marches.group,self.monster_signals.group):
             self.canvas.add(group)
         with self.canvas:
             StencilUnUse()
@@ -417,6 +419,7 @@ class MapAtmosphere(Widget):
         self._update_plague()
         self.city_effects.update(dt)
         self.marches.update(dt)
+        self.monster_signals.update(dt)
 
     def start(self):
         if self._event is None:

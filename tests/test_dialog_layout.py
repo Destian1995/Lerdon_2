@@ -147,6 +147,35 @@ class DialogLayoutTests(unittest.TestCase):
         finally:
             db.close()
 
+    def test_hero_stats_grow_and_fit_when_card_rotates(self):
+        from unit_stats_ui import UnitStatsPanel
+        Window.size = (1280, 576)
+        settle()
+        owner, db = city_fixture(populated=True)
+        try:
+            owner._show_unit_stats_popup('Моргана', 208, 800, 50, 1, '2',
+                                          'files/army/death/morgana.png')
+            popup = next(w for w in Window.children if isinstance(w, Popup))
+            settle()
+            panel = next(w for w in popup.content.walk() if isinstance(w, UnitStatsPanel))
+            large_font = panel.rows[0][2].font_size
+            self.assertGreaterEqual(large_font, sp(28))
+            self.assertGreater(panel.rows[0][1].width, dp(40))
+            popup.export_to_png('.release/hero-card-responsive.png')
+            for size in ((640, 360), (360, 640), (1280, 576)):
+                Window.size = size
+                settle()
+                for row, icon, label in panel.rows:
+                    self.assertGreaterEqual(row.y, panel.y-1)
+                    self.assertLessEqual(row.top, panel.top+1)
+                    self.assertLessEqual(label.texture_size[1], row.height+1)
+                    self.assertLessEqual(icon.width, row.width)
+                if size == (360, 640):
+                    self.assertEqual(panel.parent.orientation, 'vertical')
+            self.assertAlmostEqual(panel.rows[0][2].font_size, large_font, delta=1)
+        finally:
+            db.close()
+
     def test_market_sell_all_is_full_width_and_trades_without_slider_selection(self):
         from kivy.uix.checkbox import CheckBox
         calls = []

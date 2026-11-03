@@ -4,6 +4,7 @@ import math
 
 class MapCamera:
     minimum, maximum = 1.0, 1.5
+    overscan = 0.25
 
     def __init__(self, viewport, rect):
         self.zoom = 1.0
@@ -30,10 +31,20 @@ class MapCamera:
         return left <= x <= left+width and bottom <= y <= bottom+height
 
     def clamp(self):
-        # An axis that still fits stays centered. A cropped axis can be panned
-        # only far enough to reveal its edge, never past it into empty space.
-        limits = [max(0,(size*self.zoom-extent)/2) for size,extent in zip(self.rect[2:],self.viewport)]
-        self.pan = tuple(max(-limit,min(limit,pan)) for limit,pan in zip(limits,self.pan))
+        if self.zoom <= self.minimum:
+            self.pan = (0.0, 0.0)
+            return
+        # Allow a quarter of the map beyond each edge, including an axis
+        # that fits inside a wide screen. Account for off-centre map rects.
+        bounds = []
+        for start, size, extent in zip(self.rect[:2], self.rect[2:], self.viewport):
+            base = (1-self.zoom)*extent/2
+            margin = self.overscan*size*self.zoom
+            low = extent-margin-(start+size)*self.zoom-base
+            high = margin-start*self.zoom-base
+            bounds.append((min(low, 0), max(high, 0)))
+        self.pan = tuple(max(low, min(high, pan))
+                         for (low, high), pan in zip(bounds, self.pan))
 
     def set_zoom(self, value, anchor=None):
         if not math.isfinite(value):

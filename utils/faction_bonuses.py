@@ -44,6 +44,23 @@ def combat_bonus_status(faction, attack, defense, durability, hero_bonus=(0, 0, 
     return name, base > 0 and boosted / base >= 20, base, boosted
 
 
+def battle_spirit_multiplier(conn,faction):
+    """The same recent counter-pick victories checked by battle_chain."""
+    counters={'Адепты':('Элины','Север'),'Элины':('Север','Эльфы'),
+              'Вампиры':('Адепты','Элины'),'Север':('Вампиры','Эльфы'),
+              'Эльфы':('Адепты','Вампиры')}.get(faction)
+    if not counters:
+        return 1.0
+    try:
+        from city_war import current_turn
+        wins=conn.execute('''SELECT COUNT(*) FROM faction_victories
+            WHERE faction=? AND defeated IN (?,?) AND turn>?''',
+            (faction,*counters,current_turn(conn)-4)).fetchone()[0]
+        return 1.15 if wins>=2 else 1.0
+    except sqlite3.OperationalError:
+        return 1.0
+
+
 def garrison_bonus_status(conn, faction):
     """Count eligible troop stacks using the heroes currently in each city."""
     cities = defaultdict(list)
@@ -141,6 +158,12 @@ def current_effect_rows(conn, faction, season):
     supplied = supplied_cities(conn, faction)
     totals, all_totals = defaultdict(int), defaultdict(int)
     rows = []
+    from monster_sites import progress
+    from city_war import current_turn
+    training=progress(conn,faction)['veteran_until']-current_turn(conn)
+    if training>0:
+        rows.append(('Охота на монстров',f'Ещё {training} х.',
+                     'Применяется: новобранцы — ветераны; воины и ветераны — элита; элита получает ещё +15%'))
     from utils.city_terrain import read_all as read_city_terrain
     for city,info in read_city_terrain(conn).items():
         owner=conn.execute('SELECT faction FROM cities WHERE name=?',(city,)).fetchone()
@@ -148,6 +171,8 @@ def current_effect_rows(conn, faction, season):
             continue
         if info.landform == 'highland':
             rows.append((f'Горы · {city}','','+30% к боевой защите всего гарнизона этого города'))
+        elif info.landform == 'lowland':
+            rows.append((f'Низина · {city}','','−20% к боевой защите всего гарнизона этого города'))
         economic=[]
         if info.landform == 'lowland':
             economic.append('+15% к доле города в доходе крон')

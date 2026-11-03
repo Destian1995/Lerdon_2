@@ -494,11 +494,15 @@ def generate_map_and_cities(conn, terrain=None, sprite_scale=1,label_size_provid
         save_to_database(conn,cities,graph)
         try:
             generate_features(conn,terrain,rng=random,sprite_scale=sprite_scale,label_size_provider=label_size_provider)
+            from monster_placement import generate_sites
+            generate_sites(conn,terrain,rng=random,sprite_scale=sprite_scale,label_size_provider=label_size_provider)
             break
         except FeaturePlacementError:
             try:
                 generate_features(conn,terrain,rng=random,sprite_scale=sprite_scale,label_size_provider=label_size_provider,
                                   allow_new_roads=True)
+                from monster_placement import generate_sites
+                generate_sites(conn,terrain,rng=random,sprite_scale=sprite_scale,label_size_provider=label_size_provider)
                 break
             except FeaturePlacementError:
                 if attempt==11:

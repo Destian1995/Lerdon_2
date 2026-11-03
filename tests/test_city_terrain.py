@@ -31,6 +31,9 @@ class ReliefTests(unittest.TestCase):
         coast=classify_city(terrain(water=True),'port',140,300)
         self.assertTrue(coast.waterside)
         self.assertEqual(coast.landform,'lowland')
+        self.assertEqual(coast.defense_multiplier,.8)
+        self.assertIn('−20%',coast.description)
+        self.assertIn('−20%', ' '.join(coast.badges))
         inland=classify_city(terrain(water=True),'inland',500,300)
         self.assertFalse(inland.waterside)
         self.assertEqual(inland.landform,'plains')
@@ -88,6 +91,8 @@ class ReliefCombatTests(unittest.TestCase):
         self.assertEqual(run(),(900,900))
         self.assertEqual(run(bonus=1.3),(900,924))
         self.assertEqual(run(reverse=True,bonus=1.3),(900,924))
+        self.assertEqual(run(bonus=.8),(900,875))
+        self.assertEqual(run(reverse=True,bonus=.8),(900,875))
 
 
 class ReliefResourceIntegrationTests(unittest.TestCase):
