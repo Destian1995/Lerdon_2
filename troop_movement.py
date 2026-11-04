@@ -161,6 +161,8 @@ def play_ai_marches(screen):
     pending = getattr(screen, '_ai_march_queue', [])
     screen._ai_march_queue = []
     if not pending:
+        from terrain_encounter_ui import show_pending
+        show_pending(screen)
         return
     if not screen.parent:
         screen._ai_march_destinations.clear()
@@ -215,6 +217,8 @@ def play_ai_marches(screen):
                 screen._troop_movement_busy = False
                 if end_turn:
                     end_turn.disabled = was_disabled
+                from terrain_encounter_ui import show_pending
+                show_pending(screen)
         if provider() is not None:
             spec = (provider, max(1, army_size_level(total, count)), faction, count,has_hero)
             map_widget._map_atmosphere.marches.play_batch([spec], arrive, arrive)

@@ -1,0 +1,38 @@
+{
+  "generator": "built-in image_gen",
+  "transparent_background": true,
+  "assets": [
+    {
+      "file": "files/buildings/people.png",
+      "prompt": "Use case: stylized-concept. Asset type: one isolated fantasy strategy map city sprite. Northern city, snowy stone walls, timber longhouses, blue rune tower, rugged Nordic citadel. A complete small walled CITY with multiple buildings, not a weapon or heraldic symbol. Hand-painted detailed fantasy game illustration with readable silhouette at 80px. Three-quarter isometric aerial view, square composition, whole settlement centered with generous transparent margin, no scenery outside its compact base, no text, no border, no characters. Transparent background. Match a richly painted realistic fantasy strategy world map."
+    },
+    {
+      "file": "files/buildings/vampires.png",
+      "prompt": "Use case: stylized-concept. Asset type: one isolated fantasy strategy map city sprite. Vampire city, black Gothic spires, red stained glass, purple magical accents, dark fortified settlement. A complete small walled CITY with multiple buildings, not a weapon or heraldic symbol. Hand-painted detailed fantasy game illustration with readable silhouette at 80px. Three-quarter isometric aerial view, square composition, whole settlement centered with generous transparent margin, no scenery outside its compact base, no text, no border, no characters. Transparent background. Match a richly painted realistic fantasy strategy world map."
+    },
+    {
+      "file": "files/buildings/elfs.png",
+      "prompt": "Use case: stylized-concept. Asset type: one isolated fantasy strategy map city sprite. Elven city, graceful ivory towers grown among giant green trees, emerald roofs, elegant forest walls. A complete small walled CITY with multiple buildings, not a weapon or heraldic symbol. Hand-painted detailed fantasy game illustration with readable silhouette at 80px. Three-quarter isometric aerial view, square composition, whole settlement centered with generous transparent margin, no scenery outside its compact base, no text, no border, no characters. Transparent background. Match a richly painted realistic fantasy strategy world map."
+    },
+    {
+      "file": "files/buildings/adepts.png",
+      "prompt": "Use case: stylized-concept. Asset type: one isolated fantasy strategy map city sprite. City of religious adepts, fortified amber sandstone abbey, monumental cathedral, golden domes and warm orange lights. A complete small walled CITY with multiple buildings, not a weapon or heraldic symbol. Hand-painted detailed fantasy game illustration with readable silhouette at 80px. Three-quarter isometric aerial view, square composition, whole settlement centered with generous transparent margin, no scenery outside its compact base, no text, no border, no characters. Transparent background. Match a richly painted realistic fantasy strategy world map."
+    },
+    {
+      "file": "files/buildings/poly.png",
+      "prompt": "Use case: stylized-concept. Asset type: one isolated fantasy strategy map city sprite. City of arcane Elines mages, white marble academic towers, floating blue crystals, gold roofs and arcane observatory. A complete small walled CITY with multiple buildings, not a weapon or heraldic symbol. Hand-painted detailed fantasy game illustration with readable silhouette at 80px. Three-quarter isometric aerial view, square composition, whole settlement centered with generous transparent margin, no scenery outside its compact base, no text, no border, no characters. Transparent background. Match a richly painted realistic fantasy strategy world map."
+    },
+    {
+      "file": "files/buildings/default.png",
+      "prompt": "Use case: stylized-concept. Asset type: one isolated fantasy strategy map city sprite. Neutral medieval city, stone curtain walls and a central blue-roofed castle, varied compact houses. A complete small walled CITY with multiple buildings, not a weapon or heraldic symbol. Hand-painted detailed fantasy game illustration with readable silhouette at 80px. Three-quarter isometric aerial view, square composition, whole settlement centered with generous transparent margin, no scenery outside its compact base, no text, no border, no characters. Transparent background. Match a richly painted realistic fantasy strategy world map."
+    },
+    {
+      "file": "files/buildings/castle_death.png",
+      "prompt": "Use case: stylized-concept. Asset type: one isolated fantasy strategy map city sprite. Undead city, bone-white necropolis, ruined black towers, pale cyan ghostlight and skeletal fortifications. A complete small walled CITY with multiple buildings, not a weapon or heraldic symbol. Hand-painted detailed fantasy game illustration with readable silhouette at 80px. Three-quarter isometric aerial view, square composition, whole settlement centered with generous transparent margin, no scenery outside its compact base, no text, no border, no characters. Transparent background. Match a richly painted realistic fantasy strategy world map."
+    },
+    {
+      "file": "files/buildings/keig.png",
+      "prompt": "Use case: stylized-concept. Asset type: one isolated fantasy strategy map city sprite. Rebel city, rough fortified medieval town, red banners, timber palisades and stone keep. A complete small walled CITY with multiple buildings, not a weapon or heraldic symbol. Hand-painted detailed fantasy game illustration with readable silhouette at 80px. Three-quarter isometric aerial view, square composition, whole settlement centered with generous transparent margin, no scenery outside its compact base, no text, no border, no characters. Transparent background. Match a richly painted realistic fantasy strategy world map."
+    }
+  ]
+}

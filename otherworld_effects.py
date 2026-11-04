@@ -71,6 +71,10 @@ class MirrorEffects(Widget):
         fog_color={'vampires':(.52,.31,.72),'elves':(.24,.73,.35),
                    'north':(.72,.84,.94),'adepts':(.66,.65,.73),'elines':(.79,.57,.28)}[self.weather]
         self.mist=mist_texture()
+        self.quest_glows=[];self.quest_targets=set();self._quest_refresh=-1
+        with self.canvas.before:
+            for city in map_widget.nodes:
+                self.quest_glows.append((city,Color(1,.77,.25,0),Rectangle(texture=self.mist)))
         with self.canvas:
             for i in range(32):
                 color=Color(*fog_color,.2)
@@ -107,6 +111,16 @@ class MirrorEffects(Widget):
     def update(self,dt):
         self.age+=min(dt,.1)
         w=self.map_widget
+        if self.age-self._quest_refresh>=.5 and getattr(w.owner,'conn',None) is not None:
+            from otherworld_quests import objectives
+            self.quest_targets=set(objectives(w.owner.conn,w.owner.faction))
+            self._quest_refresh=self.age
+        for city,color,shape in self.quest_glows:
+            color.a=(.35+.25*math.sin(self.age*3)**2) if city['id'] in self.quest_targets else 0
+            x,y=w.point(city['x'],city['y'])
+            radius=max(28,105*min(w.width/1200,w.height/800)*w.camera.zoom)
+            radius*=1+.08*math.sin(self.age*3)
+            shape.pos=(x-radius,y-radius*.55);shape.size=(radius*2,radius*1.5)
         turn_progress=getattr(w.owner,'update_turn_progress',None)
         if turn_progress:turn_progress(dt)
         beam=getattr(w,'beam',None)

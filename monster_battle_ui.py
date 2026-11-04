@@ -27,7 +27,9 @@ def reward_rows(result):
             ('Кристаллы',('+' if result['resources'] else '')+exact_count(result['resources']),
              'files/status/resource_box/crystal.png'),
             ('Опыт участвовавших войск',f'+{result.get("experience",1)}','files/pict/hire/class.png'),
-            ('Усиление войск',f'{result["duration"]} х.','files/pict/hire/strong.png')]+(
+            ('Усиление войск',f'{result["duration"]} х.'+(
+                f' · всего {result["training_remaining"]} х.' if result.get('training_remaining',0)>result['duration'] else ''),
+             'files/pict/hire/strong.png')]+(
             [('Дар бездны','1 улучшение · +550%','files/pict/hire/sword.png')] if result.get('new_relic') else [])
 
 

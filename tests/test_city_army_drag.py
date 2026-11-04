@@ -46,6 +46,21 @@ class GestureTests(unittest.TestCase):
         self.gesture.activate()
         self.assertFalse(self.gesture.active);self.assertIsNone(self.gesture.touch)
 
+    def test_drag_uses_current_player_emblem_and_clears_it_after_release(self):
+        from map_city_effects import faction_emblem
+        from kivy.graphics import Rectangle
+        for faction in ('Север','Эльфы','Вампиры','Адепты','Элины'):
+            self.gesture.faction=lambda:faction
+            touch=Touch(50,100);self.gesture.down(touch);self.gesture.activate()
+            self.assertIs(self.gesture.emblem_texture,faction_emblem(faction))
+            images=[i for i in self.gesture.layer.children if type(i) is Rectangle]
+            self.assertEqual(len(images),1)
+            self.assertIs(images[0].texture,faction_emblem(faction))
+            touch.pos=(150,100);self.gesture.move(touch)
+            self.assertEqual(len([i for i in self.gesture.layer.children if type(i) is Rectangle]),1)
+            self.gesture.up(touch)
+            self.assertIsNone(self.gesture.emblem_texture)
+
 
 class MirrorTransferTests(unittest.TestCase):
     def setUp(self):

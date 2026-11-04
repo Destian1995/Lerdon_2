@@ -1188,8 +1188,10 @@ class MapWidget(Widget):
                 continue
         from map_city_effects import read_hero_garrisons
         from troop_movement import deferred_ai_captures
+        from portal_home import marked_cities
         layer.city_effects.sync(war_cities, read_city_war_states(self.conn), current_turn(self.conn),
-                               read_hero_garrisons(self.conn), deferred=deferred_ai_captures(self.conn))
+                               read_hero_garrisons(self.conn), deferred=deferred_ai_captures(self.conn),
+                               portals=marked_cities(self.conn))
         cursor = self.conn.cursor()
         try:
             cursor.execute('SELECT current_season FROM season WHERE id = 1')

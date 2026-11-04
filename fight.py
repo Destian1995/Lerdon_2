@@ -408,6 +408,12 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     if atk_type_mod > 1.0:
         atk_defense *= 1.35
 
+    # Late arrivals in forests/swamps fight at 85%, including hero auras and XP.
+    atk_attack *= attacker.get('_encounter_attack_multiplier',1.0)
+    atk_defense *= attacker.get('_encounter_defense_multiplier',1.0)
+    def_attack *= defender.get('_encounter_attack_multiplier',1.0)
+    def_defense *= defender.get('_encounter_defense_multiplier',1.0)
+
     # Контрудар слабее
     def_attack *= COUNTER_ATTACK_RATIO
 

@@ -120,7 +120,8 @@ class WorldMapCanvas(StencilView):
         self.camera=MapCamera(self.size,(0,0,*self.size))
         self.touches={}
         from city_army_drag import CityArmyDrag
-        self.army_drag=CityArmyDrag(self,self.city_at,self.army_at,self.send_army)
+        self.army_drag=CityArmyDrag(self,self.city_at,self.army_at,self.send_army,
+                                   faction=lambda:self.owner.faction)
         self._base=Canvas();self.canvas.add(self._base)
         from kivy.core.image import Image as CoreImage
         self.texture=CoreImage(worlds.world(owner.conn,owner.faction)['background']).texture

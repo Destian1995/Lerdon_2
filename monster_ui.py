@@ -89,6 +89,8 @@ def play_hunt(widget,site,eid,completed):
             finish_hunt(widget.conn,eid)
             release()
             completed(result)
+            if result.get("new_relic") and row["faction"]==widget.current_player_kingdom:
+                open_relic_choice(widget)
         if layer:
             provider=lambda:MarchRoute(project_path(widget,site,True),[True]*(len(json.loads(site['road']))-1))
             layer.play_batch([(provider,army_size_level(count,count),row['faction'],count,True)],home,home)
@@ -227,40 +229,7 @@ class MonsterPopup(Popup):
 
 
 def open_relic_choice(widget,changed=lambda:None):
-    conn=widget.conn;faction=widget.current_player_kingdom
-    panel=BoxLayout(orientation='vertical',spacing=dp(8),padding=dp(8))
-    panel.add_widget(text_label('Один артефакт навсегда: +550 процентных пунктов\nк атаке или защите. Выберите характеристику.',15,
-                                size_hint_y=None,height=dp(56)))
-    scroll=ScrollView(do_scroll_x=False)
-    rows=BoxLayout(orientation='vertical',size_hint_y=None,spacing=dp(8))
-    rows.bind(minimum_height=rows.setter('height'))
-    scroll.add_widget(rows);panel.add_widget(scroll)
-    popup=Popup(title='Дар бездны',content=panel,size_hint=(.92,.9))
-    def choose(item,stat):
-        from ui_components import show_message
-        try:
-            data=upgrade_artifact(conn,faction,item['table'],item['id'],stat,item['hero'],item['slot'])
-        except ValueError as exc:
-            show_message('Улучшение недоступно',str(exc));return
-        from troop_movement import _screen
-        screen=_screen(widget)
-        if screen and getattr(screen,'season_manager',None):
-            screen.season_manager.apply_artifact_bonuses(conn)
-        popup.dismiss();changed()
-        show_message('Артефакт улучшен',f'{data["name"]}: {"атака" if stat=="attack" else "защита"} +{data[stat]:g}%')
-    for item in owned_artifacts(conn,faction):
-        row=surface(BoxLayout(orientation='vertical',size_hint_y=None,height=dp(118),padding=dp(8),spacing=dp(6)),SURFACE)
-        row.add_widget(text_label(f'{item["name"]} · {item["hero"]}',14,GOLD))
-        buttons=BoxLayout(spacing=dp(6))
-        for stat,caption in (('attack','Атака'),('defense','Защита')):
-            button=StrategyButton(text=f'{caption}: {item[stat]:g}% → {item[stat]+550:g}%')
-            button.bind(on_release=lambda _,a=item,s=stat:choose(a,s))
-            buttons.add_widget(button)
-        row.add_widget(buttons);rows.add_widget(row)
-    if not rows.children:
-        rows.add_widget(text_label('У героев пока нет экипированных артефактов.\nНаграда сохранена: вернитесь после покупки.',15,
-                                   size_hint_y=None,height=dp(90)))
-    close=StrategyButton(text='Выбрать позже',size_hint_y=None,height=dp(48))
-    close.bind(on_release=popup.dismiss);panel.add_widget(close)
+    from monster_relic_ui import RelicChoicePopup
+    popup=RelicChoicePopup(widget,changed)
     popup.open()
     return popup

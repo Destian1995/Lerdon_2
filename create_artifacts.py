@@ -22,6 +22,11 @@ _SLOT_LABELS = ['Оружие', 'Голова', 'Ноги', 'Туловище', 
 _SLOT_PREFIXES = {'Оружие': '0', 'Голова': '1', 'Ноги': '2', 'Туловище': '3', 'Аксессуар': '4'}
 
 
+def workshop_limit(conn,faction):
+    from utils.resource_caps import caps
+    return int(min(caps(conn,faction)[r] for r in ('Кроны','Кристаллы'))*.98)
+
+
 def workshop(faction, db_conn):
     from kivy.uix.popup import Popup
     from kivy.uix.boxlayout import BoxLayout
@@ -315,7 +320,7 @@ def workshop(faction, db_conn):
         layout._responsive_keep_geometry = True
         from kivy.uix.gridlayout import GridLayout
         _fn = getattr(faction, 'faction', '')
-        _MAX = 12_000_000 if _fn == 'Элины' else 9_900_000
+        _MAX = workshop_limit(db_conn,_fn)
         _max_stats = _MAX - 50_000
         _budget = min(faction.money, _max_stats)
         _base_tokens = _budget / 3200.0
@@ -563,7 +568,7 @@ def workshop(faction, db_conn):
 
         total_cost = max(20000, base)
         _fn3 = getattr(faction, 'faction', '')
-        total_cost = min(total_cost, 11_950_000 if _fn3 == 'Элины' else 9_850_000)
+        total_cost = min(total_cost, workshop_limit(db_conn,_fn3)-50_000)
 
         disc_text = ""
         if seasons_bonus and sn not in ('Нет', 'Все'):
@@ -599,7 +604,7 @@ def workshop(faction, db_conn):
                 show_message("Ошибка", "Установите АТК или ЗАЩ больше 0.")
                 return
             _fn = getattr(faction, 'faction', '')
-            _mc = 12_000_000 if _fn == 'Элины' else 9_900_000
+            _mc = workshop_limit(db_conn,_fn)
             if total_cost + 50_000 > _mc:
                 show_message("Ошибка", f"Стоимость превышает лимит {format_number(_mc)}")
                 return

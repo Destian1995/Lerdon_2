@@ -244,7 +244,8 @@ def resolve_hunt(conn,eid):
             from terrain_journeys import _experience
             if not _experience(conn):
                 conn.execute('ALTER TABLE garrisons ADD COLUMN experience INTEGER DEFAULT 0')
-            until=max(progress(conn,row['faction'])['veteran_until'],current_turn(conn)+prize['duration'])
+            until=max(progress(conn,row['faction'])['veteran_until'],current_turn(conn))+prize['duration']
+            result['training_remaining']=until-current_turn(conn)
             _snapshot_training(conn,row['faction'],row['camp'],until)
             conn.execute('''UPDATE garrisons SET experience=COALESCE(experience,0)+1
                 WHERE city_name=? AND unit_count>0 AND unit_name IN
@@ -252,7 +253,7 @@ def resolve_hunt(conn,eid):
             new_relic=prize['legendary'] and not progress(conn,row['faction'])['relic_earned']
             conn.execute('''UPDATE monster_progress SET veteran_until=MAX(veteran_until,?),
                 relic_earned=MAX(relic_earned,?) WHERE faction=?''',
-                (current_turn(conn)+prize['duration'],int(prize['legendary']),row['faction']))
+                (until,int(prize['legendary']),row['faction']))
             conn.execute('UPDATE monster_sites SET ready_turn=?,defeats=defeats+1 WHERE id=?',
                          (current_turn(conn)+COOLDOWN,site['id']))
             result['new_relic']=new_relic

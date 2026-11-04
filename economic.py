@@ -1603,6 +1603,9 @@ class Faction:
             - str: Сообщение с описанием условий завершения игры.
         """
         try:
+            from portal_home import loss_reason
+            portal_loss=loss_reason(self.conn,self.faction)
+            if portal_loss:return False,portal_loss
             # Условия завершения игры
             if self.population <= 0:
                 message = "Города опустели...."

@@ -1,15 +1,17 @@
 """Shared hold-and-drag gesture; ordinary taps, panning and pinches stay intact."""
 import math
 from kivy.clock import Clock
-from kivy.graphics import Color, InstructionGroup, Line, Ellipse
+from kivy.graphics import Color, InstructionGroup, Line, Ellipse, Rectangle
 from kivy.metrics import dp
 
 
 class CityArmyDrag:
-    def __init__(self, widget, pick, eligible, drop, coordinates=None):
+    def __init__(self, widget, pick, eligible, drop, coordinates=None, faction=None):
         self.widget, self.pick, self.eligible, self.drop = widget, pick, eligible, drop
         self.event = None
         self.coordinates = coordinates or (lambda pos: pos)
+        self.faction = faction
+        self.emblem_texture = None
         self.touch = None
         self.active = False
         self.hold_slop=dp(22)
@@ -31,6 +33,9 @@ class CityArmyDrag:
                 self.cancel()
                 return
             self.active = True
+            if self.faction:
+                from map_city_effects import faction_emblem
+                self.emblem_texture = faction_emblem(self.faction())
             self.draw()
 
     def move(self, touch):
@@ -55,7 +60,13 @@ class CityArmyDrag:
         self.layer.add(Ellipse(pos=(x-dp(32), y-dp(32)), size=(dp(64), dp(64))))
         self.layer.add(Color(.75, .95, 1, 1))
         self.layer.add(Line(circle=(x, y, dp(32)), width=dp(2)))
-        self.layer.add(Line(points=[x-dp(8), y, x+dp(8), y, x+dp(2), y+dp(6)], width=dp(2)))
+        if self.emblem_texture is not None:
+            self.layer.add(Color(1, 1, 1, 1))
+            width,height=self.emblem_texture.size
+            scale=dp(48)/max(width,height)
+            size=(width*scale,height*scale)
+            self.layer.add(Rectangle(texture=self.emblem_texture,
+                                     pos=(x-size[0]/2,y-size[1]/2),size=size))
 
     def up(self, touch):
         if self.touch is not touch:
@@ -72,4 +83,5 @@ class CityArmyDrag:
             self.event.cancel()
         self.event = self.touch = None
         self.active = False
+        self.emblem_texture = None
         self.layer.clear()

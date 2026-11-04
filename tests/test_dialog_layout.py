@@ -216,7 +216,7 @@ class DialogLayoutTests(unittest.TestCase):
 
     def test_crafting_all_stages_keep_navigation_and_create_action_visible(self):
         Window.size = (640, 360)
-        crafting()
+        db=crafting();self.addCleanup(db.close)
         popup = next(w for w in Window.children if isinstance(w, Popup))
         for stage in range(3):
             settle()

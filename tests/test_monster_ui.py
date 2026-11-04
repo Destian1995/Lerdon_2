@@ -52,6 +52,21 @@ class MonsterUITests(unittest.TestCase):
         settle()
         labels=[w.text for w in popup.content.walk() if hasattr(w,'text')]
         self.assertTrue(any('120%' in s and '670%' in s for s in labels))
+        self.assertEqual(len(popup.equipment_slots),5)
+        self.assertEqual(popup.selected['name'],'Blade')
+        self.assertTrue(popup.equipment_slots['1'].disabled)
+        for size,density in (((640,360),1),((1280,576),2),((392,844),1)):
+            Window.size=size;Metrics.density=density;settle();popup.fit();settle()
+            for button in popup.equipment_slots.values():
+                self.assertGreaterEqual(button.x,popup.hero_panel.x-1)
+                self.assertLessEqual(button.right,popup.hero_panel.right+1)
+                self.assertGreaterEqual(button.y,popup.hero_panel.y-1)
+                self.assertLessEqual(button.top,popup.hero_panel.top+1)
+            popup.export_to_png(f'.release/relic-choice-{size[0]}x{size[1]}.png')
+        popup.upgrade_buttons['defense'].dispatch('on_release');settle()
+        from monster_sites import progress,owned_artifacts
+        self.assertEqual(progress(self.db,'Север')['relic_used'],1)
+        self.assertEqual(owned_artifacts(self.db,'Север')[0]['defense'],575)
 
     def test_respawn_popup_displays_experience_only_and_no_relic_drop(self):
         from monster_sites import finish_hunt
@@ -121,7 +136,7 @@ class MonsterUITests(unittest.TestCase):
             def __init__(self,widget,site,result,done):self.done=done
             def open(self):self.done()
         site=sites(self.db)[-1];eid=begin_hunt(self.db,site['id'],'Север')
-        with patch('monster_ui.MonsterClashPopup',Clash):
+        with patch('monster_ui.MonsterClashPopup',Clash),patch('monster_ui.open_relic_choice') as gift:
             play_hunt(widget,site,eid,completed.append)
             self.assertEqual(len(batches),1)
             self.assertTrue(batches[0][0][0][-1])
@@ -134,6 +149,7 @@ class MonsterUITests(unittest.TestCase):
             batches[1][1]()
             self.assertIsNone(expedition(self.db,eid))
             self.assertEqual(len(completed),1)
+            gift.assert_called_once_with(widget)
 
     def test_all_new_art_is_drawn_and_map_uses_saved_dead_end_paths(self):
         root=Widget(size_hint=(None,None),size=(1024,1024))

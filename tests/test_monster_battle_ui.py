@@ -65,6 +65,7 @@ class MonsterBattleTests(unittest.TestCase):
         self.db.execute('UPDATE turn_check_move SET moves_left=2')
         eid=begin_hunt(self.db,7,'Север');result=resolve_hunt(self.db,eid)
         rows=dict((a,b) for a,b,_ in reward_rows(result))
+        self.assertEqual(rows['Усиление войск'],'16 х. · всего 27 х.')
         self.assertEqual(rows['Кроны'],'0');self.assertEqual(rows['Кристаллы'],'0')
         self.assertEqual(rows['Опыт участвовавших войск'],'+1')
         self.assertNotIn('Дар бездны',rows)

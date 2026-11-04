@@ -164,9 +164,20 @@ class PortalTests(unittest.TestCase):
         w.travel(self.db,'Север',1)
         self.assertEqual(list(self.db.execute('SELECT * FROM cities')),before)
 
-    def test_home_fallback_if_departure_city_lost(self):
+    def test_departure_city_capture_is_permanent_defeat_even_with_other_cities(self):
         self.enter();self.db.execute("UPDATE cities SET faction='Эльфы' WHERE name='Home'");self.db.commit()
-        self.assertEqual(w.return_home(self.db,'Север'),'Safe')
+        from portal_home import loss_reason,marked_cities
+        self.assertIn('Home',loss_reason(self.db,'Север'))
+        self.assertEqual(marked_cities(self.db),[])
+        with self.assertRaisesRegex(ValueError,'Поражение'):w.return_home(self.db,'Север')
+        self.db.execute("UPDATE cities SET faction='Север' WHERE name='Home'")
+        self.assertTrue(loss_reason(self.db,'Север'))
+        with self.assertRaises(ValueError):w.return_home(self.db,'Север')
+
+    def test_portal_mark_disappears_after_normal_return(self):
+        from portal_home import marked_cities
+        self.enter();self.assertEqual(marked_cities(self.db),[('Home','Север')])
+        w.return_home(self.db,'Север');self.assertEqual(marked_cities(self.db),[])
 
     def test_markets_have_five_unit_types_and_atomic_finite_stock(self):
         self.enter();self.assertEqual(len(w.unit_offers(self.db)),5)

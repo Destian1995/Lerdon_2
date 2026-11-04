@@ -54,7 +54,8 @@ class MapZoom:
         self.touches = {}
         from city_army_drag import CityArmyDrag
         self.army_drag = CityArmyDrag(owner, self.city_at, self.army_at, self.send_army,
-                                     lambda pos:self.camera.unproject(*pos))
+                                     lambda pos:self.camera.unproject(*pos),
+                                     faction=lambda:self.owner.current_player_kingdom)
         self.running = False
         self.attach_event = None
         self.resize_event = Clock.create_trigger(self.resize,0)

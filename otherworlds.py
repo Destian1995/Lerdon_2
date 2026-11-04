@@ -42,6 +42,8 @@ def ensure_schema(conn):
     conn.execute('''CREATE TABLE IF NOT EXISTS portal_parties(
         faction TEXT PRIMARY KEY,world_id INTEGER NOT NULL,city_id INTEGER NOT NULL,
         source TEXT NOT NULL,camp TEXT NOT NULL UNIQUE)''')
+    from portal_home import install
+    install(conn)
     conn.execute('''CREATE TABLE IF NOT EXISTS portal_market(
         city_id INTEGER NOT NULL,kind TEXT NOT NULL,item TEXT NOT NULL,
         stock INTEGER NOT NULL,turn INTEGER NOT NULL,PRIMARY KEY(city_id,kind,item))''')
@@ -282,11 +284,12 @@ def travel(conn,faction,destination):
 def return_home(conn,faction):
     with atomic(conn):
         p,_=_party_city(conn,faction)
+        from portal_home import loss_reason
+        reason=loss_reason(conn,faction)
+        if reason:raise ValueError(reason)
         if p['city_id']!=1:
             raise ValueError('Для возвращения дойдите до Врат странников.')
         home=conn.execute('SELECT name FROM cities WHERE name=? AND faction=?',(p['source'],faction)).fetchone()
-        if not home:
-            home=conn.execute('SELECT name FROM cities WHERE faction=? ORDER BY name LIMIT 1',(faction,)).fetchone()
         if not home:
             raise ValueError('В основном мире не осталось вашего города для возвращения.')
         _move(conn,faction)

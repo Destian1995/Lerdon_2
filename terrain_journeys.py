@@ -36,6 +36,8 @@ def ensure_schema(conn):
         stage INTEGER NOT NULL DEFAULT 0,ready_turn INTEGER NOT NULL)''')
     if 'destination_owner' not in {r[1] for r in conn.execute('PRAGMA table_info(terrain_journeys)')}:
         conn.execute('ALTER TABLE terrain_journeys ADD COLUMN destination_owner TEXT')
+    from terrain_encounters import ensure_schema as encounter_schema
+    encounter_schema(conn)
 
 
 def features(conn):
@@ -158,6 +160,8 @@ def generate_features(conn, terrain=None, rng=None,sprite_scale=1,label_size_pro
     # Commit only a complete, non-overlapping plan. No unsafe fallback sites.
     conn.execute("DELETE FROM garrisons WHERE city_name IN (SELECT camp FROM terrain_journeys)")
     conn.execute('DELETE FROM terrain_journeys')
+    conn.execute('DELETE FROM terrain_battles')
+    conn.execute('UPDATE terrain_arrival_clock SET value=0 WHERE id=1')
     conn.execute('DELETE FROM map_features')
     road_columns={r[1] for r in conn.execute('PRAGMA table_info(roads)')}
     next_id=conn.execute('SELECT COALESCE(MAX(id),0)+1 FROM roads').fetchone()[0] if 'id' in road_columns else None
@@ -266,8 +270,11 @@ def start_journey(conn, faction, source, destination, units, mode='move'):
             conn.execute('UPDATE garrisons SET unit_count=unit_count-? WHERE city_name=? AND unit_name=?', (count,source,name))
             _credit(conn,camp,name,count,image,exp,training_source=source)
         conn.execute('DELETE FROM garrisons WHERE unit_count<=0')
-    journey = dict(faction=faction,camp=camp,route=json.dumps(chain),destination=destination)
-    _queue_leg(conn,journey,(0,0),(stops[0]['edge'],stops[0]['ratio']))
+        journey = dict(faction=faction,camp=camp,route=json.dumps(chain),destination=destination)
+        _queue_leg(conn,journey,(0,0),(stops[0]['edge'],stops[0]['ratio']))
+        from terrain_encounters import mark_arrival,resolve_entry
+        mark_arrival(conn,cur.lastrowid)
+        resolve_entry(conn,cur.lastrowid)
     return cur.lastrowid
 
 
@@ -361,6 +368,8 @@ def _start_return(conn,row,stop,turn):
             ready_turn=?,destination_owner=? WHERE id=?''',
             (target,returning['route'],returning['stops'],ready,row['faction'],row['id']))
         _queue_leg(conn,returning,start,(stops[0]['edge'],stops[0]['ratio']))
+        from terrain_encounters import mark_arrival,resolve_entry
+        mark_arrival(conn,row['id']);resolve_entry(conn,row['id'])
         return True
     _queue_leg(conn,returning,start,(len(chain)-2,1))
     if _finish(conn,returning):
@@ -407,10 +416,15 @@ def _finish(conn, row):
 def advance_journeys(conn, turn):
     """Advance once per global turn; a second call cannot consume another day."""
     ensure_schema(conn)
+    from terrain_encounters import resolve_waiting,mark_arrival,resolve_entry
+    with conn:resolve_waiting(conn)
     columns = ('id','faction','source','destination','camp','mode','route','stops','stage','ready_turn','destination_owner')
     rows = [dict(zip(columns,r)) for r in conn.execute('SELECT '+','.join(columns)+
             ' FROM terrain_journeys WHERE ready_turn<=? ORDER BY id',(turn,))]
     for row in rows:
+        # Another waiting army may have destroyed or sent this camp back.
+        fresh=conn.execute('SELECT stage,ready_turn,mode FROM terrain_journeys WHERE id=?',(row['id'],)).fetchone()
+        if fresh is None or tuple(fresh)!=(row['stage'],row['ready_turn'],row['mode']):continue
         stops = json.loads(row['stops'])
         previous = stops[row['stage']]
         start = (previous['edge'],previous['ratio'])
@@ -424,6 +438,7 @@ def advance_journeys(conn, turn):
             conn.execute('UPDATE terrain_journeys SET stage=stage+1,ready_turn=? WHERE id=?',
                          (turn+nxt['delay'],row['id']))
             _queue_leg(conn,row,start,(nxt['edge'],nxt['ratio']))
+            mark_arrival(conn,row['id']);resolve_entry(conn,row['id'])
         else:
             chain = json.loads(row['route'])
             _queue_leg(conn,row,start,(len(chain)-2,1),capture=_destination_policy(conn,row)[2])

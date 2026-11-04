@@ -81,6 +81,20 @@ class HuntTests(unittest.TestCase):
         self.turn(7)
         self.assertEqual(garrison_totals(self.db,'Home'),earned)
 
+    def test_training_adds_new_duration_to_remaining_days_exactly_once(self):
+        eid=begin_hunt(self.db,6,'Север');resolve_hunt(self.db,eid);finish_hunt(self.db,eid)
+        self.turn(6)
+        self.assertEqual(progress(self.db,'Север')['veteran_until']-6,9)
+        eid=begin_hunt(self.db,7,'Север');result=resolve_hunt(self.db,eid)
+        self.assertEqual(progress(self.db,'Север')['veteran_until']-6,25)
+        self.assertEqual(resolve_hunt(self.db,eid),result)
+        self.assertEqual(progress(self.db,'Север')['veteran_until']-6,25)
+        self.assertEqual(self.db.execute('SELECT DISTINCT until_turn FROM monster_training_ranks').fetchall(),[(31,)])
+        finish_hunt(self.db,eid)
+        self.turn(40)
+        eid=begin_hunt(self.db,1,'Север');resolve_hunt(self.db,eid)
+        self.assertEqual(progress(self.db,'Север')['veteran_until'],47)
+
     def test_faction_cooldown_applies_across_all_lairs_exactly_five_turns(self):
         eid=begin_hunt(self.db,1,'Север');resolve_hunt(self.db,eid);finish_hunt(self.db,eid)
         for turn in (0,1,4):

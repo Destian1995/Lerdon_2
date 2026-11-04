@@ -256,6 +256,21 @@ class CityWarEffectsTests(CityWarFixture):
         self.fx.sync(cities, {}, 5)
         self.assertEqual(self.fx.flags, [])
 
+    def test_portal_shield_uses_faction_color_pulses_and_clears(self):
+        from map_city_effects import FACTION_RGB
+        self.fx.sync(self.cities,{},5,portals=[('Town','Север')])
+        self.layer.update(.1)
+        city,(glow_color,glow),color,outline=self.fx.portal_shields[0]
+        self.assertEqual(tuple(color.rgb),FACTION_RGB['Север'])
+        first=list(outline.points);alpha=color.a
+        self.layer.update(.2);self.assertNotEqual(color.a,alpha)
+        self.layer.configure((100,50),.5);self.layer.update(.1)
+        self.assertNotEqual(first,list(outline.points))
+        self.fx.sync(self.cities,{},5,portals=[('Town','Вампиры')])
+        self.assertEqual(tuple(self.fx.portal_shields[0][2].rgb),FACTION_RGB['Вампиры'])
+        self.fx.sync(self.cities,{},5)
+        self.assertFalse(self.fx.portal_shields);self.assertFalse(self.fx.portal_group.children)
+
     def test_faction_standards_use_distinct_symbols_and_clear_the_badge(self):
         from map_city_effects import FACTION_EMBLEMS, faction_emblem, standard_layout
         from map_terrain import city_sprite_size
@@ -417,7 +432,7 @@ class CityWarEffectsTests(CityWarFixture):
         for _ in range(50):
             self.fx.play('Town', 'peace', 'Север')
         self.assertEqual(len(self.fx.captures), 8)
-        self.assertEqual(len(self.fx.group.children), 11)
+        self.assertEqual(len(self.fx.group.children), 12)
 
     def test_real_city_renderer_switches_ruins_back_to_faction_icon(self):
         path = Path(__file__).resolve().parents[1] / 'main.py'

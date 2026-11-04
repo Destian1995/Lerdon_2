@@ -69,4 +69,6 @@ def council_event(calls=None):
 
 def crafting():
     from create_artifacts import workshop
-    workshop(SimpleNamespace(money=100000, faction='Север'), None)
+    db=sqlite3.connect(':memory:')
+    workshop(SimpleNamespace(money=100000, faction='Север'), db)
+    return db
