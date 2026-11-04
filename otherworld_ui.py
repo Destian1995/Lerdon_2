@@ -43,7 +43,8 @@ def _busy(conn):
 
 
 def _button(text,callback,**kwargs):
-    result=StrategyButton(text=text,**kwargs)
+    from mirror_readable_ui import ReadableButton
+    result=ReadableButton(text=text,**kwargs)
     from mirror_layout import compact_frame
     compact_frame(result)
     result.bind(on_release=callback)
@@ -171,7 +172,7 @@ class WorldMapCanvas(StencilView):
                 icon_height=size*texture.height/texture.width
                 Rectangle(texture=texture,pos=(x-size/2,y-icon_height*.3),size=(size,icon_height))
                 self.city_bounds.append((x-size/2,y-icon_height*.3,size,icon_height,city['id']))
-                label=CoreLabel(text=city['name'],font_size=min(sp(24),max(12,self.width*.020))*(1+(zoom-1)*.6),bold=True,color=TEXT)
+                label=CoreLabel(text=city['name'],font_size=min(sp(19),max(sp(15),self.width*.020))*(1+(zoom-1)*.6),bold=True,color=TEXT)
                 label.refresh();w,h=label.texture.size
                 for dx,dy in ((-1,-1),(1,-1),(-1,1),(1,1),(0,-2),(0,2),(-2,0),(2,0)):
                     Color(.025,.018,.05,.95)
@@ -353,40 +354,43 @@ class OtherworldMap(WorldPopup):
 
     def layout_content(self):
         if not hasattr(self,'zoom_controls'):return
-        self.root.padding=3;self.root.spacing=0
+        self.root.padding=dp(3);self.root.spacing=0
         x,y=self.stage.pos;w,h=self.stage.size
         portrait=w<h
-        resource_width=min(230,w*.30 if not portrait else w*.46)
-        self.resource_panel.size=(resource_width,min(174,max(108,h*.30)))
-        self.resource_panel.pos=(x+8,y+h-self.resource_panel.height-8)
-        for label in self.resource_labels.values():label.maximum=min(24,max(16,h*.04))
-        self.header.size=(min(500,w-resource_width-90),min(64,max(44,h*.115)))
-        self.header.pos=(max(self.resource_panel.right+10,x+(w-self.header.width)/2),y+h-self.header.height-8)
-        self.heading.font_size=min(28,max(18,h*.046),self.header.width*.063)
-        self.map_close.size=(self.header.height,self.header.height)
-        self.map_close.pos=(x+w-self.map_close.width-8,y+h-self.map_close.height-8)
-        self.status.size=(resource_width,min(62,max(44,h*.11)))
-        self.status.pos=(self.resource_panel.x,self.resource_panel.y-self.status.height-6)
+        margin=dp(6)
+        resource_width=dp(150) if not portrait else min(dp(170),w*.46)
+        self.resource_panel.size=(resource_width,dp(110))
+        self.resource_panel.pos=(x+margin,y+h-self.resource_panel.height-margin)
+        for label in self.resource_labels.values():
+            label.maximum=sp(14);label.minimum=sp(13)
+        self.header.size=(max(dp(100),min(dp(380),w-resource_width-dp(66))),dp(38))
+        self.header.pos=(self.resource_panel.right+dp(6),y+h-self.header.height-margin)
+        self.heading.font_size=sp(18)
+        self.map_close.size=(dp(40),dp(40))
+        self.map_close.pos=(x+w-dp(40)-margin,y+h-dp(40)-margin)
+        self.map_close.font_size=sp(24)
+        self.status.size=(resource_width,dp(38))
+        self.status.pos=(self.resource_panel.x,self.resource_panel.y-dp(42))
+        self.status.maximum=sp(14);self.status.minimum=sp(13)
         if portrait:
-            self.header.size=(w-self.map_close.width-24,self.header.height)
-            self.header.pos=(x+8,y+h-self.header.height-8)
-            self.heading.font_size=min(25,max(18,w*.055))
-            self.resource_panel.pos=(x+8,self.header.y-self.resource_panel.height-8)
-            self.status.size=(max(1,w-resource_width-24),self.resource_panel.height)
-            self.status.pos=(self.resource_panel.right+8,self.resource_panel.y)
-        self.status.maximum=min(22,max(14,h*.035))
-        self.action_bar.pos=(x+8,y+8);self.action_bar.width=w-16
+            self.header.size=(w-dp(58),dp(38))
+            self.header.pos=(x+margin,y+h-dp(38)-margin)
+            self.resource_panel.pos=(x+margin,self.header.y-dp(116))
+            self.status.size=(max(1,w-resource_width-dp(18)),dp(110))
+            self.status.pos=(self.resource_panel.right+dp(6),self.resource_panel.y)
         self.action_bar.cols=2 if portrait else 4
-        self.action_bar.height=(dp(104) if portrait else max(dp(48),min(dp(64),h*.16)));self.action_bar.spacing=8
-        self.return_button.text='Вернуться через портал' if w>850 else 'Портал'
-        for button in self.action_bar.children:button.font_size=min(21,max(14,h*.033),w*.045 if portrait else 21)
-        self.zoom_controls.size=(min(w-16,max(dp(210),w*.20)),max(dp(48),min(dp(60),h*.14)))
-        self.zoom_controls.pos=(x+(w-self.zoom_controls.width)/2,self.action_bar.top+10)
-        for button in self.zoom_controls.children:button.font_size=min(23,max(17,h*.038))
-        self.message.pos=(x+8,self.action_bar.top+10)
-        self.message.size=(max(1,(w-self.zoom_controls.width)/2-20),self.zoom_controls.height)
-        self.turn_progress.pos=(x+8,self.action_bar.top+10)
-        self.turn_progress.size=(w-16,self.zoom_controls.height)
+        self.action_bar.size=(w-2*margin,dp(94 if portrait else 44))
+        self.action_bar.pos=(x+margin,y+margin);self.action_bar.spacing=dp(6)
+        self.return_button.text='Портал'
+        for button in self.action_bar.children:button.font_size=sp(15)
+        self.zoom_controls.size=(dp(148),dp(44))
+        self.zoom_controls.pos=(x+w-dp(148)-margin,
+                                self.resource_panel.y-dp(50) if portrait else self.header.y-dp(48))
+        for button in self.zoom_controls.children:button.font_size=sp(17)
+        self.message.pos=(x+margin,self.action_bar.top+dp(4))
+        self.message.size=(w-2*margin,dp(28));self.message.maximum=sp(13);self.message.minimum=sp(13)
+        self.turn_progress.pos=(x+margin,self.action_bar.top+dp(4))
+        self.turn_progress.size=(w-2*margin,dp(36))
 
     def update_turn_progress(self,dt):
         screen=_screen(self.conn)
@@ -496,19 +500,23 @@ class ForeignCityPopup(WorldPopup):
         self.header.add_widget(self.city_image,
                                index=len(self.header.children))
         from mirror_layout import FitLabel
-        self.info=FitLabel(text='',maximum=sp(14),color=GOLD,size_hint_y=None,height=dp(28))
-        self.root.add_widget(self.info)
+        from mirror_readable_ui import ReadableText
+        self.info=ReadableText('',size=14,color=GOLD)
+        self.header.remove_widget(self.heading)
+        self.city_titles=BoxLayout(orientation='vertical')
+        self.city_titles.add_widget(self.heading);self.city_titles.add_widget(self.info)
+        self.header.add_widget(self.city_titles,index=1)
         body=self.body=BoxLayout(spacing=dp(10))
         left=surface(BoxLayout(orientation='vertical',padding=dp(10),spacing=dp(8)),SURFACE,self.accent)
         self.army_panel=left
         from mirror_layout import FitLabel
-        self.army_title=FitLabel(text='Гарнизон экспедиции',color=self.accent,bold=True,size_hint_y=None)
-        self.army_totals=FitLabel(text='',color=GREEN,size_hint_y=None)
-        self.guard_label=FitLabel(text='',color=GOLD,size_hint_y=None)
+        self.army_title=ReadableText('Мощь гарнизона',size=15,color=self.accent,bold=True)
+        self.army_totals=ReadableText('',size=14,color=GREEN)
+        self.guard_label=ReadableText('',size=14,color=GOLD)
         left.add_widget(self.army_title);left.add_widget(self.army_totals)
         from mirror_city_services import ExpeditionRoster
         self.army_box=ExpeditionRoster()
-        left.add_widget(self.army_box);left.add_widget(self.guard_label)
+        left.add_widget(self.army_box)
         self.market=surface(BoxLayout(orientation='vertical',padding=dp(10),spacing=dp(8)),SURFACE,GOLD)
         from mirror_layout import compact_frame
         compact_frame(left);compact_frame(self.market)
@@ -523,58 +531,73 @@ class ForeignCityPopup(WorldPopup):
         from mirror_layout import CardPager
         self.offers=CardPager(accent=GOLD)
         self.market.add_widget(self.offers)
-        self.services=surface(BoxLayout(orientation='vertical',padding=dp(12),spacing=dp(12)),SURFACE,self.accent)
-        compact_frame(self.services)
+        self.service_panel=surface(BoxLayout(orientation='vertical',padding=dp(6),spacing=dp(6)),SURFACE,self.accent)
+        compact_frame(self.service_panel)
+        self.service_panel.add_widget(self.guard_label)
+        from otherworld_themes import image_path
+        self.bartender=Image(source=image_path(self.faction,'women','bartender'),mipmap=True,fit_mode='contain')
+        self.service_panel.add_widget(self.bartender)
+        self.services=BoxLayout(size_hint_y=None,height=dp(48),spacing=dp(4))
+        self.tavern_button=_button('Задания',self.open_tasks,accent=self.accent)
         self.market_button=_button('Рынок',self.open_market,accent=GOLD)
         self.recruit_button=_button('Найм',self.open_recruitment,accent=self.accent)
-        self.tavern_button=_button('Таверна',self.open_tavern,accent=self.accent)
-        for w in (self.market_button,self.recruit_button,self.tavern_button):self.services.add_widget(w)
-        body.add_widget(left);body.add_widget(self.services);self.root.add_widget(body)
-        self.feedback=FitLabel(text='',maximum=sp(14),color=GREEN,size_hint_y=None,height=dp(24))
+        self.tavern_button.size_hint_x=.40
+        self.market_button.size_hint_x=.32
+        self.recruit_button.size_hint_x=.28
+        for widget in (self.tavern_button,self.market_button,self.recruit_button):self.services.add_widget(widget)
+        self.service_panel.add_widget(self.services)
+        body.add_widget(left);body.add_widget(self.service_panel);self.root.add_widget(body)
+        self.feedback=ReadableText('',size=14,color=GREEN)
         self.feedback.bind(text=self._layout_event)
         self.root.add_widget(self.feedback)
-        bar=BoxLayout(size_hint_y=None,height=dp(48),spacing=dp(8))
-        self.action_bar=bar
+        self.action_bar=BoxLayout(size_hint_y=None,height=dp(48))
         self.travel_button=_button('Перейти · 1 действие',self.go)
-        self.battle_button=_button('Сразиться со стражей',self.battle)
-        bar.add_widget(self.travel_button);bar.add_widget(self.battle_button)
-        self.root.add_widget(bar)
+        self.battle_button=_button('Напасть · +3% / 9 х.',self.battle)
+        self.action_bar.add_widget(self.battle_button)
+        left.add_widget(self.action_bar)
         self.refresh()
         self.body.bind(size=self._layout_event)
         self._layout_event()
 
     def layout_content(self):
         if not hasattr(self,'action_bar'):return
-        h,w=self.root.height,self.root.width
-        gap=min(dp(8),h*.012)
-        self.root.padding=min(dp(12),h*.018);self.root.spacing=gap
-        self.header.height=min(dp(58),h*.10)
-        self.heading.font_size=min(sp(24),self.header.height*.55,w*.04)
-        self.header.children[0].width=self.header.height
-        self.city_image.width=self.header.height*1.15
-        self.info.height=min(dp(30),h*.052);self.info.maximum=min(sp(14),self.info.height*.7)
+        self.root.padding=dp(6);self.root.spacing=dp(5)
+        self.header.height=dp(44)
+        self.heading.font_size=sp(18)
+        self.header.children[0].width=dp(40)
+        self.city_image.width=dp(40)
+        self.info.height=max(dp(22),self.info.texture_size[1]+dp(2))
         hint=getattr(self,'_market_hint','')
-        self.feedback.height=min(dp(32),h*.063) if self.feedback.text and self.feedback.text!=hint else 0
-        self.action_bar.height=max(dp(48),min(dp(58),h*.14))
-        self.action_bar.spacing=gap
-        for button in self.action_bar.children:button.font_size=min(20,self.action_bar.height*.36)
-        portrait=w<h*.9
-        self.body.orientation='vertical' if portrait else 'horizontal';self.body.spacing=gap
-        self.army_panel.size_hint=(1,1) if portrait else (.72,1)
-        self.services.size_hint=(1,None) if portrait else (.28,1)
-        self.services.orientation='horizontal' if portrait else 'vertical'
-        if portrait:self.services.height=dp(72)
-        for button in self.services.children:button.font_size=min(sp(22),max(sp(14),w*.025))
-        for panel in (self.army_panel,self.services):
-            panel.padding=max(8,min(dp(10),h*.018));panel.spacing=gap*.6
-        self.army_title.height=self.market_title.height=min(dp(28),h*.052)
-        self.army_title.maximum=self.market_title.maximum=min(sp(18),h*.042)
-        self.army_totals.height=min(dp(32),self.army_panel.height*.10)
-        self.army_totals.maximum=min(sp(17),h*.036)
-        self.guard_label.height=min(dp(58),self.army_panel.height*.18)
-        self.guard_label.maximum=min(sp(14),h*.03)
+        self.feedback.height=max(dp(22),self.feedback.texture_size[1]+dp(2)) if self.feedback.text and self.feedback.text!=hint else 0
+        portrait=self.root.width<dp(500) and self.root.height>self.root.width
+        compact=self.root.height<dp(250) and not portrait
+        self.body.orientation='vertical' if portrait else 'horizontal'
+        self.body.spacing=dp(6)
+        self.army_panel.size_hint=(1,1) if portrait else (.5,1)
+        self.service_panel.size_hint=(1,None) if portrait else (.5,1)
+        if portrait:self.service_panel.height=dp(240)
+        self.army_panel.padding=dp(4);self.army_panel.spacing=dp(3)
+        for index,widget in enumerate((self.army_title,self.army_totals)):
+            if compact and widget.parent is self.army_panel:self.army_panel.remove_widget(widget)
+            elif not compact and widget.parent is None:
+                self.army_panel.add_widget(widget,index=len(self.army_panel.children)-index)
+        self.info.text=self.army_totals.text if compact else getattr(self,'_city_info',self.info.text)
+        self.guard_label.height=max(dp(22),self.guard_label.texture_size[1]+dp(2))
+        self.services.height=dp(44);self.action_bar.height=dp(44)
+        self.market_title.height=dp(24)
+        self.market_title.maximum=sp(17)
         self.tabs.height=dp(44)
-        for button in self.tabs.children:button.font_size=min(sp(15),self.tabs.height*.4)
+        for button in (*self.services.children,*self.tabs.children,self.travel_button,self.battle_button):
+            button.font_size=sp(15)
+
+    def open_tasks(self,*_):
+        if _busy(self.conn) or not self.present():return
+        from otherworld_quest_ui import QuestJournal
+        self.journal=QuestJournal(self.owner,tavern_city=self.city['id'])
+        self.journal.heading.text='Задания · '+self.city['name']
+        self.journal.close_button.text='Вернуться в таверну'
+        self.journal.open()
+        return self.journal
 
     def present(self):
         p=worlds.party(self.conn,self.faction)
@@ -598,16 +621,20 @@ class ForeignCityPopup(WorldPopup):
 
     def refresh(self):
         from utils.garrison_stats import garrison_profiles,garrison_totals
+        from mirror_readable_ui import compact_number
         p=self.present();self.army_box.clear_cards()
         self.recruit_button.disabled=not bool(p)
         self.tavern_button.disabled=not bool(p)
-        self.info.text=('Чужой город · '+('Ваш отряд здесь' if p else 'Отряд в другом городе')+f' · Цены: {self.city["price"]}%')
+        self.info.text=(('Ваш отряд здесь' if p else 'Отряд в другом городе')+f' · Цены: {self.city["price"]}%')
+        self._city_info=self.info.text
         camp=worlds.city_camp(self.conn,self.faction,self.city['id'])
         if worlds._camp_units(self.conn,camp):
-            profiles=garrison_profiles(self.conn,camp,faction=self.faction)
+            profiles=worlds.expedition_profiles(self.conn,self.faction,camp)
             totals=garrison_totals(self.conn,camp,profiles)
-            self.army_totals.text='АТК '+format_number(totals['attack'])+'  ·  ЗАЩ '+format_number(totals['defense'])
-            for name,count,image,exp,*_ in worlds._camp_units(self.conn,camp):
+            self.army_totals.text='АТК '+compact_number(totals['attack'])+' · ЗАЩ '+compact_number(totals['defense'])
+            rows=worlds._camp_units(self.conn,camp)
+            rows.sort(key=lambda row:(str(row[7]).split()[0]=='1',row[0]))
+            for name,count,image,exp,*_ in rows:
                 from mirror_city_services import ExpeditionUnitRow
                 self.army_box.add_card(ExpeditionUnitRow(self,name,count,image,exp,profiles.get(name,{})))
         else:
@@ -615,16 +642,19 @@ class ForeignCityPopup(WorldPopup):
             self.army_totals.text='Ваш отряд в другом городе'
             self.army_box.add_card(FitLabel(text='Независимый город\n'+format_number(self.city['guards'])+' бойцов',color=GOLD,size_hint_y=None,height=dp(80)))
         guard,target=worlds.guard_profile(self.conn,self.faction,self.city)
-        self.guard_label.text=((target or 'Стража')+': '+format_number(guard['unit_count'])+' бойцов\n'+
-            f'АТК {guard["attack"]}  /  ЗАЩ {guard["defense"]} · Общая защита '+format_number(guard['defense']*guard['unit_count'])+'\n'+
-            'Победа: +'+format_number(10_000+self.city['id']*5000)+' крон, опыт +1')
+        self.guard_label.text=('Стража '+compact_number(guard['unit_count'])+' · ЗАЩ '+compact_number(guard['defense']*guard['unit_count'])+
+                               '\nПобеда: +3% урона · 9 х.')
         party=worlds.party(self.conn,self.faction)
         edge=tuple(sorted((party['city_id'],self.city['id']))) if party else (0,0)
         connected=bool(self.conn.execute('SELECT 1 FROM portal_roads WHERE city1=? AND city2=?',edge).fetchone())
         self.travel_button.disabled=bool(p) or not connected
         cooldown=worlds.battle_ready(self.conn,self.faction) if p else 0
         self.battle_button.disabled=not p or cooldown>0
-        self.battle_button.text=f'Отдых стражи: {cooldown} х.' if cooldown else ('Атаковать: '+target if target else 'Бой со стражей')
+        self.battle_button.text=f'Отдых стражи: {cooldown} х.' if cooldown else 'Напасть · +3% / 9 х.'
+        self.action_bar.clear_widgets()
+        self.action_bar.add_widget(self.battle_button if p else self.travel_button)
+        bonus=worlds.guard_bonus_left(self.conn,self.faction)
+        if bonus:self.army_totals.text+=f' · +3% урона ({bonus} х.)'
         self.show_market(self.mode)
 
     def show_market(self,mode):
@@ -633,7 +663,8 @@ class ForeignCityPopup(WorldPopup):
         selected=self.offers.page_index if mode==self.mode else 0
         if mode!=self.mode:self.feedback.text=''
         self._market_hint=''
-        self.info.text=('Чужой город · '+('Ваш отряд здесь' if self.present() else 'Отряд в другом городе')+f' · Цены: {self.city["price"]}%')
+        self.info.text=(('Ваш отряд здесь' if self.present() else 'Отряд в другом городе')+f' · Цены: {self.city["price"]}%')
+        self._city_info=self.info.text
         self.mode=mode;self.offers.clear_cards()
         self.offer_buttons=[]
         for key,button in self.tab_buttons.items():button.set_selected(key==mode)
@@ -665,7 +696,6 @@ class ForeignCityPopup(WorldPopup):
                     self.offer_buttons[-1].disabled=True
             self.feedback.text=('Получатель: '+eligible[0]+' [3 класс] · Сила ×3,3') if eligible else 'Артефакты доступны только героям 3 класса в отряде.'
             self._market_hint=self.feedback.text
-            self.info.text+=' · '+('Герой 3: '+eligible[0]+' · Сила ×3,3' if eligible else 'Нужен герой 3 класса')
         self.offers.select(selected)
         self._layout_event()
 

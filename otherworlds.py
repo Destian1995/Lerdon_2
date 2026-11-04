@@ -14,6 +14,7 @@ from otherworld_content import BACKGROUND,CITY_POSITIONS,CITY_ROADS,unit_catalog
 
 WORLD_NAME = 'Зазеркалье'
 QUEST_GARRISON_DEFENSE = 170_000_000
+CITY_GARRISON_DEFENSE = 45_000_000
 CITY_NAMES = ('Врата странников', 'Аметистовая гавань', 'Серебряный приют',
               'Лунный предел', 'Обсидиановый торг', 'Башни рассвета', 'Звёздный перекрёсток')
 
@@ -47,6 +48,8 @@ def ensure_schema(conn):
     conn.execute('''CREATE TABLE IF NOT EXISTS portal_battles(
         city_id INTEGER NOT NULL,faction TEXT NOT NULL,ready_turn INTEGER NOT NULL,
         PRIMARY KEY(city_id,faction))''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS portal_guard_buffs(
+        faction TEXT PRIMARY KEY,expires_turn INTEGER NOT NULL)''')
     conn.execute('''CREATE TABLE IF NOT EXISTS portal_presentation(
         world_id INTEGER PRIMARY KEY,version INTEGER NOT NULL)''')
     conn.execute('''CREATE TABLE IF NOT EXISTS portal_artifacts(
@@ -451,13 +454,27 @@ def guard_profile(conn,faction,city):
     target=war_target(conn,faction,city['id'])
     count=100_000 if target else city['guards']
     attack=round((45+city['id']*15)*(1.5 if target else 1))
-    defense=QUEST_GARRISON_DEFENSE//count if target else 75+city['id']*20
+    defense=QUEST_GARRISON_DEFENSE//count if target else (CITY_GARRISON_DEFENSE+count-1)//count
     guard=dict(unit_name=target or 'Стражи '+city['name'],unit_count=count,initial_count=count,
                unit_image=image_path(faction,'units','boss') if target else unit_catalog(faction)[0]['image_path'],
                unit_class='1',attack=attack,defense=defense,durability=0,
                unit_type='infantry',initiative=50,morale=100,crit_chance=5)
     guard['units_stats']={'Урон':attack,'Защита':defense,'Живучесть':0,'Класс юнита':'1','Тип':'infantry'}
     return guard,target
+
+
+def guard_bonus_left(conn,faction):
+    ensure_schema(conn)
+    row=conn.execute('SELECT expires_turn FROM portal_guard_buffs WHERE faction=?',(faction,)).fetchone()
+    return max(0,row[0]-current_turn(conn)) if row else 0
+
+
+def expedition_profiles(conn,faction,camp):
+    from utils.garrison_stats import garrison_profiles
+    profiles=garrison_profiles(conn,camp,faction=faction)
+    if guard_bonus_left(conn,faction):
+        for profile in profiles.values():profile['attack']*=1.03
+    return profiles
 
 
 def fight_guards(conn,faction,skirmish=None):
@@ -471,7 +488,7 @@ def fight_guards(conn,faction,skirmish=None):
         p,city=_party_city(conn,faction)
         if battle_ready(conn,faction):
             raise ValueError('Следующий бой здесь через '+str(battle_ready(conn,faction))+' х.')
-        profiles=garrison_profiles(conn,p['camp'],faction=faction)
+        profiles=expedition_profiles(conn,faction,p['camp'])
         army=[]
         for name,count,image,exp,attack,defense,durability,cls in _camp_units(conn,p['camp']):
             if str(cls).split()[0]!='1':
@@ -512,5 +529,8 @@ def fight_guards(conn,faction,skirmish=None):
         coins=(10_000+city['id']*5000) if won else 0
         if coins:
             _grant(conn,faction,'Кроны',coins)
+        if won:
+            conn.execute('INSERT INTO portal_guard_buffs VALUES(?,?) ON CONFLICT(faction) DO UPDATE SET expires_turn=excluded.expires_turn',
+                         (faction,current_turn(conn)+9))
         quest_win=battle_won(conn,faction,city['id']) if won else False
     return dict(won=won,coins=coins,city=city['name'],army=army,guards=[guard],rounds=frames,quest_win=quest_win,quest_target=target)

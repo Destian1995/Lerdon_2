@@ -69,7 +69,7 @@ class MirrorSmallScreenTests(unittest.TestCase):
                     self.assertEqual(city.offers.counter.text,f'{len(city.offers.pages)} / {len(city.offers.pages)}')
                     row=city.army_box.rows.children[0]
                     city.army_box.scroll_to(row,animate=False);settle()
-                    self.inside(city.guard_label,city.army_panel)
+                    self.inside(city.guard_label,city.service_panel)
                     self.inside(city.action_bar,city.root)
                     self.readable(row)
 
@@ -83,10 +83,10 @@ class MirrorSmallScreenTests(unittest.TestCase):
         self.assertEqual(len(journal.cards.pages),2)
         for index,card in enumerate(journal.cards.pages):
             journal.cards.select(index);settle()
-            self.assertIs(journal.cards.carousel.current_slide,card)
+            self.assertIs(card.parent,journal.cards.detail_host)
             for button in card.buttons.children:
                 self.assertIs(button.parent,card.buttons)
-                self.assertGreaterEqual(button.height,48)
+                self.assertGreaterEqual(button.height,44)
             self.assertGreaterEqual(card.scroll.height,40)
             self.readable(card)
         # A repeat run can still have the previous cap buff plus an unclaimed

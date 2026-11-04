@@ -29,7 +29,7 @@ class TownUITests(unittest.TestCase):
 
     def test_scrollable_garrison_and_three_services_fit_small_and_portrait_screens(self):
         self.assertEqual(len(self.city.army_box.rows.children),7)
-        self.assertEqual({b.text for b in self.city.services.children},{'Рынок','Найм','Таверна'})
+        self.assertEqual({b.text for b in self.city.services.children},{'Рынок','Найм','Задания'})
         self.assertIsNone(self.city.market.parent)
         for size,density in (((640,360),1),((1280,576),2),((392,844),1)):
             Window.size=size;Metrics.density=density;settle();self.city.fit();settle()
@@ -58,10 +58,8 @@ class TownUITests(unittest.TestCase):
         self.db.execute("UPDATE portal_parties SET city_id=3 WHERE faction='Север'");self.db.commit()
         self.city=ForeignCityPopup(self.owner,w.cities(self.db,'Север')[2]);self.city.open(animation=False);settle()
         self.city.tavern_button.dispatch('on_release');settle()
-        tavern=self.city.tavern_popup
-        self.assertIsNotNone(tavern.art.texture)
-        tavern.tasks.dispatch('on_release');settle()
-        journal=tavern.journal
+        self.assertIsNotNone(self.city.bartender.texture)
+        journal=self.city.journal
         self.assertEqual(journal.tavern_city,3)
         journal.cards.pages[0].buttons.children[0].dispatch('on_release');settle()
         self.assertIsNotNone(q.state(self.db,'Север'))

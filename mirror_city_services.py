@@ -23,7 +23,7 @@ class ExpeditionRoster(ScrollView):
 
 class ExpeditionUnitRow(BoxLayout):
     def __init__(self,city,name,count,image,experience,profile,**kwargs):
-        super().__init__(size_hint_y=None,height=dp(88),padding=dp(8),spacing=dp(10),**kwargs)
+        super().__init__(size_hint_y=None,height=dp(48),padding=dp(4),spacing=dp(8),**kwargs)
         self.city,self.name,self.count,self.profile=city,name,count,profile
         self.experience=experience
         columns=[r[1] for r in city.conn.execute('PRAGMA table_info(units)')]
@@ -32,17 +32,20 @@ class ExpeditionUnitRow(BoxLayout):
         cls=str(self.unit.get('unit_class','1'))
         surface(self,(.09,.12,.17,1) if cls=='1' else (.17,.13,.08,1),city.accent if cls=='1' else GOLD)
         compact_frame(self)
-        self.art=Image(source=resolve_unit_image(image or self.unit.get('image_path','')),size_hint_x=None,width=dp(64),mipmap=True,fit_mode='contain')
+        self.art=Image(source=resolve_unit_image(image or self.unit.get('image_path','')),size_hint_x=None,width=dp(42),mipmap=True,fit_mode='contain')
         from portrait_ui import style_portrait_image
         style_portrait_image(self.art,enabled=True)
         self.add_widget(self.art)
-        copy=BoxLayout(orientation='vertical',spacing=dp(2))
+        from frontend_ui import NaturalList
+        from mirror_readable_ui import ReadableText,compact_number
+        copy=NaturalList(spacing=dp(1),pos_hint={'center_y':.5})
         label=name.removeprefix('Странник: ').split(' / ')[0]
-        self.title=FitLabel(text=label,bold=True,color=GOLD,maximum=sp(17))
-        self.summary=FitLabel(text=f'{format_number(count)} бойцов · Опыт {experience}',maximum=sp(14),color=MUTED)
-        self.stats=FitLabel(text='АТК '+format_number(profile.get('attack',0)*count)+' · ЗАЩ '+format_number(profile.get('defense',0)*count),maximum=sp(14))
-        for w in (self.title,self.summary,self.stats):copy.add_widget(w)
+        self.title=ReadableText(label+' · '+format_number(count),size=15,bold=True,color=GOLD)
+        self.stats=ReadableText('АТК '+compact_number(profile.get('attack',0)*count)+' · ЗАЩ '+compact_number(profile.get('defense',0)*count),size=14)
+        self.summary=self.stats
+        for w in (self.title,self.stats):copy.add_widget(w)
         self.add_widget(copy)
+        copy.bind(minimum_height=lambda _,h:setattr(self,'height',max(dp(48),h+dp(8))))
         bind_row_tap(self,lambda *_:self.inspect())
 
     def inspect(self):

@@ -92,7 +92,7 @@ class MirrorCampaignTests(unittest.TestCase):
         self.db.execute("UPDATE portal_quest_runs SET war=0 WHERE faction='Север'")
         normal,_=w.guard_profile(self.db,'Север',city)
         self.assertEqual(normal['unit_count'],city['guards'])
-        self.assertEqual(normal['defense'],75+city['id']*20)
+        self.assertGreaterEqual(normal['defense']*normal['unit_count'],45_000_000)
 
     def test_all_factions_have_independent_art_rosters_and_city_names(self):
         maps=set();portraits=set();relics=set()

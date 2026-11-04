@@ -51,20 +51,18 @@ class MirrorCampaignUITests(unittest.TestCase):
         self.assertIn('Действует',city.offer_buttons[0].text)
 
     def test_illustrated_allegiance_choices_show_170_million_defense_and_select_real_side(self):
-        from mirror_allegiance_ui import AllegianceCard,AllegianceChoice
         import random
         q.begin(self.db,'Север',random.Random(54))
         war=q.details(q.state(self.db,'Север'))['war']
         self.db.execute("UPDATE portal_parties SET city_id=? WHERE faction='Север'",(war['embassy'],));self.db.commit()
         journal=QuestJournal(self.map);journal.open(animation=False);settle()
-        card=next(c for c in journal.cards.pages if isinstance(c,AllegianceCard))
+        card=journal.cards.pages[1]
+        journal.cards.select(1);settle()
         self.assertIn('170',card.defense_copy.text)
         self.assertEqual(len(card.buttons.children),2)
         for button in card.buttons.children:
-            self.assertIsInstance(button,AllegianceChoice)
-            self.assertTrue(button.art.texture)
             self.assertFalse(button.disabled)
-            self.assertGreaterEqual(button.name.font_size,12)
+            self.assertGreaterEqual(button.font_size,15)
         button=card.buttons.children[0];side=button.text.removeprefix('Поддержать: ')
         button.dispatch('on_release');settle()
         self.assertEqual(q.state(self.db,'Север')['side'],side)

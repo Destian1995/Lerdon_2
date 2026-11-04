@@ -37,11 +37,11 @@ class OtherworldUITests(unittest.TestCase):
         self.assertEqual(popup.recruitment.carousel.index,1)
         popup.recruitment.popup.dismiss(animation=False);settle()
         self.assertGreater(popup.army_box.parent.height,100)
-        self.assertGreater(popup.services.height,100)
+        self.assertGreater(popup.service_panel.height,100)
         self.assertFalse(popup.battle_button.disabled)
 
         self.assertTrue(popup.travel_button.disabled)
-        for widget in (popup.info,popup.services,popup.feedback,popup.travel_button):
+        for widget in (popup.info,popup.services,popup.feedback,popup.battle_button):
             self.assertGreaterEqual(widget.x,popup.x)
             self.assertGreaterEqual(widget.y,popup.y)
             self.assertLessEqual(widget.right,popup.right+1)

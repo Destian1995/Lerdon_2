@@ -1,5 +1,5 @@
 """A compact journal that exposes the actual, location-gated quest actions."""
-from kivy.metrics import dp
+from kivy.metrics import dp,sp
 from otherworld_ui import WorldPopup,_button,_busy,_refresh_main,_screen
 from otherworld_themes import theme
 from strategy_ui import GOLD
@@ -14,32 +14,29 @@ class QuestJournal(WorldPopup):
         self.tavern_city=tavern_city
         self._feedback_city=None
         super().__init__('ЗАДАНИЯ  /  '+theme(self.faction)['name'],accent=owner.accent,**kwargs)
-        from mirror_layout import FitLabel
-        self.feedback=FitLabel(text='',maximum=15,color=GOLD,size_hint_y=None,height=0)
+        from mirror_readable_ui import ReadableText
+        self.feedback=ReadableText('',size=14,color=GOLD)
         self.root.add_widget(self.feedback)
-        from mirror_layout import CardPager
-        self.cards=CardPager(accent=self.accent)
-        self.root.add_widget(self.cards)
         self.close_button=_button('Вернуться на карту',self.dismiss,size_hint_y=None,height=dp(46),accent=self.accent)
-        self.root.add_widget(self.close_button)
+        from mirror_quest_layout import QuestSplitView
+        self.cards=QuestSplitView(self.close_button,self.accent)
+        self.root.add_widget(self.cards)
         self.cards.bind(size=self._layout_event)
         self.feedback.bind(text=self._layout_event)
         self.refresh()
 
     def layout_content(self):
         if not hasattr(self,'close_button'):return
-        h,w=self.root.height,self.root.width
-        self.root.padding=min(dp(12),h*.018);self.root.spacing=min(dp(8),h*.014)
-        self.header.height=min(dp(46),h*.095)
-        self.header.children[0].width=self.header.height
-        self.heading.font_size=min(dp(22),self.header.height*.6,w*.036)
-        self.feedback.height=min(dp(42),h*.09) if self.feedback.text else 0
-        self.close_button.height=min(54,max(40,h*.12))
-        self.close_button.font_size=min(dp(15),self.close_button.height*.4)
+        self.root.padding=dp(6);self.root.spacing=dp(6)
+        self.header.height=dp(38)
+        self.header.children[0].width=dp(40)
+        self.heading.font_size=sp(19)
+        self.feedback.height=max(dp(22),self.feedback.texture_size[1]+dp(2)) if self.feedback.text else 0
+        self.close_button.height=dp(44);self.close_button.font_size=sp(15)
 
-    def card(self,title,copy,buttons=()):
-        from mirror_layout import QuestCard
-        self.cards.add_card(QuestCard(title,copy,buttons,self.accent))
+    def card(self,title,copy,buttons=(),details=''):
+        from mirror_quest_layout import QuestDetail
+        self.cards.add_card(QuestDetail(title,copy,buttons,self.accent,details=details))
         self._layout_event()
 
     def refresh(self):
@@ -94,12 +91,11 @@ class QuestJournal(WorldPopup):
             buttons=[]
             if stage==0:buttons=[('Поддержать: '+name,lambda *_,n=name:self.step('side',n),here==war['embassy']) for name in war['sides']]
             if stage==1:buttons=[('Доставить припасы',lambda *_:self.step('supply'),here==supply_city)]
-            from mirror_allegiance_ui import AllegianceCard
             from utils.helpers import format_number
             defense=format_number(worlds.QUEST_GARRISON_DEFENSE).replace('.0 ',' ')
-            self.cards.add_card(AllegianceCard(war['title']+'  ·  '+str(stage)+'/3',
-                (war['premise']+'\n\n' if stage==0 else '')+tasks[stage],buttons,self.accent,
-                self.faction,stage,tasks[stage]+'\nЗащита: '+defense+' · Награда: артефакт на 25 ходов.'))
+            self.card(war['title']+'  ·  '+str(stage)+'/3',
+                (war['premise']+'\n\n' if stage==0 else '')+tasks[stage],buttons,
+                details='ЗАЩ '+defense+' · Артефакт 25 х.')
             self._layout_event()
         pending=quests.pending(self.conn,self.faction)
         if pending:

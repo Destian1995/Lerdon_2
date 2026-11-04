@@ -236,6 +236,7 @@ class PortalTests(unittest.TestCase):
 
     def test_battle_real_losses_rewards_and_no_capture(self):
         from test_battle_ui import combat_namespace
+        self.db.execute("UPDATE garrisons SET unit_count=200000 WHERE unit_name='troop1'")
         self.enter();before=list(self.db.execute('SELECT * FROM cities'));money=self.money()
         result=w.fight_guards(self.db,'Север',combat_namespace()['battle_chain'])
         self.assertTrue(result['won'])
