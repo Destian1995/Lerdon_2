@@ -7,7 +7,7 @@ import sqlite3
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
-from utils.trade_offers import resource_offer
+from utils.trade_offers import resource_offer,full_balance_offer
 
 
 def method(path,name):
@@ -22,17 +22,17 @@ class AITradeOfferTests(unittest.TestCase):
     def test_every_faction_and_resource_branch_requests_exactly_six_for_five(self):
         generate=method('ii.py','_generate_trade_exchange')
         parse=method('message_ui.py','trade_terms')
+        db=sqlite3.connect(':memory:');self.addCleanup(db.close)
+        db.executescript("CREATE TABLE resources(faction,resource_type,amount); INSERT INTO resources VALUES('Игрок','Кроны',137),('Игрок','Кристаллы',1201);")
         for faction in ('Север','Эльфы','Вампиры','Элины','Адепты'):
             for crowns,crystals in ((20000,10000),(0,10000),(10000,0),(2500,0),(1500,0),(12345,9837)):
                 for roll in (.1,.9):
-                    ai=SimpleNamespace(faction=faction,resources={'Кроны':crowns,'Кристаллы':crystals})
+                    ai=SimpleNamespace(faction=faction,resources={'Кроны':crowns,'Кристаллы':crystals},db_connection=db,_get_player_faction_name=lambda:'Игрок')
                     with patch('random.random',return_value=roll):trade=generate(ai)
-                    if faction in ('Элины','Адепты') and crowns==1500 and crystals==0:
-                        self.assertIsNone(trade)
-                        continue
                     self.assertIsNotNone(trade,(faction,crowns,crystals))
                     give,amount,want,requested,text=trade
-                    self.assertEqual(requested*5,amount*6)
+                    self.assertAlmostEqual(requested*5,amount*6)
+                    self.assertEqual(requested,1201 if want=='Кристаллы' else 137)
                     self.assertLessEqual(amount,ai.resources[give])
                     self.assertNotEqual(give,want)
                     terms=parse(text)
@@ -42,11 +42,14 @@ class AITradeOfferTests(unittest.TestCase):
         parse=method('message_ui.py','trade_terms')
         for name in ('_elins_diplomacy','_adepts_diplomacy'):
             sent=[]
-            ai=SimpleNamespace(_send_diplomatic_message=lambda kind,text:sent.append(text) or True)
+            generated=resource_offer('Кристаллы',1000)
+            ai=SimpleNamespace(_send_diplomatic_message=lambda kind,text:sent.append(text) or True,
+                               _generate_trade_exchange=lambda:generated)
             with patch('random.random',return_value=0):
                 method('ii.py',name)(ai,{}, {},dict(our_crystals=10489,our_cities=2),80,True,False)
             ((amount,_),(requested,_))=parse(sent[0])
             self.assertEqual(int(requested)*5,int(amount)*6)
+            self.assertIn(generated[4],sent[0])
 
     def test_1000_for_1200_and_exact_execution_in_both_directions(self):
         execute=method('game_process.py','_execute_trade_deal')
@@ -65,5 +68,18 @@ class AITradeOfferTests(unittest.TestCase):
 
     def test_tiny_balance_does_not_create_unfunded_offer(self):
         self.assertIsNone(resource_offer('Кроны',4))
-        ai=SimpleNamespace(faction='Север',resources={'Кроны':0,'Кристаллы':0})
+        db=sqlite3.connect(':memory:');self.addCleanup(db.close)
+        db.executescript("CREATE TABLE resources(faction,resource_type,amount); INSERT INTO resources VALUES('Игрок','Кроны',1000),('Игрок','Кристаллы',1000);")
+        ai=SimpleNamespace(faction='Север',resources={'Кроны':0,'Кристаллы':0},db_connection=db,_get_player_faction_name=lambda:'Игрок')
         self.assertIsNone(method('ii.py','_generate_trade_exchange')(ai))
+
+    def test_non_lot_player_balance_is_spent_in_full_without_truncating_fractional_payment(self):
+        db=sqlite3.connect(':memory:');self.addCleanup(db.close)
+        db.executescript("CREATE TABLE resources(faction,resource_type,amount); CREATE TABLE relations(faction1,faction2,relationship); INSERT INTO resources VALUES('Игрок','Кристаллы',1001),('Игрок','Кроны',0),('Север','Кроны',2000),('Север','Кристаллы',0);")
+        deal=full_balance_offer(db,'Север','Игрок')
+        self.assertEqual(deal[3],1001)
+        screen=SimpleNamespace(conn=db,selected_faction='Игрок',faction=None)
+        method('game_process.py','_execute_trade_deal')(screen,'Север',deal[4],db.cursor())
+        balances={(f,r):a for f,r,a in db.execute('SELECT * FROM resources')}
+        self.assertEqual(balances['Игрок','Кристаллы'],0)
+        self.assertAlmostEqual(balances['Игрок','Кроны'],1001*5/6)

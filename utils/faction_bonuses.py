@@ -190,11 +190,13 @@ def current_effect_rows(conn, faction, season):
     population_mult, factory_mult = {0: (1.2, .85), 1: (1.3, 1.1), 2: (1.1, 1.25),
                                      3: (1.15, 1.2)}.get(season, (1, 1))
     if totals['Больница']:
+        from city_construction import HOSPITAL_GROWTH
         rows.append(('Больницы', totals['Больница'],
-                     f"+{int(totals['Больница'] * 50 * population_mult)} населения и рабочих/ход до налогов (сезон учтён)"))
+                     f"+{int(totals['Больница'] * HOSPITAL_GROWTH * population_mult)} населения и рабочих/ход до налогов (сезон учтён)"))
     if totals['Фабрика']:
+        from city_construction import FACTORY_YIELD
         rows.append(('Фабрики', totals['Фабрика'],
-                     f"{totals['Фабрика'] * 105 * factory_mult:g} кристаллов/ход до потребления; −{totals['Фабрика'] * 20} рабочих/ход"))
+                     f"{totals['Фабрика'] * FACTORY_YIELD * factory_mult:g} кристаллов/ход до потребления; −{totals['Фабрика'] * 20} рабочих/ход"))
     if totals['Рынок']:
         rows.append(('Рынки', totals['Рынок'], f"+{totals['Рынок'] * 10}% доход крон; +{totals['Рынок'] * 10}% к множителю торговли"))
     if totals['Вышка']:

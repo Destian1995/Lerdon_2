@@ -1,0 +1,725 @@
+{
+  "generator": "built-in image_gen",
+  "assets": [
+    {
+      "file": "files/city/interiors/north/city-1.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "9cc94a6cd3a22de76dbfafc9b6bad6a698c97738dd2aa19fa56f643ef62cf9fa",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. fjord harbor below snowy peaks. Faction architecture and lighting: Nordic snow-covered timber longhouses and blue-grey granite, blue rune details, cold clear winter daylight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town.",
+      "reference": null
+    },
+    {
+      "file": "files/city/interiors/vampires/city-1.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "3ae35612236b8a6391f73bb8badd044f275e640e4872cc5d3b2726a8b3dfba89",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. valley beneath a huge moon and jagged dark mountains. Faction architecture and lighting: dark Gothic slate architecture, crimson stained glass, violet arcane lamps, cool purple moonlight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town.",
+      "reference": null
+    },
+    {
+      "file": "files/city/interiors/elves/city-1.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "915aabc70883a6eebc382d32d6d74c24baf81d1e0a212ee655ca3539c5edb0f6",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. ancient forest with a distant waterfall. Faction architecture and lighting: elegant pale living-wood and ivory elven architecture, emerald roofs, sunlit green foliage, soft clear daylight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town.",
+      "reference": null
+    },
+    {
+      "file": "files/city/interiors/adepts/city-1.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "f32a41c95bb89644398e71ebe5804f6964dca9014514a507e47c947c333572f2",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. rugged ochre cliffs beside a deep river. Faction architecture and lighting: fortified golden sandstone religious abbey architecture, amber domes, warm afternoon sun. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town.",
+      "reference": null
+    },
+    {
+      "file": "files/city/interiors/elines/city-1.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "04a2d137af7af51db9ad8fe1dbbceda262134a0a595c8644546f0fc0e3c4da6b",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. high coastal cliffs with distant magical floating rocks. Faction architecture and lighting: arcane academic city of white marble, azure crystal ornaments and fine gold roofs, bright clear daylight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town.",
+      "reference": null
+    },
+    {
+      "file": "files/city/interiors/neutral/city-1.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "93ef54eabae95021c584e5ee2b8325d8251b109ff1d08bf2255f9efd7281fe45",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. green river valley beneath a distant castle ridge. Faction architecture and lighting: original medieval stone and timber settlement with blue-grey roofs, natural temperate daylight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town.",
+      "reference": null
+    },
+    {
+      "file": "files/city/interiors/undead/city-1.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "b32fc6a0aeca80f7883ec258c5bcbb1dbb48625f8201f674bfbb66e4d6cb38c0",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. blighted marsh beside ruined cliffs. Faction architecture and lighting: ancient bone-white and black stone necropolis architecture, pale cyan ghostlight, dark teal moonlight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town.",
+      "reference": null
+    },
+    {
+      "file": "files/city/interiors/rebels/city-1.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "0badd3c55129b3db7b1bb302483c5a14aacc499c0196e8d58dd68996ecfc1beb",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. rust-coloured cliff plateau. Faction architecture and lighting: rough medieval fortified stone and timber architecture, rust-red banners, warm late afternoon daylight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town.",
+      "reference": null
+    },
+    {
+      "file": "files/city/interiors/north/city-2.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "43a6c6a856ae6ed6de680300546c575fb615215a60af42b9453e386022b97f27",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. glacial mountain valley with frozen waterfall. Faction architecture and lighting: Nordic snow-covered timber longhouses and blue-grey granite, blue rune details, cold clear winter daylight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 2: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/north/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/north/city-3.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "ca4368e99be9e55026d133be1bd16f4ce2a2cc9364b1657b70c96645b576cae1",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. pine forest plateau beside icy river. Faction architecture and lighting: Nordic snow-covered timber longhouses and blue-grey granite, blue rune details, cold clear winter daylight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 3: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/north/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/vampires/city-2.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "22c56e31d4453eba5f07bd377e193b0be53f04d5a5d84c0a2d6463516c04974b",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. moonlit lakeside cliffs with bare red-leaf trees. Faction architecture and lighting: dark Gothic slate architecture, crimson stained glass, violet arcane lamps, cool purple moonlight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 2: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/vampires/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/vampires/city-3.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "dd64a610540b0211f4d7aeab4821a89b322453ff68f5236e5e7949a9051f0d64",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. obsidian canyon with distant crimson forest. Faction architecture and lighting: dark Gothic slate architecture, crimson stained glass, violet arcane lamps, cool purple moonlight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 3: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/vampires/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elves/city-2.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "813acadf1684fd89b8c7f52b7ee52666c10f1068c3ab09cff70be7aecdc8887d",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. giant tree canopy above winding forest river. Faction architecture and lighting: elegant pale living-wood and ivory elven architecture, emerald roofs, sunlit green foliage, soft clear daylight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 2: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/elves/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elves/city-3.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "09d64b8dfdb570473653fbcd36a83374a8145e94ab7e2621e2603bc07dbde87b",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. terraced woodland beside a serene green lake. Faction architecture and lighting: elegant pale living-wood and ivory elven architecture, emerald roofs, sunlit green foliage, soft clear daylight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 3: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/elves/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/adepts/city-2.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "a8ae3ffd3c9babc6998c002c60f162ca426bd0361b76231ffa9ca2c0401c042e",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. broad fertile river plain with olive groves. Faction architecture and lighting: fortified golden sandstone religious abbey architecture, amber domes, warm afternoon sun. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 2: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/adepts/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/adepts/city-3.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "940bb60c30ddb1b7b5b7036f480e571d3435f4e4cfc84d0b7ea49840d6c4fff9",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. sacred hillside beneath distant sandstone mountains. Faction architecture and lighting: fortified golden sandstone religious abbey architecture, amber domes, warm afternoon sun. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 3: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/adepts/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elines/city-2.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "f7b94f5a05d67b86a43a223d59b96cd825450da7709503e6297f646be02f864e",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. desert river oasis beneath distant crystalline mesas. Faction architecture and lighting: arcane academic city of white marble, azure crystal ornaments and fine gold roofs, bright clear daylight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 2: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/elines/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elines/city-3.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "6d65fdfbc54c3415115809aca7e78f234a43aa9320a998de04577d6a07c92bcb",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. azure sea harbor beside pale mountain terraces. Faction architecture and lighting: arcane academic city of white marble, azure crystal ornaments and fine gold roofs, bright clear daylight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 3: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/elines/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/neutral/city-2.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "f9918f3ee04930e7e52c7cf53745ce33292f245a66e0a4a720fa55b53408c13d",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. rocky sheltered sea harbor. Faction architecture and lighting: original medieval stone and timber settlement with blue-grey roofs, natural temperate daylight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 2: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/neutral/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/neutral/city-3.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "61c791f6314f55adf503c4dff45422499b105c99c1199cee0dc15c61789ecaf5",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. highland meadow with distant wooded hills. Faction architecture and lighting: original medieval stone and timber settlement with blue-grey roofs, natural temperate daylight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 3: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/neutral/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/undead/city-2.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "2b90ee4ecfcbd9ebb53a3ce563e5e0e36399d66fed19a764a9907fdb3416267c",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. ashen canyon beneath a ruined necropolis ridge. Faction architecture and lighting: ancient bone-white and black stone necropolis architecture, pale cyan ghostlight, dark teal moonlight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 2: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/undead/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/undead/city-3.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "36f079d12c949d347acbd9db78d800103420ea4340bf8e6a9b7b679b5ddf6727",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. dead rocky coastline under drifting ghostly clouds. Faction architecture and lighting: ancient bone-white and black stone necropolis architecture, pale cyan ghostlight, dark teal moonlight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 3: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/undead/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/rebels/city-2.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "0bcb02dba2dd4c0258548103e8ca921ef130d8c2721508599a618f3c1cfadd54",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. rugged forest frontier hillside. Faction architecture and lighting: rough medieval fortified stone and timber architecture, rust-red banners, warm late afternoon daylight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 2: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/rebels/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/rebels/city-3.jpg",
+      "size": [
+        1536,
+        864
+      ],
+      "sha256": "56af77a02bc82837cc53646d9d4d4467fd17603358d9ce8f8ad5cd77deeda667",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL interactive fantasy strategy TOWN INTERIOR PANORAMA, landscape 16:9. rocky foothills beside a broad river. Faction architecture and lighting: rough medieval fortified stone and timber architecture, rust-red banners, warm late afternoon daylight. Painterly richly detailed realistic fantasy game art. Camera elevated three-quarter view about 30 degrees, looking down a gentle terraced city slope. Light from upper left. Distant skyline, citadel, small residential houses only around the outer left and right edges and upper third; a beautiful inhabited town but keep the central and lower two-thirds spacious and open for separately rendered functional buildings. Six unobtrusive buildable dirt/stone clearings at normalized ground anchors: left midground (20%,58% from top), right midground (77%,58%), central upper terrace (50%,40%), lower centre (52%,77%), lower left (22%,83%), upper right (84%,35%). Natural streets connect these clearings. No hospital, factory, market, smithy, watchtower or gate in these clearings: these will be added as sprites later. No drawn placeholder rings, labels, UI, text, border, logos. Full environment fills frame. Design wholly original, no copied existing videogame town. This is panorama variant 3: a genuinely different landscape and city silhouette, with different roads and surrounding residential architecture. Keep the same six empty construction sites, their screen positions, camera and lighting. The reference is a STYLE AND PERSPECTIVE reference, create the different location described above.",
+      "reference": "files/city/interiors/rebels/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/north/hospital.png",
+      "size": [
+        648,
+        443
+      ],
+      "sha256": "ac247cc6f3291bc5ad07f05cd823203c965453614d251c9a6fd50d144699b590",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy healing house and herbal infirmary, distinctive welcoming entrance, healing herb beds, discreet carved healing symbol, residential scale. Match Nordic snow-covered timber longhouses and blue-grey granite, blue rune details, cold clear winter daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/north/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/north/factory.png",
+      "size": [
+        648,
+        441
+      ],
+      "sha256": "ad5db88276e05e9f003c6df4eaa6c85968a5bdee70ef5022d0c8fe082edd358d",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy crystal processing workshop and refinery, two smoking kiln chimneys and crystal-working annex, industrial medieval fantasy craft, not modern industry. Match Nordic snow-covered timber longhouses and blue-grey granite, blue rune details, cold clear winter daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/north/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/north/wall.png",
+      "size": [
+        648,
+        431
+      ],
+      "sha256": "f960a889d8009578adcd6782d7681d12904d66721004aaa9f0a55a5ede6b26a3",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one wide fortified city gatehouse and two short curtain wall wings, a coherent medium-width fortified entrance, not an entire city wall or city. Match Nordic snow-covered timber longhouses and blue-grey granite, blue rune details, cold clear winter daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/north/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/north/market.png",
+      "size": [
+        648,
+        439
+      ],
+      "sha256": "feb7b40f44333627c66cf72cc421a426a2179830fc57e435a096afab45cd3709",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a compact bustling-looking but unpeopled market building and attached covered stalls, coherent cluster of colorful awnings, crates and merchant signs without letters. Match Nordic snow-covered timber longhouses and blue-grey granite, blue rune details, cold clear winter daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/north/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/north/forge.png",
+      "size": [
+        648,
+        442
+      ],
+      "sha256": "ae27bc35df26c2e54027e6ff94d93690cdd8bdc67cbfe8c21b088b1164b41817",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a blacksmith's forge workshop, sturdy roof and stone chimney, orange hearth glow, covered working annex with anvil and neatly stacked tools. Match Nordic snow-covered timber longhouses and blue-grey granite, blue rune details, cold clear winter daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/north/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/north/tower.png",
+      "size": [
+        462,
+        648
+      ],
+      "sha256": "667c346429a79909341427d2d9f64815e371b75a82612006a7d1d29875887602",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one tall slender defensive watchtower, faction-style peaked roof and small lookout balcony, narrow footprint, no attached city. Match Nordic snow-covered timber longhouses and blue-grey granite, blue rune details, cold clear winter daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/north/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/vampires/hospital.png",
+      "size": [
+        648,
+        439
+      ],
+      "sha256": "67dee86061e09620c0af40cc7eb2f734d46e9b15ea41e298b7ae863b501cf062",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy healing house and herbal infirmary, distinctive welcoming entrance, healing herb beds, discreet carved healing symbol, residential scale. Match dark Gothic slate architecture, crimson stained glass, violet arcane lamps, cool purple moonlight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/vampires/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/vampires/factory.png",
+      "size": [
+        648,
+        435
+      ],
+      "sha256": "202d39b61366fd94a6f806e3999fea8770849e11ded306aa8f1498af00f23af8",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy crystal processing workshop and refinery, two smoking kiln chimneys and crystal-working annex, industrial medieval fantasy craft, not modern industry. Match dark Gothic slate architecture, crimson stained glass, violet arcane lamps, cool purple moonlight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/vampires/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/vampires/wall.png",
+      "size": [
+        648,
+        439
+      ],
+      "sha256": "3fd16d74249bf7b9dcc433a1a079c705e2ae5348976a34dff7787f6bfa1942c5",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one wide fortified city gatehouse and two short curtain wall wings, a coherent medium-width fortified entrance, not an entire city wall or city. Match dark Gothic slate architecture, crimson stained glass, violet arcane lamps, cool purple moonlight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/vampires/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/vampires/market.png",
+      "size": [
+        648,
+        441
+      ],
+      "sha256": "471d555ccb6bd64198b5b8a278092fb7fbcbaa0ae5f5d6bded1a1eb1f1354f2f",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a compact bustling-looking but unpeopled market building and attached covered stalls, coherent cluster of colorful awnings, crates and merchant signs without letters. Match dark Gothic slate architecture, crimson stained glass, violet arcane lamps, cool purple moonlight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/vampires/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/vampires/forge.png",
+      "size": [
+        648,
+        445
+      ],
+      "sha256": "b9936a2f3bc192e94411991f21f07884505d078ff0a971e58efd0e000c9e1920",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a blacksmith's forge workshop, sturdy roof and stone chimney, orange hearth glow, covered working annex with anvil and neatly stacked tools. Match dark Gothic slate architecture, crimson stained glass, violet arcane lamps, cool purple moonlight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/vampires/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/vampires/tower.png",
+      "size": [
+        426,
+        648
+      ],
+      "sha256": "fc5d7b7222c496ac9808b7339a91a48184cfb0da84f70275b3f6676ef5eb86fb",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one tall slender defensive watchtower, faction-style peaked roof and small lookout balcony, narrow footprint, no attached city. Match dark Gothic slate architecture, crimson stained glass, violet arcane lamps, cool purple moonlight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/vampires/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elves/hospital.png",
+      "size": [
+        648,
+        438
+      ],
+      "sha256": "156619e79dbec8c1046e6f087e35521c4e057ce2685c990a88264fb38fde3fc3",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy healing house and herbal infirmary, distinctive welcoming entrance, healing herb beds, discreet carved healing symbol, residential scale. Match elegant pale living-wood and ivory elven architecture, emerald roofs, sunlit green foliage, soft clear daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/elves/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elves/factory.png",
+      "size": [
+        648,
+        435
+      ],
+      "sha256": "10594bc76afa69aede7c7176672698657890f9b815131b61d2a4b979373aa390",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy crystal processing workshop and refinery, two smoking kiln chimneys and crystal-working annex, industrial medieval fantasy craft, not modern industry. Match elegant pale living-wood and ivory elven architecture, emerald roofs, sunlit green foliage, soft clear daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/elves/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elves/wall.png",
+      "size": [
+        648,
+        433
+      ],
+      "sha256": "534011c1476fe9cde3e22fb33c0e8c9223e258073d147bb825d827576ba1bd84",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one wide fortified city gatehouse and two short curtain wall wings, a coherent medium-width fortified entrance, not an entire city wall or city. Match elegant pale living-wood and ivory elven architecture, emerald roofs, sunlit green foliage, soft clear daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/elves/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elves/market.png",
+      "size": [
+        648,
+        435
+      ],
+      "sha256": "c5d57569ffde761da9d29f5852360c16066bb10589a5ce075e1aa3aedb78efc7",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a compact bustling-looking but unpeopled market building and attached covered stalls, coherent cluster of colorful awnings, crates and merchant signs without letters. Match elegant pale living-wood and ivory elven architecture, emerald roofs, sunlit green foliage, soft clear daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/elves/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elves/forge.png",
+      "size": [
+        648,
+        436
+      ],
+      "sha256": "7697a102c70b5b541822bd70c4a1d6f2149ad9496650566e31336c95383707c2",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a blacksmith's forge workshop, sturdy roof and stone chimney, orange hearth glow, covered working annex with anvil and neatly stacked tools. Match elegant pale living-wood and ivory elven architecture, emerald roofs, sunlit green foliage, soft clear daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/elves/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elves/tower.png",
+      "size": [
+        444,
+        648
+      ],
+      "sha256": "5420c6ea8bb472dae687ad3f224e4e6664e76fa084a0dd6bd58661ccc58c5864",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one tall slender defensive watchtower, faction-style peaked roof and small lookout balcony, narrow footprint, no attached city. Match elegant pale living-wood and ivory elven architecture, emerald roofs, sunlit green foliage, soft clear daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/elves/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/adepts/hospital.png",
+      "size": [
+        648,
+        435
+      ],
+      "sha256": "e220b0704d9fcf2ede5274dde50ef04786969cf50d015f7a27eacd9820117322",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy healing house and herbal infirmary, distinctive welcoming entrance, healing herb beds, discreet carved healing symbol, residential scale. Match fortified golden sandstone religious abbey architecture, amber domes, warm afternoon sun. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/adepts/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/adepts/factory.png",
+      "size": [
+        648,
+        436
+      ],
+      "sha256": "9fa9e65b16786cef2b14d9314dd3feb051507ee2488369bc32bdbe77708ac05a",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy crystal processing workshop and refinery, two smoking kiln chimneys and crystal-working annex, industrial medieval fantasy craft, not modern industry. Match fortified golden sandstone religious abbey architecture, amber domes, warm afternoon sun. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/adepts/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/adepts/wall.png",
+      "size": [
+        648,
+        435
+      ],
+      "sha256": "2a9c6f184e391944cb099d7ad54474f2588425d943d111d517933725b84e786e",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one wide fortified city gatehouse and two short curtain wall wings, a coherent medium-width fortified entrance, not an entire city wall or city. Match fortified golden sandstone religious abbey architecture, amber domes, warm afternoon sun. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/adepts/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/adepts/market.png",
+      "size": [
+        648,
+        437
+      ],
+      "sha256": "5ba4dde6b44d01c7ed16bb8dac26e01619a5b15f069f0eb6eb2e67f71b8ffd0e",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a compact bustling-looking but unpeopled market building and attached covered stalls, coherent cluster of colorful awnings, crates and merchant signs without letters. Match fortified golden sandstone religious abbey architecture, amber domes, warm afternoon sun. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/adepts/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/adepts/forge.png",
+      "size": [
+        648,
+        439
+      ],
+      "sha256": "6ad15acb47ad41460629a88e2c2f8f27529b66ca1f217c6189f676b82c4c2dac",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a blacksmith's forge workshop, sturdy roof and stone chimney, orange hearth glow, covered working annex with anvil and neatly stacked tools. Match fortified golden sandstone religious abbey architecture, amber domes, warm afternoon sun. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/adepts/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/adepts/tower.png",
+      "size": [
+        439,
+        648
+      ],
+      "sha256": "23b1ca21702bbeba55cb3204086ca34025922f8369e1271463ab1aea3112c4e4",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one tall slender defensive watchtower, faction-style peaked roof and small lookout balcony, narrow footprint, no attached city. Match fortified golden sandstone religious abbey architecture, amber domes, warm afternoon sun. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/adepts/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elines/hospital.png",
+      "size": [
+        648,
+        428
+      ],
+      "sha256": "01046a430bfe3483897828bdd0169a2c69433c5bd2d819f16919b90f844d9c86",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy healing house and herbal infirmary, distinctive welcoming entrance, healing herb beds, discreet carved healing symbol, residential scale. Match arcane academic city of white marble, azure crystal ornaments and fine gold roofs, bright clear daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/elines/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elines/factory.png",
+      "size": [
+        648,
+        436
+      ],
+      "sha256": "7f4a0b514b82ea35cf7ed388ad83a05c5da88e211266c12eb2d4ddc194999279",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy crystal processing workshop and refinery, two smoking kiln chimneys and crystal-working annex, industrial medieval fantasy craft, not modern industry. Match arcane academic city of white marble, azure crystal ornaments and fine gold roofs, bright clear daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/elines/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elines/wall.png",
+      "size": [
+        648,
+        437
+      ],
+      "sha256": "fe6c570dca67093cc107ecf30403d722be258b4ee19a5093ec8af0a95272d14f",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one wide fortified city gatehouse and two short curtain wall wings, a coherent medium-width fortified entrance, not an entire city wall or city. Match arcane academic city of white marble, azure crystal ornaments and fine gold roofs, bright clear daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/elines/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elines/market.png",
+      "size": [
+        648,
+        435
+      ],
+      "sha256": "74d136c9bc8cfa5901de94f51f0d9cbf2d9d96c156ea309c43b15ec1fdfeb850",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a compact bustling-looking but unpeopled market building and attached covered stalls, coherent cluster of colorful awnings, crates and merchant signs without letters. Match arcane academic city of white marble, azure crystal ornaments and fine gold roofs, bright clear daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/elines/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elines/forge.png",
+      "size": [
+        648,
+        435
+      ],
+      "sha256": "cb1f8e9b5b35440abc45e1e9e5c4ce1b510a6161543ce912f9d015fa4454c3a6",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a blacksmith's forge workshop, sturdy roof and stone chimney, orange hearth glow, covered working annex with anvil and neatly stacked tools. Match arcane academic city of white marble, azure crystal ornaments and fine gold roofs, bright clear daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/elines/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/elines/tower.png",
+      "size": [
+        434,
+        648
+      ],
+      "sha256": "862ceea8b88411fa2e930e91908e725469ce7cb4b6ee338fffb7d7cfecc79747",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one tall slender defensive watchtower, faction-style peaked roof and small lookout balcony, narrow footprint, no attached city. Match arcane academic city of white marble, azure crystal ornaments and fine gold roofs, bright clear daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/elines/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/neutral/hospital.png",
+      "size": [
+        648,
+        439
+      ],
+      "sha256": "6cb23c9f2677e2e74cd1957fb8602d238fe3b40ef7d8f46fc90f7c3e807f4603",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy healing house and herbal infirmary, distinctive welcoming entrance, healing herb beds, discreet carved healing symbol, residential scale. Match original medieval stone and timber settlement with blue-grey roofs, natural temperate daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/neutral/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/neutral/factory.png",
+      "size": [
+        648,
+        435
+      ],
+      "sha256": "ab79eaf729735f73f3e141d06f938dc0b9a7f36d980726c0b1a57870d62a04c3",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy crystal processing workshop and refinery, two smoking kiln chimneys and crystal-working annex, industrial medieval fantasy craft, not modern industry. Match original medieval stone and timber settlement with blue-grey roofs, natural temperate daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/neutral/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/neutral/wall.png",
+      "size": [
+        648,
+        426
+      ],
+      "sha256": "8dd946a37cb388821cc28a0dcd0f9522ab9f8616a24b2fa2aecca2269c31c711",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one wide fortified city gatehouse and two short curtain wall wings, a coherent medium-width fortified entrance, not an entire city wall or city. Match original medieval stone and timber settlement with blue-grey roofs, natural temperate daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/neutral/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/neutral/market.png",
+      "size": [
+        648,
+        426
+      ],
+      "sha256": "d3a2103954d5bc3b2fe674844fd63eb78743c4c013d16aca3c18ce90be481866",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a compact bustling-looking but unpeopled market building and attached covered stalls, coherent cluster of colorful awnings, crates and merchant signs without letters. Match original medieval stone and timber settlement with blue-grey roofs, natural temperate daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/neutral/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/neutral/forge.png",
+      "size": [
+        648,
+        439
+      ],
+      "sha256": "5bf192f24e17457b73e5830f89fbcbb8b7d467a58d4216c85b3e4e1bf00b44c6",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a blacksmith's forge workshop, sturdy roof and stone chimney, orange hearth glow, covered working annex with anvil and neatly stacked tools. Match original medieval stone and timber settlement with blue-grey roofs, natural temperate daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/neutral/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/neutral/tower.png",
+      "size": [
+        436,
+        648
+      ],
+      "sha256": "fd77016f7fd470e107927d26f4be5b282e3306527c458d67d37760f535ec1d78",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one tall slender defensive watchtower, faction-style peaked roof and small lookout balcony, narrow footprint, no attached city. Match original medieval stone and timber settlement with blue-grey roofs, natural temperate daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/neutral/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/undead/hospital.png",
+      "size": [
+        648,
+        436
+      ],
+      "sha256": "eb511065b9d12ad1cfd88c9e6dccc8c30ae48de35878259334b0450839874cb4",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy healing house and herbal infirmary, distinctive welcoming entrance, healing herb beds, discreet carved healing symbol, residential scale. Match ancient bone-white and black stone necropolis architecture, pale cyan ghostlight, dark teal moonlight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/undead/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/undead/factory.png",
+      "size": [
+        648,
+        438
+      ],
+      "sha256": "ac6c071dbd9a81e9045919d44c92c18f5d095b8ce619a95db06801c8f9cc5965",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy crystal processing workshop and refinery, two smoking kiln chimneys and crystal-working annex, industrial medieval fantasy craft, not modern industry. Match ancient bone-white and black stone necropolis architecture, pale cyan ghostlight, dark teal moonlight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/undead/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/undead/wall.png",
+      "size": [
+        648,
+        435
+      ],
+      "sha256": "a233ffac95f5ad5f1cf8232ef803197f5eba60e9120579423085e951dbaeb495",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one wide fortified city gatehouse and two short curtain wall wings, a coherent medium-width fortified entrance, not an entire city wall or city. Match ancient bone-white and black stone necropolis architecture, pale cyan ghostlight, dark teal moonlight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/undead/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/undead/market.png",
+      "size": [
+        648,
+        435
+      ],
+      "sha256": "c67bca77cdcaa06d0eafeb99ba6f3d8a03849f4549054d4402a7cb8cc08e276a",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a compact bustling-looking but unpeopled market building and attached covered stalls, coherent cluster of colorful awnings, crates and merchant signs without letters. Match ancient bone-white and black stone necropolis architecture, pale cyan ghostlight, dark teal moonlight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/undead/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/undead/forge.png",
+      "size": [
+        648,
+        435
+      ],
+      "sha256": "92d25f97e510a71136b8ca1ca0a2f4e8d89c467bf1356df4b3e9cebb8be97995",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a blacksmith's forge workshop, sturdy roof and stone chimney, orange hearth glow, covered working annex with anvil and neatly stacked tools. Match ancient bone-white and black stone necropolis architecture, pale cyan ghostlight, dark teal moonlight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/undead/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/undead/tower.png",
+      "size": [
+        419,
+        648
+      ],
+      "sha256": "59849a23a0e431799f8a8b4c61a82c060f0f3777c7de8230bcca1c76d0bdc807",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one tall slender defensive watchtower, faction-style peaked roof and small lookout balcony, narrow footprint, no attached city. Match ancient bone-white and black stone necropolis architecture, pale cyan ghostlight, dark teal moonlight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/undead/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/rebels/hospital.png",
+      "size": [
+        648,
+        435
+      ],
+      "sha256": "1bfd757e489a3f465bba98fc80d63965c5b08a989117af31b3f9f79097cabcdd",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy healing house and herbal infirmary, distinctive welcoming entrance, healing herb beds, discreet carved healing symbol, residential scale. Match rough medieval fortified stone and timber architecture, rust-red banners, warm late afternoon daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/rebels/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/rebels/factory.png",
+      "size": [
+        648,
+        439
+      ],
+      "sha256": "2e80ddbd32fc7d1ce1f90a5f5d327726413a16aadc14bb457071145c7ed7afbf",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy crystal processing workshop and refinery, two smoking kiln chimneys and crystal-working annex, industrial medieval fantasy craft, not modern industry. Match rough medieval fortified stone and timber architecture, rust-red banners, warm late afternoon daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/rebels/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/rebels/wall.png",
+      "size": [
+        648,
+        436
+      ],
+      "sha256": "6a8658b40f28e6785526fa68f1999a525df38b1ff864ce39542678907f71c2ec",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one wide fortified city gatehouse and two short curtain wall wings, a coherent medium-width fortified entrance, not an entire city wall or city. Match rough medieval fortified stone and timber architecture, rust-red banners, warm late afternoon daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/rebels/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/rebels/market.png",
+      "size": [
+        648,
+        437
+      ],
+      "sha256": "63c7c809ea3632c60514337455a8c770dabd15a526e47667acccf7de7dde56c4",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a compact bustling-looking but unpeopled market building and attached covered stalls, coherent cluster of colorful awnings, crates and merchant signs without letters. Match rough medieval fortified stone and timber architecture, rust-red banners, warm late afternoon daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/rebels/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/rebels/forge.png",
+      "size": [
+        648,
+        435
+      ],
+      "sha256": "7f13acb17b77ad898095f59823aebbbd84604def7859b2f6130f32d1457b0553",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a blacksmith's forge workshop, sturdy roof and stone chimney, orange hearth glow, covered working annex with anvil and neatly stacked tools. Match rough medieval fortified stone and timber architecture, rust-red banners, warm late afternoon daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/rebels/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/rebels/tower.png",
+      "size": [
+        434,
+        648
+      ],
+      "sha256": "7879c89fb6d8a1e8d92c879ca632c05115c6461343535c26934f21af491fd7eb",
+      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one tall slender defensive watchtower, faction-style peaked roof and small lookout balcony, narrow footprint, no attached city. Match rough medieval fortified stone and timber architecture, rust-red banners, warm late afternoon daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
+      "reference": "files/city/interiors/rebels/city-1.jpg"
+    }
+  ]
+}

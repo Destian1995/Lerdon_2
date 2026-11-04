@@ -181,155 +181,40 @@ class Faction:
         return resources
 
     def load_auto_build_settings(self):
-        conn = self.conn
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT enabled, hospitals_ratio, factories_ratio 
-            FROM auto_build_settings 
-            WHERE faction = ?
-        ''', (self.faction,))
-        result = cursor.fetchone()
+        from city_development import average_loyalty
+        self.auto_build_ratio=(1,1)
+        self.auto_build_enabled=average_loyalty(self.conn,self.faction)>80
 
-        if result:
-            self.auto_build_enabled = bool(result[0])
-            # Сохраняем пропорцию как кортеж целых чисел
-            self.auto_build_ratio = (result[1], result[2])
-        else:
-            self.auto_build_ratio = (1, 1)  # Значение по умолчанию
 
     def save_auto_build_settings(self):
-        conn = self.conn
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT OR REPLACE INTO auto_build_settings 
-            (faction, enabled, hospitals_ratio, factories_ratio)
-            VALUES (?, ?, ?, ?)
-        ''', (self.faction, int(self.auto_build_enabled),
-              self.auto_build_ratio[0], self.auto_build_ratio[1]))
-        conn.commit()
+        self.load_auto_build_settings()
 
-    def city_has_space(self, city_name):
-        current = self.cities_buildings.get(city_name, {"Больница": 0, "Фабрика": 0})
-        return current["Больница"] + current["Фабрика"] < 25
+
+    def city_has_space(self,city_name):
+        from city_construction import building_counts,CATALOG
+        current=building_counts(self.conn,city_name,self.faction)
+        return any(not current.get(name,0) for name in CATALOG)
+
 
     # Основной метод автоматического строительства
     def auto_build(self):
-        """
-        Рассчитывает количество возможных зданий на основе текущих ресурсов
-        и передает результат в методы build_factory и build_hospital.
-        Учитывает лимит в 10 зданий на город и минимальное количество крон (200).
-        """
-        if not self.auto_build_enabled:
-            return
-
-        # Проверяем, достаточно ли денег для строительства
-        if self.money < 10:
-            print("Недостаточно крон для авто-строительства. Минимум требуется 200 крон.")
-            return
-
-        print("Проверка доступных городов перед загрузкой:", self.cities)
-        # Загружаем актуальные данные о городах и зданиях
-        self.load_cities()
-        self.load_buildings()
-
-        # Получаем соотношение из настроек авто-строительства
-        hospitals_ratio, factories_ratio = self.auto_build_ratio
-        total_per_cycle = hospitals_ratio + factories_ratio
-
-        if total_per_cycle == 0:
-            return
-
-        # Определяем стоимость одного цикла строительства
-        hospital_cost = 15
-        factory_cost = 10
-        cost_per_cycle = hospitals_ratio * hospital_cost + factories_ratio * factory_cost
-
-        if cost_per_cycle == 0:
-            return
-
-        # Проверяем доступные ресурсы
-        max_cycles_by_money = self.money // cost_per_cycle
-        if max_cycles_by_money == 0:
-            return
-
-        # Проверяем доступное место в городах
-        available_cities = []
-        print("Проверка доступных городов после загрузки:", self.cities)
-        for city in self.cities:
-            city_name = city['name']
-            current_buildings = self.cities_buildings.get(city_name, {"Больница": 0, "Фабрика": 0})
-            total_current = current_buildings["Больница"] + current_buildings["Фабрика"]
-            space_left = 25 - total_current
-            available_cities.extend([city_name] * (space_left // total_per_cycle))
-
-        # Если доступных городов нет, завершаем выполнение
-        if not available_cities:
-            print("Нет доступных городов для строительства.")
-            return
-
-        max_cycles_by_cities = len(available_cities) // total_per_cycle
-        max_full_cycles = min(max_cycles_by_money, max_cycles_by_cities)
-
-        if max_full_cycles == 0:
-            print("Недостаточно ресурсов или места в городах для строительства.")
-            return
-
-        # Рассчитываем общее количество зданий
-        total_hospitals = hospitals_ratio * max_full_cycles
-        total_factories = factories_ratio * max_full_cycles
-        total_cost = max_full_cycles * cost_per_cycle
-
-        # Списываем средства
-        if not self.cash_build(total_cost):
-            print("Не удалось списать средства для строительства.")
-            return
-
-        # Распределяем здания по городам
-        try:
-            # ✅ Исправленная строка: используем int() для округления
-            selected_count = int(max_full_cycles * total_per_cycle)
-            # Дополнительно проверим, чтобы не превысить длину available_cities
-            selected_count = min(selected_count, len(available_cities))
-            selected_cities = random.sample(available_cities, selected_count)
-        except ValueError:
-            print("Ошибка при выборе городов. Возможно, недостаточно доступных городов.")
-            return
-
-        try:
-            # Группируем здания по городам
-            city_buildings = {}
-            for i in range(total_hospitals):
-                city = selected_cities[i]
-                if self.city_has_space(city):  # Проверяем, есть ли место в городе
-                    if city not in city_buildings:
-                        city_buildings[city] = {"Больница": 0, "Фабрика": 0}
-                    city_buildings[city]["Больница"] += 1
-
-            for i in range(total_hospitals, total_hospitals + total_factories):
-                city = selected_cities[i]
-                if self.city_has_space(city):  # Проверяем, есть ли место в городе
-                    if city not in city_buildings:
-                        city_buildings[city] = {"Больница": 0, "Фабрика": 0}
-                    city_buildings[city]["Фабрика"] += 1
-
-            # Строим здания за один вызов для каждого города
-            for city, buildings in city_buildings.items():
-                if buildings["Больница"] > 0:
-                    self.build_hospital(city, quantity=buildings["Больница"])
-                if buildings["Фабрика"] > 0:
-                    self.build_factory(city, quantity=buildings["Фабрика"])
-
-            # Пересчитываем общие показатели один раз после всех построек
+        from city_development import auto_develop,average_loyalty
+        self.auto_build_enabled=average_loyalty(self.conn,self.faction)>80
+        with self.conn:built=auto_develop(self.conn,self.faction)
+        if built:
             self.load_buildings()
+            from utils.resource_payments import sync_resources
+            sync_resources(self.conn,self.faction,self)
+        return built
 
-        except Exception as e:
-            print(f"Ошибка в авто-строительстве: {e}")
 
     def load_buildings(self):
         """
         Загружает данные о зданиях для текущей фракции из таблицы buildings.
         Отрезанные от снабжения города не учитываются в общих показателях.
         """
+        from city_construction import ensure_unique_buildings
+        ensure_unique_buildings(self.conn)
         try:
             supplied = self._get_supplied_cities()
 
@@ -438,19 +323,15 @@ class Faction:
         self.cities = cities
         return cities
 
-    def build_factory(self, city, quantity=1):
-        """Увеличить количество фабрик в указанном городе на заданное количество."""
-        if city not in self.cities_buildings:
-            self.cities_buildings[city] = {'Больница': 0, 'Фабрика': 0}
-        self.cities_buildings[city]['Фабрика'] += quantity
-        save_building_change(self.faction, city, "Фабрика", quantity, self.conn)
+    def build_factory(self,city,quantity=1):
+        from city_development import player_build
+        return player_build(self,city,'Фабрика',quantity)
 
-    def build_hospital(self, city, quantity=1):
-        """Увеличить количество больниц в указанном городе на заданное количество."""
-        if city not in self.cities_buildings:
-            self.cities_buildings[city] = {'Больница': 0, 'Фабрика': 0}
-        self.cities_buildings[city]['Больница'] += quantity
-        save_building_change(self.faction, city, "Больница", quantity, self.conn)
+
+    def build_hospital(self,city,quantity=1):
+        from city_development import player_build
+        return player_build(self,city,'Больница',quantity)
+
 
     def cash_build(self, money):
         """Списывает деньги, если их хватает, и возвращает True, иначе False."""
@@ -1271,7 +1152,8 @@ class Faction:
             pass
 
         # Обновление ресурсов с учетом коэффициентов и сезона
-        self.born_peoples = int(self.hospitals * 50 * _season_pop_mult)
+        from city_construction import HOSPITAL_GROWTH,FACTORY_YIELD
+        self.born_peoples = int(self.hospitals * HOSPITAL_GROWTH * _season_pop_mult)
         self.work_peoples = int(self.factories * 20)
         self.clear_up_peoples = self.born_peoples - self.work_peoples
 
@@ -1285,7 +1167,7 @@ class Faction:
         market_bonus = 1.0 + self.markets * 0.10
         boosted_income = int(base_income * market_bonus)
         from utils.city_terrain import economic_bonuses
-        _terrain_bonus = economic_bonuses(self.conn,self.faction,boosted_income,105*_season_factory_mult)
+        _terrain_bonus = economic_bonuses(self.conn,self.faction,boosted_income,FACTORY_YIELD*_season_factory_mult)
         boosted_income += _terrain_bonus['crowns']
         self.money += boosted_income
         self.money_info = int(self.hospitals * coeffs['money_loss'])
@@ -1293,7 +1175,7 @@ class Faction:
         self.taxes_info = int(self.calculate_tax_income())
 
         # Рассчитываем базовый прирост Кристаллов с сезонным модификатором
-        base_raw_material_production = int((self.factories * 105 * _season_factory_mult) - (self.population * coeffs['food_loss']))
+        base_raw_material_production = int((self.factories * FACTORY_YIELD * _season_factory_mult) - (self.population * coeffs['food_loss']))
 
         # Загружаем коэффициенты kf_crystal только для городов,
         # связанных дорогами с основной территорией (снабжение)
@@ -1919,8 +1801,9 @@ def open_build_popup(faction):
     build_card.bind(pos=update_build_rect, size=update_build_rect)
 
     # Подпись для больницы
+    from city_construction import HOSPITAL_GROWTH,FACTORY_YIELD
     hosp_label = Label(
-        text=f"1 больница: +50 раб./-{faction.buildings_info_fraction()} крон",
+        text=f"1 больница: +{HOSPITAL_GROWTH} раб./-{faction.buildings_info_fraction()} крон",
         font_size=adaptive_font,
         color=(1, 1, 1, 1),
         size_hint_y=None,
@@ -1933,7 +1816,7 @@ def open_build_popup(faction):
 
     # Подпись для фабрики
     fact_label = Label(
-        text="1 фабрика: +100 крист./-20 рабочих",
+        text=f"1 фабрика: +{FACTORY_YIELD} крист./-20 рабочих",
         font_size=adaptive_font,
         color=(1, 1, 1, 1),
         size_hint_y=None,
@@ -2462,185 +2345,7 @@ def open_tax_popup(faction):
 
 
 def open_auto_build_popup(faction):
-    from kivy.graphics import Color, RoundedRectangle
-    from kivy.metrics import dp, sp
-    from kivy.uix.image import Image
-
-    # Соотношения с описаниями
-    RATIOS = [
-        (5, 2, "Агрессивный рост", "Больше рабочих для быстрого расширения"),
-        (3, 2, "Баланс+", "Умеренный прирост населения и ресурсов"),
-        (3, 1, "Рост населения", "Фокус на увеличение рабочей силы"),
-        (2, 1, "Умеренный рост", "Сбалансированное развитие"),
-        (1, 1, "Идеальный баланс", "Равное развитие больниц и фабрик"),
-        (1, 2, "Умеренная промышленность", "Небольшой уклон в производство"),
-        (1, 3, "Промышленность", "Фокус на добычу кристаллов"),
-        (2, 3, "Промышленность+", "Усиленное производство ресурсов"),
-        (2, 5, "Максимальная добыча", "Приоритет — кристаллы для армии")
-    ]
-
-    is_mobile = platform in ('android', 'ios')
-    auto_popup = Popup(
-        title="",
-        size_hint=(0.98, 0.93) if is_mobile else (0.92, 0.85),
-        background_color=(0.12, 0.15, 0.22, 0.97),
-        separator_height=0,
-        auto_dismiss=False
-    )
-
-    main_layout = BoxLayout(orientation='vertical', padding=[dp(18), dp(22), dp(18), dp(18)], spacing=dp(18))
-
-    # Заголовок
-    header = BoxLayout(size_hint_y=None, height=dp(55), spacing=dp(12))
-    icon_container = BoxLayout(size_hint=(None, None), size=(dp(42), dp(42)))
-    with icon_container.canvas:
-        Color(0.25, 0.45, 0.85, 1)
-        RoundedRectangle(pos=icon_container.pos, size=icon_container.size, radius=[dp(12)])
-    icon_img = Image(source='files/status/icons/building.png', size_hint=(0.6, 0.6),
-                     pos_hint={'center_x': 0.5, 'center_y': 0.5})
-    icon_container.add_widget(icon_img)
-    header.add_widget(icon_container)
-
-    title_label = Label(
-        text="[b]Министерство развития[/b]",
-        markup=True,
-        font_size=sp(24),
-        color=(1, 0.95, 0.85, 1),
-        halign='left',
-        valign='middle',
-        size_hint_x=0.85
-    )
-    title_label.bind(size=title_label.setter('text_size'))
-    header.add_widget(title_label)
-    main_layout.add_widget(header)
-
-    # Визуальный индикатор соотношения
-    ratio_visual = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(60), padding=[dp(8), 0, dp(8), 0],
-                             spacing=dp(6))
-
-    hospitals_bar = BoxLayout(size_hint=(0.5, 1))
-    with hospitals_bar.canvas.before:
-        Color(0.85, 0.35, 0.35, 1)
-        hospitals_bar.rect = RoundedRectangle(pos=hospitals_bar.pos, size=hospitals_bar.size,
-                                              radius=[dp(8), 0, 0, dp(8)])
-        hospitals_bar.bind(pos=lambda inst, val: setattr(hospitals_bar.rect, 'pos', val))
-        hospitals_bar.bind(size=lambda inst, val: setattr(hospitals_bar.rect, 'size', val))
-    hospitals_label = Label(text="H 1", font_size=sp(18), bold=True, color=(1, 1, 1, 1), halign='center',
-                            valign='middle')
-    hospitals_label.bind(size=hospitals_label.setter('text_size'))
-    hospitals_bar.add_widget(hospitals_label)
-    ratio_visual.add_widget(hospitals_bar)
-
-    factories_bar = BoxLayout(size_hint=(0.5, 1))
-    with factories_bar.canvas.before:
-        Color(0.35, 0.75, 0.45, 1)
-        factories_bar.rect = RoundedRectangle(pos=factories_bar.pos, size=factories_bar.size,
-                                              radius=[0, dp(8), dp(8), 0])
-        factories_bar.bind(pos=lambda inst, val: setattr(factories_bar.rect, 'pos', val))
-        factories_bar.bind(size=lambda inst, val: setattr(factories_bar.rect, 'size', val))
-    factories_label = Label(text="1", font_size=sp(18), bold=True, color=(1, 1, 1, 1), halign='center', valign='middle')
-    factories_label.bind(size=factories_label.setter('text_size'))
-    factories_bar.add_widget(factories_label)
-    ratio_visual.add_widget(factories_bar)
-
-    main_layout.add_widget(ratio_visual)
-
-    # Слайдер
-    slider_container = BoxLayout(orientation='vertical', spacing=dp(10), size_hint_y=None, height=dp(100))
-    ratio_display = Label(text="1 : 1", font_size=sp(32), bold=True, color=(1, 0.95, 0.8, 1), halign='center',
-                          valign='middle', size_hint_y=None, height=dp(40))
-    ratio_display.bind(size=ratio_display.setter('text_size'))
-    slider_container.add_widget(ratio_display)
-
-    slider = Slider(min=0, max=8, value=4, step=1, cursor_size=(dp(40), dp(40)), background_width=dp(12),
-                    size_hint_y=None, height=dp(40))
-    slider_container.add_widget(slider)
-    main_layout.add_widget(slider_container)
-
-    # Описание стратегии
-    strategy_card = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(95),
-                              padding=[dp(15), dp(12), dp(15), dp(12)], spacing=dp(4))
-    with strategy_card.canvas.before:
-        Color(0.18, 0.22, 0.32, 1)
-        strategy_card.bg = RoundedRectangle(radius=[dp(14)], size=strategy_card.size, pos=strategy_card.pos)
-        strategy_card.bind(pos=lambda inst, val: setattr(strategy_card.bg, 'pos', val))
-        strategy_card.bind(size=lambda inst, val: setattr(strategy_card.bg, 'size', val))
-
-    strategy_name = Label(text="[b]Идеальный баланс[/b]", markup=True, font_size=sp(19), color=(0.65, 0.95, 1, 1),
-                          halign='center', valign='top', size_hint_y=None, height=dp(28))
-    strategy_name.bind(size=strategy_name.setter('text_size'))
-    strategy_desc = Label(text="Равное развитие больниц и фабрик", font_size=sp(15), color=(0.85, 0.85, 0.9, 1),
-                          halign='center', valign='top', size_hint_y=None, height=dp(45))
-    strategy_desc.bind(size=strategy_desc.setter('text_size'))
-    strategy_card.add_widget(strategy_name)
-    strategy_card.add_widget(strategy_desc)
-    main_layout.add_widget(strategy_card)
-
-    # Кнопки
-    buttons_layout = BoxLayout(orientation='horizontal', spacing=dp(15), size_hint_y=None, height=dp(65))
-
-    def create_button(text, bg_color):
-        btn = Button(text=text, font_size=sp(19), bold=True, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1),
-                     size_hint=(0.5, 1))
-        with btn.canvas.before:
-            Color(*bg_color)
-            btn.bg = RoundedRectangle(radius=[dp(16)], size=btn.size, pos=btn.pos)
-            btn.bind(pos=lambda inst, val: setattr(btn.bg, 'pos', val))
-            btn.bind(size=lambda inst, val: setattr(btn.bg, 'size', val))
-        return btn
-
-    cancel_btn = create_button("Отмена", (0.65, 0.25, 0.25, 1))
-    save_btn = create_button("Применить", (0.35, 0.7, 0.35, 1))
-    buttons_layout.add_widget(cancel_btn)
-    buttons_layout.add_widget(save_btn)
-    main_layout.add_widget(buttons_layout)
-
-    # === ИСПРАВЛЕНА СИГНАТУРА ОБРАБОТЧИКА ===
-    def update_display(instance, value):
-        idx = int(value)
-        hospitals, factories, name, desc = RATIOS[idx]
-
-        # Обновление визуального индикатора
-        hospitals_label.text = f"H {hospitals}"
-        factories_label.text = f"F {factories}"
-
-        # Обновление пропорций баров
-        total = hospitals + factories
-        hospitals_bar.size_hint_x = hospitals / total
-        factories_bar.size_hint_x = factories / total
-
-        # Обновление крупного дисплея
-        ratio_display.text = f"{hospitals} : {factories}"
-
-        # Обновление описания стратегии
-        strategy_name.text = f"[b]{name}[/b]"
-        strategy_desc.text = desc
-
-    # Загрузка текущих настроек
-    if hasattr(faction, 'auto_build_ratio'):
-        for idx, (h, f, _, _) in enumerate(RATIOS):
-            if (h, f) == faction.auto_build_ratio:
-                slider.value = idx
-                break
-
-    update_display(None, slider.value)  # Инициализация
-    slider.bind(value=update_display)  # Привязка с правильной сигнатурой
-
-    # Обработка кнопок
-    def save_settings(instance):
-        idx = int(slider.value)
-        hospitals, factories, _, _ = RATIOS[idx]
-        faction.auto_build_ratio = (hospitals, factories)
-        faction.auto_build_enabled = True
-        faction.save_auto_build_settings()
-        auto_popup.dismiss()
-        show_message("Сохранено", f"Строить: {hospitals} больниц и {factories} фабрик за ход")
-
-    cancel_btn.bind(on_release=lambda x: auto_popup.dismiss())
-    save_btn.bind(on_release=save_settings)
-
-    auto_popup.content = main_layout
-    auto_popup.open()
+    return open_development_popup(faction)
 
 
 def open_development_popup(faction):

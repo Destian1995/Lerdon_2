@@ -99,21 +99,21 @@ class ReliefResourceIntegrationTests(unittest.TestCase):
     def test_player_and_ai_income_apply_local_perks_once_before_upkeep(self):
         # Execute each real resource method through its income calculation,
         # before UI, diplomacy and persistence side effects later in the turn.
-        for filename,expected_raw in (('economic.py',254),('ii.py',200)):
+        for filename,expected_raw in (('economic.py',1830),('ii.py',1400)):
             with self.subTest(controller=filename):
                 db=sqlite3.connect(':memory:')
                 self.addCleanup(db.close)
                 db.executescript('''CREATE TABLE cities(id,name,faction,kf_crystal);
                     INSERT INTO cities VALUES(1,'port','Север',0);
                     CREATE TABLE buildings(city_name,faction,building_type,count);
-                    INSERT INTO buildings VALUES('port','Север','Фабрика',2);
+                    INSERT INTO buildings VALUES('port','Север','Фабрика',1);
                     CREATE TABLE roads(city1,city2);
                     CREATE TABLE season(season_index); INSERT INTO season VALUES(2);''')
                 ensure_schema(db)
                 db.execute("INSERT INTO city_terrain VALUES('port','lowland',0,1,30)")
                 host=SimpleNamespace(conn=db,db_connection=db,cursor=db.cursor(),faction='Север',
                     turn=0,money=0,raw_material=0,free_peoples=0,population=100,
-                    hospitals=0,factories=2,markets=0,current_consumption=30,tax_effects=0,city_count=1)
+                    hospitals=0,factories=1,markets=0,current_consumption=30,tax_effects=0,city_count=1)
                 for name in ('load_buildings','auto_build','load_resources_from_db',
                              'generate_raw_material_price','update_trade_resources_from_db',
                              'process_trade_agreements','update_buildings_from_db'):

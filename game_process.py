@@ -1013,6 +1013,8 @@ class GameScreen(Screen):
                     msg_type = 'alliance'
                 elif '[ПОЩАДА]' in message or '[УМОЛЯЮ]' in message:
                     msg_type = 'mercy'
+                elif '[ПРОСЬБА]' in message or '[ПОМОЩЬ]' in message:
+                    msg_type = 'help'
                 else:
                     continue  # Пропускаем приветствия, дружбу, предупреждения и т.д.
 
@@ -1084,11 +1086,15 @@ class GameScreen(Screen):
 
                 # === ПРОСЬБА: улучшаем отношения ===
                 elif is_help:
-                    cursor.execute("""
+                    from ai_resource_requests import accept_request
+                    if 'Просим передать' in original_message:
+                        helped,resource_msg=accept_request(self.conn,self.selected_faction,faction_name,original_message)
+                    else:helped,resource_msg=True,f'Вы поддержали {faction_name}.'
+                    if helped:cursor.execute("""
                         UPDATE relations SET relationship = MIN(100, relationship + 8)
                         WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
                     """, (faction_name, self.selected_faction, self.selected_faction, faction_name))
-                    result_msg = f"Вы помогли {faction_name}. Отношения +8%."
+                    result_msg = resource_msg+(f" Отношения с {faction_name} +8%." if helped else '')
 
                 # === Прочее (дружба, приветствие): маленький бонус ===
                 else:
@@ -1153,9 +1159,9 @@ class GameScreen(Screen):
 
         from utils.helpers import parse_formatted_number
 
-        ai_gives_amount = int(parse_formatted_number(give_match.group(1).strip()))
+        ai_gives_amount = parse_formatted_number(give_match.group(1).strip())
         ai_gives_type = give_match.group(2).strip()
-        player_gives_amount = int(parse_formatted_number(want_match.group(1).strip()))
+        player_gives_amount = parse_formatted_number(want_match.group(1).strip())
         player_gives_type = want_match.group(2).strip()
 
         # Нормализуем названия ресурсов

@@ -58,12 +58,13 @@ class CityWarRulesTests(CityWarFixture):
 
     def test_rebuild_requires_full_capacity_then_next_turn(self):
         record_battle(self.db, 'Town', 20_000_000, 20_000_000, 'Север')
-        self.db.execute("INSERT INTO buildings VALUES ('Town', 'Север', 'Фабрика', 24)")
+        from city_construction import CATALOG
+        self.db.executemany('INSERT INTO buildings VALUES(?,?,?,1)', [('Town','Север',kind) for kind in CATALOG if kind!='Вышка'])
         self.db.execute('UPDATE turn SET turn_count=10')
         reconcile_city_rebuilding(self.db)
         self.assertTrue(self.state().ruined)
         self.assertIsNone(self.state().ready_turn)
-        self.db.execute('UPDATE buildings SET count=25')
+        self.db.execute("INSERT INTO buildings VALUES('Town','Север','Вышка',1)")
         reconcile_city_rebuilding(self.db)
         self.assertEqual(self.state().ready_turn, 10)
         reconcile_city_rebuilding(self.db)
@@ -76,14 +77,15 @@ class CityWarRulesTests(CityWarFixture):
 
     def test_interrupted_reconstruction_and_new_major_battle_restart_wait(self):
         record_battle(self.db, 'Town', 20_000_000, 20_000_000, 'Север')
-        self.db.execute("INSERT INTO buildings VALUES ('Town', 'Север', 'Фабрика', 25)")
+        from city_construction import CATALOG
+        self.db.executemany('INSERT INTO buildings VALUES(?,?,?,1)', [('Town','Север',kind) for kind in CATALOG])
         reconcile_city_rebuilding(self.db)
-        self.db.execute('UPDATE buildings SET count=24')
+        self.db.execute("DELETE FROM buildings WHERE building_type='Вышка'")
         self.db.execute('UPDATE turn SET turn_count=6')
         reconcile_city_rebuilding(self.db)
         self.assertTrue(self.state().ruined)
         self.assertIsNone(self.state().ready_turn)
-        self.db.execute('UPDATE buildings SET count=25')
+        self.db.execute("INSERT INTO buildings VALUES('Town','Север','Вышка',1)")
         reconcile_city_rebuilding(self.db)
         record_battle(self.db, 'Town', 20_000_000, 20_000_000, 'Север')
         self.assertIsNone(self.state().ready_turn)
@@ -454,7 +456,8 @@ class CityWarEffectsTests(CityWarFixture):
         record_battle(self.db, 'Town', 20_000_000, 20_000_000, 'Север')
         host.draw_fortresses()
         self.assertTrue(host.fortress_icon_widgets['Town'].source.endswith('ruined/town.png'))
-        self.db.execute("INSERT INTO buildings VALUES ('Town', 'Север', 'Фабрика', 25)")
+        from city_construction import CATALOG
+        self.db.executemany('INSERT INTO buildings VALUES(?,?,?,1)', [('Town','Север',kind) for kind in CATALOG])
         reconcile_city_rebuilding(self.db)
         self.db.execute('UPDATE turn SET turn_count=6')
         reconcile_city_rebuilding(self.db)

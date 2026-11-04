@@ -85,6 +85,8 @@ class AIController:
         """
         Загружает данные о зданиях для текущей фракции из таблицы buildings.
         """
+        from city_construction import ensure_unique_buildings
+        ensure_unique_buildings(self.db_connection)
         try:
             self.cursor.execute('''
                 SELECT city_name, building_type, count 
@@ -263,62 +265,14 @@ class AIController:
             print(f"Ошибка при сохранении ресурсов: {e}")
 
     def save_buildings(self):
-        """
-        Сохраняет данные о зданиях в базу данных.
-        Удаляет старые записи для текущей фракции и добавляет новые.
-        """
-        try:
-            # Удаляем старые записи для текущей фракции
-            self.cursor.execute("DELETE FROM buildings WHERE faction = ?", (self.faction,))
+        """Construction is persisted immediately; refresh the legacy AI cache."""
+        from city_development import refresh_ai_buildings
+        refresh_ai_buildings(self)
 
-            # Вставляем новые записи для каждого города и типа здания
-            for city_name, data in self.buildings.items():
-                for building_type, count in data["Здания"].items():
-                    if count > 0:  # Сохраняем только те здания, количество которых больше 0
-                        self.cursor.execute("""
-                            INSERT INTO buildings (faction, city_name, building_type, count)
-                            VALUES (?, ?, ?, ?)
-                        """, (self.faction, city_name, building_type, count))
-
-            # Сохраняем изменения в базе данных
-            self.db_connection.commit()
-            print("Данные о зданиях успешно сохранены в БД.")
-        except sqlite3.Error as e:
-            print(f"Ошибка при сохранении данных о зданиях: {e}")
 
     def save_buildings_to_db(self):
-        """
-        Сохраняет текущие значения больниц и фабрик в базу данных.
-        """
-        try:
-            # Удаляем старые записи для текущей фракции
-            self.cursor.execute("""
-                DELETE FROM buildings
-                WHERE faction = ?
-            """, (self.faction,))
+        self.save_buildings()
 
-            # Вставляем новые записи
-            for city_name, data in self.buildings.items():
-                hospital_count = data["Здания"]["Больница"]
-                factory_count = data["Здания"]["Фабрика"]
-
-                if hospital_count > 0:
-                    self.cursor.execute("""
-                        INSERT INTO buildings (faction, city_name, building_type, count)
-                        VALUES (?, ?, ?, ?)
-                    """, (self.faction, city_name, "Больница", hospital_count))
-
-                if factory_count > 0:
-                    self.cursor.execute("""
-                        INSERT INTO buildings (faction, city_name, building_type, count)
-                        VALUES (?, ?, ?, ?)
-                    """, (self.faction, city_name, "Фабрика", factory_count))
-
-            # Сохраняем изменения
-            self.db_connection.commit()
-            print("Данные о зданиях успешно сохранены в БД.")
-        except sqlite3.Error as e:
-            print(f"Ошибка при сохранении данных о зданиях: {e}")
 
     def save_garrison(self):
         """
@@ -384,147 +338,18 @@ class AIController:
             print(f"Ошибка при сохранении гарнизона: {e}")
 
     def manage_buildings(self):
-        """
-        Управляет строительством зданий для ИИ.
-        Приоритет: Больницы → Фабрики → Стены/Рынки/Кузницы/Вышки.
-        """
-        try:
-            crowns = self.resources['Кроны']
-            building_budget = int(crowns * 0.99)
+        from city_development import ai_build
+        return ai_build(self)
 
-            if building_budget < 10:
-                print("Недостаточно средств для строительства.")
-                return
 
-            self.cities = self.load_cities()
-            num_cities = max(len(self.cities), 1)
+    def _build_advanced(self,building_type,num_cities):
+        return self.build_in_city(building_type,num_cities)
 
-            # Приоритет 1: базовая инфраструктура
-            self.build_in_city("Больница", 12 * num_cities)
-            self.build_in_city("Фабрика", 12 * num_cities)
 
-            # Приоритет 2: продвинутые здания (если хватает денег)
-            if self.resources['Кроны'] > 100000:
-                import random
-                advanced = random.choice(["Стена", "Рынок", "Кузница", "Вышка"])
-                self._build_advanced(advanced, num_cities)
+    def build_in_city(self,building_type,count):
+        from city_development import ai_build
+        return len(ai_build(self,kinds=[building_type],limit=max(0,int(count))))
 
-            self.save_all_data()
-        except Exception as e:
-            print(f"Ошибка в manage_buildings: {e}")
-
-    def _build_advanced(self, building_type, num_cities):
-        """AI строит продвинутые здания (Стена/Рынок/Кузница/Вышка)."""
-        costs = {'Стена': 50000, 'Рынок': 30000, 'Кузница': 40000, 'Вышка': 25000}
-        limits = {'Стена': 3, 'Рынок': 3, 'Кузница': 3, 'Вышка': 5}
-        cost = costs.get(building_type, 50000)
-        max_per_city = limits.get(building_type, 3)
-
-        for target_city in self.cities.values():
-            if self.resources['Кроны'] < cost:
-                break
-            city_b = self.cities_buildings.get(target_city, {})
-            current = city_b.get(building_type, 0)
-            total = sum(city_b.values())
-            if current >= max_per_city or total >= 25:
-                continue
-
-            # Строим 1 здание
-            self.cursor.execute(
-                "SELECT count FROM buildings WHERE city_name = ? AND faction = ? AND building_type = ?",
-                (target_city, self.faction, building_type)
-            )
-            row = self.cursor.fetchone()
-            if row:
-                self.cursor.execute(
-                    "UPDATE buildings SET count = count + 1 WHERE city_name = ? AND faction = ? AND building_type = ?",
-                    (target_city, self.faction, building_type)
-                )
-            else:
-                self.cursor.execute(
-                    "INSERT INTO buildings (city_name, faction, building_type, count) VALUES (?, ?, ?, 1)",
-                    (target_city, self.faction, building_type)
-                )
-            self.resources['Кроны'] -= cost
-            self.cities_buildings.setdefault(target_city, {})[building_type] = current + 1
-            self.db_connection.commit()
-            print(f"[AI BUILD] {self.faction} построил {building_type} в {target_city}")
-
-    def build_in_city(self, building_type, count):
-        """
-        Строительство зданий во всех городах фракции до достижения лимита.
-        :param building_type: Тип здания ("Больница" или "Фабрика").
-        :param count: Максимальное суммарное количество зданий для постройки за вызов.
-        """
-        cost = 10
-
-        # Загружаем актуальные данные о городах фракции
-        self.cities = self.load_cities()
-        if not self.cities:
-            print(f"Нет доступных городов для строительства у фракции '{self.faction}'.")
-            return False
-
-        # Загружаем актуальные данные о зданиях (в self.cities_buildings)
-        if not self.buildings:
-            self.update_buildings_for_current_cities()
-        self.cities_buildings = {city: dict(data['Здания']) for city, data in self.buildings.items()}
-
-        max_buildings_per_city = 24
-        max_type_per_city = 12  # Лимит одного типа здания на город
-
-        total_built = 0
-
-        for target_city in self.cities.values():
-            if count <= 0:
-                break
-            if self.resources['Кроны'] < cost:
-                print("Недостаточно крон для дальнейшего строительства.")
-                break
-
-            city_b = self.cities_buildings.get(target_city, {"Больница": 0, "Фабрика": 0})
-            current_hospitals = city_b.get("Больница", 0)
-            current_factories = city_b.get("Фабрика", 0)
-            total_buildings = current_hospitals + current_factories
-            current_type = current_hospitals if building_type == 'Больница' else current_factories
-
-            remaining_total = max_buildings_per_city - total_buildings
-            remaining_type = max_type_per_city - current_type
-            remaining_slots = min(remaining_total, remaining_type)
-
-            if remaining_slots <= 0:
-                print(f"В городе {target_city} достигнут лимит {building_type}.")
-                continue
-
-            can_afford = self.resources['Кроны'] // cost
-            count_to_build = min(count, remaining_slots, can_afford)
-
-            if count_to_build <= 0:
-                continue
-
-            total_cost = cost * count_to_build
-
-            # Обновляем self.buildings (используется в save_buildings)
-            self.buildings.setdefault(target_city, {"Здания": {"Больница": 0, "Фабрика": 0}})
-            self.buildings[target_city]["Здания"][building_type] += count_to_build
-
-            # Обновляем self.cities_buildings, чтобы учитывать постройки в рамках этого вызова
-            self.cities_buildings.setdefault(target_city, {"Больница": 0, "Фабрика": 0})
-            self.cities_buildings[target_city][building_type] = (
-                self.cities_buildings[target_city].get(building_type, 0) + count_to_build
-            )
-
-            if building_type == 'Больница':
-                self.hospitals += count_to_build
-            elif building_type == 'Фабрика':
-                self.factories += count_to_build
-
-            self.resources['Кроны'] -= total_cost
-            count -= count_to_build
-            total_built += count_to_build
-
-            print(f"Построено {count_to_build} {building_type} в городе {target_city}")
-
-        return total_built > 0
 
     def sell_resources(self):
         # Элины и Адепты — торговые фракции, накапливают кристаллы для обмена
@@ -1636,7 +1461,8 @@ class AIController:
             coeffs = faction_coefficients[faction]
 
             # Обновление ресурсов с учетом коэффициентов
-            self.born_peoples = int(self.hospitals * 50)
+            from city_construction import HOSPITAL_GROWTH,AI_FACTORY_YIELD
+            self.born_peoples = int(self.hospitals * HOSPITAL_GROWTH)
             self.work_peoples = int(self.factories * 20)
             self.clear_up_peoples = (self.born_peoples - self.work_peoples + self.tax_effects) + int(
                 self.city_count * (self.population / 100))
@@ -1648,7 +1474,7 @@ class AIController:
             self.free_peoples += self.clear_up_peoples
             from utils.city_terrain import economic_bonuses
             _base_money = int(self.calculate_tax_income() - (self.hospitals * coeffs['money_loss']))
-            _terrain_bonus = economic_bonuses(self.db_connection,self.faction,_base_money,100)
+            _terrain_bonus = economic_bonuses(self.db_connection,self.faction,_base_money,AI_FACTORY_YIELD)
             self.money += _base_money + _terrain_bonus['crowns']
             self.money_info = int(self.hospitals * coeffs['money_loss'])
             self.money_up = _base_money + _terrain_bonus['crowns']
@@ -1656,11 +1482,11 @@ class AIController:
 
 
             # Учитываем, что одна фабрика может прокормить 100 людей
-            self.raw_material += int((self.factories * 100) - (self.population * coeffs['food_loss'])) + _terrain_bonus['crystals']
+            self.raw_material += int((self.factories * AI_FACTORY_YIELD) - (self.population * coeffs['food_loss'])) + _terrain_bonus['crystals']
             # food_info — база для бонуса «Борьба»: не вычитаем потребление армии,
             # так как армия уже списывает кристаллы напрямую.
             # max(0, ...) — фракция с отрицательным производством просто не получает бонус.
-            self.food_info = max(0, int((self.factories * 100) - (self.population * coeffs['food_loss'])) + _terrain_bonus['crystals'])
+            self.food_info = max(0, int((self.factories * AI_FACTORY_YIELD) - (self.population * coeffs['food_loss'])) + _terrain_bonus['crystals'])
             self.food_peoples = int(self.population * coeffs['food_loss'])
 
 
@@ -3996,51 +3822,8 @@ class AIController:
             return ""
 
     def _generate_trade_exchange(self):
-        """
-        Генерирует реальное торговое предложение: обмен одного ресурса на другой.
-        Все фракции просят 1,2 единицы ресурса за одну предлагаемую.
-        Возвращает (give_type, give_amount, want_type, want_amount, text) или None.
-        """
-        try:
-            from utils.trade_offers import resource_offer
-            crowns = self.resources.get('Кроны', 0)
-            crystals = self.resources.get('Кристаллы', 0)
-
-            # Элины и Адепты — торговые фракции, чаще предлагают кристаллы, но не только
-            if self.faction in ('Элины', 'Адепты'):
-                give_pct = 0.20 if self.faction == 'Элины' else 0.15
-
-                if crystals > 200 and crowns > 3000:
-                    # Есть и кристаллы и кроны — случайный выбор что предложить
-                    if random.random() < 0.6:
-                        # Чаще предлагают кристаллы (торговые фракции)
-                        give_amount = max(100, int(crystals * give_pct))
-                        return resource_offer('Кристаллы', give_amount)
-                    else:
-                        # Иногда предлагают кроны за кристаллы
-                        give_amount = max(500, int(crowns * 0.10))
-                        return resource_offer('Кроны', give_amount)
-                elif crystals > 200:
-                    give_amount = max(100, int(crystals * give_pct))
-                    return resource_offer('Кристаллы', give_amount)
-                elif crowns > 2000:
-                    give_amount = max(300, int(crowns * 0.08))
-                    return resource_offer('Кроны', give_amount)
-                return None
-
-            # Остальные фракции — стандартная логика
-            if crystals > 500 and crowns < 5000:
-                give_amount = max(100, int(crystals * 0.1))
-                return resource_offer('Кристаллы', give_amount)
-            elif crowns > 3000 and crystals < 1000:
-                give_amount = max(500, int(crowns * 0.1))
-                return resource_offer('Кроны', give_amount)
-            elif crowns > 1000:
-                give_amount = max(300, int(crowns * 0.08))
-                return resource_offer('Кроны', give_amount)
-            return None
-        except Exception:
-            return None
+        from utils.trade_offers import full_balance_offer
+        return full_balance_offer(self.db_connection,self.faction,self._get_player_faction_name(),self.resources)
 
     # ─── Проактивная дипломатия AI ──────────────────────────────────
 
@@ -4457,7 +4240,8 @@ class AIController:
         if same_ideo and ctx.get('our_crystals', 0) > 300 and random.random() < 0.65:
             crystals = int(ctx['our_crystals'] * 0.18)
             from utils.trade_offers import resource_offer
-            trade = resource_offer('Кристаллы', crystals)
+            trade = self._generate_trade_exchange()
+            if not trade:return False
             msg = f"Солнце светит для всех единомышленников! "
             msg += trade[4]+' '
             msg += f"У нас {city_word(ctx['our_cities'])}, и кристаллов в избытке!"
@@ -4524,7 +4308,8 @@ class AIController:
         if same_ideo and ctx.get('our_crystals', 0) > 300 and random.random() < 0.60:
             crystals = int(ctx['our_crystals'] * 0.15)
             from utils.trade_offers import resource_offer
-            trade = resource_offer('Кристаллы', crystals)
+            trade = self._generate_trade_exchange()
+            if not trade:return False
             msg = f"Пророчества говорят — делиться с единомышленниками угодно высшим силам. "
             msg += trade[4]+' '
             msg += f"Адепты всегда верны союзникам."
@@ -4709,6 +4494,9 @@ class AIController:
         try:
             from utils.helpers import city_word, warrior_word
             ctx = self._get_game_context()
+            from ai_resource_requests import request_amount
+            request=request_amount(self.db_connection,self._get_player_faction_name(),self.resources)
+            if request is None:return False
             cities = ctx.get('our_cities', 0)
             strength = ctx.get('our_strength', 0)
 
@@ -4730,6 +4518,7 @@ class AIController:
                 msg += f"Мы развиваем наши {city_word(cities)}, но ресурсов не хватает. "
                 msg += f"Помощь кристаллами окупится сторицей — мы не забудем вашу щедрость."
 
+            msg+=' '+request[2]+f' Ход {getattr(self,"turn",0)}.'
             return self._send_diplomatic_message("ПРОСЬБА", msg)
         except Exception as e:
             print(f"Ошибка при запросе ресурсов: {e}")

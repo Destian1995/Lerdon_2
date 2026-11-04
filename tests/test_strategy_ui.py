@@ -53,7 +53,7 @@ class StrategyUITests(unittest.TestCase):
         self.assertEqual(len(popup.city_columns.body.children), 2)
         self.assertEqual(set(popup.city_action_buttons), {'move', 'army', 'build', 'portal'})
         self.assertEqual(len(popup.attacking_units_box.children), 1)
-        self.assertIn('25 / 25', popup.city_building_count.text)
+        self.assertIn('3 из 6', popup.city_building_count.text)
         for button in popup.city_action_buttons.values():
             self.assertGreaterEqual(button.height, 48)
             self.assertGreaterEqual(button.y, popup.y)
@@ -66,8 +66,8 @@ class StrategyUITests(unittest.TestCase):
         popup.city_columns.select(1)
         self.settle()
         self.assertIs(popup.city_columns.body.children[0], popup.city_columns.panels[1])
-        self.assertEqual(len(popup.buildings_box.children), 3)
-        self.assertGreaterEqual(popup.buildings_list.height, 48)
+        self.assertEqual(len(popup.city_preview.counts),3)
+        self.assertGreaterEqual(popup.city_preview.height,48)
         calls = []
         popup.load_troops_by_type = lambda *args: calls.append(('move', args))
         popup._open_build_menu = lambda: calls.append(('build',))

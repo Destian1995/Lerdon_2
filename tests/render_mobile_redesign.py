@@ -45,9 +45,12 @@ for size, density, suffix in (((800, 600), 1, 'desktop'), ((1280, 576), 2, 'andr
     faction = SimpleNamespace(auto_build_ratio=(2, 1), auto_build_enabled=True,
                               hospitals=12, factories=11, money_up=150000,
                               save_auto_build_settings=lambda: None)
+    from test_unique_development import fixture as development_fixture
+    development_db=development_fixture();faction.conn=development_db;faction.faction='Север'
     popup = open_development(faction, lambda *_: None)
     capture('development-' + suffix)
     popup.dismiss(animation=False)
+    development_db.close()
     market()
     popup = next(w for w in Window.children if isinstance(w, Popup))
     capture('market-' + suffix)

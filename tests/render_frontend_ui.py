@@ -45,10 +45,13 @@ faction = SimpleNamespace(auto_build_ratio=(1, 1), auto_build_enabled=False,
                           hospitals=12, factories=11, money_up=150000,
                           get_resource_now=lambda *_: 0, save_auto_build_settings=lambda: None,
                           calculate_potential_income=lambda: 0, faction='Север')
+from test_unique_development import fixture as development_fixture
+development_db=development_fixture();faction.conn=development_db
 ns[fn.name](faction)
 capture('development-restored.png')
 for widget in list(Window.children):
     if isinstance(widget, Popup):
         widget.dismiss(animation=False)
 db.close()
+development_db.close()
 print('Rendered front-end pages and restored development labels')

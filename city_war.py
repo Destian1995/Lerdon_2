@@ -4,7 +4,7 @@ import sqlite3
 from dataclasses import dataclass
 
 DEVASTATION_STRENGTH = 20_000_000
-CITY_BUILDING_LIMIT = 25
+from city_construction import CATALOG
 SMOKE_TURNS = 2
 
 
@@ -115,10 +115,12 @@ def reconcile_city_rebuilding(conn):
     if not ruined:
         return
     turn = current_turn(conn)
-    counts = dict(conn.execute('''SELECT b.city_name, SUM(b.count) FROM buildings b
-        JOIN cities c ON c.name=b.city_name AND c.faction=b.faction GROUP BY b.city_name'''))
+    placeholders=','.join('?' for _ in CATALOG)
+    counts = dict(conn.execute(f'''SELECT b.city_name, COUNT(DISTINCT b.building_type) FROM buildings b
+        JOIN cities c ON c.name=b.city_name AND c.faction=b.faction
+        WHERE b.count>0 AND b.building_type IN ({placeholders}) GROUP BY b.city_name''',tuple(CATALOG)))
     for state in ruined:
-        if counts.get(state.city, 0) < CITY_BUILDING_LIMIT:
+        if counts.get(state.city, 0) < len(CATALOG):
             if state.ready_turn is not None:
                 conn.execute('UPDATE city_war_state SET ready_turn=NULL WHERE city_name=?', (state.city,))
         elif state.ready_turn is None:
@@ -135,4 +137,4 @@ def city_recovery_message(conn, city):
         return ''
     if state.ready_turn is not None:
         return 'Город восстанавливается — целая иконка появится на следующем ходу.'
-    return 'Город разрушен. Отстройте 25 зданий и завершите ход для восстановления.'
+    return f'Город разрушен. Восстановите все {len(CATALOG)} типов зданий и завершите ход.'

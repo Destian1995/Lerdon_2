@@ -105,249 +105,39 @@ class FortressInfoPopup(Popup):
         build_city_window(self)
 
     def load_buildings(self):
-        from strategy_ui import building_row, text_label, MUTED
-        if self._is_undead_city:
-            return
-        self.buildings_box.clear_widgets()
-        buildings = self.get_buildings()
-        if not buildings:
-            self.buildings_box.add_widget(text_label(
-                'Зданий пока нет',
-                14, MUTED, size_hint_y=None, height=dp(56)))
-        for item in buildings:
-            name, _, count = item.partition(':')
-            self.buildings_box.add_widget(building_row(name.strip(), count.strip()))
-        row = self.conn.execute(
-            'SELECT COALESCE(SUM(count),0) FROM buildings WHERE city_name=? AND faction=?',
-            (self.city_name, self.city_faction)).fetchone()
-        if hasattr(self, 'city_building_count'):
-            self.city_building_count.text = 'Застройка  %s / 25' % row[0]
+        from city_construction import building_counts,city_owner
+        if not hasattr(self,'city_preview'):return
+        self.city_faction=city_owner(self.conn,self.city_name) or self.city_faction
+        self.city_preview.refresh()
+        counts=building_counts(self.conn,self.city_name,self.city_faction)
+        self.city_building_count.text=f'Построено: {sum(bool(counts.get(n,0)) for n in self.BUILDING_CATALOG)} из {len(self.BUILDING_CATALOG)}'
+
 
     # ── Система строительства ────────────────────────────────────
-    BUILDING_CATALOG = {
-        'Больница': {
-            'cost': 15, 'max': 12, 'color': (0.80, 0.22, 0.35, 1),
-            'desc': '+50 рабочих/ход'
-        },
-        'Фабрика': {
-            'cost': 10, 'max': 12, 'color': (0.50, 0.50, 0.12, 1),
-            'desc': '+105 кристаллов/ход'
-        },
-        'Стена': {
-            'cost': 50000, 'max': 3, 'color': (0.45, 0.45, 0.55, 1),
-            'desc': '+15% защита гарнизона'
-        },
-        'Рынок': {
-            'cost': 30000, 'max': 3, 'color': (0.85, 0.65, 0.10, 1),
-            'desc': '+10% доход крон'
-        },
-        'Кузница': {
-            'cost': 40000, 'max': 3, 'color': (0.60, 0.38, 0.12, 1),
-            'desc': '+5% атака юнитов'
-        },
-        'Вышка': {
-            'cost': 25000, 'max': 5, 'color': (0.20, 0.55, 0.75, 1),
-            'desc': '+500 лимит армии'
-        },
-    }
+    from city_construction import CATALOG as BUILDING_CATALOG
 
     def _open_build_menu(self):
-        """Открывает меню строительства для текущего города."""
-        from kivy.uix.popup import Popup as _Popup
-        _is_mobile = platform in ('android', 'ios')
+        from town_ui import TownPopup
+        existing=getattr(self,'town_popup',None)
+        if existing is not None and existing.parent is not None:return existing
+        self.town_popup=TownPopup(self)
+        self.town_popup.open()
+        return self.town_popup
 
-        # Получаем текущие здания
-        cursor = self.conn.cursor()
-        cursor.execute(
-            "SELECT building_type, count FROM buildings WHERE city_name = ? AND faction = ?",
-            (self.city_name, self.player_fraction)
-        )
-        current = {row[0]: row[1] for row in cursor.fetchall()}
 
-        # Получаем деньги игрока
-        cursor.execute(
-            "SELECT amount FROM resources WHERE faction = ? AND resource_type = 'Кроны'",
-            (self.player_fraction,)
-        )
-        money_row = cursor.fetchone()
-        player_money = money_row[0] if money_row else 0
-
-        total_buildings = sum(current.values())
-
-        content = BoxLayout(orientation='vertical', spacing=dp(6), padding=dp(8))
-        with content.canvas.before:
-            Color(0.07, 0.08, 0.13, 1)
-            content._bg = RoundedRectangle(pos=content.pos, size=content.size, radius=[dp(10)])
-        content.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-                     size=lambda i, v: setattr(i._bg, 'size', v))
-
-        # Заголовок
-        header = Label(
-            text=f"[b]Строительство — {self.city_name}[/b]\n"
-                 f"Крон: {format_number(int(player_money))}  |  Зданий: {total_buildings}/25",
-            markup=True, font_size=sp(14), color=(0.9, 0.85, 0.5, 1),
-            size_hint_y=None, height=dp(50), halign='center', valign='middle'
-        )
-        header.bind(size=header.setter('text_size'))
-        content.add_widget(header)
-
-        from city_war import city_recovery_message
-        recovery_message = city_recovery_message(self.conn, self.city_name)
-        if recovery_message:
-            recovery_label = Label(text=recovery_message, font_size=sp(12),
-                                   color=(1, 0.68, 0.36, 1), size_hint_y=None,
-                                   height=dp(52), halign='center', valign='middle')
-            recovery_label.bind(size=recovery_label.setter('text_size'))
-            content.add_widget(recovery_label)
-
-        scroll = ScrollView(size_hint_y=1)
-        bld_list = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(5))
-        bld_list.bind(minimum_height=bld_list.setter('height'))
-
-        build_popup = [None]  # Для замыкания
-
-        for b_name, b_info in self.BUILDING_CATALOG.items():
-            count = current.get(b_name, 0)
-            cost = b_info['cost']
-            max_count = b_info['max']
-            color = b_info['color']
-            desc = b_info['desc']
-
-            can_build = (count < max_count and total_buildings < 25 and player_money >= cost)
-
-            row = BoxLayout(
-                orientation='horizontal', size_hint_y=None, height=dp(52),
-                spacing=dp(6), padding=[dp(6), dp(2)]
-            )
-            darker = (color[0] * 0.4, color[1] * 0.4, color[2] * 0.4, 1)
-            with row.canvas.before:
-                Color(*darker)
-                row._bg = RoundedRectangle(pos=row.pos, size=row.size, radius=[dp(8)])
-            row.bind(pos=lambda i, v: setattr(i._bg, 'pos', v),
-                     size=lambda i, v: setattr(i._bg, 'size', v))
-
-            # Инфо: название + описание + счётчик
-            info = BoxLayout(orientation='vertical', size_hint_x=0.55, spacing=dp(1))
-            name_lbl = Label(
-                text=f"[b]{b_name}[/b]  [color=aaaaaa]{count}/{max_count}[/color]",
-                markup=True, font_size=sp(13), color=(1, 1, 1, 1),
-                halign='left', valign='bottom', size_hint_y=0.5
-            )
-            name_lbl.bind(size=name_lbl.setter('text_size'))
-            desc_lbl = Label(
-                text=desc, font_size=sp(11),
-                color=(0.7, 0.7, 0.7, 1), halign='left', valign='top', size_hint_y=0.5
-            )
-            desc_lbl.bind(size=desc_lbl.setter('text_size'))
-            info.add_widget(name_lbl)
-            info.add_widget(desc_lbl)
-
-            # Цена
-            cost_text = format_number(cost) if cost >= 1000 else str(cost)
-            cost_lbl = Label(
-                text=f"[b]{cost_text}[/b]\nкрон", markup=True,
-                font_size=sp(11), color=(0.95, 0.85, 0.35, 1),
-                halign='center', valign='middle', size_hint_x=0.2
-            )
-            cost_lbl.bind(size=cost_lbl.setter('text_size'))
-
-            # Кнопка построить
-            if can_build:
-                btn = Button(
-                    text='+1', font_size=sp(14), bold=True,
-                    size_hint_x=0.25, background_color=(0, 0, 0, 0),
-                    background_normal='', color=(1, 1, 1, 1)
-                )
-                btn_color = (0.2, 0.6, 0.25, 1)
-                with btn.canvas.before:
-                    btn._c = Color(*btn_color)
-                    btn._r = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(8)])
-                btn.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
-                         size=lambda i, v: setattr(i._r, 'size', v))
-
-                def on_build(instance, bname=b_name, bcost=cost, popup_ref=build_popup):
-                    self._build_building(bname, bcost)
-                    if popup_ref[0]:
-                        popup_ref[0].dismiss()
-                    self._open_build_menu()  # Обновляем меню
-                    self.load_buildings()  # Обновляем карточки зданий
-
-                btn.bind(on_release=on_build)
-            else:
-                reason = "МАКС" if count >= max_count else "ЛИМИТ" if total_buildings >= 25 else "Нет крон"
-                btn = Label(
-                    text=f"[color=888888]{reason}[/color]", markup=True,
-                    font_size=sp(11), size_hint_x=0.25,
-                    halign='center', valign='middle'
-                )
-                btn.bind(size=btn.setter('text_size'))
-
-            row.add_widget(info)
-            row.add_widget(cost_lbl)
-            row.add_widget(btn)
-            bld_list.add_widget(row)
-
-        scroll.add_widget(bld_list)
-        content.add_widget(scroll)
-
-        # Кнопка закрыть
-        close_btn = Button(
-            text='Закрыть', size_hint_y=None, height=dp(40),
-            font_size=sp(13), bold=True,
-            background_color=(0, 0, 0, 0), background_normal='', color=(1, 1, 1, 1)
-        )
-        with close_btn.canvas.before:
-            Color(0.5, 0.2, 0.2, 1)
-            close_btn._r = RoundedRectangle(pos=close_btn.pos, size=close_btn.size, radius=[dp(10)])
-        close_btn.bind(pos=lambda i, v: setattr(i._r, 'pos', v),
-                       size=lambda i, v: setattr(i._r, 'size', v))
-
-        popup = _Popup(
-            title='', content=content,
-            size_hint=(0.95 if _is_mobile else 0.75, 0.85 if _is_mobile else 0.7),
-            separator_height=0,
-            background_color=(0, 0, 0, 0),
-        )
-        build_popup[0] = popup
-        from strategy_ui import frame
-        frame(content)
-        close_btn.bind(on_release=lambda x: popup.dismiss())
-        content.add_widget(close_btn)
-        popup.open()
-
-    def _build_building(self, building_type, cost):
-        """Строит 1 здание указанного типа в текущем городе."""
+    def _build_building(self, building_type, cost=None):
+        from city_construction import buy_building
         try:
-            cursor = self.conn.cursor()
-            # Списываем деньги
-            cursor.execute(
-                "UPDATE resources SET amount = amount - ? WHERE faction = ? AND resource_type = 'Кроны'",
-                (cost, self.player_fraction)
-            )
-            # Добавляем здание
-            cursor.execute(
-                "SELECT count FROM buildings WHERE city_name = ? AND faction = ? AND building_type = ?",
-                (self.city_name, self.player_fraction, building_type)
-            )
-            row = cursor.fetchone()
-            if row:
-                cursor.execute(
-                    "UPDATE buildings SET count = count + 1 WHERE city_name = ? AND faction = ? AND building_type = ?",
-                    (self.city_name, self.player_fraction, building_type)
-                )
-            else:
-                cursor.execute(
-                    "INSERT INTO buildings (city_name, faction, building_type, count) VALUES (?, ?, ?, 1)",
-                    (self.city_name, self.player_fraction, building_type)
-                )
-            self.conn.commit()
-            print(f"[BUILD] Построено {building_type} в {self.city_name} за {cost} крон")
-            from city_war import reconcile_city_rebuilding
-            reconcile_city_rebuilding(self.conn)
-            self.conn.commit()
-        except Exception as e:
-            print(f"[BUILD] Ошибка: {e}")
-            self.conn.rollback()
+            with self.conn:buy_building(self.conn,self.city_name,self.player_fraction,building_type)
+        except ValueError as exc:
+            self._construction_error=str(exc)
+            return False
+        from utils.resource_payments import sync_resources
+        sync_resources(self.conn,self.player_fraction)
+        self.load_buildings()
+        self.get_garrison()
+        return True
+
 
     def get_buildings(self):
         """Получает количество зданий в указанном городе из таблицы buildings."""

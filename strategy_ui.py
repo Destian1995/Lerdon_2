@@ -137,7 +137,7 @@ class CityColumns(BoxLayout):
         self._wide = None
         self.tabs = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(8))
         self.buttons = []
-        for index, title in enumerate(('Гарнизон', 'Здания')):
+        for index, title in enumerate(('Гарнизон', 'Город')):
             button = StrategyButton(text=title, accent=accent)
             button.bind(on_release=lambda widget, index=index: self.select(index))
             self.tabs.add_widget(button)
@@ -201,8 +201,9 @@ def build_city_window(popup):
     popup.city_root = root
     header = BoxLayout(size_hint_y=None, height=dp(76), spacing=dp(12))
     state = read_city_war_states(popup.conn).get(popup.city_name)
+    from town_art import map_icon
     art = ('files/buildings/ruined/undead.png' if popup._is_undead_city else 'files/buildings/ruined/town.png') if state and state.ruined else (
-        'files/buildings/castle_death.png' if popup._is_undead_city else 'files/buildings/default.png')
+        'files/buildings/castle_death.png' if popup._is_undead_city else map_icon(popup.city_faction))
     portrait = surface(BoxLayout(size_hint=(None, 1), width=dp(76), padding=dp(5)), accent=accent)
     portrait.add_widget(Image(source=art, mipmap=True))
     header.add_widget(portrait)
@@ -210,7 +211,7 @@ def build_city_window(popup):
     heading.add_widget(text_label('ПОСЕЛЕНИЕ  /  ' + (popup.city_faction or 'Нейтрал'), 10, accent))
     heading.add_widget(text_label(popup.city_name, 24, bold=True))
     owned = popup.city_faction == popup.player_fraction
-    status = ('Руины · идёт восстановление' if state.ready_turn is not None else 'Руины · отстройте 25 зданий') if state and state.ruined else (
+    status = ('Руины · идёт восстановление' if state.ready_turn is not None else 'Руины · восстановите все постройки') if state and state.ruined else (
         'Ваш город' if owned else 'Чужие владения' if popup.city_faction != 'Нейтрал' else 'Нейтральный город')
     heading.add_widget(text_label(status, 12, MUTED))
     from utils.city_terrain import city_terrain
@@ -276,28 +277,14 @@ def build_city_window(popup):
     popup.attacking_units_box.bind(minimum_height=popup.attacking_units_box.setter('height'))
     popup.attacking_units_list.add_widget(popup.attacking_units_box)
     left.add_widget(popup.attacking_units_list)
-    right = section('Проклятые земли' if popup._is_undead_city else 'Здания', 'files/status/icons/building.png', accent)
-    if popup._is_undead_city:
-        image = 'files/city/death/' + {'Некрополь': 'nekropolis', 'Горгум': 'gorgum', 'Морготар': 'morgotar'}.get(popup.city_name, 'city') + '.png'
-        city_image = Image(source=image, mipmap=True)
-        def open_lore(widget, touch):
-            if widget.collide_point(*touch.pos):
-                show_city_lore(popup, image)
-                return True
-            return False
-        city_image.bind(on_touch_down=open_lore)
-        right.add_widget(city_image)
-        right.add_widget(text_label('Древняя крепость нежити', 12, MUTED, size_hint_y=None, height=dp(28)))
-    else:
-        count = popup.conn.execute('SELECT COALESCE(SUM(count),0) FROM buildings WHERE city_name=? AND faction=?',
-                                   (popup.city_name, popup.city_faction)).fetchone()[0]
-        popup.city_building_count = text_label(f'Застройка  {count} / 25', 12, GOLD, size_hint_y=None, height=dp(24))
-        right.add_widget(popup.city_building_count)
-        popup.buildings_list = ScrollView(do_scroll_x=False, bar_width=dp(3))
-        popup.buildings_box = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(8))
-        popup.buildings_box.bind(minimum_height=popup.buildings_box.setter('height'))
-        popup.buildings_list.add_widget(popup.buildings_box)
-        right.add_widget(popup.buildings_list)
+    right = section('Проклятые земли' if popup._is_undead_city else 'Панорама города', 'files/status/icons/building.png', accent)
+    from town_scene import TownScene
+    popup.city_preview=TownScene(popup.conn,popup.city_name,popup.city_faction,
+                                 select=lambda *_:popup._open_build_menu(),preview=True)
+    right.add_widget(popup.city_preview)
+    popup.city_building_count=text_label('',13,GOLD,size_hint_y=None,height=dp(24))
+    right.add_widget(popup.city_building_count)
+    right.add_widget(text_label('Нажмите на город, чтобы войти',13,MUTED,size_hint_y=None,height=dp(24)))
     popup.city_columns = CityColumns(left, right, accent)
     if popup._is_undead_city:
         popup.city_columns.buttons[1].text = 'Проклятые земли'
