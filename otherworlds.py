@@ -69,7 +69,7 @@ def upgrade_world(conn):
         return
     row=conn.execute('SELECT version FROM portal_presentation WHERE world_id=1').fetchone()
     version=row[0] if row else 0
-    if version>=2:
+    if version>=6:
         return
     with atomic(conn):
         if version<1:
@@ -82,10 +82,19 @@ def upgrade_world(conn):
             conn.execute("DELETE FROM portal_market WHERE kind IN ('unit','artifact')")
         from otherworld_themes import THEMES
         for faction in THEMES:
-            for unit in unit_catalog(faction):
-                conn.execute('UPDATE units SET attack=?,defense=? WHERE unit_name=? AND faction=?',
-                             (unit['attack'],unit['defense'],'Странник: '+unit['unit_name']+' / '+faction,faction))
-        conn.execute('INSERT OR REPLACE INTO portal_presentation VALUES(1,2)')
+            for unit in unit_offers(conn,faction):
+                if version<5:
+                    conn.execute('UPDATE units SET attack=?,defense=?,durability=?,consumption=?,cost_money=?,image_path=? WHERE unit_name=? AND faction=?',
+                             (unit['attack'],unit['defense'],unit['durability'],unit['consumption'],unit['cost_money'],unit['image_path'],
+                              'Странник: '+unit['unit_name']+' / '+faction,faction))
+                else:
+                    conn.execute('UPDATE units SET image_path=? WHERE unit_name=? AND faction=?',
+                                 (unit['image_path'],'Странник: '+unit['unit_name']+' / '+faction,faction))
+                conn.execute('UPDATE garrisons SET unit_image=? WHERE unit_name=?',
+                             (unit['image_path'],'Странник: '+unit['unit_name']+' / '+faction))
+        from otherworld_quests import migrate_conflict_sides
+        migrate_conflict_sides(conn)
+        conn.execute('INSERT OR REPLACE INTO portal_presentation VALUES(1,6)')
 
 
 def _dicts(cursor):
@@ -196,6 +205,7 @@ def enter(conn,faction,source):
             _credit(conn,camp,name,count,image,exp,training_source=source)
         conn.execute('DELETE FROM garrisons WHERE city_name=?',(source,))
         conn.execute('INSERT INTO portal_parties VALUES(?,1,1,?,?)',(faction,source,camp))
+        _collect_city_camp(conn,faction,1,camp)
     return party(conn,faction)
 
 
@@ -207,13 +217,48 @@ def beam(conn,faction):
         return None
 
 
-def begin_beam(conn,faction,destination):
+def city_camp(conn,faction,city_id):
+    p=party(conn,faction)
+    if p and p['city_id']==city_id and not beam(conn,faction):
+        return p['camp']
+    return '@portal-city:'+faction+':'+str(city_id)
+
+
+def _collect_city_camp(conn,faction,city_id,camp):
+    local='@portal-city:'+faction+':'+str(city_id)
+    for name,count,image,exp,*_ in _camp_units(conn,local):
+        _credit(conn,camp,name,count,image,exp,training_source=local)
+    conn.execute('DELETE FROM garrisons WHERE city_name=?',(local,))
+
+
+def begin_beam(conn,faction,destination,selected_units=None,source=None):
     with atomic(conn):
         p,_=_party_city(conn,faction)
+        if source is not None and int(source)!=p['city_id']:
+            source=int(source)
+            local='@portal-city:'+faction+':'+str(source)
+            if not _camp_units(conn,local):
+                raise ValueError('В этом городе нет ваших войск.')
+            parked='@portal-city:'+faction+':'+str(p['city_id'])
+            for name,count,image,exp,*_ in _camp_units(conn,p['camp']):
+                _credit(conn,parked,name,count,image,exp,training_source=p['camp'])
+            conn.execute('DELETE FROM garrisons WHERE city_name=?',(p['camp'],))
+            conn.execute('UPDATE portal_parties SET city_id=? WHERE faction=?',(source,faction))
+            _collect_city_camp(conn,faction,source,p['camp'])
+            p=party(conn,faction)
         edge=tuple(sorted((p['city_id'],int(destination))))
         if not conn.execute('SELECT 1 FROM portal_roads WHERE city1=? AND city2=?',edge).fetchone():
             raise ValueError('Выберите соседний город, соединённый дорогой.')
+        units=_camp_units(conn,p['camp'])
+        selected=set(selected_units) if selected_units is not None else {r[0] for r in units}
+        if not selected or not selected.issubset({r[0] for r in units}):
+            raise ValueError('Выберите доступные отряды для похода.')
         _move(conn,faction)
+        local='@portal-city:'+faction+':'+str(p['city_id'])
+        for name,count,image,exp,*_ in units:
+            if name not in selected:
+                _credit(conn,local,name,count,image,exp,training_source=p['camp'])
+                conn.execute('DELETE FROM garrisons WHERE city_name=? AND unit_name=?',(p['camp'],name))
         conn.execute('INSERT INTO portal_beam_journeys VALUES(?,?,?)',(faction,p['city_id'],destination))
 
 
@@ -223,6 +268,7 @@ def finish_beam(conn,faction):
         if pending:
             conn.execute('UPDATE portal_parties SET city_id=? WHERE faction=?',(pending[1],faction))
             conn.execute('DELETE FROM portal_beam_journeys WHERE faction=?',(faction,))
+            _collect_city_camp(conn,faction,pending[1],party(conn,faction)['camp'])
 
 
 def travel(conn,faction,destination):
@@ -251,7 +297,37 @@ def return_home(conn,faction):
 
 
 def unit_offers(conn,faction=None):
-    return unit_catalog(faction)
+    catalog=unit_catalog(faction)
+    if not faction:return catalog
+    columns=[r[1] for r in conn.execute('PRAGMA table_info(units)')]
+    rows=[dict(zip(columns,row)) for row in conn.execute(
+        "SELECT * FROM units WHERE faction=? AND unit_class='1' AND unit_name NOT LIKE 'Странник:%' ORDER BY id",(faction,))]
+    # A shared reference preserves ascending prices/power even when ordinary
+    # faction roles have radically different prices and stat distributions.
+    candidates=[r for r in rows if (r.get('attack') or 0)+(r.get('defense') or 0)>0]
+    base=dict(min(candidates or catalog,key=lambda u:(max(1,u.get('cost_money') or 0),u['id'])))
+    for item in catalog:
+        from otherworld_content import balance_mirror_unit
+        balance_mirror_unit(item,base,faction)
+    return catalog
+
+
+def recruitment_limit(conn,faction,template_id):
+    """Read-only availability for the quantity mixer; recruit validates again."""
+    _,city=_party_city(conn,faction)
+    unit=next(u for u in unit_offers(conn,faction) if u['id']==template_id)
+    cash=sum(r[0] for r in conn.execute("SELECT amount FROM resources WHERE faction=? AND resource_type='Кроны'",(faction,)))
+    owned=conn.execute('SELECT COUNT(*) FROM cities WHERE faction=?',(faction,)).fetchone()[0]
+    towers=conn.execute("SELECT COALESCE(SUM(count),0) FROM buildings WHERE faction=? AND building_type='Вышка'",(faction,)).fetchone()[0]
+    used=conn.execute('''SELECT COALESCE(SUM(g.unit_count*COALESCE(u.consumption,0)),0)
+        FROM garrisons g JOIN units u ON g.unit_name=u.unit_name WHERE u.faction=?
+        AND g.city_name NOT IN (SELECT name FROM cities WHERE faction='Мятежники')''',(faction,)).fetchone()[0]
+    stock=conn.execute("SELECT stock,turn FROM portal_market WHERE city_id=? AND kind='unit' AND item=?",
+                       (city['id'],faction+':'+str(template_id))).fetchone()
+    available=stock[0] if stock and stock[1]==current_turn(conn) else 1000
+    capacity=max(0,4000+owned*1000+towers*500-used)
+    return max(0,min(available,int(cash//max(1,unit['cost_money'])),
+                     int((capacity+1e-8)//unit['consumption']) if unit['consumption'] else 1000))
 
 
 def artifact_offers(conn,faction=None):
@@ -323,16 +399,16 @@ def recruit(conn,faction,template_id,quantity=100):
             AND g.city_name NOT IN (SELECT name FROM cities WHERE faction='Мятежники')''',(faction,)).fetchone()[0]
         if consumption+quantity*(template.get('consumption') or 0)>4000+owned*1000+towers*500:
             raise ValueError('Недостаточно лимита армии для найма.')
-        cost=price(city,max(1,template['cost_money'])*2)*quantity
+        cost=max(1,template['cost_money'])*quantity
         _pay(conn,faction,'Кроны',cost)
         name='Странник: '+template['unit_name']+' / '+faction
         # Faction-owned templates keep consumption, XP, combat and army limits
         # working after the mercenaries return to the ordinary world.
+        available={r[1] for r in conn.execute('PRAGMA table_info(units)')}
+        clone={k:v for k,v in template.items() if k!='id' and k in available}
+        clone.update(unit_name=name,faction=faction)
+        columns=list(clone)
         if not conn.execute('SELECT 1 FROM units WHERE unit_name=?',(name,)).fetchone():
-            available={r[1] for r in conn.execute('PRAGMA table_info(units)')}
-            clone={k:v for k,v in template.items() if k!='id' and k in available}
-            clone.update(unit_name=name,faction=faction)
-            columns=list(clone)
             conn.execute('INSERT INTO units('+','.join(columns)+') VALUES('+','.join('?' for _ in columns)+')',
                          [clone[k] for k in columns])
         _credit(conn,p['camp'],name,quantity,template['image_path'],0)

@@ -1,5 +1,12 @@
 """Faction worlds share geography and quest rules, with separate painted sets."""
 ROOT='files/otherworld/themes/'
+CONFLICT_SIDES={
+    'Север':('Клан Медведя','Клан Грома'),
+    'Адепты':('Аббатство','Тарминат'),
+    'Вампиры':('Теплокровные','Жнецы'),
+    'Элины':('Отступники','Академия'),
+    'Эльфы':('Город Зари','Вестники Шианы'),
+}
 THEMES={
     'Север':dict(key='north',name='Зазеркалье Севера',accent=(.46,.79,1,1),prefix='Инея',
         units=('Страж инея','Северный охотник','Снежный всадник','Рунный проводник','Ледяной исполин'),
@@ -28,7 +35,19 @@ def theme(faction):return THEMES.get(faction,THEMES['Адепты'])
 
 
 def image_path(faction,group,key):
+    from pathlib import Path
+    female={'north':('archer','weaver','boss'),'elves':('archer','weaver','boss'),
+            'vampires':('archer','boss'),'adepts':('archer','boss'),'elines':('archer','weaver','boss')}
+    skin=theme(faction)['key']
+    if group=='units' and key in female[skin] and Path(ROOT+skin+'/women.atlas').is_file():group='women'
     return 'atlas://'+ROOT+theme(faction)['key']+'/'+group+'/'+key
+
+
+def resolve_unit_image(source):
+    for faction,data in THEMES.items():
+        prefix='atlas://'+ROOT+data['key']+'/units/'
+        if source and source.startswith(prefix):return image_path(faction,'units',source[len(prefix):])
+    return source
 
 
 def background(faction):return ROOT+theme(faction)['key']+'/map.png'

@@ -51,7 +51,9 @@ class RecruitmentSession(Widget):
         close._strategy_close = True
         header.add_widget(close)
         root.add_widget(header)
-        self.carousel = Carousel(direction='right', loop=True, scroll_distance=dp(30))
+        self.carousel = Carousel(direction='right', loop=True, scroll_distance=dp(30),
+                                 anim_move_duration=.18, anim_cancel_duration=.12,
+                                 ignore_perpendicular_swipes=True)
         self.slides = []
         for _ in self.units:
             slide = BoxLayout()
@@ -101,6 +103,7 @@ class RecruitmentSession(Widget):
         self.navigation.opacity = 0 if compact else 1
         self.navigation.disabled = compact
         for card in self.cards.values():
+            card.controls.height = dp(52)
             card.stat_grid.cols = 2 if height < dp(330) else 1
             slider = card.quantity_slider
             if slider is not None:
@@ -140,8 +143,8 @@ class RecruitmentSession(Widget):
         card.quantity_slider = None
         title = BoxLayout(size_hint_y=None, height=dp(30), spacing=dp(8))
         title.add_widget(text_label(name, 21, bold=True))
-        rank = text_label({1: 'Рекрут', 2: 'Герой', 3: 'Чемпион', 4: 'Легенда'}.get(unit_class, 'Воин'),
-                          11, GOLD, size_hint_x=None, width=dp(84))
+        rank = text_label(info.get('role_label') or {1: 'Рекрут', 2: 'Герой', 3: 'Чемпион', 4: 'Легенда'}.get(unit_class, 'Воин'),
+                          11, GOLD, size_hint_x=None, width=dp(100 if info.get('role_label') else 84))
         rank.halign = 'right'
         title.add_widget(rank)
         card.add_widget(title)
@@ -160,14 +163,16 @@ class RecruitmentSession(Widget):
             caption_label = text_label(caption, 11, MUTED)
             caption_label.shorten = True
             row.add_widget(caption_label)
-            value = text_label(format_number(info['stats'].get(key, 0)), 13, TEXT,
+            stat_value=info['stats'].get(key, 0)
+            value = text_label(f'{stat_value:g}' if key=='Потребление Кристаллов' else format_number(stat_value), 13, TEXT,
                                bold=True, size_hint_x=0.65)
             value.halign = 'right'
             row.add_widget(value)
             stats.add_widget(row)
             card.stat_rows.append((row, caption_label, value))
         body.add_widget(stats)
-        card.portrait = AsyncImage(source=info['image'], size_hint_x=0.44, fit_mode='contain', mipmap=True)
+        portrait_class=Image if info['image'].startswith('atlas://') else AsyncImage
+        card.portrait = portrait_class(source=info['image'], size_hint_x=0.44, fit_mode='contain', mipmap=True)
         from portrait_ui import style_portrait_image
         style_portrait_image(card.portrait, enabled=True)
         body.add_widget(card.portrait)
@@ -203,6 +208,8 @@ class RecruitmentSession(Widget):
                     slider.max, slider.value = max(1, maximum), number
                     hire.disabled = maximum < 1
                     price.text = f'Итого: {format_number(info["cost"][0] * number)} крон  ·  {format_number(info["cost"][1] * number)} раб.'
+                    if info.get('show_hire_total'):
+                        hire.text='НАНЯТЬ · '+format_number(info['cost'][0]*number)+' кр.'
                 except ValueError:
                     pass
                 finally:

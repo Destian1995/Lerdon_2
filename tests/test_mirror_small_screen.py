@@ -19,7 +19,7 @@ import otherworld_quests as q
 
 class MirrorSmallScreenTests(unittest.TestCase):
     def setUp(self):
-        self.size=Window.size;self.metrics=(Metrics.density,Metrics.fontscale)
+        self.size=Window.size;self.metrics=(max(1,Metrics.density),Metrics.fontscale)
         self.db=fixture();self.addCleanup(self.db.close)
         w.enter(self.db,'Север','Home')
         for i in range(1,6):w.recruit(self.db,'Север',i)
@@ -51,13 +51,14 @@ class MirrorSmallScreenTests(unittest.TestCase):
 
     def test_goods_and_army_are_readable_one_card_at_a_time(self):
         city=ForeignCityPopup(self.owner,w.cities(self.db,'Север')[0]);city.open(animation=False);settle()
+        city.open_market();settle()
         for size,density in [((640,360),1),((1280,576),2),((390,844),1)]:
             Window.size=size;Metrics.density=density;settle();city.fit();settle()
-            for mode in ('units','artifacts','resources'):
+            for mode in ('artifacts','resources'):
                 with self.subTest(size=size,density=density,mode=mode):
                     city.show_market(mode);settle()
                     self.assertEqual(len(city.offers.pages),2 if mode=='resources' else 5)
-                    self.assertEqual(len(city.army_box.pages),7)
+                    self.assertEqual(len(city.army_box.rows.children),7)
                     for index,card in enumerate(city.offers.pages):
                         city.offers.select(index);settle()
                         self.assertIs(city.offers.carousel.current_slide,card)
@@ -66,24 +67,27 @@ class MirrorSmallScreenTests(unittest.TestCase):
                         self.assertGreaterEqual(card.title_label.font_size,12)
                         self.readable(card)
                     self.assertEqual(city.offers.counter.text,f'{len(city.offers.pages)} / {len(city.offers.pages)}')
-                    city.army_box.select(6);settle()
-                    self.assertIs(city.army_box.carousel.current_slide,city.army_box.pages[6])
+                    row=city.army_box.rows.children[0]
+                    city.army_box.scroll_to(row,animate=False);settle()
                     self.inside(city.guard_label,city.army_panel)
                     self.inside(city.action_bar,city.root)
-                    self.readable(city.army_box.carousel.current_slide)
+                    self.readable(row)
 
     def test_accusation_choices_and_quests_can_be_paged(self):
         q.begin(self.db,'Север',random.Random(54))
         d=q.details(q.state(self.db,'Север'))['detective']
         for place,kind in zip(d['cities'],('witness','ledger')):
             self.db.execute('UPDATE portal_parties SET city_id=?',(place,));self.db.commit()
-            q.action(self.db,'Север',kind)
+            q.action(self.db,'Север',kind,d['search_sites'][d['search_answer']] if kind=='ledger' else None)
         journal=QuestJournal(self.owner);journal.open(animation=False);settle()
         self.assertEqual(len(journal.cards.pages),2)
         for index,card in enumerate(journal.cards.pages):
             journal.cards.select(index);settle()
             self.assertIs(journal.cards.carousel.current_slide,card)
-            for button in card.buttons.children:self.inside(button,card)
+            for button in card.buttons.children:
+                self.assertIs(button.parent,card.buttons)
+                self.assertGreaterEqual(button.height,48)
+            self.assertGreaterEqual(card.scroll.height,40)
             self.readable(card)
         # A repeat run can still have the previous cap buff plus an unclaimed
         # war reward while the detective case is at its accusation stage.
@@ -121,6 +125,19 @@ class MirrorSmallScreenTests(unittest.TestCase):
         self.owner.zoom_label.dispatch('on_release')
         self.assertEqual(m.camera.zoom,1);self.assertEqual(m.camera.pan,(0,0))
         for widget in (self.owner.header,self.owner.action_bar):self.inside(widget,self.owner.stage)
+
+    def test_recruitment_mixer_and_portraits_fit_phone_density_and_portrait(self):
+        city=ForeignCityPopup(self.owner,w.cities(self.db,'Север')[0]);city.open(animation=False);settle()
+        city.open_recruitment();session=city.recruitment;settle()
+        for size,density in [((640,360),1),((1280,576),2),((392,844),1)]:
+            Window.size=size;Metrics.density=density;session.fit();settle()
+            card=session.cards[0]
+            self.assertIsNotNone(card.portrait.texture)
+            self.assertTrue(card.portrait._portrait_frame.visible)
+            self.inside(card.controls,card)
+            self.inside(card.mirror_scroll,card)
+            self.assertGreaterEqual(card.quantity_slider.height,48*density)
+            self.assertGreaterEqual(card.controls.height,48*density)
 
 
 if __name__=='__main__':unittest.main()

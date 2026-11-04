@@ -9,8 +9,9 @@ import otherworld_quests as quests
 
 
 class QuestJournal(WorldPopup):
-    def __init__(self,owner,**kwargs):
+    def __init__(self,owner,tavern_city=None,**kwargs):
         self.owner,self.conn,self.faction=owner,owner.conn,owner.faction
+        self.tavern_city=tavern_city
         self._feedback_city=None
         super().__init__('ЗАДАНИЯ  /  '+theme(self.faction)['name'],accent=owner.accent,**kwargs)
         from mirror_layout import FitLabel
@@ -55,8 +56,9 @@ class QuestJournal(WorldPopup):
             cooldown=max(0,run['repeat_turn']-now) if run else 0
             copy=('Каждый поход — новое расследование и новый конфликт сказочных сил. Сюжеты, участники, улики и маршруты меняются.\n'
                   'За каждое — мощный предмет на 25 ходов. За оба — Сердце Зазеркалья и лимиты ресурсов +35% на 25 ходов.')
+            copy+='\nРиск: неверное место поиска, порядок улик или обвинение обнуляют все ваши кроны.'
             if run:copy+=f'\nЦепочка завершена. Повтор через {cooldown} х.' if cooldown else '\nМожно начать новую цепочку.'
-            self.card('Приключения Зазеркалья',copy,[('Принять задания у Врат',lambda *_:self.perform(lambda:quests.begin(self.conn,self.faction)),ready and here==1 and not quests.pending(self.conn,self.faction))])
+            self.card('Приключения Зазеркалья',copy,[('Принять задания' if self.tavern_city else 'Принять задания у Врат',lambda *_:self.perform(lambda:quests.begin(self.conn,self.faction,tavern_city=self.tavern_city)),ready and (here==1 or here==self.tavern_city) and not quests.pending(self.conn,self.faction))])
         else:
             scenario=quests.details(run);detective=scenario['detective'];war=scenario['war']
             stage=run['detective']
@@ -66,10 +68,21 @@ class QuestJournal(WorldPopup):
             tasks=(f'Опросите свидетеля: {names[places[0]-1]}.',f'Изучите записи: {names[places[1]-1]}.',f'Предъявите обвинение: {names[places[2]-1]}.',detective['solved'])
             buttons=[]
             if stage==0:buttons=[('Опросить свидетеля',lambda *_:self.step('witness'),here==places[0])]
-            if stage==1:buttons=[('Изучить записи',lambda *_:self.step('ledger'),here==places[1])]
+            if stage==1:
+                sites=detective.get('search_sites')
+                buttons=[('Искать: '+site,lambda *_,s=site:self.step('ledger',s),here==places[1]) for site in sites] if sites else [('Изучить записи',lambda *_:self.step('ledger'),here==places[1])]
             if stage==2:
                 buttons=[('Обвинить: '+name,lambda *_,n=name:self.step('accuse',n),here==places[2]) for name in detective['suspects']]
                 if here==places[2]:tasks=(*tasks[:2],'Кого вы обвиняете? Вспомните подсказки из других городов.',tasks[3])
+                if detective.get('search_sites'):
+                    collected,arranged=quests.evidence(self.conn,self.faction)
+                    board='\n'.join(f'{i+1}. {item}' for i,item in enumerate(arranged)) or 'Доска пуста'
+                    notes='\n'.join(quests.evidence_notes(run))
+                    tasks=(*tasks[:2],'Соберите цепочку: показание → находка → запись. Затем выберите виновного.\n'+notes+'\nДоска улик:\n'+board+'\nРиск: ошибка при обвинении обнулит все кроны.',tasks[3])
+                    if len(arranged)<3:
+                        buttons=[('Разместить: '+item,lambda *_,c=item:self.step('arrange',c),here==places[2]) for item in reversed(collected) if item not in arranged]
+                    else:
+                        buttons.append(('Переставить улики',lambda *_:self.step('reset_board'),here==places[2]))
             self.card(detective['title']+'  ·  '+str(stage)+'/3',(detective['premise']+'\n' if stage==0 else '')+clue+tasks[stage]+'\nНаграда: Венец истины · 25 ходов.',buttons)
             stage=run['war'];side=run['side']
             supply_city=war['supplies'][0 if side==war['sides'][0] else 1]
@@ -102,7 +115,7 @@ class QuestJournal(WorldPopup):
     def step(self,kind,choice=None):
         def action():
             result=quests.action(self.conn,self.faction,kind,choice)
-            return 'Подсказка получена. Запомните её перед уходом.' if kind in ('witness','ledger') else result
+            return 'Подсказка получена. Запомните её перед уходом.' if kind in ('witness','ledger') and not result.startswith('Расследование провалено') else result
         self.perform(action)
 
     def perform(self,callback):

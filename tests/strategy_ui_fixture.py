@@ -90,6 +90,7 @@ def hud_fixture():
 
 
 def cleanup_hud(host):
+    if hasattr(host,'portal_shortcut'):host.portal_shortcut.close()
     host.resource_box.cleanup()
     Window.unbind(on_resize=host._hud_fit)
     Window.unbind(on_resize=host.update_resource_box_position)

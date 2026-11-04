@@ -87,7 +87,16 @@ class CouncilUITests(unittest.TestCase):
             self.assertFalse(any('Пороги лояльности' in text for text in labels))
             self.assertEqual(popup.advisor_grid.cols, 3)
             _, bottom = popup.advisor_grid.to_window(popup.advisor_grid.x, popup.advisor_grid.y)
-            self.assertGreaterEqual(bottom, popup._window_action_dock.top)
+            self.assertGreaterEqual(bottom, popup.council_actions.top)
+            self.assertEqual(len(popup.council_header.children), 2)
+            for size in ((640,360),(1280,576),(392,844)):
+                Window.size=size;settle()
+                self.assertGreater(popup.advisor_scroll.height,80)
+                self.assertGreaterEqual(popup.advisor_scroll.y,popup.council_actions.top)
+                for card in popup.advisor_grid.children:
+                    popup.advisor_scroll.scroll_to(card,padding=0,animate=False);settle()
+                    self.assertLessEqual(card.y,popup.advisor_scroll.top)
+                    self.assertGreaterEqual(card.top,popup.advisor_scroll.y)
         finally:
             popup.dismiss(animation=False)
             db.close()

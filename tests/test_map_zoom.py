@@ -165,6 +165,62 @@ class ZoomUITests(unittest.TestCase):
         self.assertEqual(self.clicks,[(700,350)])
         self.assertEqual(touch.pos,screen_point)
 
+    def test_hold_city_drag_uses_zoomed_hits_without_panning_or_opening_city(self):
+        from test_otherworlds import fixture
+        db=fixture();self.addCleanup(db.close)
+        self.owner.conn=db;self.owner.current_player_kingdom='Север'
+        self.owner.fortress_data_for_canvas=[('Home','Север',200,350,200,350),
+                                              ('Safe','Север',800,350,800,350)]
+        self.owner.fortress_icon_widgets={
+            'Home':Widget(pos=(200,350),size=(80,80)),
+            'Safe':Widget(pos=(800,350),size=(80,80))}
+        drops=[];self.zoom.army_drag.drop=lambda *v:drops.append(v)
+        self.zoom.change(.5)
+        t=Touch(*self.zoom.camera.project(240,390));self.zoom.down(t)
+        self.zoom.army_drag.activate()
+        pan=self.zoom.camera.pan
+        t.pos=self.zoom.camera.project(840,390);self.zoom.move(t);self.zoom.up(t)
+        self.assertEqual(drops,[('Home','Safe')]);self.assertEqual(self.clicks,[])
+        self.assertEqual(self.zoom.camera.pan,pan)
+
+    def test_second_finger_cancels_pending_army_hold(self):
+        self.zoom.army_drag.pick=lambda _:1
+        self.zoom.army_drag.eligible=lambda _:True
+        first=Touch(500,400);second=Touch(600,400)
+        self.zoom.down(first);self.assertIsNotNone(self.zoom.army_drag.event)
+        self.zoom.down(second);self.assertIsNone(self.zoom.army_drag.event)
+        self.assertFalse(self.zoom.army_drag.active)
+        self.zoom.up(first);self.zoom.up(second);self.assertEqual(self.clicks,[])
+
+    def test_real_window_hold_on_city_starts_drag_and_drops(self):
+        from test_otherworlds import fixture
+        from kivy.tests.common import UnitTestTouch
+        db=fixture();self.addCleanup(db.close)
+        self.owner.conn=db;self.owner.current_player_kingdom='Север'
+        self.owner.fortress_data_for_canvas=[('Home','Север',200,350,200,350),
+                                              ('Safe','Север',800,350,800,350)]
+        self.owner.fortress_icon_widgets={
+            'Home':Widget(pos=(200,350),size=(80,80)),
+            'Safe':Widget(pos=(800,350),size=(80,80))}
+        drops=[];self.zoom.army_drag.drop=lambda *v:drops.append(v)
+        touch=UnitTestTouch(240,390)
+        touch.touch_down()
+        touch.touch_move(252,392)
+        self.assertIsNotNone(self.zoom.army_drag.event)
+        for _ in range(4):settle()
+        self.assertTrue(self.zoom.army_drag.active)
+        touch.touch_move(840,390);touch.touch_up()
+        self.assertEqual(drops,[('Home','Safe')])
+        self.assertEqual(self.clicks,[])
+
+    def test_small_city_padding_is_clickable_and_nearest_icon_wins(self):
+        self.owner.fortress_data_for_canvas=[('Home',),('Safe',)]
+        self.owner.fortress_icon_widgets={
+            'Home':Widget(pos=(200,350),size=(40,40)),
+            'Safe':Widget(pos=(245,350),size=(40,40))}
+        self.assertEqual(self.zoom.city_at((196,370)),'Home')
+        self.assertEqual(self.zoom.city_at((246,370)),'Safe')
+
     def test_city_names_grow_to_one_point_three_without_rebuilding_map(self):
         from map_city_labels import CityLabels
         glyph=Rectangle(pos=(600,320),size=(200,30))

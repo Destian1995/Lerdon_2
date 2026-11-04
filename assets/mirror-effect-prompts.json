@@ -1,0 +1,64 @@
+{
+  "mode": "built-in image_gen",
+  "layout": {
+    "factions": "4 columns × 4 rows; rows: main effect, secondary effect, magic seal, sky effect; 4 crossfaded frames each",
+    "lightning": "2 columns × 2 rows; 4 non-looping stages"
+  },
+  "assets": [
+    {
+      "key": "vampires",
+      "path": "files/otherworld/effects/vampires.png"
+    },
+    {
+      "key": "elves",
+      "path": "files/otherworld/effects/elves.png"
+    },
+    {
+      "key": "north",
+      "path": "files/otherworld/effects/north.png"
+    },
+    {
+      "key": "adepts",
+      "path": "files/otherworld/effects/adepts.png"
+    },
+    {
+      "key": "elines",
+      "path": "files/otherworld/effects/elines.png"
+    },
+    {
+      "key": "lightning",
+      "path": "files/otherworld/effects/lightning.png"
+    }
+  ],
+  "prompts": [
+    {
+      "key": "vampires",
+      "prompt": "Use case: stylized-concept. Asset type: production RGBA game animation sprite atlas. Create a SQUARE 2048x2048 transparent sprite sheet, EXACTLY FOUR columns and FOUR rows of equal square cells, 16 separate centered sprites, NO grid, NO text, NO labels, no background, actual transparent alpha including between sprites. Each row is ONE animation sequence left to right, with consistent pivot, scale, lighting, design and generous transparent padding (at least 12% of each cell). Richly painted detailed dark fantasy game art, readable at 24-50px, volumetric materials and soft edge lighting, not line icons, not vector graphics. VAMPIRE MIRROR REALM palette charcoal black, deep plum and luminous violet. Row 1: same anatomically recognizable small bat seen obliquely from above, furry body, pointy ears, translucent leathery violet wing membranes and finger bones, four distinct consecutive wingbeat poses (raised, half spread, downstroke, half folded), body at same center. Row 2: a second smaller bat variation with dusky burgundy membranes, different wingbeat poses over four frames, not a skull, detailed identifiable real bats. Row 3: ornate painted circular spectral seal / violet ritual ring viewed from above, four stages of gentle luminosity and rotation, delicate ornament integrated into richly luminous translucent paint, no letters. Row 4: violet spectral shooting star / comet with bright faceted head and broad smoky violet tail pointing lower left, four subtly changing stages of its flowing tail. Each subject entirely contained in its own cell; no overlap into neighboring cells. No decorative frames or UI. This will be sliced into four animation frames per row. Preserve substantial fully transparent gutters."
+    },
+    {
+      "key": "elves",
+      "prompt": "Use case: stylized-concept. Asset type: transparent RGBA game animation atlas. Primary request: draw a production sprite sheet for an ELVEN fantasy overworld, polished hand-painted high fantasy with detailed botanical materials, not flat vector icons or lines. SQUARE canvas, EXACT 4 columns by 4 rows of equal square cells, 16 sprites, four consecutive animation frames per row. Every sprite CENTERED within its cell with IDENTICAL pivot and comparable size, occupies ONLY the middle 65% of the cell, leaving a 17.5% transparent margin on ALL sides. All neighboring cells must remain fully separated by transparent gutters. Actual alpha transparency, no background, no grid, no captions, no text. Row 1: a richly painted green-gold oak leaf slowly tumbling in the wind, 4 distinct turn angles, visible veins and curled edges. Row 2: a tiny luminous forest firefly with an emerald lantern-like abdomen and delicate real transparent wings, four wingbeat poses, same pivot. Row 3: an ornate circular magical wreath of small emerald leaves with a soft pale green glow, top-down, 4 gentle rotation/glow stages. Row 4: a small emerald magical shooting star, faceted luminous head and soft flowing green-gold dust tail trailing lower left, four consecutive frames. Warm green, emerald and old-gold palette. Rich 3D painted shading, readable as tiny map sprites. Avoid thick outlines, logos, borders, letters, any touching or overlapping cells. This sheet will be sliced mechanically into 16 equal rectangles."
+    },
+    {
+      "key": "north",
+      "prompt": "Use case: stylized-concept. Production RGBA sprite atlas for a painted fantasy NORTHERN ICE overworld. Square sheet with exactly FOUR columns and FOUR rows, sixteen isolated transparent sprites. Each row is a four-frame looping animation, left to right. All cells equal, precisely centered sprite pivot and consistent scale; every sprite fits inside the middle 60% of its cell with fully empty TRANSPARENT gutters surrounding each cell. Background must be actual ALPHA transparency, NOT white, NOT black, NOT colored mist, NO backdrop, NO grid, no text. Richly illustrated detailed fantasy game art, dimensional painterly shading with crisp readable silhouettes. Row1: ornate naturally formed six-point ice snowflake with faceted translucent blue ice and white highlights, four slow rotation variants. Row2: floating small cluster of three sapphire ice crystals with powder-snow flecks, four glint variations. Row3: circular frost wreath / ancient snow seal made from sculpted ice and pale cyan light, viewed from above, four luminosity stages, no lettering. Row4: four small isolated flowing northern-light ribbons, layered translucent turquoise, emerald and violet aurora curtains, folded and waving in four consecutive phases, each ribbon completely isolated within its cell, no sky or ground behind it. The transparent glow should hug each sprite, not fill the tile. No object touches a cell boundary. Art intended for tiny smoothly crossfaded game-map effects."
+    },
+    {
+      "key": "elves_alpha_edit",
+      "prompt": "Use case: background-extraction. Edit target: the attached elven game animation sprite atlas. Remove ONLY the white/off-white and pale green background haze so the canvas and all gutters between sprites have actual ZERO ALPHA transparency. Keep the 4x4 layout, every leaf, firefly, wreath and comet, their positions, scale, detailed painted appearance, animation poses and color exactly unchanged. Preserve only a very tight soft glow around luminous subjects. No background shadow, no fog rectangle, no checkerboard painted in, no white matte, no text. It must be sixteen individually isolated cutout sprite frames on a fully transparent RGBA canvas.",
+      "reference": "files/otherworld/effects/elves.png"
+    },
+    {
+      "key": "adepts",
+      "prompt": "Use case: stylized-concept. Draw a production fantasy game sprite atlas for the ADEPTS / sacred abbey faction, polished detailed hand-painted art, dimensional, no line-icon placeholders. EXACTLY 4 columns x 4 rows on a square RGBA image. Each row contains 4 consecutive frames of one animation, same centered pivot and consistent size. All sprites occupy the central 60% of the cell; all cell gutters must be actual fully transparent alpha. NO BACKGROUND, NO white or colored backdrop, NO overall haze, no shadows on a surface, no grid, no text, no letters. Row 1: beautiful small silver-gold floating sacred flame / will-o-wisp, bright warm pearl-white core, curling translucent amber and pale violet flame tips, four distinctly evolving flame shapes. Row 2: a detailed ivory feather with gold tip drifting and turning in four phases, fine barbs clearly painted. Row 3: an ornate circular abbey light seal made from carved old gold and pearl-white magic with six tiny embedded gems, top-down, four gently turning luminosity phases, no lettering. Row 4: small silver-gold shooting star with warm luminous crystalline head and graceful short flowing golden tail trailing lower left, four evolving phases. Isolate ALL sprites fully inside each cell, 20% transparent padding. Glow tightly hugs the actual subject only. Rich light and materials, not flat geometric artwork. Keep all 16 sprites separated."
+    },
+    {
+      "key": "elines",
+      "prompt": "Use case: stylized-concept. Asset type: a game-ready hand-painted RGBA animation sprite sheet for the ELINES / sun-mage fantasy faction. Square image, exactly FOUR equal columns by FOUR equal rows. Sixteen completely separated cutout sprites with actual transparent alpha background. Every sprite centered in its cell; maintain same pivot and scale in each row, with WIDE fully transparent gutters 20 percent of cell on every side. No global background, no fog filling the canvas, no white or black matte, no text, no grid, no borders. Rich gold, amber, copper and sun-white volumetric painted fantasy art with clear material detail. Row1: a small magical sun ember with a tiny molten-gold crystalline center and curling flame petals, four flowing animation poses. Row2: a small isolated crescent of swirling copper-gold sand, visible individual painted grains and wispy dust curl, four consecutive wind deformation stages; this is only a cutout dust curl with transparency everywhere else. Row3: an ornate ancient sun sigil with gold metal rays and a warm amber center, a circular artifact viewed top-down, four subtle rotation/glow phases, no letters or numbers. Row4: a fiery golden meteor with a luminous stone head and a broad flowing short ember tail trailing lower left, four distinct evolving flame phases. Strong readable silhouettes at 24-50px. Detailed painted sprites, not simple lines or vector marks; all glows contained well inside each individual cell."
+    },
+    {
+      "key": "lightning",
+      "prompt": "Use case: lighting-weather, stylized-concept. Asset type: transparent RGBA fantasy game weather-animation atlas. Create an EXACT TWO-COLUMN TWO-ROW square sprite sheet: four equally sized cells, one dramatic painted branching cloud-to-cloud lightning discharge per cell. Actual ZERO ALPHA empty background, NO sky rectangle, NO ground, NO horizon, NO mountains, no stars, no text, no grid. Each discharge extends horizontally across the central 75% width and 50% height of its own cell, with generous TRANSPARENT margins and NO branches crossing a cell boundary. Style: realistic highly detailed thin irregular white-hot electric channels with rich blue-violet bloom, numerous fine fractal forks spreading UP and sideways like a tree across an entire sky, secondary filaments, bright intersections, a soft lavender electrical haze tightly around bolts only. Not a straight zigzag, not a simple drawn line, not a lightning bolt icon. 4 consistent stages of one discharge centered at the SAME pivot: top-left growing branches at 30% complexity, top-right fully spreading web of major branches, bottom-left peak brilliant intricate broad network with white cores and violet-blue corona, bottom-right remaining dim fine filaments and afterglow. Preserve spatial continuity among frames so they can blend smoothly. Aim for the physical sky-spanning forked lightning seen in a dramatic night thunderstorm photograph, but only isolated electric tendrils and tight glow, absolutely no opaque background. This weather will be layered transparently over a painted game map."
+    }
+  ]
+}

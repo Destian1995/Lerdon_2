@@ -67,6 +67,21 @@ class PortraitFrameTests(unittest.TestCase):
         widget.source = 'files/status/army.png'
         self.assertFalse(decoration.visible)
 
+    def test_atlas_frames_follow_the_actual_image_rectangle_after_layout_and_source_changes(self):
+        from kivy.graphics import Rectangle
+        widget=self.image('atlas://files/otherworld/themes/elines/artifacts/blade')
+        for source,size,pos in (
+                ('atlas://files/otherworld/themes/elines/artifacts/blade',(130,490),(420,220)),
+                ('atlas://files/otherworld/themes/elines/units/weaver',(280,420),(35,95)),
+                ('atlas://files/otherworld/themes/north/units/sentinel',(350,160),(15,300))):
+            widget.source=source;widget.size=size;widget.pos=pos
+            for _ in range(8):EventLoop.idle()
+            painted=next(i for i in widget.canvas.children if isinstance(i,Rectangle) and i.texture is widget.texture)
+            frame=widget._portrait_frame
+            self.assertTrue(frame.visible)
+            for actual,expected in zip(frame.image_bounds,(*painted.pos,*painted.size)):
+                self.assertAlmostEqual(actual,expected,places=3)
+
     def test_map_and_game_menu_icons_stay_unframed_even_when_themed(self):
         from window_theme import theme_tree
         for source in ('files/buildings/people.png', 'files/buildings/vampires.png',

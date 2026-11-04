@@ -1,0 +1,11 @@
+{
+  "mode": "built-in image_gen",
+  "output": "files/otherworld/effects/lightning-core.png",
+  "reference": "files/otherworld/effects/lightning.png",
+  "prompt": "Use case: precise-object-edit / background-extraction. Edit target: this existing 2x2 lightning animation sprite sheet. Remove ALL the purple and blue cloud haze, ALL broad bloom, ALL aura and glow around the lightning. Retain ONLY the actual very fine branching electric channels, nearly white with a very faint violet tint, opaque crisp cores and anti-aliased edges. Everything between branches must have zero alpha, absolutely no filling or haze. Preserve EXACTLY the original square canvas, 2 columns by 2 rows, every branch position, original scale, cell placement, network shape, four different animation stages, and transparent gutters. This image will be the independent lightning CORE layer, with atmospheric glow rendered separately by game code after a delay. No added background, no clouds, no drop shadow, no halos, no text. Actual transparent RGBA cutout. The black/empty areas of the input are transparency, preserve transparency. Do not thicken the channels. No broad colored pixels outside the fine lightning filaments.",
+  "runtime": {
+    "ambient_icon_scale": 0.35,
+    "lightning": "independent painted core",
+    "glow": "separate mist-texture layer, delayed 0.16 seconds"
+  }
+}

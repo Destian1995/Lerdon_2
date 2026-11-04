@@ -1,0 +1,58 @@
+{
+  "mode": "built-in image_gen",
+  "note": "North and elf prompts summarized across the identity and bartender edits; the other final prompts are recorded verbatim. Atlas metadata selects only female portraits and bartender; male and creature portraits still use the original units.png.",
+  "assets": [
+    {
+      "faction": "north",
+      "output": "files/otherworld/themes/north/women.png",
+      "atlas": "files/otherworld/themes/north/women.atlas",
+      "prompt": "Edit the northern 3x2 atlas. Use files/army/people/olga.jpg only for adult female face, platinum hair and icy-blue eyes. Redraw archer, rune witch and winged queen while preserving their professions, poses, blue-and-silver Mirror Realm painting and cell geometry. Replace top-left unused cell in the new female atlas with an adult northern bartender behind a wooden counter, blue/silver fur-lined dress and apron, tankard, warm hearth and icy-blue tavern light. Runtime retains original male/creature cells from units.png.",
+      "refs": [
+        "files/otherworld/themes/north/units.png",
+        "files/army/people/olga.jpg"
+      ]
+    },
+    {
+      "faction": "elves",
+      "output": "files/otherworld/themes/elves/women.png",
+      "atlas": "files/otherworld/themes/elves/women.atlas",
+      "prompt": "Edit the elven 3x2 atlas with the exact six equal square-cell layout. Female archer uses adult white-blonde hair, pointed ears and green eyes from files/army/elfs/archer.jpg. Flower mage and winged thorn queen use adult dark-haired face/green eyes from files/army/elfs/valery.jpg. Preserve painterly green/gold Mirror Realm rendering, equipment, professions, poses and backgrounds. Top-left unused cell becomes a friendly adult elf bartender in a practical emerald dress and apron, wooden counter, tankard and quest parchment, green woodland tavern. No text, borders or watermark. Runtime retains original male/creature cells.",
+      "refs": [
+        "files/otherworld/themes/elves/units.png",
+        "files/army/elfs/archer.jpg",
+        "files/army/elfs/valery.jpg"
+      ]
+    },
+    {
+      "faction": "vampires",
+      "output": "files/otherworld/themes/vampires/women.png",
+      "atlas": "files/otherworld/themes/vampires/women.atlas",
+      "prompt": "Edit target Image 1: a 3-column by 2-row fantasy character ATLAS of exactly six equal square cells, landscape 3:2. Keep the exact grid, no text or gutters. TOP LEFT replace armored male warrior with a friendly confident ADULT vampire woman bartender behind a dark carved oak counter, holding a pewter goblet beside quest scrolls, black embroidered medieval dress and practical apron, pale skin, long platinum-blonde hair and violet eyes like reference Image 2; gothic candlelit tavern with violet moon through stained glass. TOP MIDDLE keep original archer's bow, combat profession, pose, burgundy cape, black armor, moonlit castle background, but give her the ADULT face, long black hair and crimson eyes of reference Image 3. BOTTOM RIGHT keep the winged vampire queen's pose, wings, purple/red magic, gothic background and original elegant costume, but use the ADULT platinum hair, pale face and violet eyes of reference Image 2. Reference images supply ONLY facial appearance/hair; keep practical complete fantasy clothing, no sexual emphasis. Retain Image 1's beautiful painterly Mirror Realm style, purple moonlight and crimson black palette. TOP RIGHT horse rider, BOTTOM LEFT male mage, BOTTOM MIDDLE gargoyle unchanged. Each subject fully in its own cell. Output full same-size 3x2 atlas without borders or watermarks.",
+      "refs": [
+        "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/otherworld/themes/vampires/units.png",
+        "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/army/vampires/anabel.jpg",
+        "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/army/vampires/isabel.jpg"
+      ]
+    },
+    {
+      "faction": "adepts",
+      "output": "files/otherworld/themes/adepts/women.png",
+      "atlas": "files/otherworld/themes/adepts/women.atlas",
+      "prompt": "Edit target Image 1 is a 3x2 fantasy game portrait ATLAS: 3 equal columns, 2 equal rows, square cells, landscape 3:2. Preserve exact six-cell geometry. TOP LEFT replace armored sentinel with an ADULT woman bartender behind a dark wood counter, serving a bronze tankard beside a sealed quest letter, ash-blonde hair, pale face and gray-brown eyes inspired by the adult woman of reference Image 2. Practical charcoal-and-ivory medieval dress, gold embroidered hood and apron, warm abbey tavern decorated with amber crystals and astronomical brass instruments. TOP MIDDLE retain the existing crossbow archer's profession, pose, crossbow, purple/bronze armor and observatory backdrop, change only her adult face/hair to resemble reference Image 2: ash blonde, gray-brown eyes, ivory hood under purple cloak. BOTTOM RIGHT retain the winged astral queen's celestial outfit, staff, golden wings and pose; give her the related adult reference face and flowing ash-blonde hair. Use reference ONLY for face/hair, no revealing outfit copying. Retain Image 1's rich painterly amber-and-purple Mirror Realm rendering. Keep TOP RIGHT male rider, BOTTOM LEFT male geometer and BOTTOM MIDDLE bronze golem unchanged. No text, labels, borders, logos or watermark, every subject within its cell.",
+      "refs": [
+        "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/otherworld/themes/adepts/units.png",
+        "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/army/adepts/sestra.jpg"
+      ]
+    },
+    {
+      "faction": "elines",
+      "output": "files/otherworld/themes/elines/women.png",
+      "atlas": "files/otherworld/themes/elines/women.atlas",
+      "prompt": "Edit target Image 1 is a 3-column x 2-row fantasy character ATLAS, six equal square cells, landscape 3:2. Preserve exact six-cell grid without gaps. TOP LEFT replace the male hoplite with an ADULT woman bartender behind a marble-and-dark-wood tavern counter, pouring a golden drink into a ceramic cup beside a rolled quest scroll. She has the adult fair face, flowing auburn/red hair, green eyes and small emerald laurel circlet inspired by reference Image 2, white-and-gold classical medieval dress and practical apron. Sunlit Hellenic Mirror Realm tavern, laurel carvings and bronze lamps. TOP MIDDLE keep original golden archer profession, bow, pose and white-and-gold clothing/background, change only adult face/hair toward reference Image 2: long auburn/red hair and green eyes. BOTTOM LEFT keep original sun oracle profession, staff, pose, white/gold hood and sun magic, change only adult face/hair toward reference Image 2. BOTTOM RIGHT keep original winged sun queen's white/gold dress, golden wings, pose and magic, give her related adult face, auburn hair and green eyes from reference Image 2. Reference Image 2 supplies ONLY facial appearance and hair, not the revealing outfit or pose. Keep tasteful complete fantasy clothes and no sexual emphasis. Preserve Image 1's detailed painterly sunlit gold-and-ivory Mirror Realm rendering and backgrounds. TOP RIGHT male pegasus rider and BOTTOM MIDDLE marble colossus unchanged. No text, borders, logos or watermark. Every character wholly inside own square cell.",
+      "refs": [
+        "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/otherworld/themes/elines/units.png",
+        "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/army/poly/clare.jpg"
+      ]
+    }
+  ]
+}

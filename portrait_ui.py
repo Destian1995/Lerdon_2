@@ -1,6 +1,7 @@
 """Opt-in frames for large portraits; map and menu icons stay undecorated."""
 from kivy.graphics import Color, InstructionGroup, Line
 from kivy.metrics import dp
+from kivy.clock import Clock
 
 from strategy_ui import GOLD, FACTIONS
 
@@ -11,6 +12,12 @@ FACTION_PATHS = {'people': 'Север', 'elfs': 'Эльфы', 'elf': 'Эльф�
 
 def portrait_accent(source):
     path = (source or '').replace('\\', '/').lower()
+    if 'otherworld/' in path:
+        for key, faction in (('north', 'Север'), ('elves', 'Эльфы'),
+                             ('vampires', 'Вампиры'), ('adepts', 'Адепты'), ('elines', 'Элины')):
+            if '/'+key+'/' in path:
+                return FACTIONS.get(faction, GOLD)
+        return GOLD
     if '/files/' in path:
         path = path.split('/files/', 1)[1]
     elif path.startswith('files/'):
@@ -45,8 +52,10 @@ class PortraitFrame:
         for instruction in (self.accent, self.outer, self.inner_color, self.inner, self.gold, *self.corners):
             self.group.add(instruction)
         widget.canvas.after.add(self.group)
-        widget.bind(pos=self.update, size=self.update, texture=self.update, color=self.update,
-                    fit_mode=self.update)
+        self._update_event=Clock.create_trigger(self.update,-1)
+        widget.bind(pos=self._update_event, size=self._update_event, texture=self._update_event,
+                    texture_size=self._update_event, norm_image_size=self._update_event,
+                    color=self._update_event, fit_mode=self._update_event)
         self.update()
 
     def update(self, *args):
@@ -63,9 +72,15 @@ class PortraitFrame:
             return
         if self.group not in widget.canvas.after.children:
             widget.canvas.after.add(self.group)
-        width, height = widget.norm_image_size
-        width, height = min(widget.width, width), min(widget.height, height)
-        x, y = widget.center_x - width / 2, widget.center_y - height / 2
+        # Use raw geometry: center/norm_image_size aliases can still contain the
+        # previous layout's cached values while Image is moving/loading an atlas.
+        tw,th=widget.texture.size
+        w,h=max(0,widget.width),max(0,widget.height)
+        scale=min(w/max(1,tw),h/max(1,th))
+        if widget.fit_mode=='scale-down':scale=min(1,scale)
+        if widget.fit_mode=='cover':scale=max(w/max(1,tw),h/max(1,th))
+        width,height=(w,h) if widget.fit_mode=='fill' else (min(w,tw*scale),min(h,th*scale))
+        x,y=widget.x+(w-width)/2,widget.y+(h-height)/2
         self.image_bounds = (x, y, width, height)
         padding = dp(4)
         x, y, width, height = x - padding, y - padding, width + 2 * padding, height + 2 * padding

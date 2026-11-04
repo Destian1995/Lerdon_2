@@ -1168,6 +1168,8 @@ class MapWidget(Widget):
         layer = self._map_atmosphere
         layer.configure(self.map_pos, self.map_scale,
                         (self.base_map_width, self.base_map_height))
+        from map_features_ui import sync_waypoint_effects
+        sync_waypoint_effects(self)
         if layer.parent is None:
             self.add_widget(layer)
         elif layer.canvas not in self.canvas.children:

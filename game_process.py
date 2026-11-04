@@ -1526,6 +1526,8 @@ class GameScreen(Screen):
         decorate_hud(self, faction=fraction_container, modes=mode_panel_container,
                      turn=turn_counter_container, exit=exit_container, season=self.season_container,
                      end_turn=end_turn_container, resources=self.resource_box)
+        from portal_shortcut_ui import PortalShortcut
+        self.portal_shortcut=PortalShortcut(self)
         from window_theme import watch_game_area
         watch_game_area(self.game_area)
         # Active initial tab
@@ -2174,6 +2176,8 @@ class GameScreen(Screen):
             self.skip_tutorial()
         if hasattr(self, '_hud_fit'):
             Window.unbind(on_resize=self._hud_fit)
+        if hasattr(self,'portal_shortcut'):
+            self.portal_shortcut.close()
         # 1. Отменить мигание кнопки советника
         if hasattr(self, 'btn_advisor'):
             self.btn_advisor.cleanup()
@@ -2601,110 +2605,17 @@ class GameScreen(Screen):
         popup.open()
 
     def show_war_declaration_popup(self, enemy_factions):
-        """
-        Показывает красивое уведомление об объявлении войны.
-        :param enemy_factions: Список фракций, объявивших войну
-        """
-        from kivy.uix.popup import Popup
-        from kivy.uix.boxlayout import BoxLayout
-        from kivy.uix.label import Label
-        from kivy.uix.button import Button
-        from kivy.graphics import Color, RoundedRectangle
-        from kivy.metrics import dp, sp
-
-        print(f"[WAR] Объявлена война от: {', '.join(enemy_factions)}")
-        title_text = f"[color=#FF4444]ВОЙНА![/color]"
-        message_text = f"[b]{enemy_factions[0]}[/b] объявили вам войну!\nГотовьтесь к битве, Ваше Величество!"
-
-        # === Создаём основной контейнер ===
-        content = BoxLayout(
-            orientation='vertical',
-            padding=[dp(20), dp(20), dp(20), dp(20)],
-            spacing=dp(15),
-            size_hint=(1, 1)
-        )
-
-        # === Заголовок с анимацией ===
-        title_label = Label(
-            text=title_text,
-            font_size=sp(32),
-            markup=True,
-            halign='center',
-            valign='middle',
-            size_hint_y=None,
-            height=dp(60)
-        )
-        title_label.bind(size=title_label.setter('text_size'))
-        content.add_widget(title_label)
-
-        # === Текст сообщения ===
-        message_label = Label(
-            text=message_text,
-            font_size=sp(20),
-            markup=True,
-            halign='center',
-            valign='middle',
-            size_hint_y=None,
-            height=dp(80)
-        )
-        message_label.bind(size=message_label.setter('text_size'))
-        content.add_widget(message_label)
-
-        # === Кнопка подтверждения ===
-        ok_button = Button(
-            text="[b]Сейчас они получат...[/b]",
-            font_size=sp(18),
-            markup=True,
-            size_hint=(1, None),
-            height=dp(50),
-            background_normal='',
-            background_color=(0.6, 0.1, 0.1, 1),
-            color=(1, 1, 1, 1)
-        )
-
-        # === Создаём Popup ===
-        is_android = platform == 'android'
-        popup = Popup(
-            title='',
-            content=content,
-            size_hint=(0.95, 0.8) if is_android else (0.7, 0.6),
-            auto_dismiss=False,
-            background_color=(0.2, 0.05, 0.05, 0.95),
-            separator_height=0
-        )
-        # === Закрытие popup ===
-        def on_ok_pressed(instance):
-            popup.dismiss()
-            print("[WAR] Уведомление о войне закрыто")
-
-        ok_button.bind(on_press=on_ok_pressed)
-        content.add_widget(ok_button)
-
-        # === Отрисовка рамки с эффектом свечения ===
-        def draw_glow_border(instance, value):
-            instance.canvas.before.clear()
-            with instance.canvas.before:
-                # Внешнее свечение
-                Color(1, 0.2, 0.2, 0.3)
-                RoundedRectangle(
-                    pos=(instance.x - 3, instance.y - 3),
-                    size=(instance.width + 6, instance.height + 6),
-                    radius=[15]
-                )
-                # Основная рамка
-                Color(0.8, 0.1, 0.1, 0.9)
-                RoundedRectangle(
-                    pos=instance.pos,
-                    size=instance.size,
-                    radius=[12]
-                )
-
-        popup.bind(pos=draw_glow_border, size=draw_glow_border)
-
-        # === Показываем popup ===
+        """Present war declarations in the same faction letter as diplomacy."""
+        if not enemy_factions:
+            return
+        from ui_components import DiplomacyMessagePopup
+        message = ('[ВОЙНА] ' + ', '.join(enemy_factions) +
+                   ' объявили вам войну.\nГотовьтесь к битве, Ваше Величество!')
+        popup = DiplomacyMessagePopup(
+            enemy_factions[0], message, 'war',
+            on_respond=self._handle_diplomacy_response)
         popup.open()
-
-
+        return popup
 
     def _show_invasion_notification(self, message):
         """Показывает уведомление о начале нашествия нежити (Приход Мора)."""
@@ -3380,40 +3291,16 @@ class GameScreen(Screen):
         for city_name, faction, coords_str, kf_crystal_val in raw_cities:
             factions_cities[faction].append((city_name, coords_str, kf_crystal_val, faction))
 
-        # Batch-загрузка героев для всех городов (вместо N запросов)
+        # Flags and badges share one view of the troops still in each city.
         cities_with_heroes = set()
-        try:
-            cursor.execute("""
-                SELECT DISTINCT g.city_name
-                FROM garrisons g
-                JOIN units u ON g.unit_name = u.unit_name
-                WHERE u.unit_class IN (2, 3, 4)
-            """)
-            cities_with_heroes = {row[0] for row in cursor.fetchall()}
-        except sqlite3.Error:
-            pass
-
-        # Потребление по городам и фракциям одним запросом.
-        # Учитываем содержание так же, как calculate_and_deduct_consumption:
-        # все войска в своих городах плюс свои войска в чужих, кроме мятежников.
         _city_consumption = {}
         _faction_consumption = {}
         try:
-            cursor.execute("""
-                SELECT g.city_name, u.faction, c.faction,
-                       COALESCE(SUM(g.unit_count * u.consumption), 0)
-                FROM garrisons g JOIN units u ON g.unit_name = u.unit_name
-                LEFT JOIN cities c ON c.name = g.city_name
-                GROUP BY g.city_name, u.faction, c.faction
-            """)
-            for _cn, _unit_faction, _owner, _consumption in cursor.fetchall():
-                _city_consumption[_cn] = _city_consumption.get(_cn, 0) + _consumption
-                if _owner is not None:
-                    _faction_consumption[_owner] = (
-                        _faction_consumption.get(_owner, 0) + _consumption)
-                if _unit_faction != _owner and _owner != 'Мятежники':
-                    _faction_consumption[_unit_faction] = (
-                        _faction_consumption.get(_unit_faction, 0) + _consumption)
+            from utils.garrison_presence import military_presence
+            presence = military_presence(self.conn)
+            cities_with_heroes = {city for city, _ in presence['heroes']}
+            _city_consumption = presence['city_consumption']
+            _faction_consumption = presence['faction_consumption']
         except sqlite3.Error as e:
             print(f"Ошибка при получении потребления гарнизонов: {e}")
 

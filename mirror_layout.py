@@ -2,13 +2,14 @@
 import math
 from kivy.clock import Clock
 from kivy.core.text import Label as CoreLabel
-from kivy.metrics import sp
+from kivy.metrics import sp,dp
 from kivy.properties import NumericProperty
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.image import Image
 from kivy.uix.label import Label
 from kivy.uix.carousel import Carousel
+from kivy.uix.scrollview import ScrollView
 from strategy_ui import surface,StrategyButton,INK,TEXT,MUTED,GOLD
 from utils.ui_text import bind_plain_text
 
@@ -111,6 +112,10 @@ class CardPager(BoxLayout):
         self.next.disabled=not count or index==count-1
 
     def fit(self,*_):
+        if getattr(self,'external_navigation',False):
+            self.nav.height=0
+            self.previous.maximum=self.next.maximum=sp(26)
+            return
         self.nav.height=min(48,max(36,self.height*.15))
         self.previous.maximum=self.next.maximum=min(sp(18),max(14,self.height*.075))
         self.counter.maximum=min(sp(17),max(14,self.height*.07))
@@ -122,6 +127,8 @@ class ArmyCard(BoxLayout):
         surface(self,INK,accent)
         compact_frame(self)
         self.portrait=Image(source=image or 'files/status/army.png',size_hint_x=None,mipmap=True)
+        from portrait_ui import style_portrait_image
+        style_portrait_image(self.portrait,enabled=True)
         self.copy=FitLabel(text=name+'\n'+count+' · '+str(experience)+' поб.',maximum=sp(15))
         self.add_widget(self.portrait);self.add_widget(self.copy)
         self.bind(size=self.fit);self.fit()
@@ -160,28 +167,39 @@ class MarketCard(BoxLayout):
         super().__init__(orientation='vertical',**kwargs)
         surface(self,INK,GOLD)
         compact_frame(self)
-        self.header=BoxLayout(spacing=10)
+        self.scroll=ScrollView(do_scroll_x=False,bar_width=dp(4))
+        self.content=BoxLayout(orientation='vertical',size_hint_y=None,spacing=dp(8))
+        self.content.bind(minimum_height=self.content.setter('height'))
+        self.scroll.add_widget(self.content);self.add_widget(self.scroll)
+        self.header=BoxLayout(spacing=dp(12),padding=dp(8),size_hint_y=None,height=dp(150))
         self.art=Image(source=image,size_hint_x=None,mipmap=True) if image else None
+        if self.art:
+            from portrait_ui import style_portrait_image
+            style_portrait_image(self.art,enabled=True)
         if self.art:self.header.add_widget(self.art)
-        copy=BoxLayout(orientation='vertical',spacing=6)
+        copy=self.copy_box=BoxLayout(orientation='vertical',spacing=dp(6),size_hint_y=None,
+                                     height=dp(130),pos_hint={'center_y':.5})
         self.title_label=FitLabel(text=title,bold=True,color=GOLD,maximum=sp(17))
         copy.add_widget(self.title_label)
         self.details=FitLabel(text=subtitle,color=MUTED,maximum=sp(14))
         copy.add_widget(self.details)
         self.header.add_widget(copy)
-        self.button=FitButton(text=caption,size_hint_y=None)
+        self.button=FitButton(text=caption+' · '+subtitle.split('\n')[-1],size_hint_y=None)
         self.button.bind(on_release=callback)
-        for child in (self.header,self.button):self.add_widget(child)
+        self.content.add_widget(self.header)
+        self.add_widget(self.button)
         self.bind(size=self.fit);self.fit()
 
     def fit(self,*_):
         self.padding=(min(8,self.width*.06),min(6,max(2,self.height*.025)))
         self.spacing=min(3,self.height*.012)
-        self.button.height=min(50,max(36,self.height*.23))
-        self.button.maximum=min(sp(20),max(14,self.button.height*.40))
-        self.title_label.maximum=min(sp(26),max(16,self.height*.13))
-        self.details.maximum=min(sp(21),max(14,self.height*.10))
-        if self.art:self.art.width=min(self.width*.39,self.height*.64)
+        self.button.height=dp(48)
+        self.button.maximum=sp(18)
+        self.title_label.maximum=sp(22)
+        self.details.maximum=sp(17)
+        self.header.height=max(dp(90),self.height-dp(64))
+        self.copy_box.height=min(dp(130),self.header.height-dp(16))
+        if self.art:self.art.width=min(self.width*.34,dp(130))
 
 
 class QuestCard(BoxLayout):
@@ -189,30 +207,45 @@ class QuestCard(BoxLayout):
         super().__init__(orientation='vertical',**kwargs)
         surface(self,accent=accent)
         compact_frame(self)
-        self.heading=FitLabel(text=title,color=accent,bold=True,size_hint_y=None,maximum=sp(21))
-        self.copy=FitLabel(text=copy,maximum=sp(16))
+        from frontend_ui import NaturalList
+        from strategy_ui import text_label
+        self.scroll=ScrollView(do_scroll_x=False)
+        self.content=NaturalList(padding=dp(12),spacing=dp(12))
+        self.scroll.add_widget(self.content)
+        self.add_widget(self.scroll)
+        self.heading=text_label(title,21,accent,bold=True,size_hint_y=None,height=dp(36))
+        self.content.add_widget(self.heading)
+        self.sections=[]
+        for line in copy.split('\n'):
+            if not line.strip():continue
+            reward=line.startswith(('Награда','За каждое','Лимиты'))
+            warning=line.startswith('Риск:')
+            objective=line.startswith(('Опросите','Изучите','Предъявите','Соберите','Посольство','Ваш союзник','Сразитесь'))
+            color=(1,.48,.43,1) if warning else GOLD if reward else (.4,.88,.65,1) if objective else TEXT
+            panel=surface(NaturalList(padding=dp(10),spacing=dp(4)),
+                          (.14,.075,.065,1) if warning else (.13,.105,.05,1) if reward else (.045,.13,.115,1) if objective else INK,
+                          color if reward or warning or objective else accent)
+            label=text_label(line,16,color,size_hint_y=None,height=dp(28))
+            panel.add_widget(label);self.content.add_widget(panel)
+            self.sections.append(label)
+        self.copy=self.sections[0] if self.sections else self.heading
         self.buttons=GridLayout(cols=max(1,len(buttons)),size_hint_y=None,spacing=4)
-        self.add_widget(self.heading);self.add_widget(self.copy)
-        if buttons:self.add_widget(self.buttons)
+        if buttons:self.content.add_widget(self.buttons)
         for caption,callback,enabled in buttons:
             button=FitButton(text=caption,accent=accent)
             button.disabled=not enabled;button.bind(on_release=callback)
             self.buttons.add_widget(button)
-        self.buttons.bind(size=self.fit)
         self.bind(size=self.fit);self.fit()
 
     def button_height(self):
-        return min(44,max(28,self.height*.16))
+        return dp(48)
 
     def fit(self,*_):
-        self.padding=min(12,self.height*.035)
-        self.spacing=min(8,self.height*.020)
-        self.heading.height=min(38,max(22,self.height*.13))
-        self.heading.maximum=min(sp(21),self.heading.height*.72)
-        self.copy.maximum=min(sp(16),max(11,self.height*.07))
+        self.padding=dp(4)
+        self.spacing=dp(8)
         count=len(self.buttons.children)
-        self.buttons.cols=1 if count>1 and self.width<240 else max(1,count)
+        self.buttons.cols=max(1,min(count,int(self.width/dp(220))))
         rows=math.ceil(count/self.buttons.cols)
         self.buttons.height=self.button_height()*rows+4*max(0,rows-1)
         for button in self.buttons.children:
-            button.maximum=min(sp(14),max(9,self.buttons.width/max(1,self.buttons.cols)/11))
+            button.maximum=sp(16)

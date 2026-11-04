@@ -473,6 +473,9 @@ class FortressInfoPopup(Popup):
             from utils.movement_rules import reachable_source_cities
             self._ally_transfer_mode = _transfer_mode or 'control'
             reachable_names = reachable_source_cities(self.conn, target_city, self.player_fraction)
+            drag_source = getattr(self, '_drag_source', None)
+            if drag_source:
+                reachable_names.intersection_update({drag_source})
             reachable_garr_ids = [cid for cid, name in cursor.execute('SELECT id,name FROM cities')
                                   if name in reachable_names]
 
@@ -513,6 +516,13 @@ class FortressInfoPopup(Popup):
                 return
 
             # Открываем окно с выбором войск
+            if drag_source and len(filtered_troops) == 1:
+                city, unit, count, image = filtered_troops[0]
+                self.selected_group = [dict(city_name=city, unit_name=unit,
+                                            unit_count=count, unit_image=image)]
+                self.selected_units_set = {(city, unit)}
+                self.move_selected_group_to_city()
+                return
             self.show_troops_selection(filtered_troops)
 
         except Exception as e:

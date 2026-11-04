@@ -7,6 +7,7 @@ import sqlite3
 import tempfile
 from types import SimpleNamespace
 import unittest
+from decimal import Decimal,ROUND_HALF_UP
 
 from test_otherworlds import fixture
 import otherworlds as w
@@ -35,11 +36,14 @@ class MirrorCampaignTests(unittest.TestCase):
     def at(self,city):
         self.db.execute("UPDATE portal_parties SET city_id=? WHERE faction='Север'",(city,));self.db.commit()
 
+    def arrange(self):
+        for clue in q.evidence(self.db,'Север')[0]:q.action(self.db,'Север','arrange',clue)
+
     def solve_detective(self):
         run=q.state(self.db,'Север');d=q.details(run)['detective']
         self.at(d['cities'][0]);q.action(self.db,'Север','witness')
-        self.at(d['cities'][1]);q.action(self.db,'Север','ledger')
-        self.at(d['cities'][2]);q.action(self.db,'Север','accuse',d['suspects'][run['culprit']])
+        self.at(d['cities'][1]);q.action(self.db,'Север','ledger',d['search_sites'][d['search_answer']])
+        self.at(d['cities'][2]);self.arrange();q.action(self.db,'Север','accuse',d['suspects'][run['culprit']])
 
     def solve_war(self,side=None):
         war=q.details(q.state(self.db,'Север'))['war']
@@ -62,14 +66,14 @@ class MirrorCampaignTests(unittest.TestCase):
         run=q.state(self.db,'Север')
         self.assertIn(d['tokens'][run['culprit']],q.local_detective_clue(run,witness))
         self.assertFalse(q.local_detective_clue(run,ledger))
-        self.at(ledger);q.action(self.db,'Север','ledger')
+        self.at(ledger);q.action(self.db,'Север','ledger',d['search_sites'][d['search_answer']])
         run=q.state(self.db,'Север')
         self.assertNotIn('Записи:',q.local_detective_clue(run,witness))
         self.assertNotIn('Улика свидетеля:',q.local_detective_clue(run,ledger))
         for name,token in zip(d['suspects'],d['tokens']):self.assertIn(name+' — '+token,q.local_detective_clue(run,ledger))
         for city in set(range(1,8))-{witness,ledger}:
             self.assertEqual(q.local_detective_clue(run,city),'')
-        self.at(accusation);q.action(self.db,'Север','accuse',d['suspects'][run['culprit']])
+        self.at(accusation);self.arrange();q.action(self.db,'Север','accuse',d['suspects'][run['culprit']])
         run=q.state(self.db,'Север')
         self.assertTrue(all(not q.local_detective_clue(run,city) for city in range(1,8)))
 
@@ -101,12 +105,16 @@ class MirrorCampaignTests(unittest.TestCase):
             self.assertEqual(len(w.cities(self.db,faction)),7)
         self.assertEqual(len(maps),5);self.assertEqual(len(portraits),25);self.assertEqual(len(relics),25)
 
-    def test_every_unit_role_has_different_attack_and_defense_in_each_faction(self):
-        rosters=[w.unit_offers(self.db,faction) for faction in THEMES]
-        for role in range(5):
-            self.assertEqual(len({roster[role]['attack'] for roster in rosters}),5)
-            self.assertEqual(len({roster[role]['defense'] for roster in rosters}),5)
-        self.assertGreater(rosters[0][4]['defense'],rosters[1][4]['defense'])
+    def test_units_scale_from_the_same_factions_main_map_troops(self):
+        for faction in THEMES:
+            for unit in w.unit_offers(self.db,faction):
+                base=self.db.execute('SELECT attack,defense,durability,consumption FROM units WHERE unit_name=?',
+                                     (unit['base_unit_name'],)).fetchone()
+                expected=(Decimal(str(base[0]+base[1]))*Decimal('1.45')*Decimal(str(unit['tier_multiplier']))).quantize(Decimal('.01'),rounding=ROUND_HALF_UP)
+                self.assertAlmostEqual(unit['attack']+unit['defense'],float(expected))
+                self.assertEqual(unit['durability'],round(base[2]*unit['tier_multiplier'],2))
+                self.assertEqual(unit['consumption'],round(base[3]*1.15*unit['tier_multiplier'],3))
+            self.assertEqual(len({(u['attack'],u['defense']) for u in w.unit_offers(self.db,faction)}),5)
 
     def test_old_hired_units_upgrade_without_resetting_party_xp_or_market_stock(self):
         w.recruit(self.db,'Север',2)
@@ -180,17 +188,19 @@ class MirrorCampaignTests(unittest.TestCase):
         self.turn(5);items.expire(self.db)
         self.assertIsNone(self.db.execute('SELECT artifact_id FROM hero_equipment').fetchone()[0])
 
-    def test_wrong_accusation_is_free_but_requires_new_evidence(self):
+    def test_wrong_accusation_loses_all_crowns_and_requires_new_evidence(self):
         q.begin(self.db,'Север',random.Random(1))
         d=q.details(q.state(self.db,'Север'))['detective']
         self.at(d['cities'][0]);q.action(self.db,'Север','witness')
-        self.at(d['cities'][1]);q.action(self.db,'Север','ledger')
+        self.at(d['cities'][1]);q.action(self.db,'Север','ledger',d['search_sites'][d['search_answer']])
         self.at(d['cities'][2])
+        self.arrange()
         culprit=q.state(self.db,'Север')['culprit']
         before=self.db.execute('SELECT moves_left FROM turn_check_move').fetchone()[0]
         q.action(self.db,'Север','accuse',d['suspects'][(culprit+1)%3])
         self.assertEqual(q.state(self.db,'Север')['detective'],0)
         self.assertEqual(q.pending(self.db,'Север'),[])
+        self.assertEqual(self.db.execute("SELECT amount FROM resources WHERE resource_type='Кроны'").fetchone()[0],0)
         self.assertEqual(self.db.execute('SELECT moves_left FROM turn_check_move').fetchone()[0],before)
 
     def test_complete_quests_and_battle_at_zero_moves_only_travel_spends_actions(self):

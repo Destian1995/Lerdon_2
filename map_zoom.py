@@ -52,6 +52,9 @@ class MapZoom:
         self.overlays = []
         self.screen = None
         self.touches = {}
+        from city_army_drag import CityArmyDrag
+        self.army_drag = CityArmyDrag(owner, self.city_at, self.army_at, self.send_army,
+                                     lambda pos:self.camera.unproject(*pos))
         self.running = False
         self.attach_event = None
         self.resize_event = Clock.create_trigger(self.resize,0)
@@ -80,6 +83,7 @@ class MapZoom:
         self.attach_event = Clock.schedule_once(self.attach,0)
 
     def stop(self):
+        self.army_drag.cancel()
         self.running = False
         Window.unbind(on_resize=self.resize_event)
         Window.unbind(children=self.visibility)
@@ -143,6 +147,8 @@ class MapZoom:
 
     def restore(self):
         self.camera.configure(Window.size,self.rect())
+        if self.army_drag.layer not in self.owner.canvas.after.children:
+            self.owner.canvas.after.add(self.army_drag.layer)
         self.map_canvas.update(self.camera)
         labels=getattr(self.owner,'_city_name_labels',None)
         if labels is not None:
@@ -187,8 +193,11 @@ class MapZoom:
         self.touches[touch.uid] = dict(touch=touch,pos=tuple(touch.pos),origin=tuple(touch.pos),moved=False)
         touch.grab(self.owner)
         if len(self.touches)>1:
+            self.army_drag.cancel()
             for item in self.touches.values():
                 item['moved'] = True
+        else:
+            self.army_drag.down(touch)
         return True
 
     def move(self, touch):
@@ -196,7 +205,11 @@ class MapZoom:
         if item is None:
             return False
         if self.blocked():
+            self.army_drag.cancel()
             item['moved'] = True
+            return True
+        if self.army_drag.move(touch):
+            if self.army_drag.active:item['moved'] = True
             return True
         before = [v['pos'] for v in list(self.touches.values())[:2]]
         previous = item['pos']
@@ -223,6 +236,11 @@ class MapZoom:
         if item is None:
             return False
         touch.ungrab(self.owner)
+        if self.blocked():
+            self.army_drag.cancel()
+            return True
+        if self.army_drag.up(touch):
+            return True
         if (not item['moved'] and math.dist(item['origin'],touch.pos)<=dp(8)
                 and not self.blocked() and self.camera.contains(*touch.pos)):
             touch.push()
@@ -232,6 +250,35 @@ class MapZoom:
             finally:
                 touch.pop()
         return True
+
+    def city_at(self, pos):
+        point = self.camera.unproject(*pos)
+        hits=[]
+        padding=dp(10)/self.camera.zoom
+        for name, *_ in getattr(self.owner,'fortress_data_for_canvas',()):
+            icon = self.owner.fortress_icon_widgets.get(name)
+            if icon and (icon.x-padding<=point[0]<=icon.right+padding and
+                         icon.y-padding<=point[1]<=icon.top+padding):
+                hits.append((math.dist(icon.center,point),name))
+        return min(hits)[1] if hits else None
+
+    def army_at(self, name):
+        if self.screen and getattr(self.screen, '_troop_movement_busy', False):
+            return False
+        return bool(self.owner.conn.execute('''SELECT 1 FROM garrisons g
+            JOIN units u ON u.unit_name=g.unit_name WHERE g.city_name=?
+            AND u.faction=? AND g.unit_count>0 LIMIT 1''',
+            (name, self.owner.current_player_kingdom)).fetchone())
+
+    def send_army(self, source, destination):
+        if not self.army_at(source):
+            return
+        from ui import FortressInfoPopup
+        row = next(r for r in self.owner.fortress_data_for_canvas if r[0] == destination)
+        popup = FortressInfoPopup(row[1], (row[2], row[3]),
+                                  self.owner.current_player_kingdom, self.owner.conn)
+        popup._drag_source = source
+        popup.load_troops_by_type('Всех', None)
 
 
 def sync_map_zoom(screen):

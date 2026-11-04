@@ -254,9 +254,14 @@ def show_nobles_window(conn, faction, class_faction):
     player_faction = get_player_faction(conn)
     root = BoxLayout(orientation='vertical', padding=dp(8), spacing=dp(8))
     root._responsive_keep_geometry = True
-    summary = text_label('', 12, UIStyles.COLOR_GOLD, markup=True, size_hint_y=None, height=dp(44))
-    summary.halign = 'center'
-    root.add_widget(summary)
+    root._strategy_fixed_layout = True
+    header = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(12))
+    title = text_label('Королевский совет', 18, UIStyles.COLOR_GOLD, bold=True, size_hint_x=.42)
+    summary = text_label('', 12, UIStyles.COLOR_GOLD, markup=True)
+    summary.halign = 'right'
+    header.add_widget(title)
+    header.add_widget(summary)
+    root.add_widget(header)
     risk_summary = text_label('', 12, UIStyles.COLOR_TEXT_DIM, size_hint_y=None, height=dp(28))
     risk_summary.halign = 'center'
     root.add_widget(risk_summary)
@@ -271,11 +276,21 @@ def show_nobles_window(conn, faction, class_faction):
     actions.add_widget(event)
     actions.add_widget(close)
     root.add_widget(actions)
-    popup = Popup(title='Королевский совет', content=root, size_hint=(.98, .96))
+    popup = Popup(title='', content=root, size_hint=(.98, .96))
+    from window_theme import prepare_custom_popup
+    prepare_custom_popup(popup)
+    popup.council_header = header
+    popup.advisor_scroll = scroll
+    popup.council_actions = actions
     popup.advisor_grid = grid
     def fit_grid(*args):
         grid.cols = min(max(1, len(grid.children)), max(1, int(grid.width / dp(200))))
+        height=max(1,root.height)
+        header.height=min(dp(48),height*.13)
+        risk_summary.height=min(dp(28),height*.065)
+        root.spacing=min(dp(8),height*.012)
     grid.bind(width=fit_grid)
+    root.bind(height=fit_grid)
     def refresh_list():
         grid.clear_widgets()
         nobles = [n for n in get_all_nobles(conn) if n.get('status') == 'active']

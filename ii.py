@@ -3998,63 +3998,46 @@ class AIController:
     def _generate_trade_exchange(self):
         """
         Генерирует реальное торговое предложение: обмен одного ресурса на другой.
-        Элины и Адепты — торговые фракции, всегда предлагают кристаллы за кроны.
+        Все фракции просят 1,2 единицы ресурса за одну предлагаемую.
         Возвращает (give_type, give_amount, want_type, want_amount, text) или None.
         """
         try:
+            from utils.trade_offers import resource_offer
             crowns = self.resources.get('Кроны', 0)
             crystals = self.resources.get('Кристаллы', 0)
 
             # Элины и Адепты — торговые фракции, чаще предлагают кристаллы, но не только
             if self.faction in ('Элины', 'Адепты'):
                 give_pct = 0.20 if self.faction == 'Элины' else 0.15
-                faction_label = "Элины" if self.faction == 'Элины' else "Адепты"
 
                 if crystals > 200 and crowns > 3000:
                     # Есть и кристаллы и кроны — случайный выбор что предложить
                     if random.random() < 0.6:
                         # Чаще предлагают кристаллы (торговые фракции)
                         give_amount = max(100, int(crystals * give_pct))
-                        want_amount = max(200, int(give_amount * 2.0))
-                        return ('Кристаллы', give_amount, 'Кроны', want_amount,
-                                f"{faction_label} предлагают {format_number(give_amount)} Кристаллов "
-                                f"в обмен на {format_number(want_amount)} Крон. Выгодная сделка!")
+                        return resource_offer('Кристаллы', give_amount)
                     else:
                         # Иногда предлагают кроны за кристаллы
                         give_amount = max(500, int(crowns * 0.10))
-                        want_amount = max(50, int(give_amount * 0.3))
-                        return ('Кроны', give_amount, 'Кристаллы', want_amount,
-                                f"{faction_label} предлагают {format_number(give_amount)} Крон "
-                                f"в обмен на {format_number(want_amount)} Кристаллов.")
+                        return resource_offer('Кроны', give_amount)
                 elif crystals > 200:
                     give_amount = max(100, int(crystals * give_pct))
-                    want_amount = max(200, int(give_amount * 2.0))
-                    return ('Кристаллы', give_amount, 'Кроны', want_amount,
-                            f"{faction_label} предлагают {format_number(give_amount)} Кристаллов "
-                            f"в обмен на {format_number(want_amount)} Крон. Выгодная сделка!")
+                    return resource_offer('Кристаллы', give_amount)
                 elif crowns > 2000:
                     give_amount = max(300, int(crowns * 0.08))
-                    want_amount = max(50, int(give_amount * 0.25))
-                    return ('Кроны', give_amount, 'Кристаллы', want_amount,
-                            f"{faction_label} предлагают {format_number(give_amount)} Крон, вы — {format_number(want_amount)} Кристаллов.")
+                    return resource_offer('Кроны', give_amount)
                 return None
 
             # Остальные фракции — стандартная логика
             if crystals > 500 and crowns < 5000:
                 give_amount = max(100, int(crystals * 0.1))
-                want_amount = max(200, int(give_amount * 2.5))
-                return ('Кристаллы', give_amount, 'Кроны', want_amount,
-                        f"Мы отдаём {format_number(give_amount)} Кристаллов, вы — {format_number(want_amount)} Крон.")
+                return resource_offer('Кристаллы', give_amount)
             elif crowns > 3000 and crystals < 1000:
                 give_amount = max(500, int(crowns * 0.1))
-                want_amount = max(50, int(give_amount * 0.3))
-                return ('Кроны', give_amount, 'Кристаллы', want_amount,
-                        f"Мы отдаём {format_number(give_amount)} Крон, вы — {format_number(want_amount)} Кристаллов.")
+                return resource_offer('Кроны', give_amount)
             elif crowns > 1000:
                 give_amount = max(300, int(crowns * 0.08))
-                want_amount = max(50, int(give_amount * 0.25))
-                return ('Кроны', give_amount, 'Кристаллы', want_amount,
-                        f"Мы отдаём {format_number(give_amount)} Крон, вы — {format_number(want_amount)} Кристаллов.")
+                return resource_offer('Кроны', give_amount)
             return None
         except Exception:
             return None
@@ -4473,8 +4456,10 @@ class AIController:
         # Щедро делятся кристаллами с единомышленниками — очень часто
         if same_ideo and ctx.get('our_crystals', 0) > 300 and random.random() < 0.65:
             crystals = int(ctx['our_crystals'] * 0.18)
+            from utils.trade_offers import resource_offer
+            trade = resource_offer('Кристаллы', crystals)
             msg = f"Солнце светит для всех единомышленников! "
-            msg += f"Мы предлагаем вам {format_number(crystals)} Кристаллов в обмен на кроны — от чистого сердца! "
+            msg += trade[4]+' '
             msg += f"У нас {city_word(ctx['our_cities'])}, и кристаллов в избытке!"
             return self._send_diplomatic_message("ТОРГОВЛЯ", msg)
 
@@ -4538,8 +4523,10 @@ class AIController:
         # Адепты — торговая фракция с кристаллами, предлагают единомышленникам
         if same_ideo and ctx.get('our_crystals', 0) > 300 and random.random() < 0.60:
             crystals = int(ctx['our_crystals'] * 0.15)
+            from utils.trade_offers import resource_offer
+            trade = resource_offer('Кристаллы', crystals)
             msg = f"Пророчества говорят — делиться с единомышленниками угодно высшим силам. "
-            msg += f"Мы предлагаем {format_number(crystals)} Кристаллов в обмен на кроны. "
+            msg += trade[4]+' '
             msg += f"Адепты всегда верны союзникам."
             return self._send_diplomatic_message("ТОРГОВЛЯ", msg)
 

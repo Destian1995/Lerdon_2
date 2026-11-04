@@ -70,7 +70,7 @@ class MirrorCampaignUITests(unittest.TestCase):
         self.assertEqual(q.state(self.db,'Север')['side'],side)
         self.assertEqual(q.state(self.db,'Север')['war'],1)
 
-    def test_journal_does_not_carry_hints_to_accusation_city_or_after_case_is_solved(self):
+    def test_journal_collects_evidence_on_board_and_hides_it_after_case_is_solved(self):
         import random
         q.begin(self.db,'Север',random.Random(54))
         run=q.state(self.db,'Север');d=q.details(run)['detective']
@@ -78,17 +78,19 @@ class MirrorCampaignUITests(unittest.TestCase):
         def at(city):
             self.db.execute("UPDATE portal_parties SET city_id=? WHERE faction='Север'",(city,));self.db.commit()
             journal.refresh();settle()
-        def copy():return journal.feedback.text+'\n'+'\n'.join(c.copy.text for c in journal.cards.pages)
+        def copy():return journal.feedback.text+'\n'+'\n'.join(label.text for c in journal.cards.pages for label in c.sections)
         at(d['cities'][0]);journal.step('witness');settle()
         self.assertIn('Улика свидетеля:',copy());self.assertNotIn('Записи:',copy())
         at(d['cities'][1])
         self.assertFalse(journal.feedback.text)
         self.assertNotIn('Улика свидетеля:',copy())
-        journal.step('ledger');settle()
+        journal.step('ledger',d['search_sites'][d['search_answer']]);settle()
         self.assertIn('Записи:',copy());self.assertNotIn('Улика свидетеля:',copy())
         at(d['cities'][2])
         self.assertFalse(journal.feedback.text)
-        for token in d['tokens']:self.assertNotIn(token,copy())
+        for token in d['tokens']:self.assertIn(token,copy())
+        for clue in q.evidence(self.db,'Север')[0]:journal.step('arrange',clue)
+        settle()
         buttons=[b for c in journal.cards.pages for b in c.buttons.children if b.text.startswith('Обвинить:')]
         self.assertEqual(len(buttons),3);self.assertTrue(all(not b.disabled for b in buttons))
         journal.step('accuse',d['suspects'][run['culprit']]);settle()

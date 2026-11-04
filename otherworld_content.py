@@ -30,6 +30,46 @@ UNIT_PROFILES={
     'Элины': ((108,162),(202,84),(235,138),(248,106),(172,305)),
 }
 
+# Share of the combat budget spent on attack. Even a faction with one ordinary
+# recruit gets five distinct offensive/defensive alternatives in the Mirror.
+MIRROR_ATTACK_SHARES={
+    'Север':(.20,1.0,.70,.50,0.0),
+    'Эльфы':(.25,1.0,.75,.50,0.0),
+    'Вампиры':(.30,1.0,.80,.50,0.0),
+    'Адепты':(.15,1.0,.65,.50,0.0),
+    'Элины':(.25,1.0,.75,.50,0.0),
+}
+MIRROR_TIER_SCALES=('1','1.4','1.9','2.5','3.3')
+
+
+def balance_mirror_unit(item,base,faction):
+    """Price one A/D point from the ordinary recruit, then redistribute it.
+
+    Every faction uses one ordinary reference recruit, so different original
+    role costs cannot invert the five tiers. Price, combat budget, durability
+    and upkeep grow together while each tier retains its own A/D allocation.
+    """
+    from decimal import Decimal,ROUND_HALF_UP,ROUND_CEILING
+    number=lambda value:Decimal(str(value or 0))
+    points=max(Decimal(0),number(base.get('attack'))+number(base.get('defense')))
+    money=max(Decimal(1),number(base.get('cost_money')))
+    tier=int(item['id'])
+    scale=number(MIRROR_TIER_SCALES[tier-1])
+    budget=(points*Decimal('1.45')*scale).quantize(Decimal('.01'),rounding=ROUND_HALF_UP)
+    share=number(MIRROR_ATTACK_SHARES.get(faction,MIRROR_ATTACK_SHARES['Адепты'])[item['id']-1])
+    attack=(budget*share).quantize(Decimal('.01'),rounding=ROUND_HALF_UP)
+    item.update(attack=float(attack),defense=float(budget-attack),
+                durability=float((number(base.get('durability'))*scale).quantize(Decimal('.01'),rounding=ROUND_HALF_UP)),
+                cost_money=max(int((money*Decimal('1.15')*scale).to_integral_value(rounding=ROUND_CEILING)),
+                               int((money*Decimal('1.15')).to_integral_value(rounding=ROUND_CEILING))+tier-1),
+                consumption=round(float(number(base.get('consumption'))*Decimal('1.15')*scale),3),
+                base_unit_name=base['unit_name'],base_cost_money=float(money),
+                base_combat_points=float(points),combat_budget=float(budget),
+                tier=tier,tier_multiplier=float(scale),
+                crowns_per_stat=float(money/points) if points else 0,
+                role_label='Атака' if share==1 else 'Защита' if share==0 else 'Баланс' if share==Decimal('.5') else 'Штурмовик' if share>Decimal('.5') else 'Страж')
+    return item
+
 
 def unit_catalog(faction=None):
     result=[dict(id=i,unit_name=name,faction='Зазеркалье',image_path=ROOT+'units/'+key+'.png',

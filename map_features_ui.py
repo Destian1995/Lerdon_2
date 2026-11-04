@@ -2,6 +2,15 @@
 import ast
 
 
+def sync_waypoint_effects(widget):
+    layer=getattr(widget,'_map_atmosphere',None)
+    if layer is None:return
+    scale=widget.map_scale
+    layer.marches.terrain_arrivals.set_sites([
+        dict(id=site['id'],kind=site['kind'],x=(x-widget.map_pos[0])/scale,y=(y-widget.map_pos[1])/scale)
+        for x,y,site,_ in getattr(widget,'_terrain_feature_hits',[])])
+
+
 def draw_waypoints(widget):
     from kivy.graphics import Color, InstructionGroup, Rectangle,RoundedRectangle
     from kivy.core.text import Label as CoreLabel
@@ -19,6 +28,7 @@ def draw_waypoints(widget):
     widget._terrain_feature_hits = []
     network = getattr(widget,'_road_geometry',None)
     if network is None:
+        sync_waypoint_effects(widget)
         return
     size = city_sprite_size(widget.map_scale)
     centers = {cid: (widget.map_pos[0]+x*widget.map_scale+size/2,
@@ -58,6 +68,7 @@ def draw_waypoints(widget):
             days = max(c['remaining'] for c in waiting)
             label(f"Войска: {total} · ещё {days} х.",x,y-sprite_size*.38-18,(.72,.88,1,1))
         widget._terrain_feature_hits.append((x,y,site,waiting))
+    sync_waypoint_effects(widget)
 
 
 def inspect_waypoint(widget, touch):

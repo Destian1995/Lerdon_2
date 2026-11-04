@@ -216,8 +216,8 @@ class ResponsiveWindowsTests(unittest.TestCase):
         Window.add_widget(overlay)
         try:
             settle()
-            self.check_vertical(overlay.card.body)
-            actions = overlay.card.body.children[0]
+            self.check_vertical(overlay.card)
+            actions = overlay.card.actions
             self.assertEqual(actions.orientation, 'vertical')
             self.check_vertical(actions)
             button = next(w for w in overlay.walk() if isinstance(w, Button) and w.text == 'Принять')

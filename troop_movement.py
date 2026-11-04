@@ -179,8 +179,7 @@ def play_ai_marches(screen):
         key = (chain, faction, destination, start, end, camp, capture)
         previous = grouped.get(key, (0, total,False))
         grouped[key] = (previous[0] + count, max(previous[1], total),previous[2] or has_hero)
-    if hasattr(map_widget, '_sync_map_atmosphere'):
-        map_widget._sync_map_atmosphere()
+    refresh_military_presence(screen,map_widget)
     remaining = [len(grouped)]
     end_turn = getattr(screen, 'end_turn_button', None)
     was_disabled = end_turn.disabled if end_turn else False
@@ -232,6 +231,16 @@ def close_transfer_windows(owner):
     owner.dismiss()
 
 
+def refresh_military_presence(screen,map_widget):
+    """Refresh the map's flags and military badges in the departure frame."""
+    if not screen.parent or (hasattr(map_widget,'parent') and map_widget.parent is None):return
+    screen._prev_star_levels=None
+    update=getattr(screen,'update_army_rating',None)
+    if update:update()
+    sync=getattr(map_widget,'_sync_map_atmosphere',None)
+    if sync:sync()
+
+
 def animate_transfer(owner, grouped):
     screen = _screen(owner)
     if not screen or not screen.parent:
@@ -275,6 +284,7 @@ def animate_transfer(owner, grouped):
         specs.append((provider, max(1, army_size_level(total, weight)), faction, count,has_hero))
 
     selected = [dict(unit) for unit in owner.selected_group]
+    departures={(source,name):count for source,units in grouped.items() for name,count in units.items()}
     end_turn = getattr(screen, 'end_turn_button', None)
     was_disabled = end_turn.disabled if end_turn else False
     screen._troop_movement_busy = True
@@ -283,15 +293,18 @@ def animate_transfer(owner, grouped):
     finished = False
 
     def release():
+        screen._march_departures={}
         screen._troop_movement_busy = False
         if end_turn:
             end_turn.disabled = was_disabled
+        refresh_military_presence(screen,map_widget)
 
     def arrive():
         nonlocal finished
         if finished:
             return
         finished = True
+        screen._march_departures={}
         owner.selected_group = selected
         owner._movement_arrived = True
         try:
@@ -308,7 +321,9 @@ def animate_transfer(owner, grouped):
             release()
 
     try:
+        screen._march_departures=departures
         map_widget._map_atmosphere.marches.play_batch(specs, arrive, cancel)
+        refresh_military_presence(screen,map_widget)
         close_transfer_windows(owner)
     except Exception:
         map_widget._map_atmosphere.marches.cancel_all()
@@ -324,6 +339,9 @@ class MarchLayer:
         self.atmosphere = atmosphere
         self.group = InstructionGroup()
         self.marches = []
+        from terrain_arrival_effects import TerrainArrivalEffects
+        self.terrain_arrivals=TerrainArrivalEffects(atmosphere)
+        self.group.add(self.terrain_arrivals.group)
 
     def play_batch(self, specs, arrive, cancel):
         batch = dict(remaining=len(specs), arrive=arrive, cancel=cancel, done=False)
@@ -337,6 +355,7 @@ class MarchLayer:
             if march.update(dt) and march in self.marches:
                 self.group.remove(march.group)
                 self.marches.remove(march)
+        self.terrain_arrivals.update(dt)
 
     def cancel_all(self):
         for march in self.marches:
@@ -346,6 +365,8 @@ class MarchLayer:
                 batch['cancel']()
         self.marches.clear()
         self.group.clear()
+        self.terrain_arrivals.clear()
+        self.group.add(self.terrain_arrivals.group)
 
 
 class MarchFlag:
@@ -412,6 +433,12 @@ class March:
         self.route = provider()
         self.geometry_key = None
         self.age, self.arrived, self.emit = 0., False, 0.
+        a=layer.atmosphere
+        self._terrain_previous=((self.route.points[0][0]-a._origin[0])/a._scale,
+                                (self.route.points[0][1]-a._origin[1])/a._scale)
+        from terrain_placement import FEATURE_SIZE
+        self._terrain_seen={key for key,site in layer.terrain_arrivals.sites.items()
+                            if math.dist(self._terrain_previous,(site['x'],site['y']))<=FEATURE_SIZE*.35}
         self.duration = max(1.8, min(5., self.route.length / max(1, 85 * layer.atmosphere._scale)))
         self.group = InstructionGroup()
         self.rng = random.Random(faction + str(count) + str(self.route.points[0]))
@@ -439,6 +466,15 @@ class March:
             self.geometry_key = key
         progress = min(1., self.age / self.duration)
         x, y, dx, dy, dry = self.route.sample(progress)
+        point=((x-atmosphere._origin[0])/atmosphere._scale,(y-atmosphere._origin[1])/atmosphere._scale)
+        if not self.arrived and dry:
+            from terrain_arrival_effects import reaches_site
+            from terrain_placement import FEATURE_SIZE
+            for key,site in self.layer.terrain_arrivals.sites.items():
+                if key not in self._terrain_seen and reaches_site(self._terrain_previous,point,(site['x'],site['y']),FEATURE_SIZE*.35):
+                    self._terrain_seen.add(key)
+                    self.layer.terrain_arrivals.enter(site)
+        self._terrain_previous=point
         size = min(1.15, max(.75, atmosphere._scale))
         if not self.arrived and progress >= 1:
             self.arrived = True

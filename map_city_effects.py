@@ -59,10 +59,8 @@ def standard_layout(center, scale, slot=0, bounds=None):
 def read_hero_garrisons(conn):
     """Only living heroes, grouped by city and their own faction, not city owner."""
     try:
-        return tuple(conn.execute('''SELECT DISTINCT g.city_name, u.faction
-            FROM garrisons g JOIN units u ON u.unit_name=g.unit_name
-            WHERE CAST(u.unit_class AS INTEGER) IN (2, 3, 4) AND g.unit_count > 0
-            ORDER BY g.city_name, u.faction''').fetchall())
+        from utils.garrison_presence import military_presence
+        return military_presence(conn)['heroes']
     except sqlite3.OperationalError:
         return ()
 

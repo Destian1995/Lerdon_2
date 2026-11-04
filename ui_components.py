@@ -858,7 +858,8 @@ class DiplomacyMessagePopup(FloatLayout):
 
     def on_touch_down(self, touch):
         if self.card.collide_point(*touch.pos):
-            return super().on_touch_down(touch)
+            super().on_touch_down(touch)
+            return True
         # Нажатие вне карточки закрывает popup
         self.close()
         return True

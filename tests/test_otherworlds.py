@@ -107,7 +107,7 @@ class PortalTests(unittest.TestCase):
         self.assertIsNone(w.party(self.db,'Север'))
         self.assertEqual(self.db.execute("SELECT unit_count,experience FROM garrisons WHERE city_name='Home' AND unit_name='troop1'").fetchone(),(1000,3))
         merc=self.db.execute("SELECT g.unit_count,u.faction,u.consumption FROM garrisons g JOIN units u USING(unit_name) WHERE g.unit_name LIKE 'Странник:%'").fetchone()
-        self.assertEqual(merc,(100,'Север',1.8))
+        self.assertEqual(merc,(100,'Север',1.61))
         self.assertFalse(self.db.execute('SELECT 1 FROM garrisons WHERE city_name=?',(p['camp'],)).fetchone())
 
     def test_hero_and_actions_required_atomic_enter(self):

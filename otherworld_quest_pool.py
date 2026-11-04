@@ -54,12 +54,15 @@ def generate(conn,faction,cycle,rng=None):
         conn.execute('INSERT INTO portal_quest_history VALUES(?,?,?,?)',(faction,kind,seed[0],cycle))
         chosen.append(seed)
     d,w=chosen
+    from otherworld_themes import CONFLICT_SIDES
+    sides=list(CONFLICT_SIDES.get(faction,w[3]))
     places=list(range(2,8));rng.shuffle(places)
     war_places=list(range(2,8));rng.shuffle(war_places)
     return {'detective':{'id':d[0],'title':d[1],'premise':d[2],'witness':d[3],
                         'ledger':d[4],'solved':d[5],'cities':places[:3],
-                        'suspects':rng.sample(NAMES,3),'tokens':list(rng.choice(CLUES))},
-            'war':{'id':w[0],'title':w[1],'premise':w[2],'sides':list(w[3]),
+                        'suspects':rng.sample(NAMES,3),'tokens':list(rng.choice(CLUES)),
+                        'search_sites':['Архив','Склад','Сад'], 'search_answer':rng.randrange(3)},
+            'war':{'id':w[0],'title':w[1],'premise':w[2],'sides':sides,
                    'resource':w[4],'amount':w[5], 'embassy':war_places[0],
                    'supplies':war_places[1:3],'target':war_places[3]}}
 

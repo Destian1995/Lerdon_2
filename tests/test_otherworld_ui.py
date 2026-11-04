@@ -30,17 +30,18 @@ class OtherworldUITests(unittest.TestCase):
         self.assertTrue(overview.map.effects._event)
         city=otherworlds.cities(self.db)[0]
         popup=ForeignCityPopup(overview,city);popup.open(animation=False);settle()
-        popup.show_market('units');settle()
-        self.assertEqual(len(popup.offers.pages),5)
-        self.assertEqual(popup.offers.page_index,0)
-        popup.offers.next.dispatch('on_release');settle()
-        self.assertEqual(popup.offers.page_index,1)
+        popup.recruit_button.dispatch('on_release');settle()
+        self.assertEqual(len(popup.recruitment.slides),5)
+        self.assertEqual(popup.recruitment.carousel.index,0)
+        popup.recruitment.carousel.load_next();settle()
+        self.assertEqual(popup.recruitment.carousel.index,1)
+        popup.recruitment.popup.dismiss(animation=False);settle()
         self.assertGreater(popup.army_box.parent.height,100)
-        self.assertGreater(popup.market.height,100)
+        self.assertGreater(popup.services.height,100)
         self.assertFalse(popup.battle_button.disabled)
 
         self.assertTrue(popup.travel_button.disabled)
-        for widget in (popup.info,popup.market,popup.feedback,popup.travel_button):
+        for widget in (popup.info,popup.services,popup.feedback,popup.travel_button):
             self.assertGreaterEqual(widget.x,popup.x)
             self.assertGreaterEqual(widget.y,popup.y)
             self.assertLessEqual(widget.right,popup.right+1)
@@ -51,6 +52,26 @@ class OtherworldUITests(unittest.TestCase):
         self.assertTrue(overview.map.effects._event)
         overview.dismiss(animation=False)
         self.assertIsNone(overview.map.effects._event)
+
+    def test_faction_weather_uses_mountains_and_follows_map_projection(self):
+        from types import SimpleNamespace
+        from otherworld_effects import MirrorEffects,mountain_anchors
+        from map_terrain import MOUNTAIN,WATER
+        terrain=SimpleNamespace(grid=[MOUNTAIN,WATER],width=2,height=1,world_width=1200,world_height=800)
+        self.assertEqual(mountain_anchors(terrain),[(300,400)])
+        for faction in ('Вампиры','Эльфы','Север','Адепты','Элины'):
+            owner=SimpleNamespace(faction=faction,accent=(.6,.5,1,1))
+            m=SimpleNamespace(owner=owner,terrain=terrain,nodes=[dict(id=1,x=100,y=100)],
+                              width=1200,height=800,camera=SimpleNamespace(zoom=1),point=lambda x,y:(x,y))
+            effects=MirrorEffects(m);effects.update(.1)
+            self.assertEqual(len(effects.snow),24 if faction=='Север' else 0)
+            self.assertEqual(len(effects.lightning),6 if faction=='Вампиры' else 0)
+            before=effects.fog[0][1].pos
+            m.point=lambda x,y:(x+40,y+20)
+            effects.update(0)
+            for actual,expected in zip(effects.fog[0][1].pos,(before[0]+40,before[1]+20)):
+                self.assertAlmostEqual(actual,expected,delta=1e-4)
+            effects.start();effects.stop();self.assertIsNone(effects._event)
 
     def test_remote_market_disabled_and_travel_has_live_party(self):
         import otherworlds
@@ -74,25 +95,29 @@ class OtherworldUITests(unittest.TestCase):
         import otherworlds
         overview=OtherworldMap(self.db,'Север');overview.open(animation=False);settle()
         popup=ForeignCityPopup(overview,otherworlds.cities(self.db,'Север')[0])
-        popup.open(animation=False);popup.show_market('units');settle()
-        carousel=popup.offers.carousel
+        popup.open(animation=False);popup.open_recruitment();settle()
+        session=popup.recruitment
+        carousel=session.carousel
         x,y=carousel.x+carousel.width*.8,carousel.center_y
         end_x=carousel.x+carousel.width*.15
         touch=UnitTestTouch(x,y)
         touch.touch_down()
-        touch.touch_move(x-25,y)
+        touch.touch_move(x-45,y)
         touch.touch_move(end_x,y)
         touch.touch_up();settle();settle()
-        self.assertEqual(popup.offers.page_index,1)
+        self.assertEqual(carousel.index,1)
         unit=otherworlds.unit_offers(self.db,'Север')[1]
-        current=popup.offers.carousel.current_slide
-        self.assertEqual(current.title_label.text,unit['unit_name'])
-        current.button.dispatch('on_release');settle()
-        self.assertEqual(popup.offers.page_index,1)
+        current=session.cards[1]
+        self.assertEqual(session.units[1][0],unit['unit_name'])
+        quantity=next(w for w in current.walk() if w.__class__.__name__=='TextInput')
+        quantity.text='37';settle()
+        hire=next(w for w in current.controls.children if getattr(w,'text','').startswith('НАНЯТЬ'))
+        hire.dispatch('on_release');settle()
+        self.assertEqual(carousel.index,1)
         camp=otherworlds.party(self.db,'Север')['camp']
         row=self.db.execute('SELECT unit_count FROM garrisons WHERE city_name=? AND unit_name=?',
                             (camp,'Странник: '+unit['unit_name']+' / Север')).fetchone()
-        self.assertEqual(row,(100,))
+        self.assertEqual(row,(37,))
 
 
 if __name__=='__main__': unittest.main()

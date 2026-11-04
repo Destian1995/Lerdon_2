@@ -1,5 +1,5 @@
 """An illustrated, responsive allegiance choice within the quest journal."""
-from kivy.metrics import sp
+from kivy.metrics import sp,dp
 from kivy.properties import NumericProperty,StringProperty
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
@@ -25,7 +25,7 @@ class AllegianceChoice(ButtonBehavior,BoxLayout):
         compact_frame(self)
         self.art=Image(source=portrait,size_hint_x=None,mipmap=True)
         labels=BoxLayout(orientation='vertical')
-        self.name=FitLabel(text=caption.removeprefix('Поддержать: '),color=accent,bold=True)
+        self.name=FitLabel(text=caption.removeprefix('Поддержать: '),color=accent,bold=True,minimum=sp(12))
         self.hint=FitLabel(text='ЗАКЛЮЧИТЬ СОЮЗ',color=MUTED,size_hint_y=None,maximum=10)
         labels.add_widget(self.name);labels.add_widget(self.hint)
         self.add_widget(self.art);self.add_widget(labels)
@@ -36,7 +36,7 @@ class AllegianceChoice(ButtonBehavior,BoxLayout):
     def fit(self,*_):
         self.padding=min(6,self.height*.09)
         self.art.width=min(48,self.height*.78,self.width*.23)
-        self.name.maximum=min(sp(18),max(10,self.height*.34),self.maximum)
+        self.name.maximum=max(sp(12),min(sp(18),self.height*.34,self.maximum))
         self.hint.height=12 if self.height>=48 else 0
         self.hint.opacity=1 if self.hint.height else 0
         self.opacity=.42 if self.disabled else 1
@@ -65,23 +65,20 @@ class AllegianceCard(QuestCard):
         self.reward_copy=FitLabel(text='НАГРАДА\nАртефакт · 25 ходов',color=GOLD,bold=True,maximum=sp(17))
         self.reward_tile.add_widget(self.reward_copy)
         self.summary.add_widget(self.defense_tile);self.summary.add_widget(self.reward_tile)
-        self.add_widget(self.summary,index=1 if buttons else 0)
+        self.content.add_widget(self.summary,index=1 if buttons else 0)
         self.bind(size=self.fit)
         self.fit()
 
     def button_height(self):
-        return min(64,max(32,self.height*.20)) if self.stage==0 else super().button_height()
+        return dp(64) if self.stage==0 else super().button_height()
 
     def fit(self,*_):
         super().fit()
         if self.summary is None:return
-        compact=self.height<195
-        self.copy.text=self.compact_copy if compact else self.full_copy
-        self.summary.height=0 if compact else min(68,self.height*.20)
-        self.summary.opacity=0 if compact else 1
-        # Hidden stat labels must not reserve or render text outside the card.
+        self.summary.height=dp(68)
+        self.summary.opacity=1
         for child in (self.defense_copy,self.reward_copy):
-            child.text='' if compact else (self.defense_text if child is self.defense_copy else 'НАГРАДА\nАртефакт · 25 ходов')
+            child.text=self.defense_text if child is self.defense_copy else 'НАГРАДА\nАртефакт · 25 ходов'
         self.defense_icon.width=min(38,self.summary.height*.60)
         if self.stage==0:
             for button in self.buttons.children:button.maximum=min(sp(18),max(10,self.buttons.width/24))
