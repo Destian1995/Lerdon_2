@@ -5,7 +5,7 @@ from strategy_ui_fixture import Window
 from test_town_interior import TownTests
 from test_dialog_layout import settle
 from test_map_zoom import Touch
-from town_art import LOTS,THEMES,building_mirrored,building_path,CITADEL_DOORS,citadel_stair,theme_key
+from town_art import LOTS,THEMES,building_mirrored,building_path,CITADEL_DOORS,citadel_entry,theme_key
 from town_scene import building_shape,TownScene
 
 
@@ -47,7 +47,7 @@ class TownDefenseTests(unittest.TestCase):
                     self.assertEqual(scene.selected,name)
                     self.assertIn(name,scene.outlines)
 
-    def test_every_variant_door_threshold_meets_stair_top_in_both_scene_modes(self):
+    def test_every_variant_door_meets_approach_target_in_both_scene_modes(self):
         for faction in THEMES:
             self.db.execute('DELETE FROM buildings')
             self.db.execute('UPDATE cities SET faction=?',(faction,))
@@ -62,10 +62,14 @@ class TownDefenseTests(unittest.TestCase):
                         sprite=scene.sprites['Цитадель']
                         u,v=CITADEL_DOORS[theme_key(faction)]
                         actual=(sprite.pos[0]+u*sprite.size[0],sprite.pos[1]+v*sprite.size[1])
-                        u,v=citadel_stair(faction,self.owner.city_name)
+                        u,v=citadel_entry(faction,self.owner.city_name)
                         x,y,w,h=scene.scene_bounds
                         self.assertAlmostEqual(actual[0],x+u*w,delta=.1)
                         self.assertAlmostEqual(actual[1],y+v*h,delta=.1)
+                        if faction=='Эльфы':
+                            center=(sprite.pos[0]+sprite.size[0]/2-x)/w
+                            self.assertGreaterEqual(center,.49)
+                            self.assertLessEqual(center,.57)
                         self.assertLessEqual(sprite.pos[1]+sprite.size[1],y+h*.98+.1)
                         scene.effects.stop()
 

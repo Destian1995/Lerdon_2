@@ -36,9 +36,16 @@ def citadel_stair(faction,city):
     return x/1536,1-y/864
 
 
+def citadel_entry(faction,city):
+    x,y=citadel_stair(faction,city)
+    # Elven stairs enter the terrace at its left edge. The keep stands farther
+    # right on that terrace, with the landing leading across to its doorway.
+    return (x+.12 if theme_key(faction)=='elves' else x),y
+
+
 def citadel_lot(faction,city,panorama_aspect,sprite_aspect):
-    """Place the doorway on the stair landing, including transparent margins."""
-    target_x,target_y=citadel_stair(faction,city)
+    """Place the doorway on its approach, including transparent margins."""
+    target_x,target_y=citadel_entry(faction,city)
     door_x,door_y=CITADEL_DOORS[theme_key(faction)]
     width=LOTS['Цитадель'][2]
     height=width*panorama_aspect*sprite_aspect

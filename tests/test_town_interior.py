@@ -6,6 +6,7 @@ from test_dialog_layout import settle
 from test_map_zoom import Touch
 from kivy.metrics import Metrics,dp,sp
 from kivy.uix.popup import Popup
+from kivy.uix.scrollview import ScrollView
 from city_construction import CATALOG,buy_building,building_counts
 from town_art import THEMES,city_variant,panorama_path,building_path
 
@@ -23,11 +24,30 @@ class TownTests(unittest.TestCase):
     def tearDown(self):
         for widget in list(Window.children):
             if isinstance(widget,Popup):widget.dismiss(animation=False)
-        if hasattr(self.owner,'town_popup'):self.owner.town_popup.chooser.dismiss()
         self.owner.dismiss(animation=False);settle();self.db.close()
         Metrics.density,Metrics.fontscale=self.metrics;Window.size=self.size;settle()
 
     def money(self):return self.db.execute('SELECT amount FROM resources').fetchone()[0]
+
+    def test_entire_building_catalogue_is_listed_and_purchase_turns_row_grey(self):
+        town=self.owner._open_build_menu();settle()
+        self.assertEqual(set(town.selectors),set(CATALOG))
+        self.assertEqual(len(town.building_list.children),6)
+        self.assertTrue(all(row.parent is town.building_list for row in town.selectors.values()))
+        row=town.selectors['Рынок']
+        row.dispatch('on_release');settle()
+        self.assertEqual(town.selected,'Рынок')
+        self.assertFalse(row.is_built)
+        self.assertIn('крон',row.status.text)
+        town.build.dispatch('on_release');settle()
+        self.assertTrue(row.is_built)
+        self.assertEqual(row.status.text,'Построено')
+        self.assertEqual(tuple(row.title.color),(.48,.50,.53,1))
+        self.assertTrue(town.build.disabled)
+        self.assertFalse(row.disabled)  # Built buildings remain inspectable.
+        self.assertFalse(town.selectors['Стена'].is_built)
+        self.assertNotEqual(tuple(row.title.color),tuple(town.selectors['Стена'].title.color))
+        self.assertEqual(self.money(),470000)
 
     def test_purchased_building_appears_in_both_scenes_and_survives_reopening(self):
         town=self.owner._open_build_menu();settle()
@@ -96,8 +116,8 @@ class TownTests(unittest.TestCase):
         town.purchase();settle()
         self.assertNotIn(name,town.scene.plots)
         self.assertIn(name,town.scene.outlines)
-        self.assertIn(CATALOG[name]['desc'],town.detail.text)
-        self.assertNotIn('Цена:',town.detail.text)
+        self.assertIn(CATALOG[name]['desc'],town.selectors[name].effect.text)
+        self.assertNotIn('Цена:',town.selectors[name].effect.text)
         self.assertTrue(town.build.disabled)
         sprite=town.scene.sprites[name]
         path=building_path(town.faction,name);mask,contours=building_shape(path)
@@ -112,8 +132,8 @@ class TownTests(unittest.TestCase):
         town.choose('Больница')
         touch=Touch(*point);town.scene.on_touch_down(touch);town.scene.on_touch_up(touch)
         self.assertEqual(town.selected,name)
-        self.assertIn('Построено',town.detail.text)
-        self.assertIn(CATALOG[name]['desc'],town.detail.text)
+        self.assertEqual(town.selectors[name].status.text,'Построено')
+        self.assertIn(CATALOG[name]['desc'],town.selectors[name].effect.text)
         # Finished buildings have neither plot overlays nor contour unless selected.
         town.choose('Больница')
         self.assertNotIn(name,town.scene.outlines)
@@ -127,9 +147,8 @@ class TownTests(unittest.TestCase):
                 self.assertGreaterEqual(widget.x,town.root.x-1);self.assertGreaterEqual(widget.y,town.root.y-1)
                 self.assertLessEqual(widget.right,town.root.right+1);self.assertLessEqual(widget.top,town.root.top+1)
             self.assertGreaterEqual(town.build.height,dp(44)-1)
-            self.assertGreaterEqual(town.selector.height,dp(44)-1)
-            self.assertGreaterEqual(town.detail.font_size,sp(14)-.1)
-            self.assertGreater(town.detail_scroll.height,dp(14))
+            self.assertTrue(all(row.effect.font_size>=sp(13)-.1 for row in town.selectors.values()))
+            self.assertGreater(town.building_area.height,dp(40))
             self.assertGreater(town.scene.width,dp(150))
             from town_art import LOTS
             for name,(u,v,_) in town.scene.lots.items():
@@ -137,6 +156,33 @@ class TownTests(unittest.TestCase):
                 touch=Touch(x+u*w,y+v*h);town.scene.on_touch_down(touch);town.scene.on_touch_up(touch)
                 self.assertEqual(town.selected,name)
             town.export_to_png(f'.release/town-layout-{size[0]}x{size[1]}.png')
+
+    def test_all_six_buildings_fit_without_scrolling_at_phone_densities(self):
+        from kivy.core.text import Label as CoreLabel
+        town=self.owner._open_build_menu();settle()
+        for size,density,scale in (((320,240),1,1),((480,270),1,1),((640,360),1,1),
+                                   ((1280,576),2.5,1.2),((392,844),1,1.4),((320,480),1,1)):
+            with self.subTest(size=size,density=density,scale=scale):
+                Window.size=size;Metrics.density=density;Metrics.fontscale=scale
+                town.fit();settle();town.fit();settle()
+                grid=town.building_list
+                self.assertEqual(len(grid.children),6)
+                self.assertNotIsInstance(town.building_area,ScrollView)
+                for row in town.selectors.values():
+                    self.assertGreaterEqual(row.height,dp(44)-1)
+                    self.assertGreaterEqual(row.width,dp(44)-1)
+                    self.assertGreaterEqual(row.x,grid.x-1)
+                    self.assertGreaterEqual(row.y,grid.y-1)
+                    self.assertLessEqual(row.right,grid.right+1)
+                    self.assertLessEqual(row.top,grid.top+1)
+                    if row.compact_mode:
+                        label=row.compact_label
+                        text=CoreLabel(text=label.text,font_size=label.font_size,bold=True,
+                                       text_size=(label.width,None))
+                        text.refresh()
+                        self.assertLessEqual(text.texture.height,label.height+1)
+                self.assertGreaterEqual(town.build.y,town.root.y-1)
+                self.assertLessEqual(town.build.top,town.root.top+1)
 
 
 class TownArtTests(unittest.TestCase):
