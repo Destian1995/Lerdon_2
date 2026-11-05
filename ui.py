@@ -105,12 +105,10 @@ class FortressInfoPopup(Popup):
         build_city_window(self)
 
     def load_buildings(self):
-        from city_construction import building_counts,city_owner
+        from city_construction import city_owner
         if not hasattr(self,'city_preview'):return
         self.city_faction=city_owner(self.conn,self.city_name) or self.city_faction
         self.city_preview.refresh()
-        counts=building_counts(self.conn,self.city_name,self.city_faction)
-        self.city_building_count.text=f'Построено: {sum(bool(counts.get(n,0)) for n in self.BUILDING_CATALOG)} из {len(self.BUILDING_CATALOG)}'
 
 
     # ── Система строительства ────────────────────────────────────

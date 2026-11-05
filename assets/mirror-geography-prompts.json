@@ -1,0 +1,231 @@
+{
+  "generator": "built-in image_gen",
+  "style_reference": "User-approved autumn forest map with rivers, clearings and small ruins",
+  "worlds": [
+    {
+      "faction": "Север",
+      "key": "north",
+      "landscape": "Separate snowy Nordic islands, broad sea channels, fjords and harbours",
+      "file": "files/otherworld/themes/north/map.png",
+      "size": [
+        1536,
+        1024
+      ],
+      "sha256": "2617848bf3cbdd77b4df64b1b9935ebba255cf20e10f7d78f1c14e17fcf9a250",
+      "prompt": "Use case: stylized-concept. Production fantasy strategy MAP BACKGROUND, one continuous wide 3:2 image, elevated overhead painterly terrain, detailed natural materials, same polished art quality as reference Image 1. Use reference ONLY for painterly quality, not its composition. Invent a distinctly different landmass shape and geography. A TRUE NORTHERN ARCHIPELAGO: seven physically SEPARATE irregular rocky ISLANDS in a broad cold deep-blue SEA, with snowy granite cliffs, pine groves, fjord inlets, sea stacks and distant glaciers. Water must dominate about 55 percent of image; visible sea channels separate every major island. No repeating river/clearing valley composition. Each island has a sheltered dry building area at the specified site, a tiny empty timber wharf and a Norse gate ruin. Nordic wood-and-stone island settlements will be inserted later. Coastal paths stay ON islands. DO NOT connect islands by giant bridges or land roads; travel is by sea. Crisp wintry daylight, blue sea, white snow and amber sheltered land. Leave an EMPTY dry patch for a separate city sprite centered at each normalized (x,y) with y measured FROM BOTTOM: city 1: (0.175,0.331); city 2: (0.842,0.294); city 3: (0.237,0.738); city 4: (0.754,0.750); city 5: (0.417,0.237); city 6: (0.500,0.619); city 7: (0.679,0.487). Keep these sites within their respective landform, with enough ground for small city icons, but no letters, numbers, markers, city buildings, UI, border or grid. No repeated seven-oval-clearing composition.",
+      "city_atlas": "files/otherworld/themes/north/cities.atlas",
+      "architecture_prompt": "Use case: stylized-concept. Production game SPRITE ATLAS exactly 3 columns x 3 rows of nine complete separate miniature towns, each within its equal cell, generous transparent margins, no overlaps, consistent elevated three-quarter camera, detailed painterly realistic fantasy strategy art. Reference Image 1 is only a material/detail style reference. Nine DISTINCT compact NORSE ISLAND TOWNS: clustered carved TIMBER longhouses with steep snow-covered gables, stone seawalls, modest gray-stone keeps and wooden watchtowers, small empty timber wharves and snowy pine trees at bases. Practical Nordic medieval architecture with dragon-beam carvings and blue banners. NO crystal spires, giant ice-palace domes, Greek architecture, Gothic cathedrals or floating islands. Varied silhouettes and layouts, first sprite monumental gateway town. Genuine transparent background outside sprites. No labels, text, numbers, ground tiles, UI or grid lines. Final built-in imagegen edit: remove translucent white backdrop completely while preserving all nine original towns and the 3x3 grid; genuine alpha-zero negative space.",
+      "city_positions": [
+        [
+          210,
+          265
+        ],
+        [
+          1010,
+          235
+        ],
+        [
+          285,
+          590
+        ],
+        [
+          905,
+          600
+        ],
+        [
+          500,
+          190
+        ],
+        [
+          600,
+          495
+        ],
+        [
+          815,
+          390
+        ]
+      ],
+      "replaced": true
+    },
+    {
+      "faction": "Эльфы",
+      "key": "elves",
+      "landscape": "Ancient emerald forest, turquoise lakes, river deltas and waterfalls",
+      "file": "files/otherworld/themes/elves/map.png",
+      "size": [
+        1536,
+        1024
+      ],
+      "sha256": "9d2f5d05bd14a1539c43dff732b678668dcaa6966c2aa4a073621fbefd52ab55",
+      "prompt": "Use case: stylized-concept. Production fantasy strategy MAP BACKGROUND, one continuous wide 3:2 image, elevated overhead painterly terrain, detailed natural materials, same polished art quality as reference Image 1. Use reference ONLY for painterly quality, not its composition. Invent a distinctly different landmass shape and geography. ANCIENT GREEN FOREST REALM: one enormous primeval woodland basin surrounding a large luminous TURQUOISE LAKE, branching rivers, a central root-covered island, towering giant trees, natural root bridges and fern-covered limestone shelves. Dense ancient canopies and intricate green vegetation dominate 60 percent of the map; seven small natural grass sites are organically distributed at the listed points among the forest and lake shores. Sites are not identical circular clearings. Warm magical sun shafts, emerald and jade foliage, cyan water, flowers, tiny elven carved arch ruins. City architecture will be living trees and elegant timber. NO ice, desert, burgundy dead forest, golden domed palaces or symmetrical grid of seven holes. Leave an EMPTY dry patch for a separate city sprite centered at each normalized (x,y) with y measured FROM BOTTOM: city 1: (0.183,0.525); city 2: (0.800,0.637); city 3: (0.358,0.775); city 4: (0.646,0.762); city 5: (0.271,0.250); city 6: (0.508,0.475); city 7: (0.700,0.263). Keep these sites within their respective landform, with enough ground for small city icons, but no letters, numbers, markers, city buildings, UI, border or grid. No repeated seven-oval-clearing composition.",
+      "city_atlas": "files/otherworld/themes/elves/cities.atlas",
+      "architecture_prompt": "Use case: stylized-concept. Production game SPRITE ATLAS exactly 3 columns x 3 rows of nine complete separate miniature towns, each within its equal cell, generous transparent margins, no overlaps, consistent elevated three-quarter camera, detailed painterly realistic fantasy strategy art. Reference Image 1 is only a material/detail style reference. Nine DISTINCT ELVEN FOREST SETTLEMENTS built IN AND AROUND living ANCIENT TREES: intertwined trunks and roots, timber platforms, carved wooden halls, slim leafy towers, small arched root bridges, mossy stones, natural leaf-shaped roofs and green foliage. Architecture is clearly organic and wooden, grows with trees, warm magical amber windows. NO gold domes, white marble palaces, generic medieval castles, crystal spires or sci-fi buildings. Varied silhouettes and layouts, first sprite monumental gateway town. Genuine transparent background outside sprites. No labels, text, numbers, ground tiles, UI or grid lines.",
+      "city_positions": [
+        [
+          220,
+          420
+        ],
+        [
+          960,
+          510
+        ],
+        [
+          430,
+          620
+        ],
+        [
+          775,
+          610
+        ],
+        [
+          325,
+          200
+        ],
+        [
+          610,
+          380
+        ],
+        [
+          840,
+          210
+        ]
+      ],
+      "replaced": true
+    },
+    {
+      "faction": "Вампиры",
+      "key": "vampires",
+      "landscape": "Basalt gorges, misty marshes, blackwater lakes and burgundy woodland",
+      "file": "files/otherworld/themes/vampires/map.png",
+      "size": [
+        1536,
+        1024
+      ],
+      "sha256": "f0ef8fa79ab10336d71e02305b7c7f398c5643d0edf98950c616879fd82a7c8a",
+      "prompt": "Use case: stylized-concept. Production fantasy strategy MAP BACKGROUND, one continuous wide 3:2 image, elevated overhead painterly terrain, detailed natural materials, same polished art quality as reference Image 1. Use reference ONLY for painterly quality, not its composition. Invent a distinctly different landmass shape and geography. BLIGHTED VAMPIRE WASTELAND: dead black thorn forests, dark flooded BOGS, graveyard plains, scarred basalt ridges and one deep winding BLACKWATER CHASM. Overall asymmetric fractured terrain. Three dry cliff strongholds in north/east, low muddy islands and causeways in the south/west at the specified sites. Twisted leafless trees and sparse burgundy undergrowth, sunken tomb ruins, broken gothic gates, violet swamp fog, sickly still water and silver moonlight. Readable eerie dark landscape, not solid black. No lush green forest, snow, orange autumn trees or tidy repeated clearings. No actual cities yet; their gothic castles will be inserted separately. Leave an EMPTY dry patch for a separate city sprite centered at each normalized (x,y) with y measured FROM BOTTOM: city 1: (0.158,0.325); city 2: (0.829,0.662); city 3: (0.229,0.750); city 4: (0.650,0.781); city 5: (0.400,0.225); city 6: (0.463,0.575); city 7: (0.762,0.287). Keep these sites within their respective landform, with enough ground for small city icons, but no letters, numbers, markers, city buildings, UI, border or grid. No repeated seven-oval-clearing composition.",
+      "city_atlas": "files/otherworld/themes/vampires/cities.atlas",
+      "architecture_prompt": "Use case: stylized-concept. Production game SPRITE ATLAS exactly 3 columns x 3 rows of nine complete separate miniature towns, each within its equal cell, generous transparent margins, no overlaps, consistent elevated three-quarter camera, detailed painterly realistic fantasy strategy art. Reference Image 1 is only a material/detail style reference. Nine DISTINCT VAMPIRE STRONGHOLDS: gray-black weathered stone GOTHIC CASTLES and fortified crypt towns, steep dark slate roofs, slender uneven towers, pointed arches, heavy gates, restrained blood-red banners and small crimson windows. Dead bare trees and stone graves at bases, dark atmospheric believable masonry. NO bright pink neon crystal palaces, golden domes, snowy castles, lush green foliage or cute fairy houses. Varied silhouettes and layouts, first sprite monumental gateway town. Genuine transparent background outside sprites. No labels, text, numbers, ground tiles, UI or grid lines.",
+      "city_positions": [
+        [
+          190,
+          260
+        ],
+        [
+          995,
+          530
+        ],
+        [
+          275,
+          600
+        ],
+        [
+          780,
+          625
+        ],
+        [
+          480,
+          180
+        ],
+        [
+          555,
+          460
+        ],
+        [
+          915,
+          230
+        ]
+      ],
+      "replaced": true
+    },
+    {
+      "faction": "Адепты",
+      "key": "adepts",
+      "landscape": "Rust-orange autumn woodland, rocky rivers and crusader abbey ruins",
+      "file": "files/otherworld/themes/adepts/map.png",
+      "size": [
+        1536,
+        1024
+      ],
+      "sha256": "c2d11c037bbfeec7cd3291dabfc8b74c4b8d87929a39b4e8a423fa9b561c764a",
+      "prompt": "Use case: stylized-concept. Image 1 is ONLY the STYLE, CAMERA and ARCHITECTURE-DETAIL reference, NOT an edit target. Match its richly detailed painterly strategy-game environment, believable stonework and timber construction, clear silhouettes, terraced ground, paths and natural integrated settlement scenery. Do not copy snow or Nordic motifs when faction theme says otherwise. ONE continuous wide 3:2 overhead fantasy strategy MAP BACKGROUND for ADEPTS. Dense RUST ORANGE, copper, amber autumn forests, rocky hills and gorge, winding rivers and stone bridges, cobbled paths, scattered small abandoned medieval CRUSADER ABBEY ruins with Romanesque arches and stone walls. Large open clear earthy grassy areas distributed across map for separate city icons. Match rich painterly terrain materials and old medieval architectural detail of reference while using a map's top-down camera. Warm autumn daylight. No snow, no Victorian industrial structures, no large prepainted cities, UI, grid, text, frames or labels.",
+      "city_atlas": "files/otherworld/themes/adepts/cities.atlas",
+      "architecture_prompt": "Use case: stylized-concept. Image 1 is ONLY the STYLE, CAMERA and ARCHITECTURE-DETAIL reference, NOT an edit target. Match its richly detailed painterly strategy-game environment, believable stonework and timber construction, clear silhouettes, terraced ground, paths and natural integrated settlement scenery. Do not copy snow or Nordic motifs when faction theme says otherwise. Production transparent game sprite atlas, exactly 3 columns x 3 rows, nine distinct isolated miniature cities, equal-sized cells clear margins and no overlaps. ADEPT CRUSADER ABBEY cities in RUST ORANGE autumn forest: fortified pale limestone monasteries, Romanesque cloisters, chapels, square crenellated towers, modest slate and timber roofs, arched gates, cream banners with red heraldic crosses, small stone village houses and copper-orange trees around each base. Believable intricate detailed medieval masonry, elevated three-quarter perspective, painterly fantasy strategy game style matching reference. First city monumental abbey gateway, other cities distinct varied silhouettes. NO Victorian houses, clocks, machinery, glass domes or industrial chimneys. Genuine transparent background; no text or labels.",
+      "city_positions": [
+        [
+          245,
+          410
+        ],
+        [
+          1010,
+          290
+        ],
+        [
+          420,
+          615
+        ],
+        [
+          865,
+          550
+        ],
+        [
+          380,
+          235
+        ],
+        [
+          650,
+          430
+        ],
+        [
+          760,
+          200
+        ]
+      ],
+      "replaced": false
+    },
+    {
+      "faction": "Элины",
+      "key": "elines",
+      "landscape": "Golden dunes, sandstone mesas, slot canyons and scattered oases",
+      "file": "files/otherworld/themes/elines/map.png",
+      "size": [
+        1536,
+        1024
+      ],
+      "sha256": "ac8a470700f48000183a17477b318fe1d35066a67f140fe78e0ccbcfec26b449",
+      "prompt": "Use case: stylized-concept. Production fantasy strategy MAP BACKGROUND, one continuous wide 3:2 image, elevated overhead painterly terrain, detailed natural materials, same polished art quality as reference Image 1. Use reference ONLY for painterly quality, not its composition. Invent a distinctly different landmass shape and geography. A TRUE VAST DESERT: sweeping GOLDEN SAND DUNES and EMPTY arid expanses dominate 60 percent of the landscape, a crooked narrow RED SANDSTONE CANYON crossing diagonally, distant eroded mesas, dry wadis, and ONLY THREE small turquoise palm OASES near western, upper-central and southeast town sites. Seven irregular dry settlement sites on caravan route terraces at the listed coordinates, NOT seven matching grassy holes. Tiny abandoned sandstone gates and caravan track hints, no large towns. Desert fort architecture will be sun-baked adobe and sandstone kasbahs. Broad wind-carved dunes, warm blazing sunlight, gold/ochre palette. No river-dominated forest landscape, snow, giant waterfalls, grasslands or Greek temples. Leave an EMPTY dry patch for a separate city sprite centered at each normalized (x,y) with y measured FROM BOTTOM: city 1: (0.167,0.656); city 2: (0.850,0.306); city 3: (0.321,0.769); city 4: (0.833,0.750); city 5: (0.275,0.275); city 6: (0.537,0.656); city 7: (0.637,0.256). Keep these sites within their respective landform, with enough ground for small city icons, but no letters, numbers, markers, city buildings, UI, border or grid. No repeated seven-oval-clearing composition.",
+      "city_atlas": "files/otherworld/themes/elines/cities.atlas",
+      "architecture_prompt": "Transparent 3x3 atlas of nine distinct desert castle cities, warm sandstone fortress-palaces and crenellated citadels, terraced adobe, copper domes, dusty dunes and oasis palms. Miniature elevated painterly game cities; equal cells, no overlaps, text or Greek acropolis.",
+      "city_positions": [
+        [
+          200,
+          525
+        ],
+        [
+          1020,
+          245
+        ],
+        [
+          385,
+          615
+        ],
+        [
+          1000,
+          600
+        ],
+        [
+          330,
+          220
+        ],
+        [
+          645,
+          525
+        ],
+        [
+          765,
+          205
+        ]
+      ],
+      "replaced": true
+    }
+  ]
+}

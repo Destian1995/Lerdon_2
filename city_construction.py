@@ -7,14 +7,24 @@ AI_FACTORY_YIELD=100*LEGACY_PRODUCTION_MULTIPLIER
 CATALOG={
     'Больница':dict(key='hospital',cost=20,max=1,desc=f'+{HOSPITAL_GROWTH} населения и рабочих/ход',color=(.80,.22,.35,1)),
     'Фабрика':dict(key='factory',cost=30,max=1,desc=f'+{FACTORY_YIELD} кристаллов/ход',color=(.50,.50,.12,1)),
-    'Стена':dict(key='wall',cost=50000,max=1,desc='+15% защита гарнизона',color=(.45,.45,.55,1)),
+    'Стена':dict(key='wall',cost=40000,max=1,desc='+15% защита гарнизона',color=(.45,.45,.55,1)),
     'Рынок':dict(key='market',cost=30000,max=1,desc='+10% доход крон',color=(.85,.65,.10,1)),
-    'Кузница':dict(key='forge',cost=40000,max=1,desc='+5% атака юнитов',color=(.60,.38,.12,1)),
-    'Вышка':dict(key='tower',cost=25000,max=1,desc='+500 лимит армии',color=(.20,.55,.75,1)),
+    'Кузница':dict(key='forge',cost=30000,max=1,desc='−5% потребление кристаллов гарнизоном города',color=(.60,.38,.12,1)),
+    'Цитадель':dict(key='citadel',cost=50000,max=1,desc='+500 лимит армии',color=(.20,.55,.75,1)),
 }
 
 
 def ensure_unique_buildings(conn):
+    # Existing saves may already have the uniqueness index and a watchtower.
+    if conn.execute("SELECT 1 FROM buildings WHERE building_type='Вышка' LIMIT 1").fetchone():
+        conn.execute('SAVEPOINT rename_citadels')
+        try:
+            conn.execute("""DELETE FROM buildings WHERE building_type='Вышка' AND city_name IN
+                (SELECT city_name FROM buildings WHERE building_type='Цитадель')""")
+            conn.execute("UPDATE buildings SET building_type='Цитадель' WHERE building_type='Вышка'")
+            conn.execute('RELEASE rename_citadels')
+        except Exception:
+            conn.execute('ROLLBACK TO rename_citadels');conn.execute('RELEASE rename_citadels');raise
     if conn.execute("SELECT 1 FROM sqlite_master WHERE name='unique_city_building_types'").fetchone():return
     conn.execute('SAVEPOINT unique_buildings')
     try:
@@ -45,9 +55,23 @@ def city_owner(conn,city):
 
 
 def construction_allowed(conn,city,faction):
-    if city_owner(conn,city)!=faction:return False
-    columns={r[1] for r in conn.execute('PRAGMA table_info(cities)')}
-    return not ('is_undead' in columns and conn.execute('SELECT is_undead FROM cities WHERE name=?',(city,)).fetchone()[0])
+    return city_owner(conn,city)==faction
+
+
+def garrison_consumption_multipliers(conn):
+    """A local 5% discount; legacy duplicate smithies never stack."""
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name='buildings'").fetchone():return {}
+    return {city:.95 for city, in conn.execute("""SELECT DISTINCT b.city_name FROM buildings b
+        JOIN cities c ON c.name=b.city_name AND c.faction=b.faction
+        WHERE b.building_type='Кузница' AND b.count>0""")}
+
+
+def faction_garrison_consumption(conn,faction):
+    rates=garrison_consumption_multipliers(conn)
+    return sum(count*(consumption or 0)*rates.get(city,1) for city,count,consumption in conn.execute('''
+        SELECT g.city_name,g.unit_count,u.consumption FROM garrisons g
+        JOIN units u ON g.unit_name=u.unit_name WHERE u.faction=?
+        AND g.city_name NOT IN (SELECT name FROM cities WHERE faction='Мятежники')''',(faction,)))
 
 
 def buy_building(conn,city,faction,building):

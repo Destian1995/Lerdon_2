@@ -67,11 +67,10 @@ class TownPopup(WorldPopup):
         row=self.conn.execute("SELECT amount FROM resources WHERE faction=? AND resource_type='Кроны'",(self.player,)).fetchone() if self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='resources'").fetchone() else None
         money=row[0] if row else 0
         owned=construction_allowed(self.conn,self.city,self.player)
-        built=sum(bool(counts.get(n,0)) for n in CATALOG)
-        self.budget.text=f'Построено: {built} из {len(CATALOG)}'+(f' · {format_number(money)} крон' if owned else ' · Осмотр')
-        self.selector.text=f'{self.selected} · {counts.get(self.selected,0)}/{info["max"]}'
+        self.budget.text=f'{format_number(money)} крон' if owned else 'Осмотр'
+        self.selector.text=self.selected
         for key,button in self.selectors.items():
-            button.text=f'{key} · {counts.get(key,0)}/{CATALOG[key]["max"]}'
+            button.text=key
             button.set_selected(key==self.selected)
         is_built=bool(counts.get(self.selected,0))
         self.detail.text=info['desc']+('\nПостроено' if is_built else '')
@@ -79,14 +78,8 @@ class TownPopup(WorldPopup):
         if not is_built and (not owned or money<info['cost']):self.detail.text+=f'\nЦена: {format_number(info["cost"])} крон'
         self.build.disabled=not owned or bool(counts.get(self.selected,0)) or money<info['cost']
         self.build.text='Только осмотр' if not owned else 'Уже построено' if counts.get(self.selected,0) else 'Недостаточно крон' if money<info['cost'] else 'Построить · '+compact_number(info['cost']).replace('.0т','т').replace('.0м','м')
-        if getattr(self.owner,'_is_undead_city',False):
-            self.build.text='История города';self.build.disabled=False
 
     def purchase(self,*_):
-        if getattr(self.owner,'_is_undead_city',False):
-            from strategy_ui import show_city_lore
-            image='files/city/death/'+{'Некрополь':'nekropolis','Горгум':'gorgum','Морготар':'morgotar'}.get(self.city,'city')+'.png'
-            show_city_lore(self.owner,image);return
         if self.owner._build_building(self.selected,CATALOG[self.selected]['cost']):
             self.choose(self.selected)
             self.message.color=(.4,.9,.6,1);self.message.text='Построено: '+self.selected

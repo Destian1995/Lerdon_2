@@ -40,7 +40,7 @@ def city_class():
     return namespace['FortressInfoPopup']
 
 
-def city_fixture(owner='Адепты', populated=False, undead=False):
+def city_fixture(owner='Адепты', populated=False, undead=False, player='Адепты'):
     conn = sqlite3.connect(':memory:')
     conn.executescript('''
         CREATE TABLE cities(name TEXT, faction TEXT, coordinates TEXT, is_undead INTEGER);
@@ -59,7 +59,7 @@ def city_fixture(owner='Адепты', populated=False, undead=False):
                      ('Стражи рассвета', 'files/pict/hire/sword.png', '1', 'infantry'))
         conn.execute('INSERT INTO garrisons VALUES (?, ?, 4500, ?, 3)',
                      (name, 'Стражи рассвета', 'files/pict/hire/sword.png'))
-    popup = city_class()(owner, (200, 300), 'Адепты', conn)
+    popup = city_class()(owner, (200, 300), player, conn)
     return popup, conn
 
 

@@ -183,6 +183,7 @@ def current_effect_rows(conn, faction, season):
             rows.append((f'Рельеф · {city}','',effect))
     for city, kind, count in conn.execute(
             'SELECT city_name,building_type,count FROM buildings WHERE faction=?', (faction,)):
+        if kind == 'Вышка':kind = 'Цитадель'
         count = count or 0
         all_totals[kind] += count
         if city in supplied:
@@ -199,8 +200,8 @@ def current_effect_rows(conn, faction, season):
                      f"{totals['Фабрика'] * FACTORY_YIELD * factory_mult:g} кристаллов/ход до потребления; −{totals['Фабрика'] * 20} рабочих/ход"))
     if totals['Рынок']:
         rows.append(('Рынки', totals['Рынок'], f"+{totals['Рынок'] * 10}% доход крон; +{totals['Рынок'] * 10}% к множителю торговли"))
-    if totals['Вышка']:
-        rows.append(('Вышки', totals['Вышка'], f"+{totals['Вышка'] * 500} к лимиту армии"))
+    if totals['Цитадель']:
+        rows.append(('Цитадели', totals['Цитадель'], f"+{totals['Цитадель'] * 500} к лимиту армии"))
     for city, walls, smithies in conn.execute('''
             SELECT city_name,
                    SUM(CASE WHEN building_type='Стена' THEN count ELSE 0 END),
@@ -209,8 +210,8 @@ def current_effect_rows(conn, faction, season):
         if walls:
             rows.append((f'Стены · {city}', walls, f'+{walls * 15}% защиты гарнизона этого города'))
         if smithies:
-            rows.append((f'Кузницы · {city}', smithies, f'+{smithies * 5}% атаки при обороне этого города'))
-    for kind in ('Больница', 'Фабрика', 'Рынок', 'Вышка'):
+            rows.append((f'Кузницы · {city}', smithies, '−5% потребление кристаллов гарнизоном этого города'))
+    for kind in ('Больница', 'Фабрика', 'Рынок', 'Цитадель'):
         cut_off = all_totals[kind] - totals[kind]
         if cut_off:
             rows.append((f'{kind} · без снабжения', cut_off, 'Экономический эффект не действует'))

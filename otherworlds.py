@@ -8,6 +8,7 @@ import random
 import sqlite3
 
 from city_war import current_turn
+from city_construction import faction_garrison_consumption
 from terrain_journeys import _credit, _camp_units
 from utils.resource_payments import ensure_resource_schema
 from otherworld_content import BACKGROUND,CITY_POSITIONS,CITY_ROADS,unit_catalog,artifact_catalog
@@ -164,8 +165,10 @@ def cities(conn,faction=None):
     ensure_schema(conn)
     result=_dicts(conn.execute('SELECT * FROM portal_cities ORDER BY id'))
     if faction:
-        from otherworld_themes import theme
-        for city in result:city['name']=theme(faction)['cities'][city['id']-1]
+        from otherworld_themes import theme,city_position
+        for city in result:
+            city['name']=theme(faction)['cities'][city['id']-1]
+            city['x'],city['y']=city_position(faction,city['id'])
     return result
 
 
@@ -324,10 +327,8 @@ def recruitment_limit(conn,faction,template_id):
     unit=next(u for u in unit_offers(conn,faction) if u['id']==template_id)
     cash=sum(r[0] for r in conn.execute("SELECT amount FROM resources WHERE faction=? AND resource_type='Кроны'",(faction,)))
     owned=conn.execute('SELECT COUNT(*) FROM cities WHERE faction=?',(faction,)).fetchone()[0]
-    towers=conn.execute("SELECT COALESCE(SUM(count),0) FROM buildings WHERE faction=? AND building_type='Вышка'",(faction,)).fetchone()[0]
-    used=conn.execute('''SELECT COALESCE(SUM(g.unit_count*COALESCE(u.consumption,0)),0)
-        FROM garrisons g JOIN units u ON g.unit_name=u.unit_name WHERE u.faction=?
-        AND g.city_name NOT IN (SELECT name FROM cities WHERE faction='Мятежники')''',(faction,)).fetchone()[0]
+    towers=conn.execute("SELECT COALESCE(SUM(count),0) FROM buildings WHERE faction=? AND building_type IN ('Цитадель','Вышка')",(faction,)).fetchone()[0]
+    used=faction_garrison_consumption(conn,faction)
     stock=conn.execute("SELECT stock,turn FROM portal_market WHERE city_id=? AND kind='unit' AND item=?",
                        (city['id'],faction+':'+str(template_id))).fetchone()
     available=stock[0] if stock and stock[1]==current_turn(conn) else 1000
@@ -399,10 +400,8 @@ def recruit(conn,faction,template_id,quantity=100):
             raise ValueError('Такого юнита у торговца нет.')
         _take(conn,city['id'],'unit',faction+':'+str(template_id),quantity,1000)
         owned=conn.execute('SELECT COUNT(*) FROM cities WHERE faction=?',(faction,)).fetchone()[0]
-        towers=conn.execute("SELECT COALESCE(SUM(count),0) FROM buildings WHERE faction=? AND building_type='Вышка'",(faction,)).fetchone()[0]
-        consumption=conn.execute('''SELECT COALESCE(SUM(g.unit_count*COALESCE(u.consumption,0)),0)
-            FROM garrisons g JOIN units u ON g.unit_name=u.unit_name WHERE u.faction=?
-            AND g.city_name NOT IN (SELECT name FROM cities WHERE faction='Мятежники')''',(faction,)).fetchone()[0]
+        towers=conn.execute("SELECT COALESCE(SUM(count),0) FROM buildings WHERE faction=? AND building_type IN ('Цитадель','Вышка')",(faction,)).fetchone()[0]
+        consumption=faction_garrison_consumption(conn,faction)
         if consumption+quantity*(template.get('consumption') or 0)>4000+owned*1000+towers*500:
             raise ValueError('Недостаточно лимита армии для найма.')
         cost=max(1,template['cost_money'])*quantity

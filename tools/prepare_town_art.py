@@ -17,7 +17,7 @@ def prepare(records):
         with Image.open(entry['path']) as original:
             if 'building' in entry:
                 name=entry['building']
-                if name not in ('hospital','factory','wall','market','forge','tower'):raise ValueError(name)
+                if name not in ('hospital','factory','wall','market','forge','citadel'):raise ValueError(name)
                 art=original.convert('RGBA')
                 if art.getchannel('A').getextrema()[0]!=0:raise ValueError(f'No transparency: {entry["path"]}')
                 bounds=art.getchannel('A').getbbox()

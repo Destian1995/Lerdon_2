@@ -1264,6 +1264,8 @@ class AIController:
         """
         try:
             self.total_consumption = 0  # Сбрасываем предыдущее значение
+            from city_construction import garrison_consumption_multipliers
+            rates = garrison_consumption_multipliers(self.db_connection)
 
             # Выгрузка всех гарнизонов из таблицы garrisons
             self.cursor.execute("""
@@ -1288,7 +1290,7 @@ class AIController:
                     consumption, unit_faction = unit_data
                     if unit_faction == self.faction:
                         # Добавляем потребление данного типа юнита
-                        self.total_consumption += consumption * unit_count
+                        self.total_consumption += consumption * unit_count * rates.get(city_name, 1)
 
             print(f"Текущее потребление Кристаллы: {self.total_consumption}")
 
@@ -5020,9 +5022,13 @@ class AIController:
             # 0. Обнуляем использование героя на этом ходу
             self.hero_used_in_turn = False
 
+            if self.faction in ("Мятежники", "Нежить"):
+                from city_development import develop_military_cities
+                develop_military_cities(self)
+
             # Проверяем, является ли фракция "Мятежники" или "Нежить"
             if self.faction == "Мятежники":
-                print("Фракция 'Мятежники' выполняет только военные действия.")
+                print("Фракция 'Мятежники' строит здания и ведёт войну.")
                 self.attack_enemy_cities()
             elif self.faction == "Нежить":
                 print("Фракция 'Нежить' — нашествие мёртвых. Атакуем всех!")

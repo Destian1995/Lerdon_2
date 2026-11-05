@@ -1151,8 +1151,12 @@ def make_turn_v2(self):
         self.hero_used_in_turn = False
         self._action_taken_this_turn = False
 
+        if self.faction in ("Мятежники", "Нежить"):
+            from city_development import develop_military_cities
+            develop_military_cities(self)
+
         if self.faction == "Мятежники":
-            print("Фракция 'Мятежники' выполняет только военные действия.")
+            print("Фракция 'Мятежники' строит здания и ведёт войну.")
             self.attack_enemy_cities()
         elif self.faction == "Нежить":
             print("Фракция 'Нежить' — нашествие мёртвых. Атакуем всех!")

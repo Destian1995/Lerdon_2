@@ -55,3 +55,11 @@ def ai_build(ai,kinds=None,limit=None):
         built=auto_develop(ai.db_connection,ai.faction,require_council=False,kinds=kinds,limit=limit)
     refresh_ai_buildings(ai)
     return built
+
+
+def develop_military_cities(ai):
+    """Rebels and undead build from their real treasury without a council."""
+    with ai.db_connection:
+        built=auto_develop(ai.db_connection,ai.faction,require_council=False)
+    refresh_ai_buildings(ai)
+    return built

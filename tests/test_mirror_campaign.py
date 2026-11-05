@@ -33,6 +33,20 @@ class MirrorCampaignTests(unittest.TestCase):
         self.db.execute('UPDATE turn_check_move SET moves_left=100')
         self.db.commit()
 
+    def test_faction_layouts_are_distinct_without_changing_saved_city_ids(self):
+        from otherworld_themes import CITY_LAYOUTS
+        saved=list(self.db.execute('SELECT id,x,y FROM portal_cities ORDER BY id'))
+        layouts=[]
+        for faction,data in THEMES.items():
+            cities=w.cities(self.db,faction)
+            self.assertEqual([c['id'] for c in cities],list(range(1,8)))
+            positions=tuple((c['x'],c['y']) for c in cities)
+            self.assertEqual(positions,CITY_LAYOUTS[data['key']])
+            self.assertTrue(all(100<x<1100 and 120<y<680 for x,y in positions))
+            layouts.append(positions)
+        self.assertEqual(len(set(layouts)),5)
+        self.assertEqual(list(self.db.execute('SELECT id,x,y FROM portal_cities ORDER BY id')),saved)
+
     def at(self,city):
         self.db.execute("UPDATE portal_parties SET city_id=? WHERE faction='Север'",(city,));self.db.commit()
 

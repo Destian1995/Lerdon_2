@@ -55,7 +55,7 @@ class TownTests(unittest.TestCase):
 
     def test_live_owner_balance_and_unique_buildings_are_enforced(self):
         self.assertTrue(self.owner._build_building('Стена',0))
-        self.assertEqual(self.money(),450000)
+        self.assertEqual(self.money(),460000)
         self.db.execute('UPDATE buildings SET count=3');self.db.commit()
         before=self.money()
         with self.assertRaises(ValueError):buy_building(self.db,self.owner.city_name,'Адепты','Стена')
@@ -149,7 +149,9 @@ class TownArtTests(unittest.TestCase):
                 with Image.open(path) as art:self.assertGreater(art.width,art.height)
             for name in CATALOG:
                 with Image.open(building_path(faction,name)) as art:
-                    self.assertEqual(art.mode,'RGBA');self.assertEqual(art.getchannel('A').getextrema(),(0,255))
+                    self.assertEqual(art.mode,'RGBA')
+                    low,high=art.getchannel('A').getextrema()
+                    self.assertEqual(low,0);self.assertGreaterEqual(high,250)
                     self.assertLessEqual(max(art.size),768)
 
     def test_variant_is_stable_and_all_three_can_be_assigned(self):

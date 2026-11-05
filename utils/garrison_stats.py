@@ -12,13 +12,11 @@ def garrison_profiles(conn, city, faction=None):
         WHERE g.city_name=? AND g.unit_count>0''', (city,)).fetchall()
     owner = conn.execute('SELECT faction FROM cities WHERE name=?', (city,)).fetchone()
     faction = faction if faction is not None else (owner[0] if owner else '')
-    walls = smithies = 0
+    walls = 0
     try:
         for kind, count in conn.execute('SELECT building_type,count FROM buildings WHERE city_name=?', (city,)):
             if kind == 'Стена':
                 walls += count or 0
-            elif kind == 'Кузница':
-                smithies += count or 0
     except sqlite3.OperationalError:
         pass
     undead = 1
@@ -35,7 +33,7 @@ def garrison_profiles(conn, city, faction=None):
     prepared=[]
     raw_stats={r[6]:(int(r[1] or 0),int(r[2] or 0),int(r[3] or 0)) for r in rows}
     for cls,attack,defense,durability,count,exp,name in rows:
-        prepared.append((str(cls).split()[0],int((attack or 0)*(1+smithies*.05)),
+        prepared.append((str(cls).split()[0],int(attack or 0),
                          int((defense or 0)*(1+walls*.15)*undead),int(durability or 0),count,exp,name))
     heroes=tuple(sum(int(r[i]) for r in prepared if r[0] in ('2','3')) for i in (1,2,3))
     if capital_bonus:

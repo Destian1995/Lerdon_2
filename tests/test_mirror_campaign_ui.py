@@ -24,6 +24,16 @@ class MirrorCampaignUITests(unittest.TestCase):
             if isinstance(popup,Popup):popup.dismiss(animation=False)
         settle();Window.size=self.size;settle()
 
+    def test_northern_island_links_render_as_sea_routes(self):
+        from otherworld_themes import city_position
+        self.assertFalse(self.map.map.network.land)
+        self.assertTrue(self.map.map.network.sea)
+        links={tuple(sorted((a,b))) for a,b,_ in self.map.map.network.sea}
+        saved={tuple(sorted(row)) for row in self.db.execute('SELECT city1,city2 FROM portal_roads')}
+        self.assertEqual(links,saved)
+        for city in self.map.map.nodes:
+            self.assertEqual((city['x'],city['y']),city_position('Север',city['id']))
+
     def test_journal_records_clues_and_fits_small_landscape_screen(self):
         journal=QuestJournal(self.map);journal.open(animation=False);settle()
         journal.perform(lambda:q.begin(self.db,'Север'))

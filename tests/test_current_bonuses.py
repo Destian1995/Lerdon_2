@@ -52,10 +52,11 @@ class CurrentBonusTests(unittest.TestCase):
         self.assertEqual(rows['Рынок · без снабжения'][0], 3)
         self.assertIn('2142', rows['Фабрики'][1])
         self.assertIn('+2160', rows['Больницы'][1])
-        self.assertIn('+1000', rows['Вышки'][1])
+        self.assertIn('+1000', rows['Цитадели'][1])
         self.assertIn('+30%', rows['Стены · Столица'][1])
         self.assertIn('+15%', rows['Стены · Остров'][1])
-        self.assertIn('+15%', rows['Кузницы · Порт'][1])
+        self.assertIn('−5%', rows['Кузницы · Порт'][1])
+        self.assertNotIn('атаки', rows['Кузницы · Порт'][1])
 
     def test_seasonal_combat_multipliers_match_display(self):
         self.assertAlmostEqual(combat_multiplier('Север', self.db), 1.8 * 2.75)

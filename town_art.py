@@ -9,7 +9,7 @@ THEMES={'Север':'north','Эльфы':'elves','Вампиры':'vampires','�
 VARIANTS=3
 # Ground anchors and widths in panorama coordinates. Sprite bases sit on the ground.
 LOTS={'Больница':(.20,.42,.19),'Фабрика':(.77,.42,.20),'Стена':(.50,.60,.31),
-      'Рынок':(.52,.23,.24),'Кузница':(.22,.17,.20),'Вышка':(.84,.65,.14)}
+      'Рынок':(.52,.23,.24),'Кузница':(.22,.17,.20),'Цитадель':(.84,.60,.22)}
 
 
 def theme_key(faction):return THEMES.get(faction,'neutral')

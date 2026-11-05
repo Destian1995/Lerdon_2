@@ -53,7 +53,7 @@ class StrategyUITests(unittest.TestCase):
         self.assertEqual(len(popup.city_columns.body.children), 2)
         self.assertEqual(set(popup.city_action_buttons), {'move', 'army', 'build', 'portal'})
         self.assertEqual(len(popup.attacking_units_box.children), 1)
-        self.assertIn('3 из 6', popup.city_building_count.text)
+        self.assertFalse(hasattr(popup, 'city_building_count'))
         for button in popup.city_action_buttons.values():
             self.assertGreaterEqual(button.height, 48)
             self.assertGreaterEqual(button.y, popup.y)
@@ -102,7 +102,24 @@ class StrategyUITests(unittest.TestCase):
                 self.assertLessEqual(y, scene.y + .01)
                 self.assertGreaterEqual(x + width, scene.right - .01)
                 self.assertGreaterEqual(y + height, scene.top - .01)
-                self.assertGreaterEqual(popup.city_building_count.y, scene.top)
+                self.assertFalse(hasattr(popup, 'city_building_count'))
+
+    def test_owned_undead_city_can_construct_buildings(self):
+        self.viewport((640,360))
+        popup=self.popup(owner='Нежить',undead=True,player='Нежить')
+        db=popup.conn
+        db.executescript("CREATE TABLE resources(faction,resource_type,amount); INSERT INTO resources VALUES('Нежить','Кроны',500000);")
+        popup.city_action_buttons['build'].dispatch('on_release')
+        self.settle()
+        town=popup.town_popup
+        try:
+            town.choose('Кузница');town.purchase();self.settle()
+            self.assertEqual(town.scene.counts['Кузница'],1)
+            self.assertEqual(db.execute('SELECT amount FROM resources').fetchone()[0],470000)
+            self.assertEqual(town.selector.text,'Кузница')
+            self.assertEqual([button.text for button in town.selectors.values()],list(popup.BUILDING_CATALOG))
+        finally:
+            town.dismiss(animation=False)
 
     def test_open_city_adapts_on_rotation_without_losing_selection(self):
         self.viewport((640, 360))

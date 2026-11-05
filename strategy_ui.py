@@ -287,13 +287,6 @@ def build_city_window(popup):
                                  select=lambda *_:popup._open_build_menu(),preview=True,
                                  pos_hint={'x': 0, 'y': 0})
     right.add_widget(popup.city_preview)
-    city_info = BoxLayout(size_hint_y=None, height=dp(22), spacing=dp(8))
-    popup.city_building_count = text_label('', 12, GOLD)
-    city_info.add_widget(popup.city_building_count)
-    city_hint = text_label('Нажмите на город, чтобы войти', 12, MUTED)
-    city_hint.halign = 'right'
-    city_info.add_widget(city_hint)
-    root.add_widget(city_info)
     popup.city_columns = CityColumns(left, right, accent)
     if popup._is_undead_city:
         popup.city_columns.buttons[1].text = 'Проклятые земли'
@@ -306,7 +299,7 @@ def build_city_window(popup):
         popup.city_action_buttons[key] = button
         actions.add_widget(button)
     action('move', 'Ввести войска', lambda *_: popup.load_troops_by_type('Любые', None))
-    if owned and not popup._is_undead_city:
+    if owned:
         action('army', 'Разместить армию', popup.place_army)
         action('build', 'Построить', lambda *_: popup._open_build_menu(), True)
         def portal(*_):
@@ -345,9 +338,6 @@ def build_city_window(popup):
         left.padding = dp(8 if compact else 12)
         left.spacing = dp(6 if compact else 8)
         left._section_heading.height = dp(28 if compact else 32) if popup.city_columns._wide else 0
-        city_info.height = dp(18 if compact else 22)
-        popup.city_building_count.font_size = sp(10 if compact or narrow else 12)
-        city_hint.font_size = sp(10 if compact or narrow else 12)
         from window_theme import center_after_resize
         center_after_resize(popup)
     popup._city_fit = fit
@@ -360,7 +350,7 @@ def build_city_window(popup):
 
 BUILDING_ICONS = {'Больница': 'files/pict/hire/health.png', 'Фабрика': 'files/status/resource_box/workers.png',
                   'Стена': 'files/status/army.png', 'Рынок': 'files/status/economy.png',
-                  'Кузница': 'files/pict/hire/sword.png', 'Вышка': 'files/status/icons/building.png'}
+                  'Кузница': 'files/pict/hire/sword.png', 'Цитадель': 'files/status/icons/building.png'}
 
 
 def building_row(name, count):

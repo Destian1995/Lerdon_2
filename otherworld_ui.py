@@ -134,6 +134,11 @@ class WorldMapCanvas(StencilView):
             {c['id']:(c['x']-38.5,c['y']-30) for c in self.nodes},
             list(owner.conn.execute('SELECT city1,city2 FROM portal_roads')),{},(30,30,1170,770),
             terrain=TerrainView(terrain) if terrain else None,movement_limit=None)
+        from otherworld_themes import theme
+        if theme(owner.faction)['key']=='north':
+            # Island links are sea lanes, never highways drawn over open water.
+            self.network.sea.extend(self.network.land)
+            self.network.land=[]
         self.bind(pos=self.draw,size=self.draw)
         self.draw()
         from otherworld_effects import MirrorEffects
@@ -158,6 +163,22 @@ class WorldMapCanvas(StencilView):
         network=TransportNetwork(land=convert(self.network.land),sea=convert(self.network.sea),
                                  bridges=convert(self.network.bridges),
                                  docks=[(self.point(*p),self.point(*direction)) for p,direction in self.network.docks])
+        # Thin travel trails leave the painted terrain visible. Sea links retain
+        # dashed navigation lanes; the graph still drives movement and beams.
+        from kivy.graphics import InstructionGroup
+        trails=InstructionGroup()
+        width=max(.65,min(s,1.35))
+        from otherworld_themes import theme
+        key=theme(self.owner.faction)['key']
+        tint={'elves':(.65,.86,.52),'vampires':(.68,.49,.64),
+              'elines':(.91,.73,.39),'adepts':(.88,.72,.46)}.get(key,(.7,.85,.95))
+        for color,thickness in (((.03,.03,.04,.5),2.0),((*tint,.65),.9)):
+            trails.add(Color(*color))
+            for _,_,points in network.land:
+                trails.add(Line(points=[v for point in points for v in point],
+                                width=thickness*width,cap='round',joint='round'))
+        self._base.add(trails)
+        network.land=[]
         self._base.add(draw_transport_layer(network,s))
         p=worlds.party(self.owner.conn,self.owner.faction)
         self._current_city=p['city_id'] if p and not worlds.beam(self.owner.conn,self.owner.faction) else None

@@ -239,7 +239,7 @@ class Faction:
                 if city_name not in self.cities_buildings:
                     self.cities_buildings[city_name] = {
                         "Больница": 0, "Фабрика": 0,
-                        "Стена": 0, "Рынок": 0, "Кузница": 0, "Вышка": 0
+                        "Стена": 0, "Рынок": 0, "Кузница": 0, "Цитадель": 0
                     }
 
                 if building_type in self.cities_buildings.get(city_name, {}):
@@ -259,7 +259,7 @@ class Faction:
                     total_markets += count
                 elif building_type == "Кузница":
                     total_smithies += count
-                elif building_type == "Вышка":
+                elif building_type == "Цитадель":
                     total_towers += count
 
             # Обновление глобальных показателей
@@ -614,15 +614,17 @@ class Faction:
             self.current_consumption = 0
             # Выгрузка всех гарнизонов фракции
             self.cursor.execute("""
-                SELECT g.unit_name, g.unit_count, u.consumption
+                SELECT g.unit_name, g.unit_count, u.consumption, g.city_name
                 FROM garrisons g
                 JOIN units u ON g.unit_name = u.unit_name
                 WHERE u.faction = ?
             """, (self.faction,))
             rows = self.cursor.fetchall()
 
-            for unit_name, unit_count, consumption in rows:
-                self.current_consumption += consumption * unit_count
+            from city_construction import garrison_consumption_multipliers
+            rates = garrison_consumption_multipliers(self.conn)
+            for unit_name, unit_count, consumption, city_name in rows:
+                self.current_consumption += consumption * unit_count * rates.get(city_name, 1)
 
             # Обновляем ресурс в словаре
             self.resources['Потребление'] = self.current_consumption
@@ -892,6 +894,8 @@ class Faction:
         """
         try:
             self.current_consumption = 0
+            from city_construction import garrison_consumption_multipliers
+            rates = garrison_consumption_multipliers(self.conn)
             # Шаг 1: Получаем города текущей фракции
             # Потребление считается по владельцу города:
             # - юниты в своих городах = потребление игрока
@@ -924,11 +928,11 @@ class Faction:
                 unit_info = faction_units[unit_name]
                 if city_name in own_cities:
                     # Юниты в своих городах — всегда потребляют
-                    self.current_consumption += unit_info['consumption'] * unit_count
+                    self.current_consumption += unit_info['consumption'] * unit_count * rates.get(city_name, 1)
                 elif unit_info.get('faction') == self.faction and city_name not in _rebel_cities:
                     # Свои юниты в чужих городах (оставлены под контролем у союзника)
                     # Юниты в городах мятежников — уже переданы, не потребляют
-                    self.current_consumption += unit_info['consumption'] * unit_count
+                    self.current_consumption += unit_info['consumption'] * unit_count * rates.get(city_name, 1)
 
             starving_units = []
             if self.current_consumption > self.max_army_limit:
@@ -995,8 +999,8 @@ class Faction:
                         self.cursor.execute("DELETE FROM garrisons WHERE city_name = ? AND unit_name = ?",
                                             (city_name, unit_name))
                     else:
-                        self.current_consumption -= faction_units[unit_name]['consumption'] * reduction
-                        excess_consumption -= faction_units[unit_name]['consumption'] * reduction
+                        self.current_consumption -= faction_units[unit_name]['consumption'] * reduction * rates.get(city_name, 1)
+                        excess_consumption -= faction_units[unit_name]['consumption'] * reduction * rates.get(city_name, 1)
 
             # Шаг 3: Обновляем досье
             total_starved = sum(reduction for _, reduction in starving_units)

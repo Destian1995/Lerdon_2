@@ -16,6 +16,11 @@ class EffectiveGarrisonTests(unittest.TestCase):
         self.db.execute("INSERT INTO monster_progress(faction,veteran_until) VALUES('Север',9)")
         self.db.commit()
 
+    def test_forge_does_not_change_garrison_attack_or_hero_aura(self):
+        before=garrison_profiles(self.db,'Home')
+        self.db.execute("INSERT INTO buildings VALUES('Home','Север','Кузница',1)")
+        self.assertEqual(garrison_profiles(self.db,'Home'),before)
+
     def test_screenshot_regression_training_includes_aura_and_shkval_without_writing_database(self):
         snapshot=list(self.db.iterdump())
         profile=garrison_profiles(self.db,'Home')['troop']
