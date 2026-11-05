@@ -6412,83 +6412,26 @@ class EnhancedDiplomacyChat():
                     _show_main_buttons()
                     return
 
-                from rebel_campaign import offensive_route
-                targets = [(name, owner) for name, owner in cursor.execute(
-                    'SELECT name,faction FROM cities ORDER BY name').fetchall()
-                    if owner not in ('Нейтрал', 'Мятежники', self.faction)
-                    and offensive_route(self.db_connection, name, owner)]
+                from rebel_orders import available_targets
+                targets = available_targets(self.db_connection, self.faction)
 
                 if not targets:
                     self.add_chat_message_system("Нет вражеских городов, доступных по дорогам мятежников.")
                     _show_main_buttons()
                     return
 
-                # Popup с вертикальным списком целей
-                from kivy.uix.popup import Popup as _RAPop
-                from kivy.uix.scrollview import ScrollView as _RASv
+                from rebel_attack_ui import RebelAttackMap
 
-                _pop_content = BoxLayout(orientation='vertical', spacing=dp(6),
-                                         padding=[dp(10), dp(8), dp(10), dp(8)])
-                _scroll = _RASv(size_hint=(1, 1))
-                _list_box = BoxLayout(orientation='vertical', spacing=dp(6),
-                                      size_hint_y=None)
-                _list_box.bind(minimum_height=_list_box.setter('height'))
+                def ordered(city, faction):
+                    from datetime import datetime
+                    stamp = datetime.now().strftime('%d.%m %H:%M')
+                    self.add_chat_message(f'Атакуй {city}!', self.faction, stamp, is_player=True)
+                    self.add_chat_message(f'Принято! Выдвигаемся на {city} ({faction}). За свободу!',
+                                          'Мятежники', stamp, is_player=False)
 
-                _is_m = kivy_platform in ('android', 'ios')
-                _atk_popup = _RAPop(title='', content=_pop_content,
-                                     size_hint=(0.92 if _is_m else 0.45, 0.8 if _is_m else 0.7),
-                                     auto_dismiss=False, separator_height=0,
-                                     background='', background_color=(0.04, 0.05, 0.09, 0.98))
-
-                for city_name, city_faction in targets:
-                    _color = (0.7, 0.2, 0.2, 1) if city_faction == 'Нежить' else (0.2, 0.4, 0.7, 1)
-                    tb = Button(text=f"{city_name} ({city_faction})",
-                                font_size=sp(13), bold=True,
-                                size_hint_y=None, height=dp(42),
-                                background_normal='', background_color=_color)
-
-                    def _order_attack(i, _city=city_name, _fac=city_faction):
-                        _atk_popup.dismiss()
-                        try:
-                            cur = self.db_connection.cursor()
-                            cur.execute("""
-                                CREATE TABLE IF NOT EXISTS rebel_attack_order
-                                (id INTEGER PRIMARY KEY DEFAULT 1, target_city TEXT, target_faction TEXT)
-                            """)
-                            cur.execute("""
-                                INSERT OR REPLACE INTO rebel_attack_order (id, target_city, target_faction)
-                                VALUES (1, ?, ?)
-                            """, (_city, _fac))
-                            cur.execute("""
-                                INSERT OR REPLACE INTO turn_check_attack_faction (faction, check_attack)
-                                VALUES ('Мятежники', 1)
-                            """)
-                            self.db_connection.commit()
-                            from datetime import datetime
-                            _t = datetime.now().strftime("%d.%m %H:%M")
-                            self.add_chat_message(f"Атакуй {_city}!", self.faction, _t, is_player=True)
-                            resp = random.choice([
-                                f"Принято! Мои бойцы выдвигаются на {_city}. За свободу!",
-                                f"Город {_city} ({_fac}) будет наш! Атакуем на следующем ходу!",
-                                f"Отличная цель! {_city} падёт перед нашим натиском!",
-                            ])
-                            self.add_chat_message(resp, 'Мятежники', _t, is_player=False)
-                        except Exception as e:
-                            print(f"[REBEL ATTACK] Ошибка: {e}")
-                        _show_main_buttons()
-
-                    tb.bind(on_press=_order_attack)
-                    _list_box.add_widget(tb)
-
-                _scroll.add_widget(_list_box)
-                _pop_content.add_widget(_scroll)
-
-                _cancel = Button(text="Отмена", font_size=sp(13), bold=True,
-                                 size_hint_y=None, height=dp(42),
-                                 background_normal='', background_color=(0.5, 0.15, 0.15, 1))
-                _cancel.bind(on_press=lambda i: (_atk_popup.dismiss(), _show_main_buttons()))
-                _pop_content.add_widget(_cancel)
-                _atk_popup.open()
+                picker = RebelAttackMap(self.db_connection, self.faction, on_order=ordered)
+                picker.bind(on_dismiss=lambda *_: _show_main_buttons())
+                picker.open()
 
             except Exception as e:
                 print(f"[REBEL ATTACK] Ошибка: {e}")

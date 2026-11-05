@@ -82,7 +82,8 @@ class BuildingRulesTests(unittest.TestCase):
                 _undead_attack_nearest_cities=lambda:calls.append('attack'),save_all_data=lambda:None)
             with patch('city_development.develop_military_cities',side_effect=lambda _:calls.append('build')), \
                  patch('undead_invasion._declare_war_to_all'), \
-                 patch('rebel_campaign.make_turn', side_effect=lambda _:calls.extend(['build','attack'])):
+                 patch('rebel_campaign.make_turn', side_effect=lambda _:calls.extend(['build','attack'])), \
+                 patch('undead_economy.make_turn', side_effect=lambda _:calls.extend(['build','attack'])):
                 make_turn_v2(ai)
             self.assertEqual(calls,['build','attack'])
 

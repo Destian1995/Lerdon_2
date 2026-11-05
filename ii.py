@@ -1448,6 +1448,7 @@ class AIController:
 
             # Коэффициенты для каждой фракции
             faction_coefficients = {
+                'Нежить': {'money_loss': 15, 'food_loss': 0.04},
                 'Мятежники': {'money_loss': 15, 'food_loss': 0.1},
                 'Север': {'money_loss': 15, 'food_loss': 0.4},
                 'Эльфы': {'money_loss': 18, 'food_loss': 0.1},
@@ -5004,25 +5005,13 @@ class AIController:
             # 0. Обнуляем использование героя на этом ходу
             self.hero_used_in_turn = False
 
-            if self.faction == "Нежить":
-                from city_development import develop_military_cities
-                develop_military_cities(self)
-
             # Проверяем, является ли фракция "Мятежники" или "Нежить"
             if self.faction == "Мятежники":
                 from rebel_campaign import make_turn as rebel_turn
                 rebel_turn(self)
             elif self.faction == "Нежить":
-                print("Фракция 'Нежить' — нашествие мёртвых. Атакуем всех!")
-                # Нежить всегда воюет со всеми — переобъявляем войну каждый ход
-                try:
-                    from undead_invasion import _declare_war_to_all
-                    _declare_war_to_all(self.cursor)
-                    self.db_connection.commit()
-                except Exception as e:
-                    print(f"[UNDEAD] Ошибка переобъявления войны: {e}")
-                # Нежить атакует ближайшие города всех фракций
-                self._undead_attack_nearest_cities()
+                from undead_economy import make_turn as undead_turn
+                undead_turn(self)
             else:
                 # Для всех других фракций — полный ход
                 # 1. Обновляем ресурсы из базы данных

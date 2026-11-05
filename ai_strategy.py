@@ -1091,22 +1091,12 @@ def make_turn_v2(self):
         self.hero_used_in_turn = False
         self._action_taken_this_turn = False
 
-        if self.faction == "Нежить":
-            from city_development import develop_military_cities
-            develop_military_cities(self)
-
         if self.faction == "Мятежники":
             from rebel_campaign import make_turn as rebel_turn
             rebel_turn(self)
         elif self.faction == "Нежить":
-            print("Фракция 'Нежить' — нашествие мёртвых. Атакуем всех!")
-            try:
-                from undead_invasion import _declare_war_to_all
-                _declare_war_to_all(self.cursor)
-                self.db_connection.commit()
-            except Exception as e:
-                print(f"[UNDEAD] Ошибка переобъявления войны: {e}")
-            self._undead_attack_nearest_cities()
+            from undead_economy import make_turn as undead_turn
+            undead_turn(self)
         else:
             # The controller may be recreated for an existing campaign. Load the
             # complete owned-city snapshot before any save/build can replace it.
