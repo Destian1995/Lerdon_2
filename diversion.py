@@ -838,6 +838,8 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
             message = f"Саботаж в городе {target_city} фракции {target_faction} провален."
 
     elif op_name == 'Мятеж':
+        new_uprising = not cursor.execute(
+            "SELECT 1 FROM cities WHERE faction='Мятежники' LIMIT 1").fetchone()
         _target_type = op_info.get('_target_type', 'empty')
         _garrison_cities = op_info.get('_garrison_cities', [])
 
@@ -922,6 +924,10 @@ def execute_diversion_operation(conn, player_faction, op_name, op_info, target_f
                 """, (target_city, unit_info["name"], unit_info["count"], existing_units[unit_info["name"]]))
             success = True
             message = f"Мятеж в городе {target_city} успешен!"
+
+        if success:
+            from rebel_campaign import initialize_resources
+            initialize_resources(conn, new_uprising=new_uprising)
 
         # Перерисовка карты
         try:

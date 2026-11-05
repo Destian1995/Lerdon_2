@@ -15,6 +15,11 @@ CATALOG={
 
 
 def ensure_unique_buildings(conn):
+    # Captures can happen after the uniqueness migration. Infrastructure belongs
+    # to its town's current owner, even when the index already exists.
+    conn.execute('''UPDATE buildings SET faction=(SELECT faction FROM cities
+        WHERE name=buildings.city_name) WHERE EXISTS(SELECT 1 FROM cities
+        WHERE name=buildings.city_name AND faction IS NOT buildings.faction)''')
     # Existing saves may already have the uniqueness index and a watchtower.
     if conn.execute("SELECT 1 FROM buildings WHERE building_type='Вышка' LIMIT 1").fetchone():
         conn.execute('SAVEPOINT rename_citadels')

@@ -6208,21 +6208,6 @@ class EnhancedDiplomacyChat():
                                   separator_height=0,
                                   background_color=(0.04, 0.05, 0.09, 0.98))
 
-                # Маппинг artifact_type -> slot_type
-                _TYPE_TO_SLOT = {0: 'weapon', 1: 'armor', 2: 'helmet', 3: 'boots', 4: 'accessory'}
-
-                # Создаём слоты Кейджа если нет (6 слотов: 5 стандартных + shield)
-                try:
-                    _CAGE_NAME = 'Кейдж'
-                    for _st in ['weapon', 'armor', 'helmet', 'boots', 'accessory', 'shield']:
-                        cursor.execute("""
-                            INSERT OR IGNORE INTO hero_equipment (faction_name, hero_name, slot_type, artifact_id)
-                            VALUES ('Мятежники', ?, ?, NULL)
-                        """, (_CAGE_NAME, _st))
-                    self.db_connection.commit()
-                except Exception:
-                    pass
-
                 for hero_name, slot, art_id, art_atk, art_def, art_season, art_name, art_type in artifacts:
                     label = f"{art_name}: Ат.{art_atk} Защ.{art_def}"
                     ab = Button(text=label, size_hint_y=None, height=dp(44),
@@ -6233,29 +6218,8 @@ class EnhancedDiplomacyChat():
                     def _transfer_art(i, _aid=art_id, _hero=hero_name, _slot=slot,
                                       _atk=art_atk, _def=art_def, _atype=art_type, _popup=art_popup):
                         try:
-                            cur = self.db_connection.cursor()
-                            # Снимаем артефакт с героя игрока
-                            cur.execute("UPDATE hero_equipment SET artifact_id = NULL WHERE faction_name=? AND hero_name=? AND slot_type=?",
-                                        (self.faction, _hero, _slot))
-                            # Определяем слот Кейджа по типу артефакта
-                            _cage_slot = _TYPE_TO_SLOT.get(_atype, 'accessory')
-                            # Записываем артефакт в слот Кейджа (заменяет существующий)
-                            cur.execute("""
-                                UPDATE hero_equipment SET artifact_id = ?
-                                WHERE faction_name = 'Мятежники' AND hero_name = 'Кейдж' AND slot_type = ?
-                            """, (_aid, _cage_slot))
-                            # Записываем в лог эффектов для пересчёта через сезонный менеджер
-                            cur.execute("""
-                                INSERT OR REPLACE INTO artifact_effects_log
-                                (hero_name, artifact_id, stat_name, value_change)
-                                VALUES ('Кейдж', ?, 'attack', ?)
-                            """, (_aid, _atk))
-                            cur.execute("""
-                                INSERT OR REPLACE INTO artifact_effects_log
-                                (hero_name, artifact_id, stat_name, value_change)
-                                VALUES ('Кейдж', ?, 'defense', ?)
-                            """, (_aid, _def))
-                            self.db_connection.commit()
+                            from rebel_equipment import transfer_artifact
+                            transfer_artifact(self.db_connection, self.faction, _hero, _slot, _aid)
                             from datetime import datetime
                             _t = datetime.now().strftime("%d.%m %H:%M")
                             self.add_chat_message(f"Передаю артефакт (+{_atk} ат, +{_def} защ)", self.faction, _t, is_player=True)
@@ -6265,6 +6229,7 @@ class EnhancedDiplomacyChat():
                             ]), 'Мятежники', _t, is_player=False)
                         except Exception as e:
                             print(f"[REBEL ART] Ошибка: {e}")
+                            self.add_chat_message_system(f"Не удалось передать артефакт: {e}")
                         _popup.dismiss()
 
                     ab.bind(on_press=_transfer_art)
@@ -6425,13 +6390,10 @@ class EnhancedDiplomacyChat():
             quick_row.add_widget(back_btn)
 
         def _show_rebel_attack(inst):
-            """Показывает вражеские города, граничащие с городами игрока или мятежников, для атаки."""
+            """Показывает цели, к которым мятежники могут пробиться по дорогам."""
             quick_row.clear_widgets()
             try:
                 cursor = self.db_connection.cursor()
-                # Города игрока
-                cursor.execute("SELECT name FROM cities WHERE faction = ?", (self.faction,))
-                player_cities = [r[0] for r in cursor.fetchall()]
                 # Города мятежников
                 cursor.execute("SELECT name FROM cities WHERE faction = 'Мятежники'")
                 rebel_cities = [r[0] for r in cursor.fetchall()]
@@ -6450,46 +6412,14 @@ class EnhancedDiplomacyChat():
                     _show_main_buttons()
                     return
 
-                # Строим маппинг id <-> name
-                cursor.execute("SELECT id, name, faction FROM cities")
-                _all_cities = cursor.fetchall()
-                _id_to_name = {r[0]: r[1] for r in _all_cities}
-                _name_to_id = {r[1]: r[0] for r in _all_cities}
-                _name_to_faction = {r[1]: r[2] for r in _all_cities}
-
-                # Все дороги (по id) -> конвертируем в имена
-                cursor.execute("SELECT city1, city2 FROM roads")
-                road_set = set()
-                for c1, c2 in cursor.fetchall():
-                    n1 = _id_to_name.get(c1)
-                    n2 = _id_to_name.get(c2)
-                    if n1 and n2:
-                        road_set.add((n1, n2))
-                        road_set.add((n2, n1))
-
-                # Враги — все фракции кроме игрока, мятежников, нейтрала (включая Нежить!)
-                enemy_factions = set()
-                for _cn, _cf in _name_to_faction.items():
-                    if _cf not in ('Нейтрал', 'Мятежники', self.faction):
-                        enemy_factions.add(_cf)
-
-                # Ищем вражеские города граничащие с игроком или мятежниками
-                friendly = set(player_cities + rebel_cities)
-                targets = []
-                _seen = set()
-                for f_city in friendly:
-                    for c1, c2 in road_set:
-                        if c1 == f_city:
-                            neighbor = c2
-                        else:
-                            continue
-                        nf = _name_to_faction.get(neighbor)
-                        if nf and nf in enemy_factions and neighbor not in _seen:
-                            targets.append((neighbor, nf))
-                            _seen.add(neighbor)
+                from rebel_campaign import offensive_route
+                targets = [(name, owner) for name, owner in cursor.execute(
+                    'SELECT name,faction FROM cities ORDER BY name').fetchall()
+                    if owner not in ('Нейтрал', 'Мятежники', self.faction)
+                    and offensive_route(self.db_connection, name, owner)]
 
                 if not targets:
-                    self.add_chat_message_system("Нет вражеских городов рядом с нашими владениями.")
+                    self.add_chat_message_system("Нет вражеских городов, доступных по дорогам мятежников.")
                     _show_main_buttons()
                     return
 

@@ -1448,6 +1448,7 @@ class AIController:
 
             # Коэффициенты для каждой фракции
             faction_coefficients = {
+                'Мятежники': {'money_loss': 15, 'food_loss': 0.1},
                 'Север': {'money_loss': 15, 'food_loss': 0.4},
                 'Эльфы': {'money_loss': 18, 'food_loss': 0.1},
                 'Вампиры': {'money_loss': 21, 'food_loss': 0.09},
@@ -1883,7 +1884,11 @@ class AIController:
         """
         try:
             # Только города основной территории могут быть базой для атаки
-            main_territory = self._get_main_territory_cities()
+            if self.faction == 'Мятежники':
+                main_territory = {r[0] for r in self.db_connection.execute(
+                    'SELECT name FROM cities WHERE faction=?', (self.faction,))}
+            else:
+                main_territory = self._get_main_territory_cities()
             our_cities = list(main_territory)
             if not our_cities:
                 return None
@@ -3472,33 +3477,10 @@ class AIController:
         Если активна инвазия нежити — приоритет на атаку нежити всеми силами.
         """
         try:
-            # Мятежники: проверяем заказ атаки от игрока
             if self.faction == 'Мятежники':
-                try:
-                    self.cursor.execute("SELECT target_city, target_faction FROM rebel_attack_order WHERE id = 1")
-                    order = self.cursor.fetchone()
-                    if order and order[0]:
-                        _target_city, _target_faction = order
-                        print(f"[МЯТЕЖНИКИ] Выполняем заказ: атакуем {_target_city} ({_target_faction})")
-                        # Объявляем войну если ещё не воюем
-                        self.cursor.execute("""
-                            SELECT relationship FROM diplomacies
-                            WHERE (faction1='Мятежники' AND faction2=?) OR (faction1=? AND faction2='Мятежники')
-                        """, (_target_faction, _target_faction))
-                        _dip = self.cursor.fetchone()
-                        if not _dip or _dip[0] != 'война':
-                            self.cursor.execute("""
-                                INSERT OR REPLACE INTO diplomacies (faction1, faction2, relationship)
-                                VALUES ('Мятежники', ?, 'война')
-                            """, (_target_faction,))
-                            self.db_connection.commit()
-                        self.attack_city(_target_city, _target_faction)
-                        # Очищаем заказ
-                        self.cursor.execute("DELETE FROM rebel_attack_order WHERE id = 1")
-                        self.db_connection.commit()
-                        return
-                except Exception as _re:
-                    print(f"[МЯТЕЖНИКИ] Ошибка заказа: {_re}")
+                from rebel_campaign import attack
+                attack(self)
+                return
 
             at_war_with = self.get_factions_at_war()
             if not at_war_with:
@@ -5022,14 +5004,14 @@ class AIController:
             # 0. Обнуляем использование героя на этом ходу
             self.hero_used_in_turn = False
 
-            if self.faction in ("Мятежники", "Нежить"):
+            if self.faction == "Нежить":
                 from city_development import develop_military_cities
                 develop_military_cities(self)
 
             # Проверяем, является ли фракция "Мятежники" или "Нежить"
             if self.faction == "Мятежники":
-                print("Фракция 'Мятежники' строит здания и ведёт войну.")
-                self.attack_enemy_cities()
+                from rebel_campaign import make_turn as rebel_turn
+                rebel_turn(self)
             elif self.faction == "Нежить":
                 print("Фракция 'Нежить' — нашествие мёртвых. Атакуем всех!")
                 # Нежить всегда воюет со всеми — переобъявляем войну каждый ход

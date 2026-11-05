@@ -1756,7 +1756,13 @@ class GameScreen(Screen):
 
         if rebellion_exists and 'Мятежники' not in self.ai_controllers:
             print("Фракция 'Мятежники' обнаружена в городах. Создаём AIController.")
-            self.ai_controllers['Мятежники'] = AIController('Мятежники', self.conn)
+            from rebel_campaign import initialize_resources
+            initialize_resources(self.conn)
+            self.conn.commit()
+            self.ai_controllers['Мятежники'] = AIController(
+                'Мятежники', self.conn, self.season_manager,
+                player_faction=self.selected_faction)
+            self.ai_controllers['Мятежники'].load_resources_from_db()
 
             # Если нежить активна — мятежники сразу в войне с ней
             try:

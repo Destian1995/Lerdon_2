@@ -235,7 +235,7 @@ def hire_units_v2(self, new_garrison, crowns, works, available_consumption):
             cost_time = unit_data['cost']['time']
             consumption = unit_data['consumption']
 
-            if cost_money <= 0 or cost_time <= 0 or consumption <= 0:
+            if cost_money <= 0 or cost_time <= 0 or consumption < 0:
                 continue
 
             # The diversity cap must not prevent buying even one affordable unit.
@@ -244,7 +244,7 @@ def hire_units_v2(self, new_garrison, crowns, works, available_consumption):
             max_affordable = min(
                 budget_for_this // cost_money,
                 works // cost_time,
-                available_consumption // consumption
+                available_consumption // consumption if consumption > 0 else budget_for_this // cost_money
             )
 
             if max_affordable > 0:
@@ -517,6 +517,8 @@ def find_best_attack_target(self, faction):
 # ============================================================
 
 def can_attack_target(self, target_city, our_total_strength):
+    if self.faction == 'Мятежники':
+        return our_total_strength > 0, 1.0
     try:
         self.cursor.execute("""
             SELECT COALESCE(SUM(g.unit_count * (u.attack + u.defense + u.durability)), 0)
@@ -602,7 +604,7 @@ def attack_city_v2(self, city_name, faction):
                 hero_units.append(unit)
 
         # Если нет героев — атакуем обычными юнитами ТОЛЬКО если цель слабая
-        if not hero_units:
+        if not hero_units and self.faction != 'Мятежники':
             # Считаем защиту вражеского гарнизона
             try:
                 self.cursor.execute("""
@@ -1089,13 +1091,13 @@ def make_turn_v2(self):
         self.hero_used_in_turn = False
         self._action_taken_this_turn = False
 
-        if self.faction in ("Мятежники", "Нежить"):
+        if self.faction == "Нежить":
             from city_development import develop_military_cities
             develop_military_cities(self)
 
         if self.faction == "Мятежники":
-            print("Фракция 'Мятежники' строит здания и ведёт войну.")
-            self.attack_enemy_cities()
+            from rebel_campaign import make_turn as rebel_turn
+            rebel_turn(self)
         elif self.faction == "Нежить":
             print("Фракция 'Нежить' — нашествие мёртвых. Атакуем всех!")
             try:

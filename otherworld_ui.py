@@ -106,8 +106,11 @@ def open_portal(city_popup):
 
 
 def _refresh_main(conn,faction):
-    # Main map watches garrisons once a second; only its resource HUD is cached.
     sync_resources(conn,faction)
+    # Military badges are event-driven, unlike the map's hero-flag polling.
+    if _screen(conn):
+        from game_process import refresh_map
+        refresh_map()
 
 
 class WorldMapCanvas(StencilView):
