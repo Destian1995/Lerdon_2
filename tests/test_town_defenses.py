@@ -6,7 +6,7 @@ from test_town_interior import TownTests
 from test_dialog_layout import settle
 from test_map_zoom import Touch
 from town_art import LOTS,THEMES,building_mirrored,building_path,CITADEL_DOORS,citadel_entry,theme_key
-from town_scene import building_shape,TownScene
+from town_scene import building_shape,TownScene,texture
 
 
 class TownDefenseTests(unittest.TestCase):
@@ -34,7 +34,10 @@ class TownDefenseTests(unittest.TestCase):
                     self.assertAlmostEqual(sprite.pos[0]+sprite.size[0]/2,left+u*width,delta=.1)
                     self.assertAlmostEqual(sprite.pos[1],bottom+v*height,delta=.1)
                     reflected=building_mirrored(faction,name)
-                    self.assertEqual(sprite.tex_coords[0],1 if reflected else 0)
+                    source=texture(building_path(faction,name)).tex_coords
+                    self.assertEqual(sprite.tex_coords[0],source[2] if reflected else source[0])
+                    corners=lambda coords:sorted(tuple(coords[i:i+2]) for i in range(0,8,2))
+                    self.assertEqual(corners(sprite.tex_coords),corners(source))
                     mask,_=building_shape(building_path(faction,name))
                     candidates=[(x,y) for y in range(len(mask)*2//3,len(mask))
                                 for x in range(len(mask[0])) if mask[y][x]]

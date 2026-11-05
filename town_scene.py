@@ -13,6 +13,16 @@ from city_construction import building_counts
 def texture(path):return CoreImage(path,mipmap=True).texture
 
 
+def mirrored_tex_coords(coords):
+    """Swap texture corners without assuming that UVs span the whole buffer.
+
+    Android may back a non-power-of-two image with a larger texture. In that
+    case 1-u samples its transparent padding instead of mirroring the image.
+    """
+    return [coordinate for corner in (1,0,3,2)
+            for coordinate in coords[corner*2:corner*2+2]]
+
+
 @lru_cache(maxsize=48)
 def building_shape(path):
     """Small alpha mask and closed contours; no extra generated image assets."""
@@ -125,8 +135,7 @@ class TownScene(StencilView):
                     mirrored=building_mirrored(self.faction,name)
                     coords=list(art.tex_coords)
                     if mirrored:
-                        coords=[coordinate for i in range(0,8,2)
-                                for coordinate in (1-coords[i],coords[i+1])]
+                        coords=mirrored_tex_coords(coords)
                     self.sprites[name]=Rectangle(texture=art,pos=(x-size/2,y),size=(size,h),tex_coords=coords)
                     box=(x-size/2,y,size,h)
                     if selected and not self.preview:

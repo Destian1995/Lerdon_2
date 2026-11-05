@@ -561,7 +561,7 @@ class ForeignCityPopup(WorldPopup):
         self.city_titles.add_widget(self.guard_label)
         from otherworld_themes import image_path
         self.art_frame=StencilView()
-        self.bartender=Image(source=image_path(self.faction,'women','bartender'),mipmap=True,fit_mode='cover')
+        self.bartender=Image(source=image_path(self.faction,'women','bartender'),mipmap=True,fit_mode='contain')
         self.art_frame.add_widget(self.bartender)
         def fit_art(*_):
             self.bartender.pos=self.art_frame.pos;self.bartender.size=self.art_frame.size
