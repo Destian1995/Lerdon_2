@@ -87,6 +87,23 @@ class StrategyUITests(unittest.TestCase):
         self.assertTrue(undead._is_undead_city)
         self.assertTrue(json.loads((ROOT / 'files/city/death/lore.json').read_text(encoding='utf-8'))['Некрополь'])
 
+    def test_city_preview_fills_frame_after_resizing(self):
+        popup = self.popup()
+        popup.city_columns.select(1)
+        for size in ((1280, 576), (640, 360), (360, 640), (1000, 600)):
+            with self.subTest(size=size):
+                self.viewport(size)
+                scene = popup.city_preview
+                panel = popup.city_columns.panels[1]
+                self.assertEqual(scene.pos, panel.pos)
+                self.assertEqual(scene.size, panel.size)
+                x, y, width, height = scene.scene_bounds
+                self.assertLessEqual(x, scene.x + .01)
+                self.assertLessEqual(y, scene.y + .01)
+                self.assertGreaterEqual(x + width, scene.right - .01)
+                self.assertGreaterEqual(y + height, scene.top - .01)
+                self.assertGreaterEqual(popup.city_building_count.y, scene.top)
+
     def test_open_city_adapts_on_rotation_without_losing_selection(self):
         self.viewport((640, 360))
         popup = self.popup()

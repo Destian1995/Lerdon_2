@@ -4,6 +4,7 @@ from kivy.graphics import Color, InstructionGroup, Line, RoundedRectangle
 from kivy.metrics import dp, sp
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
+from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.image import Image
 from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
@@ -152,8 +153,10 @@ class CityColumns(BoxLayout):
             return
         self._wide = wide
         for panel in self.panels:
-            panel._section_heading.height = dp(32) if wide else 0
-            panel._section_heading.opacity = 1 if wide else 0
+            heading = getattr(panel, '_section_heading', None)
+            if heading is not None:
+                heading.height = dp(32) if wide else 0
+                heading.opacity = 1 if wide else 0
         self.clear_widgets()
         self.body.clear_widgets()
         self.body.orientation = 'horizontal'
@@ -277,14 +280,20 @@ def build_city_window(popup):
     popup.attacking_units_box.bind(minimum_height=popup.attacking_units_box.setter('height'))
     popup.attacking_units_list.add_widget(popup.attacking_units_box)
     left.add_widget(popup.attacking_units_list)
-    right = section('Проклятые земли' if popup._is_undead_city else 'Панорама города', 'files/status/icons/building.png', accent)
+    # Keep all of the framed area for the art, including on short phones.
+    right = surface(FloatLayout(), accent=accent)
     from town_scene import TownScene
     popup.city_preview=TownScene(popup.conn,popup.city_name,popup.city_faction,
-                                 select=lambda *_:popup._open_build_menu(),preview=True)
+                                 select=lambda *_:popup._open_build_menu(),preview=True,
+                                 pos_hint={'x': 0, 'y': 0})
     right.add_widget(popup.city_preview)
-    popup.city_building_count=text_label('',13,GOLD,size_hint_y=None,height=dp(24))
-    right.add_widget(popup.city_building_count)
-    right.add_widget(text_label('Нажмите на город, чтобы войти',13,MUTED,size_hint_y=None,height=dp(24)))
+    city_info = BoxLayout(size_hint_y=None, height=dp(22), spacing=dp(8))
+    popup.city_building_count = text_label('', 12, GOLD)
+    city_info.add_widget(popup.city_building_count)
+    city_hint = text_label('Нажмите на город, чтобы войти', 12, MUTED)
+    city_hint.halign = 'right'
+    city_info.add_widget(city_hint)
+    root.add_widget(city_info)
     popup.city_columns = CityColumns(left, right, accent)
     if popup._is_undead_city:
         popup.city_columns.buttons[1].text = 'Проклятые земли'
@@ -333,12 +342,12 @@ def build_city_window(popup):
         portrait.width = header.height
         root.padding = dp(12 if compact else 18)
         root.spacing = dp(8 if compact else 12)
-        for panel in popup.city_columns.panels:
-            panel.padding = dp(8 if compact else 12)
-            panel.spacing = dp(6 if compact else 8)
-            panel._section_heading.height = dp(28 if compact else 32) if popup.city_columns._wide else 0
-        if hasattr(popup, 'city_building_count'):
-            popup.city_building_count.height = dp(20 if compact else 24)
+        left.padding = dp(8 if compact else 12)
+        left.spacing = dp(6 if compact else 8)
+        left._section_heading.height = dp(28 if compact else 32) if popup.city_columns._wide else 0
+        city_info.height = dp(18 if compact else 22)
+        popup.city_building_count.font_size = sp(10 if compact or narrow else 12)
+        city_hint.font_size = sp(10 if compact or narrow else 12)
         from window_theme import center_after_resize
         center_after_resize(popup)
     popup._city_fit = fit

@@ -81,9 +81,12 @@ class TownScene(StencilView):
         if not Path(path).is_file():
             path=map_icon(self.faction)
         background=texture(path)
-        scale=min(self.width/background.width,self.height/background.height)
+        # The inspection preview fills its frame; the interactive construction
+        # scene keeps every district visible and reachable.
+        fit = max if self.preview else min
+        scale=fit(self.width/background.width,self.height/background.height)
         width,height=background.width*scale,background.height*scale
-        left,bottom=self.center_x-width/2,self.center_y-height/2
+        left,bottom=self.x+(self.width-width)/2,self.y+(self.height-height)/2
         self.scene_bounds=(left,bottom,width,height)
         with self.paint:
             Color(.025,.035,.05,1);Rectangle(pos=self.pos,size=self.size)

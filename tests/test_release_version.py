@@ -15,8 +15,8 @@ class ReleaseVersionTests(unittest.TestCase):
 
     def test_current_release_is_consistent_and_updates_historical_store_version(self):
         result = validate(Path(__file__).resolve().parents[1], 102160501)
-        self.assertEqual(result['version'], '8.0.8')
-        self.assertEqual(result['version_code'], 102180008)
+        self.assertEqual(result['version'], '8.0.9')
+        self.assertEqual(result['version_code'], 102180009)
 
     def fixture(self, directory, code=102170001, menu='7.0.1'):
         root = Path(directory)
