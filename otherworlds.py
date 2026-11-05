@@ -212,6 +212,8 @@ def enter(conn,faction,source):
         for name,count,image,exp,*_ in units:
             _credit(conn,camp,name,count,image,exp,training_source=source)
         conn.execute('DELETE FROM garrisons WHERE city_name=?',(source,))
+        # A newly validated expedition must not inherit another campaign's loss.
+        conn.execute('DELETE FROM portal_home_losses WHERE faction=?',(faction,))
         conn.execute('INSERT INTO portal_parties VALUES(?,1,1,?,?)',(faction,source,camp))
         _collect_city_camp(conn,faction,1,camp)
     return party(conn,faction)
@@ -333,7 +335,7 @@ def recruitment_limit(conn,faction,template_id):
                        (city['id'],faction+':'+str(template_id))).fetchone()
     available=stock[0] if stock and stock[1]==current_turn(conn) else 1000
     capacity=max(0,4000+owned*1000+towers*500-used)
-    return max(0,min(available,int(cash//max(1,unit['cost_money'])),
+    return max(0,min(available,int(cash//price(city,unit['cost_money'])),
                      int((capacity+1e-8)//unit['consumption']) if unit['consumption'] else 1000))
 
 
@@ -377,16 +379,35 @@ def _grant(conn,faction,resource,amount):
 
 
 def trade_crystals(conn,faction,buy=True):
-    """Fixed lots; a spread and shared daily liquidity prevent infinite arbitrage."""
+    """Turn-bound floating quotes; city recruitment markups never affect crystals."""
     ensure_resource_schema(conn)
     with atomic(conn):
         _,city=_party_city(conn,faction)
         quantity=10_000
         _take(conn,city['id'],'resource',faction+(':buy' if buy else ':sell'),quantity,100_000)
-        coins=price(city,15_000 if buy else 10_000)
+        coins=crystal_trade_price(conn,buy)
         _pay(conn,faction,'Кроны' if buy else 'Кристаллы',coins if buy else quantity)
         _grant(conn,faction,'Кристаллы' if buy else 'Кроны',quantity if buy else coins)
     return coins
+
+
+def crystal_quote(conn):
+    """Same 76.3–148.7 per-100 range and ±4.5 walk as the main crystal market."""
+    conn.execute('CREATE TABLE IF NOT EXISTS portal_crystal_quotes(turn INTEGER PRIMARY KEY,price REAL NOT NULL)')
+    turn=current_turn(conn)
+    row=conn.execute('SELECT price FROM portal_crystal_quotes WHERE turn=?',(turn,)).fetchone()
+    if row:return row[0]
+    previous=conn.execute('SELECT price FROM portal_crystal_quotes WHERE turn<? ORDER BY turn DESC LIMIT 1',(turn,)).fetchone()
+    value=round(max(76.3,min(148.7,previous[0]+random.uniform(-4.5,4.5))) if previous else random.uniform(76.3,148.7),2)
+    with atomic(conn):conn.execute('INSERT INTO portal_crystal_quotes VALUES(?,?)',(turn,value))
+    return value
+
+
+def crystal_trade_price(conn,buy=True):
+    # Ten thousand crystals = one hundred 100-crystal market lots. A small
+    # bid/ask spread prevents a profitable same-turn buy/sell loop.
+    base=round(crystal_quote(conn)*100)
+    return (base*105+99)//100 if buy else base*95//100
 
 
 def recruit(conn,faction,template_id,quantity=100):
@@ -404,7 +425,7 @@ def recruit(conn,faction,template_id,quantity=100):
         consumption=faction_garrison_consumption(conn,faction)
         if consumption+quantity*(template.get('consumption') or 0)>4000+owned*1000+towers*500:
             raise ValueError('Недостаточно лимита армии для найма.')
-        cost=max(1,template['cost_money'])*quantity
+        cost=price(city,template['cost_money'])*quantity
         _pay(conn,faction,'Кроны',cost)
         name='Странник: '+template['unit_name']+' / '+faction
         # Faction-owned templates keep consumption, XP, combat and army limits

@@ -48,6 +48,42 @@ class PortalRewardTests(unittest.TestCase):
         self.db.execute("UPDATE cities SET faction='Эльфы' WHERE name='Home'")
         self.assertIn('Home',loss_reason(self.db,'Север'))
 
+    def test_previous_campaign_loss_cannot_end_game_without_active_expedition(self):
+        worlds.ensure_schema(self.db)
+        self.db.execute("INSERT INTO portal_home_losses VALUES('Север','Home')")
+        self.db.execute('UPDATE turn SET turn_count=2')
+        self.assertEqual(loss_reason(self.db,'Север'),'')
+
+    def test_new_expedition_drops_stale_loss_even_when_city_name_matches(self):
+        worlds.ensure_schema(self.db)
+        self.db.execute("INSERT INTO portal_home_losses VALUES('Север','Home')")
+        worlds.enter(self.db,'Север','Home')
+        self.assertEqual(loss_reason(self.db,'Север'),'')
+        self.assertFalse(self.db.execute('SELECT * FROM portal_home_losses').fetchall())
+        self.db.execute("UPDATE cities SET faction='Эльфы' WHERE name='Home'")
+        self.assertIn('Home',loss_reason(self.db,'Север'))
+        # A genuine loss remains final even if the city is later retaken.
+        self.db.execute("UPDATE cities SET faction='Север' WHERE name='Home'")
+        self.assertIn('Home',loss_reason(self.db,'Север'))
+
+    def test_unrelated_old_city_record_does_not_override_current_origin(self):
+        worlds.enter(self.db,'Север','Home')
+        self.db.execute("INSERT INTO portal_home_losses VALUES('Север','Old campaign city')")
+        self.assertEqual(loss_reason(self.db,'Север'),'')
+
+    def test_new_game_clear_removes_expeditions_and_loss_history(self):
+        worlds.enter(self.db,'Север','Home')
+        self.db.execute("UPDATE cities SET faction='Эльфы' WHERE name='Home'")
+        tree=ast.parse(Path('main.py').read_text(encoding='utf-8'))
+        method=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='clear_tables')
+        import sqlite3
+        namespace={'sqlite3':sqlite3}
+        exec(compile(ast.Module(body=[method],type_ignores=[]),'main.py','exec'),namespace)
+        namespace['clear_tables'](self.db)
+        self.assertFalse(self.db.execute('SELECT * FROM portal_parties').fetchall())
+        self.assertFalse(self.db.execute('SELECT * FROM portal_home_losses').fetchall())
+        self.assertEqual(loss_reason(self.db,'Север'),'')
+
     def test_quest_glow_pulses_and_clears_without_adding_instructions(self):
         from otherworld_ui import OtherworldMap
         from test_dialog_layout import settle

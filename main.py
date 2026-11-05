@@ -233,6 +233,8 @@ def clear_tables(conn):
     :param conn: Подключение к базе данных SQLite.
     """
     tables_to_clear = [
+        # Remove expeditions before cities: deleting a live origin records loss.
+        "portal_parties",
         "buildings",
         "cities",
         "diplomacies",
@@ -271,7 +273,7 @@ def clear_tables(conn):
         "portal_worlds",
         "portal_cities",
         "portal_roads",
-        "portal_parties",
+        "portal_home_losses",
         "portal_market",
         "portal_battles",
         "portal_presentation",

@@ -13,7 +13,7 @@ class MirrorRecruitment(RecruitmentSession):
         self.conn,self.faction=city_popup.conn,city_popup.faction
         self.templates=worlds.unit_offers(self.conn,self.faction)
         units={u['unit_name']:dict(image=u['image_path'],show_hire_total=True,role_label=u.get('role_label','Рекрут'),
-            cost=(u['cost_money'],0),
+            cost=(worlds.price(city_popup.city,u['cost_money']),0),
             stats={'Класс юнита':'1','Урон':u['attack'],'Защита':u['defense'],
                    'Живучесть':u['durability'],'Потребление Кристаллов':u['consumption']})
             for u in self.templates}
@@ -64,9 +64,9 @@ class MirrorRecruitment(RecruitmentSession):
         unit=next(u for u in self.templates if u['unit_name']==name)
         try:
             count=int(quantity.text)
-            paid=worlds.recruit(self.conn,self.faction,unit['id'],count)
+            worlds.recruit(self.conn,self.faction,unit['id'],count)
         except ValueError as exc:
             self.notice.text=str(exc);return
-        self.notice.text=f'Нанято: {count} · {paid:,} крон'
+        self.notice.text=''
         _refresh_main(self.conn,self.faction)
         self.city_popup.refresh();self.city_popup.owner.refresh()

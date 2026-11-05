@@ -35,20 +35,10 @@ import math
 EARLY_GAME_END = 9
 MID_GAME_END = 30
 
-# === Бюджет на здания (% от крон) на ходах 4+ ===
-BUDGET_BUILDINGS_EARLY_SAFE = 0.50
-BUDGET_BUILDINGS_EARLY_THREATENED = 0.25
-BUDGET_BUILDINGS_MID_SAFE = 0.55
-BUDGET_BUILDINGS_MID_THREATENED = 0.25
-BUDGET_BUILDINGS_LATE = 0.40
-
 # === Расписание ходов (turn в ИИ начинается с 0) ===
 # turn = 0 → 1-й игровой ход → ТОЛЬКО стройка
 # turn >= 1 → 2-й и далее → найм + захват + стройка
 TURN_BUILD_ONLY = 0                  # 1-й игровой ход (turn=0): только стройка
-GUARANTEED_BUILDING_LAST_TURN = 2    # ходы 0,1,2 — гарантированная стройка
-GUARANTEED_HOSPITALS = 1
-GUARANTEED_FACTORIES = 2
 
 # === Гарантированный найм 1 юнита ===
 ENSURE_SCOUT_FROM_TURN = 1           # с turn=1 (2-й ход) ИИ нанимает разведчика
@@ -212,61 +202,9 @@ def apply_leader_pressure(self, situation):
 # ============================================================
 
 def manage_buildings_v2(self):
-    """
-    Гарантированная стройка на ходах 0,1,2 (=1-3 игровых хода).
-    Динамический бюджет с хода 3 (=4-й игровой ход).
-    """
-    try:
-        situation = self._situation if hasattr(self, '_situation') else assess_situation(self)
-        crowns = self.resources.get('Кроны', 0)
-
-        # === Гарантированная стройка ===
-        if self.turn <= GUARANTEED_BUILDING_LAST_TURN:
-            min_cost = (GUARANTEED_HOSPITALS + GUARANTEED_FACTORIES) * 10
-            if crowns >= min_cost:
-                print(f"[AI] {self.faction} (ход {self.turn+1}): гарантированное строительство — "
-                      f"{GUARANTEED_HOSPITALS} больница + {GUARANTEED_FACTORIES} фабрики")
-                self.build_in_city("Больница", GUARANTEED_HOSPITALS)
-                self.build_in_city("Фабрика", GUARANTEED_FACTORIES)
-                self.save_all_data()
-                return
-            # A partial start is better than waiting forever for the whole set.
-
-        # === Динамическая логика ===
-        stage = situation['stage']
-        threat = situation['threat_level']
-
-        if stage == 'early':
-            pct = BUDGET_BUILDINGS_EARLY_THREATENED if threat in ('threatened', 'critical') else BUDGET_BUILDINGS_EARLY_SAFE
-        elif stage == 'mid':
-            pct = BUDGET_BUILDINGS_MID_THREATENED if threat in ('threatened', 'critical') else BUDGET_BUILDINGS_MID_SAFE
-        else:
-            pct = BUDGET_BUILDINGS_LATE
-
-        building_budget = int(crowns * pct)
-        if crowns >= 10:
-            building_budget = max(10, building_budget)
-        if building_budget < 10:
-            return
-
-        max_hospitals = 12
-        max_factories = 12
-        max_by_money = building_budget // 10
-        total_possible = min(max_hospitals + max_factories, max_by_money)
-
-        hospitals_to_build = int(total_possible * (max_hospitals / (max_hospitals + max_factories)))
-        factories_to_build = total_possible - hospitals_to_build
-
-        print(f"[AI] {self.faction} стадия={stage} угроза={threat} бюджет_здания={pct*100:.0f}%")
-
-        if hospitals_to_build > 0:
-            self.build_in_city("Больница", hospitals_to_build)
-        if factories_to_build > 0:
-            self.build_in_city("Фабрика", factories_to_build)
-
-        self.save_all_data()
-    except Exception as e:
-        print(f"[AI] manage_buildings_v2: {e}")
+    """Use the shared six-building catalogue in the active strategy as well."""
+    from city_development import ai_build
+    return ai_build(self)
 
 
 # ============================================================
@@ -1212,7 +1150,7 @@ def make_turn_v2(self):
                 if _economy_phase:
                     # ЭКОНОМИЧЕСКАЯ ФАЗА: сначала стройка, потом найм на остатки
                     _diag(self, "ЭКОНОМИЧЕСКАЯ ФАЗА: приоритет стройке")
-                    print(f"[AI] {self.faction}: ход {self.turn+1}, нет войны — режим экономики (90% на здания)")
+                    print(f"[AI] {self.faction}: ход {self.turn+1}, нет войны — приоритет недостающим зданиям")
 
                     # Шаг 1: стройка (основной приоритет)
                     _diag(self, "шаг 1: manage_buildings (приоритет)")

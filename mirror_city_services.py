@@ -97,6 +97,13 @@ class MirrorMarketPopup(WorldPopup):
     def layout_content(self):
         self.header.height=dp(48)
         self.heading.text='Рынок'
+        self.city.market_title.height=0
+        self.city.market_title.opacity=0
+        pager=self.city.offers
+        for button in (pager.previous,pager.next):
+            button.width=0
+            button.opacity=0
+            button.disabled=True
 
     def closed(self,*_):
         self.city.feedback.unbind(text=self._feedback)

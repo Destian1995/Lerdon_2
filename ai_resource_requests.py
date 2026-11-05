@@ -8,8 +8,9 @@ def request_amount(conn,player,own_resources):
         WHERE faction=? AND resource_type IN ('Кроны','Кристаллы') AND amount>0''',(player,))}
     if not available:return None
     kind=min(available,key=lambda k:own_resources.get(k,0))
-    amount=available[kind]
-    number=str(int(amount)) if float(amount).is_integer() else str(amount)
+    amount=int(available[kind])
+    if amount<1:return None
+    number=str(amount)
     return kind,amount,f'Просим передать {number} '+('крон.' if kind=='Кроны' else 'кристаллов.')
 
 

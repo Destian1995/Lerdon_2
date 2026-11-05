@@ -5,7 +5,7 @@ from kivy.core.image import Image as CoreImage
 from kivy.graphics import Color,Rectangle,Line,Mesh,Canvas
 from kivy.metrics import dp
 from kivy.uix.stencilview import StencilView
-from town_art import panorama_path,building_path,LOTS,map_icon
+from town_art import panorama_path,building_path,building_mirrored,citadel_lot,LOTS,map_icon
 from city_construction import building_counts
 
 
@@ -61,20 +61,33 @@ class TownScene(StencilView):
         self.conn,self.city,self.faction=conn,city,faction
         self.select,self.preview=select,preview
         self.selected=None;self.counts={};self.hits=[];self._press=None
+        self.lots=dict(LOTS)
+        self.sprite_colors={};self._loaded=False
         self._responsive_keep_geometry=True
+        from town_effects import TownEffects
+        self.effects=TownEffects(self)
         self.bind(pos=self.draw,size=self.draw)
         self.refresh()
 
     def refresh(self,*_):
         from city_construction import city_owner
+        previous=self.counts
+        old_faction=self.faction
         self.faction=city_owner(self.conn,self.city) or self.faction
         self.counts=building_counts(self.conn,self.city,self.faction)
+        if old_faction!=self.faction:self.effects.flashes.clear()
         self.draw()
+        if self._loaded and old_faction==self.faction:
+            for name,count in self.counts.items():
+                if count and not previous.get(name,0):self.effects.flash(name)
+        self._loaded=True
 
     def draw(self,*_):
         self.paint.clear();self.hits=[];self.sprites={};self.outlines={};self.plots={}
+        self.sprite_colors={}
         if self.width<=0 or self.height<=0:
             self.scene_bounds=(self.x,self.y,0,0)
+            self.effects.layout()
             return
         path=panorama_path(self.faction,self.city)
         # Used only while art is being generated, or for a damaged installation.
@@ -88,10 +101,16 @@ class TownScene(StencilView):
         width,height=background.width*scale,background.height*scale
         left,bottom=self.x+(self.width-width)/2,self.y+(self.height-height)/2
         self.scene_bounds=(left,bottom,width,height)
+        self.lots=dict(LOTS)
+        citadel=building_path(self.faction,'Цитадель')
+        if Path(citadel).is_file():
+            art=texture(citadel)
+            self.lots['Цитадель']=citadel_lot(self.faction,self.city,
+                background.width/background.height,art.height/art.width)
         with self.paint:
             Color(.025,.035,.05,1);Rectangle(pos=self.pos,size=self.size)
             Color(1,1,1,1);Rectangle(texture=background,pos=(left,bottom),size=(width,height))
-            for name,(u,v,relative_width) in sorted(LOTS.items(),key=lambda entry:-entry[1][1]):
+            for name,(u,v,relative_width) in sorted(self.lots.items(),key=lambda entry:-entry[1][1]):
                 count=self.counts.get(name,0)
                 x,y=left+u*width,bottom+v*height
                 size=relative_width*width
@@ -102,8 +121,13 @@ class TownScene(StencilView):
                     h=size*art.height/art.width
                     fit=min(1,max(1,bottom+height*.98-y)/h)
                     size*=fit;h*=fit
-                    Color(1,1,1,1)
-                    self.sprites[name]=Rectangle(texture=art,pos=(x-size/2,y),size=(size,h))
+                    self.sprite_colors[name]=Color(1,1,1,self.effects.opacity(name))
+                    mirrored=building_mirrored(self.faction,name)
+                    coords=list(art.tex_coords)
+                    if mirrored:
+                        coords=[coordinate for i in range(0,8,2)
+                                for coordinate in (1-coords[i],coords[i+1])]
+                    self.sprites[name]=Rectangle(texture=art,pos=(x-size/2,y),size=(size,h),tex_coords=coords)
                     box=(x-size/2,y,size,h)
                     if selected and not self.preview:
                         _,contours=building_shape(image)
@@ -112,7 +136,7 @@ class TownScene(StencilView):
                             Color(1,.84,.4,alpha)
                             for contour in contours:
                                 Line(points=[coordinate for u,v in contour
-                                     for coordinate in (x-size/2+u*size,y+v*h)],width=dp(thickness))
+                                     for coordinate in (x-size/2+(1-u if mirrored else u)*size,y+v*h)],width=dp(thickness))
                 else:
                     box=(x-max(dp(22),size*.32),y-dp(8),max(dp(44),size*.64),max(dp(44),size*.45))
                     if not self.preview:
@@ -128,6 +152,7 @@ class TownScene(StencilView):
                             Color(1,.83,.36,alpha)
                             Line(points=points,close=True,width=dp(thickness))
                 self.hits.append((name,box))
+        self.effects.layout()
 
     def on_touch_down(self,touch):
         if self.collide_point(*touch.pos) and not getattr(touch,'is_mouse_scrolling',False):
@@ -143,12 +168,15 @@ class TownScene(StencilView):
                 else:
                     left,bottom,width,height=self.scene_bounds
                     nearby=[]
-                    for name,(u,v,_) in LOTS.items():
+                    for name,(u,v,_) in self.lots.items():
                         distance=(touch.x-left-u*width)**2+(touch.y-bottom-v*height)**2
                         if distance<=dp(22)**2:nearby.append((distance,name))
-                    name=min(nearby)[1] if nearby else next((n for n,(x,y,w,h) in reversed(self.hits)
+                    name=next((n for n,(x,y,w,h) in reversed(self.hits)
                          if self.counts.get(n,0) and x<=touch.x<x+w and y<=touch.y<y+h
-                         and shape_contains(building_path(self.faction,n),(touch.x-x)/w,(touch.y-y)/h)),None)
+                         and shape_contains(building_path(self.faction,n),
+                             1-(touch.x-x)/w if building_mirrored(self.faction,n) else (touch.x-x)/w,
+                             (touch.y-y)/h)),None)
+                    if name is None and nearby:name=min(nearby)[1]
                     if name:
                         self.selected=name;self.draw()
                         if self.select:self.select(name)

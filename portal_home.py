@@ -16,8 +16,11 @@ def install(conn):
 
 def loss_reason(conn,faction):
     try:
+        expedition=conn.execute('SELECT source FROM portal_parties WHERE faction=?',(faction,)).fetchone()
+        if not expedition:return ''
+        source=expedition[0]
         has_losses=conn.execute("SELECT 1 FROM sqlite_master WHERE name='portal_home_losses'").fetchone()
-        lost=conn.execute('SELECT city FROM portal_home_losses WHERE faction=?',(faction,)).fetchone() if has_losses else None
+        lost=conn.execute('SELECT city FROM portal_home_losses WHERE faction=? AND city=?',(faction,source)).fetchone() if has_losses else None
         if not lost:
             lost=conn.execute('''SELECT p.source FROM portal_parties p LEFT JOIN cities c ON c.name=p.source
                 WHERE p.faction=? AND (c.name IS NULL OR c.faction IS NOT p.faction)''',(faction,)).fetchone()

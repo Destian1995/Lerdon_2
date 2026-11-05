@@ -57,19 +57,19 @@ class MirrorSmallScreenTests(unittest.TestCase):
             for mode in ('artifacts','resources'):
                 with self.subTest(size=size,density=density,mode=mode):
                     city.show_market(mode);settle()
-                    self.assertEqual(len(city.offers.pages),2 if mode=='resources' else 5)
+                    self.assertEqual(len(city.offers.pages),0)
                     self.assertEqual(len(city.army_box.rows.children),7)
-                    for index,card in enumerate(city.offers.pages):
-                        city.offers.select(index);settle()
-                        self.assertIs(city.offers.carousel.current_slide,card)
-                        self.inside(card.button,card)
-                        self.assertGreaterEqual(card.button.height,36)
-                        self.assertGreaterEqual(card.title_label.font_size,12)
-                        self.readable(card)
-                    self.assertEqual(city.offers.counter.text,f'{len(city.offers.pages)} / {len(city.offers.pages)}')
+                    if mode=='resources':
+                        self.assertEqual(len(city.crystal_market.panels),2)
+                        for panel in city.crystal_market.panels:
+                            self.inside(panel.button,panel)
+                            self.assertGreaterEqual(panel.button.height,48*density)
+                            self.assertGreaterEqual(panel.price.height,panel.price.texture_size[1])
+                        self.assertEqual(city.crystal_market.cards.cols,1 if size[0]==390 else 2)
+                    else:self.assertEqual(len(city.artifact_shop.rows.children),5)
                     row=city.army_box.rows.children[0]
                     city.army_box.scroll_to(row,animate=False);settle()
-                    self.inside(city.guard_label,city.service_panel)
+                    self.inside(city.guard_label,city.city_titles)
                     self.inside(city.action_bar,city.root)
                     self.readable(row)
 

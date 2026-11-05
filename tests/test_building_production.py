@@ -39,13 +39,13 @@ def income(filename,season):
 
 
 class ProductionTests(unittest.TestCase):
-    def test_player_base_and_all_seasons_match_twelve_old_buildings(self):
-        for season,population,crystals in ((-1,600,1260),(0,720,1071),(1,780,1386),(2,660,1575),(3,690,1512)):
+    def test_player_production_is_reduced_35_percent_before_season_bonuses(self):
+        for season,population,crystals in ((-1,390,819),(0,468,696),(1,507,900),(2,429,1023),(3,448,982)):
             with self.subTest(season=season):self.assertEqual(income('economic.py',season),(population,crystals))
 
-    def test_ai_preserves_its_old_production_coefficients_at_twelve_times_output(self):
-        for season in range(4):self.assertEqual(income('ii.py',season),(600,1200))
+    def test_ai_production_is_reduced_35_percent(self):
+        for season in range(4):self.assertEqual(income('ii.py',season),(390,780))
 
     def test_construction_cards_describe_actual_base_production(self):
-        self.assertIn('600',CATALOG['Больница']['desc'])
-        self.assertIn('1260',CATALOG['Фабрика']['desc'])
+        self.assertIn('390',CATALOG['Больница']['desc'])
+        self.assertIn('819',CATALOG['Фабрика']['desc'])

@@ -132,7 +132,7 @@ class TownTests(unittest.TestCase):
             self.assertGreater(town.detail_scroll.height,dp(14))
             self.assertGreater(town.scene.width,dp(150))
             from town_art import LOTS
-            for name,(u,v,_) in LOTS.items():
+            for name,(u,v,_) in town.scene.lots.items():
                 x,y,w,h=town.scene.scene_bounds
                 touch=Touch(x+u*w,y+v*h);town.scene.on_touch_down(touch);town.scene.on_touch_up(touch)
                 self.assertEqual(town.selected,name)
@@ -140,6 +140,17 @@ class TownTests(unittest.TestCase):
 
 
 class TownArtTests(unittest.TestCase):
+    def test_citadel_entrance_anchors_are_on_the_visible_gate(self):
+        from PIL import Image
+        from town_art import CITADEL_DOORS
+        for faction,key in THEMES.items():
+            with self.subTest(faction=faction), Image.open(building_path(faction,'Цитадель')) as art:
+                u,v=CITADEL_DOORS[key]
+                # A point just above the ground contact must be on the doorway,
+                # not on the transparent margin below or beside the fortress.
+                x=round(u*(art.width-1));y=round((1-v-.025)*(art.height-1))
+                self.assertGreaterEqual(art.getpixel((x,y))[3],180)
+
     def test_every_faction_has_three_unique_panorama_files_and_six_transparent_buildings(self):
         from PIL import Image
         for faction,key in THEMES.items():

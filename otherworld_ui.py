@@ -532,7 +532,7 @@ class ForeignCityPopup(WorldPopup):
         left=surface(BoxLayout(orientation='vertical',padding=dp(10),spacing=dp(8)),SURFACE,self.accent)
         self.army_panel=left
         from mirror_layout import FitLabel
-        self.army_title=ReadableText('Мощь гарнизона',size=15,color=self.accent,bold=True)
+        self.army_title=ReadableText('Гарнизон',size=15,color=self.accent,bold=True)
         self.army_totals=ReadableText('',size=14,color=GREEN)
         self.guard_label=ReadableText('',size=14,color=GOLD)
         left.add_widget(self.army_title);left.add_widget(self.army_totals)
@@ -542,7 +542,7 @@ class ForeignCityPopup(WorldPopup):
         self.market=surface(BoxLayout(orientation='vertical',padding=dp(10),spacing=dp(8)),SURFACE,GOLD)
         from mirror_layout import compact_frame
         compact_frame(left);compact_frame(self.market)
-        self.market_title=FitLabel(text='Торговец Зазеркалья',color=GOLD,bold=True,size_hint_y=None)
+        self.market_title=FitLabel(text='Рынок Зазеркалья',color=GOLD,bold=True,size_hint_y=None)
         self.market.add_widget(self.market_title)
         tabs=BoxLayout(size_hint_y=None,height=dp(44),spacing=dp(5))
         self.tabs=tabs;self.tab_buttons={}
@@ -555,10 +555,15 @@ class ForeignCityPopup(WorldPopup):
         self.market.add_widget(self.offers)
         self.service_panel=surface(BoxLayout(orientation='vertical',padding=dp(6),spacing=dp(6)),SURFACE,self.accent)
         compact_frame(self.service_panel)
-        self.service_panel.add_widget(self.guard_label)
+        self.city_titles.add_widget(self.guard_label)
         from otherworld_themes import image_path
-        self.bartender=Image(source=image_path(self.faction,'women','bartender'),mipmap=True,fit_mode='contain')
-        self.service_panel.add_widget(self.bartender)
+        self.art_frame=StencilView()
+        self.bartender=Image(source=image_path(self.faction,'women','bartender'),mipmap=True,fit_mode='cover')
+        self.art_frame.add_widget(self.bartender)
+        def fit_art(*_):
+            self.bartender.pos=self.art_frame.pos;self.bartender.size=self.art_frame.size
+        self.art_frame.bind(pos=fit_art,size=fit_art)
+        self.service_panel.add_widget(self.art_frame)
         self.services=BoxLayout(size_hint_y=None,height=dp(48),spacing=dp(4))
         self.tavern_button=_button('Задания',self.open_tasks,accent=self.accent)
         self.market_button=_button('Рынок',self.open_market,accent=GOLD)
@@ -573,7 +578,7 @@ class ForeignCityPopup(WorldPopup):
         self.feedback.bind(text=self._layout_event)
         self.root.add_widget(self.feedback)
         self.action_bar=BoxLayout(size_hint_y=None,height=dp(48))
-        self.travel_button=_button('Перейти · 1 действие',self.go)
+        self.travel_button=_button('Прийти сюда',self.go)
         self.battle_button=_button('Напасть · +3% / 9 х.',self.battle)
         self.action_bar.add_widget(self.battle_button)
         left.add_widget(self.action_bar)
@@ -584,9 +589,12 @@ class ForeignCityPopup(WorldPopup):
     def layout_content(self):
         if not hasattr(self,'action_bar'):return
         self.root.padding=dp(6);self.root.spacing=dp(5)
-        self.header.height=dp(44)
+        self.header.height=dp(76)
         self.heading.font_size=sp(18)
         self.header.children[0].width=dp(40)
+        self.header.children[0].size_hint_y=None
+        self.header.children[0].height=dp(44)
+        self.header.children[0].pos_hint={'center_y':.5}
         self.city_image.width=dp(40)
         self.info.height=max(dp(22),self.info.texture_size[1]+dp(2))
         hint=getattr(self,'_market_hint','')
@@ -603,10 +611,13 @@ class ForeignCityPopup(WorldPopup):
             if compact and widget.parent is self.army_panel:self.army_panel.remove_widget(widget)
             elif not compact and widget.parent is None:
                 self.army_panel.add_widget(widget,index=len(self.army_panel.children)-index)
-        self.info.text=self.army_totals.text if compact else getattr(self,'_city_info',self.info.text)
-        self.guard_label.height=max(dp(22),self.guard_label.texture_size[1]+dp(2))
+        self.info.text=getattr(self,'_city_info',self.info.text)
+        self.guard_label.font_size=sp(12)
+        self.guard_label.height=max(dp(18),self.guard_label.texture_size[1]+dp(2))
+        self.header.height=max(dp(76),self.info.height+self.guard_label.height+dp(28))
         self.services.height=dp(44);self.action_bar.height=dp(44)
-        self.market_title.height=dp(24)
+        self.market_title.height=0
+        self.market_title.opacity=0
         self.market_title.maximum=sp(17)
         self.tabs.height=dp(44)
         for button in (*self.services.children,*self.tabs.children,self.travel_button,self.battle_button):
@@ -647,7 +658,7 @@ class ForeignCityPopup(WorldPopup):
         p=self.present();self.army_box.clear_cards()
         self.recruit_button.disabled=not bool(p)
         self.tavern_button.disabled=not bool(p)
-        self.info.text=(('Ваш отряд здесь' if p else 'Отряд в другом городе')+f' · Цены: {self.city["price"]}%')
+        self.info.text=f'Найм и артефакты: {self.city["price"]}%'
         self._city_info=self.info.text
         camp=worlds.city_camp(self.conn,self.faction,self.city['id'])
         if worlds._camp_units(self.conn,camp):
@@ -660,12 +671,12 @@ class ForeignCityPopup(WorldPopup):
                 from mirror_city_services import ExpeditionUnitRow
                 self.army_box.add_card(ExpeditionUnitRow(self,name,count,image,exp,profiles.get(name,{})))
         else:
-            from mirror_layout import FitLabel
-            self.army_totals.text='Ваш отряд в другом городе'
-            self.army_box.add_card(FitLabel(text='Независимый город\n'+format_number(self.city['guards'])+' бойцов',color=GOLD,size_hint_y=None,height=dp(80)))
+            from mirror_readable_ui import ReadableText
+            self.army_totals.text=''
+            self.army_box.add_card(ReadableText('Гарнизон пуст',size=14,color=MUTED))
         guard,target=worlds.guard_profile(self.conn,self.faction,self.city)
         self.guard_label.text=('Стража '+compact_number(guard['unit_count'])+' · ЗАЩ '+compact_number(guard['defense']*guard['unit_count'])+
-                               '\nПобеда: +3% урона · 9 х.')
+                               ' · Победа: +3% урона на 9 ходов')
         party=worlds.party(self.conn,self.faction)
         edge=tuple(sorted((party['city_id'],self.city['id']))) if party else (0,0)
         connected=bool(self.conn.execute('SELECT 1 FROM portal_roads WHERE city1=? AND city2=?',edge).fetchone())
@@ -675,50 +686,39 @@ class ForeignCityPopup(WorldPopup):
         self.battle_button.text=f'Отдых стражи: {cooldown} х.' if cooldown else 'Напасть · +3% / 9 х.'
         self.action_bar.clear_widgets()
         self.action_bar.add_widget(self.battle_button if p else self.travel_button)
-        bonus=worlds.guard_bonus_left(self.conn,self.faction)
-        if bonus:self.army_totals.text+=f' · +3% урона ({bonus} х.)'
         self.show_market(self.mode)
 
     def show_market(self,mode):
         if mode=='units':
             return self.open_recruitment()
-        selected=self.offers.page_index if mode==self.mode else 0
         if mode!=self.mode:self.feedback.text=''
         self._market_hint=''
-        self.info.text=(('Ваш отряд здесь' if self.present() else 'Отряд в другом городе')+f' · Цены: {self.city["price"]}%')
+        self.info.text=f'Найм и артефакты: {self.city["price"]}%'
         self._city_info=self.info.text
         self.mode=mode;self.offers.clear_cards()
         self.offer_buttons=[]
         for key,button in self.tab_buttons.items():button.set_selected(key==mode)
-        def offer(title,subtitle,callback,image=None):
-            from mirror_layout import MarketCard
-            card=MarketCard(title,subtitle,callback,image,caption='Продать' if title.startswith('Продать') else 'Купить')
-            button=card.button
-            button.disabled=not bool(self.present())
-            self.offer_buttons.append(button)
-            self.offers.add_card(card)
-        if mode=='resources':
-            for buy,title,base in [(True,'Купить 10 тыс. кристаллов',15000),(False,'Продать 10 тыс. кристаллов',10000)]:
-                offer(title,('Цена: ' if buy else 'Вы получите: ')+format_number(worlds.price(self.city,base))+' крон',
-                      lambda *_,b=buy:self.act(lambda:worlds.trade_crystals(self.conn,self.faction,b)))
-        else:
-            from portal_items import champions
-            p=self.present()
-            eligible=champions(self.conn,self.faction,p['camp']) if p else []
-            for artifact in worlds.artifact_offers(self.conn,self.faction):
-                offer(artifact['name'],f'АТК+{artifact["attack"]}% ЗАЩ+{artifact["defense"]}%\n'+
-                      format_number(worlds.price(self.city,artifact['cost']))+f' крон · {artifact["duration"]} х.',
-                      lambda *_,a=artifact:self.artifact(a),artifact['image_url'])
-                self.offer_buttons[-1].disabled=not eligible
-                from portal_items import remaining
-                active=self.conn.execute('SELECT artifact_id FROM portal_artifacts WHERE faction=? AND catalog_id=?',(self.faction,artifact['id'])).fetchone()
-                left=remaining(self.conn,active[0]) if active else 0
-                if left:
-                    self.offer_buttons[-1].text=f'Действует · {left} х.'
-                    self.offer_buttons[-1].disabled=True
-            self.feedback.text=('Получатель: '+eligible[0]+' [3 класс] · Сила ×3,3') if eligible else 'Артефакты доступны только героям 3 класса в отряде.'
-            self._market_hint=self.feedback.text
-        self.offers.select(selected)
+        crystals=getattr(self,'crystal_market',None)
+        if crystals is not None and crystals.parent:crystals.parent.remove_widget(crystals)
+        if mode=='artifacts':
+            if self.offers.parent:self.offers.parent.remove_widget(self.offers)
+            from mirror_artifact_shop import MirrorArtifactShop
+            self.market_title.text='Артефакты'
+            if not hasattr(self,'artifact_shop'):self.artifact_shop=MirrorArtifactShop(self)
+            else:self.artifact_shop.refresh()
+            if self.artifact_shop.parent is None:self.market.add_widget(self.artifact_shop)
+            popup=getattr(self,'market_popup',None)
+            if popup:popup._layout_event()
+            self._layout_event();return
+        shop=getattr(self,'artifact_shop',None)
+        if shop is not None and shop.parent:shop.parent.remove_widget(shop)
+        if self.offers.parent:self.offers.parent.remove_widget(self.offers)
+        from mirror_crystal_market import MirrorCrystalMarket
+        if not hasattr(self,'crystal_market'):self.crystal_market=MirrorCrystalMarket(self)
+        else:self.crystal_market.refresh()
+        self.market.add_widget(self.crystal_market)
+        popup=getattr(self,'market_popup',None)
+        if popup:popup._layout_event()
         self._layout_event()
 
     def act(self,callback,success='Готово'):
@@ -732,9 +732,9 @@ class ForeignCityPopup(WorldPopup):
         self.feedback.text=success
         self.refresh();self.owner.refresh()
 
-    def artifact(self,artifact):
+    def artifact(self,artifact,hero=None):
         def buy():
-            worlds.buy_artifact(self.conn,self.faction,artifact['id'])
+            worlds.buy_artifact(self.conn,self.faction,artifact['id'],hero=hero)
             screen=_screen(self.conn)
             if screen:
                 screen.season_manager.apply_artifact_bonuses(self.conn)

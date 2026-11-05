@@ -84,3 +84,42 @@ class BuildingRulesTests(unittest.TestCase):
                  patch('undead_invasion._declare_war_to_all'):
                 make_turn_v2(ai)
             self.assertEqual(calls,['build','attack'])
+
+    def test_installed_strategy_builds_full_catalogue_for_every_regular_faction(self):
+        from ai_strategy import apply_ai_improvements
+        names=['load_cities','load_buildings','load_resources','update_buildings_for_current_cities',
+               'save_resources_to_db','manage_buildings','build_in_city','save_buildings']
+        cls=type('ActiveAI',(),methods('ii.py','AIController',names))
+        apply_ai_improvements(cls)
+        for faction in ('Север','Эльфы','Вампиры','Адепты','Элины'):
+            for turn in (0,2,12):
+                with self.subTest(faction=faction,turn=turn):
+                    self.db.execute('DELETE FROM buildings')
+                    self.db.execute('DELETE FROM resources')
+                    self.db.execute('UPDATE cities SET faction=?',(faction,))
+                    self.db.execute("INSERT INTO resources VALUES(?,'Кроны',1000000)",(faction,))
+                    ai=cls();ai.db_connection=self.db;ai.cursor=self.db.cursor();ai.faction=faction
+                    ai.turn=turn;ai.resources={'Кроны':1000000};ai.buildings={};ai.cities_buildings={}
+                    self.assertEqual(len(ai.manage_buildings()),12)
+                    for city in ('A','B'):
+                        self.assertEqual(building_counts(self.db,city,faction),dict.fromkeys(CATALOG,1))
+                    expected=1000000-2*sum(v['cost'] for v in CATALOG.values())
+                    self.assertEqual(ai.resources['Кроны'],expected)
+                    self.assertFalse(ai.manage_buildings())
+                    self.assertEqual(ai.resources['Кроны'],expected)
+
+    def test_active_strategy_finishes_wall_and_citadel_after_treasury_refills(self):
+        from ai_strategy import manage_buildings_v2
+        names=['load_cities','load_buildings','load_resources','update_buildings_for_current_cities',
+               'save_resources_to_db','manage_buildings']
+        cls=type('ActiveAI',(),methods('ii.py','AIController',names))
+        cls.manage_buildings=manage_buildings_v2
+        ai=cls();ai.db_connection=self.db;ai.cursor=self.db.cursor();ai.faction='Север'
+        ai.resources={'Кроны':100};ai.buildings={};ai.cities_buildings={}
+        self.assertEqual(len(ai.manage_buildings()),4)
+        self.assertEqual(ai.resources['Кроны'],0)
+        ai.resources['Кроны']=300000
+        self.assertEqual(len(ai.manage_buildings()),8)
+        for city in ('A','B'):
+            self.assertEqual(building_counts(self.db,city,'Север'),dict.fromkeys(CATALOG,1))
+        self.assertEqual(ai.resources['Кроны'],0)

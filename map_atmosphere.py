@@ -423,7 +423,17 @@ class MapAtmosphere(Widget):
 
     def start(self):
         if self._event is None:
-            self._event = Clock.schedule_interval(self.update, 1 / 30.0)
+            self._event = Clock.schedule_interval(self.update, self.frame_interval())
+
+    def frame_interval(self):
+        return 1 / (60.0 if self.city_effects.portal_shields else 30.0)
+
+    def refresh_frame_rate(self):
+        """Keep one shared clock; only the active portal needs faster frames."""
+        interval=self.frame_interval()
+        if self._event is not None and abs(self._event.timeout-interval)>1e-6:
+            self._event.cancel()
+            self._event=Clock.schedule_interval(self.update,interval)
 
     def stop(self):
         if self._event:

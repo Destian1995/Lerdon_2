@@ -2,21 +2,18 @@
 
 
 def full_balance_offer(conn,seller,player,resources=None):
-    from decimal import Decimal
+    import math
     stock=resources if resources is not None else dict(conn.execute('SELECT resource_type,amount FROM resources WHERE faction=?',(seller,)))
     balances=dict(conn.execute('SELECT resource_type,amount FROM resources WHERE faction=?',(player,)))
     preferred=('Кристаллы','Кроны') if seller in ('Элины','Адепты') else ('Кроны','Кристаллы')
     for give in preferred:
         want='Кристаллы' if give=='Кроны' else 'Кроны'
-        requested=balances.get(want,0) or 0
+        requested=math.floor(balances.get(want,0) or 0)
         if requested<=0:continue
-        amount=requested*5/6
+        amount=requested*5//6
         if amount<=0 or (stock.get(give,0) or 0)<amount:continue
-        if float(amount).is_integer():amount=int(amount)
-        if float(requested).is_integer():requested=int(requested)
-        exact=lambda value:format(Decimal(str(value)),'f')
         names={'Кроны':'Крон','Кристаллы':'Кристаллов'}
-        text=f'Мы отдаём {exact(amount)} {names[give]}, вы — {exact(requested)} {names[want]}.'
+        text=f'Мы отдаём {amount} {names[give]}, вы — {requested} {names[want]}.'
         return give,amount,want,requested,text
     return None
 

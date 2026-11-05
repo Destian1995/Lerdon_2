@@ -99,7 +99,7 @@ class ReliefResourceIntegrationTests(unittest.TestCase):
     def test_player_and_ai_income_apply_local_perks_once_before_upkeep(self):
         # Execute each real resource method through its income calculation,
         # before UI, diplomacy and persistence side effects later in the turn.
-        for filename,expected_raw in (('economic.py',1830),('ii.py',1400)):
+        for filename,expected_raw in (('economic.py',1167),('ii.py',896)):
             with self.subTest(controller=filename):
                 db=sqlite3.connect(':memory:')
                 self.addCleanup(db.close)

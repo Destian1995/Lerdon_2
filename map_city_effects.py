@@ -177,11 +177,11 @@ class CityEffects:
         if key!=self._portal_key:
             self._portal_key=key;self.portal_group.clear();self.portal_shields=[]
             for city,faction in key:
-                rgb=FACTION_RGB.get(faction,(.4,.7,1))
-                glow=self._sprite(self.portal_group,rgb)
-                color=Color(*rgb,.9);outline=Line(width=1.8,close=True)
-                self.portal_group.add(color);self.portal_group.add(outline)
-                self.portal_shields.append((city,glow,color,outline))
+                from portal_dome import PortalDome
+                dome=PortalDome()
+                self.portal_group.add(dome.group)
+                self.portal_shields.append((city,dome))
+            self.atmosphere.refresh_frame_rate()
         # smoke_until is written only by real combat. Peaceful transfers retain
         # the previous deadline, so neither start nor prolong battle effects.
         burning = tuple(sorted(name for name, state in states.items()
@@ -365,16 +365,9 @@ class CityEffects:
 
     def update(self, dt):
         self.time += dt
-        for city,(glow_color,glow),color,outline in self.portal_shields:
-            if city not in self._cities:continue
-            x,y=self.atmosphere.project(self._cities[city][:2])
-            size=58*self.atmosphere._scale
-            y+=size*.35
-            pulse=.65+.35*math.sin(self.time*2.4)
-            glow.pos=(x-size*.8,y-size*.8);glow.size=(size*1.6,size*1.6)
-            glow_color.a=.24+.12*pulse;color.a=.7+.25*pulse
-            outline.points=[x-size*.48,y+size*.48,x,y+size*.62,x+size*.48,y+size*.48,
-                            x+size*.42,y-size*.1,x,y-size*.52,x-size*.42,y-size*.1]
+        for city,dome in self.portal_shields:
+            center=self.atmosphere.project(self._cities[city][:2]) if city in self._cities else None
+            dome.update(center,self.atmosphere._scale,self.time)
         # Battle reports/animations cover the map: show the celebration once visible.
         if not any(isinstance(widget, ModalView) for widget in Window.children):
             self.capture_time += dt

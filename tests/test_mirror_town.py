@@ -45,7 +45,7 @@ class TownUITests(unittest.TestCase):
     def test_market_opens_separately_and_recruitment_has_no_tier_hints(self):
         self.city.market_button.dispatch('on_release');settle()
         self.assertIs(self.city.market.parent,self.city.market_popup.root)
-        self.assertEqual(len(self.city.offers.pages),2)
+        self.assertEqual(len(self.city.crystal_market.panels),2)
         self.city.market_popup.dismiss(animation=False);settle()
         self.city.recruit_button.dispatch('on_release');settle()
         session=self.city.recruitment

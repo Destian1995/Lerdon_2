@@ -258,20 +258,77 @@ class CityWarEffectsTests(CityWarFixture):
         self.fx.sync(cities, {}, 5)
         self.assertEqual(self.fx.flags, [])
 
-    def test_portal_shield_uses_faction_color_pulses_and_clears(self):
-        from map_city_effects import FACTION_RGB
+    def test_portal_dome_animates_reprojects_reuses_graphics_and_clears(self):
+        from map_terrain import city_sprite_size
         self.fx.sync(self.cities,{},5,portals=[('Town','Север')])
         self.layer.update(.1)
-        city,(glow_color,glow),color,outline=self.fx.portal_shields[0]
-        self.assertEqual(tuple(color.rgb),FACTION_RGB['Север'])
-        first=list(outline.points);alpha=color.a
-        self.layer.update(.2);self.assertNotEqual(color.a,alpha)
+        city,dome=self.fx.portal_shields[0]
+        self.assertEqual(city,'Town')
+        self.assertLess(dome.fill_color.a,.05)
+        self.assertGreater(dome.radius,city_sprite_size(1)/2)
+        first=list(dome.ring.points)
+        bolts=list(dome.bolts[0][3].points)
+        instructions=tuple(dome.group.children)
+        for _ in range(20):self.layer.update(.05)
+        self.assertNotEqual(bolts,list(dome.bolts[0][3].points))
+        self.assertEqual(instructions,tuple(dome.group.children))
         self.layer.configure((100,50),.5);self.layer.update(.1)
-        self.assertNotEqual(first,list(outline.points))
+        self.assertNotEqual(first,list(dome.ring.points))
+        self.assertAlmostEqual(dome.radius,city_sprite_size(.5)*.77)
         self.fx.sync(self.cities,{},5,portals=[('Town','Вампиры')])
-        self.assertEqual(tuple(self.fx.portal_shields[0][2].rgb),FACTION_RGB['Вампиры'])
+        self.layer.update(.1)
+        self.assertEqual(tuple(self.fx.portal_shields[0][1].ring_color.rgb),(.37,.68,1))
         self.fx.sync(self.cities,{},5)
         self.assertFalse(self.fx.portal_shields);self.assertFalse(self.fx.portal_group.children)
+
+    def test_missing_portal_city_leaves_no_stale_dome(self):
+        self.fx.sync(self.cities,{},5,portals=[('Town','Север')])
+        self.layer.update(.1)
+        dome=self.fx.portal_shields[0][1]
+        self.fx.sync([],{},5,portals=[('Town','Север')])
+        self.layer.update(.1)
+        self.assertFalse(dome.fill.vertices)
+        self.assertFalse(dome.ring.points)
+        self.assertTrue(all(not entry[3].points for entry in dome.bolts))
+
+    def test_fast_portal_flashes_move_only_when_faded_and_drift_between_frames(self):
+        from portal_dome import PortalDome
+        dome=PortalDome()
+        dome.update((300,300),1,.04)
+        first=list(dome.bolts[0][3].points)
+        self.assertGreater(dome.bolts[0][2].a,.9)
+        dome.update((300,300),1,.04+1/240)
+        moved=list(dome.bolts[0][3].points)
+        self.assertNotEqual(first,moved)
+        self.assertLess(max(abs(a-b) for a,b in zip(first,moved)),1)
+        dome.update((300,300),1,.18-.00001)
+        before=list(dome.bolts[0][3].points)
+        self.assertLess(dome.bolts[0][2].a,.0001)
+        dome.update((300,300),1,.18+.00001)
+        self.assertLess(dome.bolts[0][2].a,.0001)
+        self.assertNotEqual(before,list(dome.bolts[0][3].points))
+        positions=[]
+        for tick in range(8):
+            dome.update((300,300),1,.18*tick+.04)
+            positions.append(tuple(dome.bolts[0][3].points))
+        self.assertEqual(len(set(positions)),8)
+
+    def test_portal_switches_existing_map_clock_to_60_fps_and_back(self):
+        self.layer.start()
+        self.assertAlmostEqual(self.layer._event.timeout,1/30)
+        old=self.layer._event
+        self.fx.sync(self.cities,{},5,portals=[('Town','Север')])
+        self.assertAlmostEqual(self.layer._event.timeout,1/60)
+        self.assertFalse(old.is_triggered)
+        active=self.layer._event
+        self.fx.sync(self.cities,{},5,portals=[('Town','Север')])
+        self.assertIs(active,self.layer._event)
+        self.fx.sync(self.cities,{},5)
+        self.assertAlmostEqual(self.layer._event.timeout,1/30)
+        self.assertFalse(active.is_triggered)
+        self.layer.stop()
+        self.fx.sync(self.cities,{},5,portals=[('Town','Север')])
+        self.assertIsNone(self.layer._event)
 
     def test_faction_standards_use_distinct_symbols_and_clear_the_badge(self):
         from map_city_effects import FACTION_EMBLEMS, faction_emblem, standard_layout

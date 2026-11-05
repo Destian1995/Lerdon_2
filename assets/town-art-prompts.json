@@ -720,6 +720,93 @@
       "sha256": "7879c89fb6d8a1e8d92c879ca632c05115c6461343535c26934f21af491fd7eb",
       "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one tall slender defensive watchtower, faction-style peaked roof and small lookout balcony, narrow footprint, no attached city. Match rough medieval fortified stone and timber architecture, rust-red banners, warm late afternoon daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
       "reference": "files/city/interiors/rebels/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/vampires/citadel.png",
+      "size": [
+        648,
+        609
+      ],
+      "sha256": "8637958c489f12e4496c1eb773f92e8783388c4e4e5c5697a5847b215d1fa50d",
+      "prompt": "Fantasy town game sprite, perspective correction. Image 1 is the edit target and faction identity. Image 2 is the panorama into which it must fit. Image 3, the desert Elines citadel, is the APPROVED CAMERA AND PERSPECTIVE BENCHMARK: copy its moderate elevated THREE-QUARTER camera precisely, its relationship of front facade to visible right-side walls, the amount of roof tops visible, and the believable upward recession of masonry into the scene. The previous edit became a flat FRONT ELEVATION: fix that. Render real architectural VOLUME like image 3. We should see front wall plus a modest right-hand side, with roofs and parapets seen from slightly above; vertical walls remain upright. Use the same moderately elevated camera as image 3, neither a frontal 2D facade nor a steep top-down isometric dollhouse. Use panorama image 2 for local daylight, paint detail and harmonious color. Vampire Gothic citadel, charcoal stone, crimson roofs, red stained glass, bat banners and gargoyles. Its main gateway must still clearly face the viewer, within the requested moderate three-quarter view. Preserve faction-specific architecture, not desert materials from image 3. Full compact citadel, all towers inside frame, hand-painted fantasy strategy art. The MAIN entrance is near the front center, visible and unobstructed, directed down toward the viewer and the approaching stairway. A small entrance stoop is okay, no long added staircase, no raised island plinth, no large courtyard ground patch. Single isolated citadel on a truly TRANSPARENT alpha background; no terrain, no sky, no brown gradient, no backdrop, no text or UI. Keep the corrected gateway easy to align with a stair landing in the game.",
+      "reference": "files/city/interiors/vampires/city-1.jpg",
+      "camera_reference": "files/city/interiors/elines/citadel.png"
+    },
+    {
+      "file": "files/city/interiors/north/citadel.png",
+      "size": [
+        647,
+        648
+      ],
+      "sha256": "a174b5495858871e7547e9452edbba0a10ab106258a0d9f14e0e8db31334b730",
+      "prompt": "Fantasy town game sprite, perspective correction. Image 1 is the edit target and faction identity. Image 2 is the panorama into which it must fit. Image 3, the desert Elines citadel, is the APPROVED CAMERA AND PERSPECTIVE BENCHMARK: copy its moderate elevated THREE-QUARTER camera precisely, its relationship of front facade to visible right-side walls, the amount of roof tops visible, and the believable upward recession of masonry into the scene. The previous edit became a flat FRONT ELEVATION: fix that. Render real architectural VOLUME like image 3. We should see front wall plus a modest right-hand side, with roofs and parapets seen from slightly above; vertical walls remain upright. Use the same moderately elevated camera as image 3, neither a frontal 2D facade nor a steep top-down isometric dollhouse. Use panorama image 2 for local daylight, paint detail and harmonious color. Northern keep with snowy grey stone towers, slate gables, blue banners. Preserve faction-specific architecture, not desert materials from image 3. Full compact citadel, all towers inside frame, hand-painted fantasy strategy art. The MAIN entrance is near the front center, visible and unobstructed, directed down toward the viewer and the approaching stairway. A small entrance stoop is okay, no long added staircase, no raised island plinth, no large courtyard ground patch. Single isolated citadel on a truly TRANSPARENT alpha background; no terrain, no sky, no brown gradient, no backdrop, no text or UI. Keep the corrected gateway easy to align with a stair landing in the game.",
+      "reference": "files/city/interiors/north/city-1.jpg",
+      "camera_reference": "files/city/interiors/elines/citadel.png"
+    },
+    {
+      "file": "files/city/interiors/elves/citadel.png",
+      "size": [
+        648,
+        648
+      ],
+      "sha256": "937f06bc8e7ce13e0cdb3197bfd05eaa58faa8fcac064b3469e8e74c9dd81e34",
+      "prompt": "Fantasy town game sprite, perspective correction. Image 1 is the edit target and faction identity. Image 2 is the panorama into which it must fit. Image 3, the desert Elines citadel, is the APPROVED CAMERA AND PERSPECTIVE BENCHMARK: copy its moderate elevated THREE-QUARTER camera precisely, its relationship of front facade to visible right-side walls, the amount of roof tops visible, and the believable upward recession of masonry into the scene. The previous edit became a flat FRONT ELEVATION: fix that. Render real architectural VOLUME like image 3. We should see front wall plus a modest right-hand side, with roofs and parapets seen from slightly above; vertical walls remain upright. Use the same moderately elevated camera as image 3, neither a frontal 2D facade nor a steep top-down isometric dollhouse. Use panorama image 2 for local daylight, paint detail and harmonious color. Elven living-tree fortress, ivory organic stone arches, emerald gables, foliage and purple wisteria. Preserve faction-specific architecture, not desert materials from image 3. Full compact citadel, all towers inside frame, hand-painted fantasy strategy art. The MAIN entrance is near the front center, visible and unobstructed, directed down toward the viewer and the approaching stairway. A small entrance stoop is okay, no long added staircase, no raised island plinth, no large courtyard ground patch. Single isolated citadel on a truly TRANSPARENT alpha background; no terrain, no sky, no brown gradient, no backdrop, no text or UI. Keep the corrected gateway easy to align with a stair landing in the game.",
+      "reference": "files/city/interiors/elves/city-1.jpg",
+      "camera_reference": "files/city/interiors/elines/citadel.png"
+    },
+    {
+      "file": "files/city/interiors/adepts/citadel.png",
+      "size": [
+        648,
+        455
+      ],
+      "sha256": "37071aab364bf85ebf4c2df4e17920822956ae9b4f937ecafa2199203ff5d047",
+      "prompt": "Fantasy town game sprite, perspective correction. Image 1 is the edit target and faction identity. Image 2 is the panorama into which it must fit. Image 3, the desert Elines citadel, is the APPROVED CAMERA AND PERSPECTIVE BENCHMARK: copy its moderate elevated THREE-QUARTER camera precisely, its relationship of front facade to visible right-side walls, the amount of roof tops visible, and the believable upward recession of masonry into the scene. The previous edit became a flat FRONT ELEVATION: fix that. Render real architectural VOLUME like image 3. We should see front wall plus a modest right-hand side, with roofs and parapets seen from slightly above; vertical walls remain upright. Use the same moderately elevated camera as image 3, neither a frontal 2D facade nor a steep top-down isometric dollhouse. Use panorama image 2 for local daylight, paint detail and harmonious color. Crusader abbey citadel, warm pale stone, bell tower, red cross banners and small greenery. Preserve faction-specific architecture, not desert materials from image 3. Full compact citadel, all towers inside frame, hand-painted fantasy strategy art. The MAIN entrance is near the front center, visible and unobstructed, directed down toward the viewer and the approaching stairway. A small entrance stoop is okay, no long added staircase, no raised island plinth, no large courtyard ground patch. Single isolated citadel on a truly TRANSPARENT alpha background; no terrain, no sky, no brown gradient, no backdrop, no text or UI. Keep the corrected gateway easy to align with a stair landing in the game.",
+      "reference": "files/city/interiors/adepts/city-1.jpg",
+      "camera_reference": "files/city/interiors/elines/citadel.png"
+    },
+    {
+      "file": "files/city/interiors/elines/citadel.png",
+      "size": [
+        520,
+        520
+      ],
+      "sha256": "8108a836528d6e56fee692be37fe612d4ae84be95a5152072f6263cceaa5e802",
+      "prompt": "Approved existing Elines citadel restored unchanged as the camera and architecture benchmark; no new generation.",
+      "reference": "files/city/interiors/elines/city-1.jpg"
+    },
+    {
+      "file": "files/city/interiors/undead/citadel.png",
+      "size": [
+        639,
+        648
+      ],
+      "sha256": "01fd6fd7b33fb680c1c2b7c1f11398bcab5aa32196f69815574eaba325fb9720",
+      "prompt": "Fantasy town game sprite, perspective correction. Image 1 is the edit target and faction identity. Image 2 is the panorama into which it must fit. Image 3, the desert Elines citadel, is the APPROVED CAMERA AND PERSPECTIVE BENCHMARK: copy its moderate elevated THREE-QUARTER camera precisely, its relationship of front facade to visible right-side walls, the amount of roof tops visible, and the believable upward recession of masonry into the scene. The previous edit became a flat FRONT ELEVATION: fix that. Render real architectural VOLUME like image 3. We should see front wall plus a modest right-hand side, with roofs and parapets seen from slightly above; vertical walls remain upright. Use the same moderately elevated camera as image 3, neither a frontal 2D facade nor a steep top-down isometric dollhouse. Use panorama image 2 for local daylight, paint detail and harmonious color. Necropolis citadel, blackened Gothic stone, skulls, bone buttresses and spectral green windows. Preserve faction-specific architecture, not desert materials from image 3. Full compact citadel, all towers inside frame, hand-painted fantasy strategy art. The MAIN entrance is near the front center, visible and unobstructed, directed down toward the viewer and the approaching stairway. A small entrance stoop is okay, no long added staircase, no raised island plinth, no large courtyard ground patch. Single isolated citadel on a truly TRANSPARENT alpha background; no terrain, no sky, no brown gradient, no backdrop, no text or UI. Keep the corrected gateway easy to align with a stair landing in the game.",
+      "reference": "files/city/interiors/undead/city-1.jpg",
+      "camera_reference": "files/city/interiors/elines/citadel.png"
+    },
+    {
+      "file": "files/city/interiors/rebels/citadel.png",
+      "size": [
+        637,
+        648
+      ],
+      "sha256": "18fac580206109ce03eba118d9ac85471c1f7ec784100cfed1a791145609bc16",
+      "prompt": "Fantasy town game sprite, perspective correction. Image 1 is the edit target and faction identity. Image 2 is the panorama into which it must fit. Image 3, the desert Elines citadel, is the APPROVED CAMERA AND PERSPECTIVE BENCHMARK: copy its moderate elevated THREE-QUARTER camera precisely, its relationship of front facade to visible right-side walls, the amount of roof tops visible, and the believable upward recession of masonry into the scene. The previous edit became a flat FRONT ELEVATION: fix that. Render real architectural VOLUME like image 3. We should see front wall plus a modest right-hand side, with roofs and parapets seen from slightly above; vertical walls remain upright. Use the same moderately elevated camera as image 3, neither a frontal 2D facade nor a steep top-down isometric dollhouse. Use panorama image 2 for local daylight, paint detail and harmonious color. Rugged rebel castle, rough weathered stone, timber reinforcements and red flags. Preserve faction-specific architecture, not desert materials from image 3. Full compact citadel, all towers inside frame, hand-painted fantasy strategy art. The MAIN entrance is near the front center, visible and unobstructed, directed down toward the viewer and the approaching stairway. A small entrance stoop is okay, no long added staircase, no raised island plinth, no large courtyard ground patch. Single isolated citadel on a truly TRANSPARENT alpha background; no terrain, no sky, no brown gradient, no backdrop, no text or UI. Keep the corrected gateway easy to align with a stair landing in the game.",
+      "reference": "files/city/interiors/rebels/city-1.jpg",
+      "camera_reference": "files/city/interiors/elines/citadel.png"
+    },
+    {
+      "file": "files/city/interiors/neutral/citadel.png",
+      "size": [
+        648,
+        433
+      ],
+      "sha256": "d24eecceafa106e625d16c5a0605df2a1a71b062a1f57a71ed40af7d6e26fe1b",
+      "prompt": "Fantasy town game sprite, perspective correction. Image 1 is the edit target and faction identity. Image 2 is the panorama into which it must fit. Image 3, the desert Elines citadel, is the APPROVED CAMERA AND PERSPECTIVE BENCHMARK: copy its moderate elevated THREE-QUARTER camera precisely, its relationship of front facade to visible right-side walls, the amount of roof tops visible, and the believable upward recession of masonry into the scene. The previous edit became a flat FRONT ELEVATION: fix that. Render real architectural VOLUME like image 3. We should see front wall plus a modest right-hand side, with roofs and parapets seen from slightly above; vertical walls remain upright. Use the same moderately elevated camera as image 3, neither a frontal 2D facade nor a steep top-down isometric dollhouse. Use panorama image 2 for local daylight, paint detail and harmonious color. Classical medieval grey-stone keep, blue-grey roofs and modest grey banners. Preserve faction-specific architecture, not desert materials from image 3. Full compact citadel, all towers inside frame, hand-painted fantasy strategy art. The MAIN entrance is near the front center, visible and unobstructed, directed down toward the viewer and the approaching stairway. A small entrance stoop is okay, no long added staircase, no raised island plinth, no large courtyard ground patch. Single isolated citadel on a truly TRANSPARENT alpha background; no terrain, no sky, no brown gradient, no backdrop, no text or UI. Keep the corrected gateway easy to align with a stair landing in the game.",
+      "reference": "files/city/interiors/neutral/city-1.jpg",
+      "camera_reference": "files/city/interiors/elines/citadel.png"
     }
   ]
 }

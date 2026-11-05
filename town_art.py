@@ -8,8 +8,49 @@ THEMES={'Север':'north','Эльфы':'elves','Вампиры':'vampires','�
         'Элины':'elines','Нежить':'undead','Мятежники':'rebels','Нейтрал':'neutral'}
 VARIANTS=3
 # Ground anchors and widths in panorama coordinates. Sprite bases sit on the ground.
-LOTS={'Больница':(.20,.42,.19),'Фабрика':(.77,.42,.20),'Стена':(.50,.60,.31),
-      'Рынок':(.52,.23,.24),'Кузница':(.22,.17,.20),'Цитадель':(.84,.60,.22)}
+LOTS={'Больница':(.20,.38,.19),'Фабрика':(.77,.38,.20),'Стена':(.84,.56,.31),
+      'Рынок':(.52,.19,.24),'Кузница':(.22,.13,.20),'Цитадель':(.52,.50,.22)}
+
+# Top stair landing in each 1536×864 panorama (left/top image coordinates).
+# Forest and necropolis approaches are asymmetric and vary between panoramas.
+CITADEL_STAIRS={
+    'north':((805,390),(768,397),(785,383)),
+    'elves':((581,310),(612,352),(626,363)),
+    'vampires':((786,390),(787,392),(800,393)),
+    'adepts':((779,386),(768,396),(793,385)),
+    'elines':((791,387),(786,365),(794,387)),
+    'undead':((842,365),(688,380),(818,372)),
+    'rebels':((803,377),(790,391),(802,378)),
+    'neutral':((783,385),(770,392),(783,387)),
+}
+
+# Ground contact of each entry path, in bottom-origin sprite UV coordinates.
+# The moderate three-quarter camera follows the approved Elines artwork.
+CITADEL_DOORS={'north':(.41,.038),'elves':(.41,.035),'vampires':(.415,.048),
+    'adepts':(.48,.028),'elines':(.27,.170),'undead':(.40,.046),
+    'rebels':(.415,.053),'neutral':(.42,.043)}
+
+
+def citadel_stair(faction,city):
+    x,y=CITADEL_STAIRS[theme_key(faction)][city_variant(city)-1]
+    return x/1536,1-y/864
+
+
+def citadel_lot(faction,city,panorama_aspect,sprite_aspect):
+    """Place the doorway on the stair landing, including transparent margins."""
+    target_x,target_y=citadel_stair(faction,city)
+    door_x,door_y=CITADEL_DOORS[theme_key(faction)]
+    width=LOTS['Цитадель'][2]
+    height=width*panorama_aspect*sprite_aspect
+    if target_y+(1-door_y)*height>.98:
+        width*=(.98-target_y)/((1-door_y)*height)
+        height=width*panorama_aspect*sprite_aspect
+    return target_x+(.5-door_x)*width,target_y-door_y*height,width
+
+
+def building_mirrored(faction,building):
+    """Match the gate's visible side to the keep in the faction panorama."""
+    return building=='Стена' and theme_key(faction) in ('adepts','elines')
 
 
 def theme_key(faction):return THEMES.get(faction,'neutral')
