@@ -100,12 +100,17 @@ class MirrorSmallScreenTests(unittest.TestCase):
         for index,card in enumerate(journal.cards.pages):
             journal.cards.select(index);settle();self.readable(card)
 
-    def test_map_fills_window_and_zoomed_tap_drag_and_reset_keep_correct_city(self):
+    def test_map_fills_window_and_keeps_fixed_view_while_city_taps_work(self):
         m=self.owner.map
         self.assertGreater(m.height,self.owner.height*.90)
         self.assertGreater(m.width,self.owner.width*.95)
-        self.owner.zoom_plus.dispatch('on_release');settle()
+        self.assertFalse(hasattr(self.owner,'zoom_controls'))
         m.set_zoom(1.5);m.camera.move(35,20);m.redraw_camera();settle()
+        self.assertEqual(m.camera.zoom,1);self.assertEqual(m.camera.pan,(0,0))
+        wheel=SimpleNamespace(pos=m.center,x=m.center_x,y=m.center_y,
+                              is_mouse_scrolling=True,button='scrollup')
+        m.on_touch_down(wheel)
+        self.assertEqual(m.camera.zoom,1)
         for x,y,_,city in m.hits:
             self.assertEqual((x,y),m.point(city['x'],city['y']))
         x,y,_,city=m.hits[5]
@@ -121,8 +126,15 @@ class MirrorSmallScreenTests(unittest.TestCase):
             touch.pos=(touch.x+25,touch.y+18)
             m.on_touch_move(touch);m.on_touch_up(touch)
             popup.assert_not_called()
-        self.assertNotEqual(m.camera.pan[0],before[0]);self.assertNotEqual(m.camera.pan[1],before[1])
-        self.owner.zoom_label.dispatch('on_release')
+        self.assertEqual(m.camera.pan,before)
+        fingers=[SimpleNamespace(uid=str(i),pos=(m.center_x+i*30,m.center_y),
+                                 x=m.center_x+i*30,y=m.center_y,grab=Mock(),ungrab=Mock()) for i in (1,2)]
+        for finger in fingers:m.on_touch_down(finger)
+        fingers[0].pos=(m.center_x-60,m.center_y)
+        m.on_touch_move(fingers[0])
+        with patch('otherworld_ui.ForeignCityPopup') as popup:
+            for finger in fingers:m.on_touch_up(finger)
+            popup.assert_not_called()
         self.assertEqual(m.camera.zoom,1);self.assertEqual(m.camera.pan,(0,0))
         for widget in (self.owner.header,self.owner.action_bar):self.inside(widget,self.owner.stage)
 

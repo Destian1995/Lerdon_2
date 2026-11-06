@@ -6,6 +6,8 @@ from unittest.mock import Mock
 from test_rebel_campaign import extracted_class
 from test_otherworlds import fixture
 from ai_strategy import apply_ai_improvements
+from undead_economy import initialize_resources
+from city_construction import CATALOG,building_counts
 
 
 class UndeadEconomyTests(unittest.TestCase):
@@ -27,17 +29,18 @@ class UndeadEconomyTests(unittest.TestCase):
         self.ai._undead_attack_nearest_cities=Mock()
 
     def test_active_turn_builds_pays_for_recruits_and_keeps_invasion_state(self):
+        self.ai.generate_raw_material_price=lambda:setattr(self.ai,'raw_material_price',200)
         before=list(self.db.execute('SELECT * FROM undead_invasion'))
         player=sorted(self.db.execute("SELECT * FROM resources WHERE faction='Север'"))
         with redirect_stdout(io.StringIO()):self.ai.make_turn()
         self.assertEqual(self.ai.turn,1)
         self.assertEqual(dict(self.db.execute("SELECT building_type,count FROM buildings WHERE faction='Нежить'")),
-                         {'Больница':1,'Фабрика':1})
+                         dict.fromkeys(CATALOG,1))
         count=self.db.execute("SELECT unit_count FROM garrisons WHERE unit_name='Ghost'").fetchone()[0]
         self.assertGreater(count,10)
         resources=dict(self.db.execute("SELECT resource_type,amount FROM resources WHERE faction='Нежить'"))
         self.assertLess(resources['Рабочие'],420)
-        self.assertGreater(resources['Население'],5000)
+        self.assertGreater(resources['Население'],200)
         self.assertEqual(player,sorted(self.db.execute("SELECT * FROM resources WHERE faction='Север'")))
         self.assertEqual(before,list(self.db.execute('SELECT * FROM undead_invasion')))
         self.ai._undead_attack_nearest_cities.assert_called_once()
@@ -49,7 +52,7 @@ class UndeadEconomyTests(unittest.TestCase):
         self.ai.sell_resources=lambda:None
         with redirect_stdout(io.StringIO()):self.ai.make_turn()
         self.assertEqual(self.ai.turn,1)
-        # It earns actual taxes, rather than receiving the 5000 starting crowns again.
+        # It earns actual taxes, rather than receiving starting crowns again.
         amount=self.db.execute("SELECT amount FROM resources WHERE faction='Нежить' AND resource_type='Кроны'").fetchone()[0]
         self.assertLess(amount,5000)
         self.assertEqual(self.db.execute("SELECT faction FROM buildings WHERE building_type='Больница'").fetchone()[0],'Нежить')
@@ -59,3 +62,33 @@ class UndeadEconomyTests(unittest.TestCase):
         with redirect_stdout(io.StringIO()):self.ai.make_turn()
         self.assertEqual(self.ai.turn,1)
         self.assertGreater(self.db.execute("SELECT unit_count FROM garrisons WHERE unit_name='Ghost'").fetchone()[0],100000)
+
+    def test_starting_resources_are_1000_crowns_and_200_population_once(self):
+        initialize_resources(self.db)
+        balances=dict(self.db.execute("SELECT resource_type,amount FROM resources WHERE faction='Нежить'"))
+        self.assertEqual(balances['Кроны'],1000)
+        self.assertEqual(balances['Население'],200)
+        self.db.execute("UPDATE resources SET amount=0 WHERE faction='Нежить'")
+        initialize_resources(self.db)
+        self.assertTrue(all(amount==0 for amount, in self.db.execute("SELECT amount FROM resources WHERE faction='Нежить'")))
+
+    def test_all_owned_towns_finish_all_six_buildings_while_hiring_spends_its_budget(self):
+        self.db.execute("UPDATE cities SET faction='Нежить' WHERE name='Safe'")
+        initialize_resources(self.db)
+        hired=[]
+        def income():
+            self.ai.resources['Кроны']+=15000
+            self.ai.save_resources_to_db()
+        def hire():
+            hired.append(self.ai.resources['Кроны'])
+            self.ai.resources['Кроны']=0
+        self.ai.update_resources=income
+        self.ai.sell_resources=lambda:None
+        self.ai.hire_army=hire
+        with redirect_stdout(io.StringIO()):
+            for _ in range(40):self.ai.make_turn()
+        for city in ('Home','Safe'):
+            self.assertEqual(building_counts(self.db,city,'Нежить'),dict.fromkeys(CATALOG,1))
+        self.assertTrue(any(amount>0 for amount in hired))
+        cash=self.db.execute("SELECT amount FROM resources WHERE faction='Нежить' AND resource_type='Кроны'").fetchone()[0]
+        self.assertEqual(1000+40*15000,2*sum(info['cost'] for info in CATALOG.values())+sum(hired)+cash)

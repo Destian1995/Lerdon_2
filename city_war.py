@@ -1,6 +1,7 @@
 """Persistent city battle damage. No Kivy imports; shared by player and AI."""
 import math
 import sqlite3
+import random
 from dataclasses import dataclass
 
 DEVASTATION_STRENGTH = 20_000_000
@@ -85,7 +86,15 @@ def record_capture(conn, city, owner, kind='peace'):
         owner=excluded.owner''', (city, kind, turn, owner))
 
 
-def record_battle(conn, city, attacker_strength, defender_strength, old_owner):
+def damage_defended_city(conn,city):
+    """One post-battle loss of 3–4 distinct existing building types."""
+    existing=[kind for kind, in conn.execute('SELECT DISTINCT building_type FROM buildings WHERE city_name=? AND count>0 ORDER BY building_type',(city,)) if kind in CATALOG]
+    destroyed=random.sample(existing,min(len(existing),random.randint(3,4)))
+    conn.executemany('DELETE FROM buildings WHERE city_name=? AND building_type=?',[(city,kind) for kind in destroyed])
+    return destroyed
+
+
+def record_battle(conn, city, attacker_strength, defender_strength, old_owner,defended=False):
     ensure_city_war_schema(conn)
     row = conn.execute('SELECT faction FROM cities WHERE name=?', (city,)).fetchone()
     if row is None:
@@ -93,7 +102,9 @@ def record_battle(conn, city, attacker_strength, defender_strength, old_owner):
     owner = row[0] or 'Нейтрал'
     turn = current_turn(conn)
     ruined = attacker_strength >= DEVASTATION_STRENGTH and defender_strength >= DEVASTATION_STRENGTH
-    if ruined:
+    if defended and owner==old_owner:
+        damage_defended_city(conn,city)
+    elif ruined:
         # A city can be devastated even when the defending army holds it.
         conn.execute('DELETE FROM buildings WHERE city_name=?', (city,))
     kind = 'battle_capture' if owner != old_owner else 'battle'

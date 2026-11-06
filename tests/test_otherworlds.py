@@ -48,6 +48,43 @@ class PortalTests(unittest.TestCase):
     def enter(self):
         return w.enter(self.db,'Север','Home')
 
+    def test_departure_leaves_class_four_at_home_with_original_state(self):
+        self.db.execute("INSERT INTO units SELECT 90,faction,'Legend',cost_money,cost_time,image_path,attack,defense,durability,'4',consumption,unit_type FROM units WHERE unit_name='Hero'")
+        self.db.execute("INSERT INTO garrisons VALUES('Home','Legend',1,'legend.png',7)")
+        self.db.execute("UPDATE units SET unit_class='2 Герой' WHERE unit_name='Hero'")
+        before=self.db.execute("SELECT * FROM garrisons WHERE unit_name='Legend'").fetchone()
+        party=self.enter()
+        self.assertEqual(self.db.execute("SELECT * FROM garrisons WHERE unit_name='Legend'").fetchone(),before)
+        self.assertEqual({row[0] for row in w._camp_units(self.db,party['camp'])},{'Hero','troop1'})
+        self.assertEqual(self.db.execute("SELECT moves_left FROM turn_check_move WHERE faction='Север'").fetchone()[0],19)
+        w.return_home(self.db,'Север')
+        self.assertEqual(self.db.execute("SELECT * FROM garrisons WHERE unit_name='Legend'").fetchone(),before)
+
+    def test_class_four_does_not_qualify_as_expedition_hero_or_spend_action(self):
+        self.db.execute("UPDATE units SET unit_class='4' WHERE unit_name='Hero'")
+        before=list(self.db.execute('SELECT * FROM garrisons'))
+        with self.assertRaisesRegex(ValueError,'2–3'):self.enter()
+        self.assertIsNone(w.party(self.db,'Север'))
+        self.assertEqual(list(self.db.execute('SELECT * FROM garrisons')),before)
+        self.assertEqual(self.db.execute("SELECT moves_left FROM turn_check_move WHERE faction='Север'").fetchone()[0],20)
+
+    def test_battle_uses_present_hero_portrait_without_adding_hero_to_fighting_stacks(self):
+        self.db.execute("UPDATE units SET image_path='files/army/people/vlad.jpg' WHERE unit_name='Hero'")
+        self.db.execute("UPDATE garrisons SET unit_image='' WHERE unit_name='Hero'")
+        self.enter()
+        def lose(unit,guard,*args,**kwargs):unit['unit_count']=0
+        result=w.fight_guards(self.db,'Север',skirmish=lose)
+        self.assertEqual(result['attacker_image'],'files/army/people/vlad.jpg')
+        self.assertEqual([unit['unit_name'] for unit in result['army']],['troop1'])
+        self.assertFalse(result['won'])
+
+    def test_hero_in_another_mirror_city_is_not_used_for_battle_portrait(self):
+        p=self.enter()
+        self.db.execute("UPDATE garrisons SET city_name='@portal-city:Север:2' WHERE unit_name='Hero'")
+        def win(unit,guard,*args,**kwargs):guard['unit_count']=0
+        result=w.fight_guards(self.db,'Север',skirmish=win)
+        self.assertEqual(result['attacker_image'],'files/status/army.png')
+
     def test_world_is_persistent_connected_and_has_no_capturable_cities(self):
         before=w.cities(self.db)
         self.assertEqual(w.create_world(self.db,random.Random(9))['id'],1)

@@ -53,6 +53,25 @@ class OtherworldUITests(unittest.TestCase):
         overview.dismiss(animation=False)
         self.assertIsNone(overview.map.effects._event)
 
+    def test_battle_window_receives_hero_portrait_and_keeps_guard_portrait(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch,Mock
+        import sys
+        import otherworlds
+        overview=OtherworldMap(self.db,'Север');overview.open(animation=False);settle()
+        city=ForeignCityPopup(overview,otherworlds.cities(self.db,'Север')[0])
+        result=dict(won=True,coins=100,city=city.city['name'],army=[],
+                    guards=[dict(unit_image='files/army/people/predator.jpg')],
+                    rounds=[],attacker_image='files/army/people/vlad.jpg')
+        with patch.dict(sys.modules,{'fight':SimpleNamespace(generate_battle_report=Mock())}), \
+             patch('otherworld_ui.worlds.fight_guards',return_value=result), \
+             patch('otherworld_ui._refresh_main'), \
+             patch('battle_ui.BattleViewer.open',autospec=True) as opened:
+            city.battle()
+            view=opened.call_args.args[0]
+            self.assertEqual(view.attacker_panel.image.source,result['attacker_image'])
+            self.assertEqual(view.defender_panel.image.source,result['guards'][0]['unit_image'])
+
     def test_faction_weather_uses_mountains_and_follows_map_projection(self):
         from types import SimpleNamespace
         from otherworld_effects import MirrorEffects,mountain_anchors

@@ -514,6 +514,9 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     # Обогащение из БД
     _enrich_with_db_stats(atk_army, conn)
     _enrich_with_db_stats(def_army, conn)
+    from battle_presentation import pick_battle_image
+    battle_attacker_image=pick_battle_image(atk_army,attacking_fraction)
+    battle_defender_image=pick_battle_image(def_army,defending_fraction)
     # Snapshot only the armies participating in this battle, before losses/buffs.
     from city_war import army_strength as city_battle_strength
     initial_attacker_strength = city_battle_strength(atk_army)
@@ -847,12 +850,12 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                 battle_chain(unit, target, defending_city, user_faction, conn,
                              atk_hero_bonus=atk_hero_bonus, def_hero_bonus=def_hero_bonus,
                              atk_fraction=attacking_fraction, def_fraction=defending_fraction,
-                             event_log=critical_events)
+                             event_log=critical_events,damage_infrastructure=False)
             else:
                 battle_chain(unit, target, defending_city, user_faction, conn,
                              atk_hero_bonus=def_hero_bonus, def_hero_bonus=atk_hero_bonus,
                              atk_fraction=defending_fraction, def_fraction=attacking_fraction,
-                             event_log=critical_events)
+                             event_log=critical_events,damage_infrastructure=False)
             for own_critical, enemy_critical in critical_events:
                 round_criticals[side] += int(own_critical)
                 round_criticals['D' if side == 'A' else 'A'] += int(enemy_critical)
@@ -1066,7 +1069,7 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     try:
         from city_war import record_battle
         record_battle(conn, defending_city, initial_attacker_strength,
-                      initial_defender_strength, defending_fraction)
+                      initial_defender_strength, defending_fraction,defended=winner=='defender')
         conn.commit()
     except Exception as e:
         print(f"[SMOKE] Ошибка записи: {e}")
@@ -1104,39 +1107,8 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             _conn = conn
             _bonus_msgs = list(_faction_bonus_messages)
 
-            # Картинки по приоритету:
-            # Нежить → всегда изображение нежити
-            # Иначе: класс 3 > класс 2 > класс 4 > класс 1
-            _UNDEAD_IMG = {
-                'files/army/death/king_.png',
-                'files/army/death/solder.png',
-                'files/army/death/zombie.png',
-                'files/army/death/death.png',
-                'files/army/death/banshi.png',
-            }
-
-            def _pick_battle_img(army, fraction):
-                if fraction == 'Нежить':
-                    # Ищем картинку любого юнита нежити, предпочтительно king_
-                    for u in army:
-                        img = u.get('unit_image', '')
-                        if img in _UNDEAD_IMG:
-                            return img
-                    return 'files/army/death/king_.png'
-                # Приоритет: 3 > 2 > 4 > 1
-                by_class = {}
-                for u in army:
-                    uc = get_unit_class(u)
-                    img = u.get('unit_image', '')
-                    if img and uc not in by_class:
-                        by_class[uc] = img
-                for priority in (3, 2, 4, 1):
-                    if priority in by_class:
-                        return by_class[priority]
-                return None
-
-            _atk_hero_img = _pick_battle_img(atk_army, _attacking_fraction)
-            _def_hero_img = _pick_battle_img(def_army, _defending_fraction)
+            _atk_hero_img = battle_attacker_image
+            _def_hero_img = battle_defender_image
 
             def _show_battle_on_main_thread(dt):
                 try:

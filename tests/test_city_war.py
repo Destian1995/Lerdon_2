@@ -34,6 +34,28 @@ class CityWarFixture(unittest.TestCase):
 
 
 class CityWarRulesTests(CityWarFixture):
+    def test_successful_defense_loses_three_or_four_of_any_building_types_once(self):
+        from city_construction import CATALOG
+        from unittest.mock import patch
+        self.db.execute('DELETE FROM buildings')
+        self.db.executemany('INSERT INTO buildings VALUES(?,?,?,1)',[('Town','Север',kind) for kind in CATALOG])
+        self.db.execute("INSERT INTO buildings VALUES('Other','Север','Фабрика',1)")
+        for amount in (3,4):
+            self.db.execute('SAVEPOINT defense')
+            selected=['Стена','Кузница','Цитадель','Рынок'][:amount]
+            with patch('city_war.random.randint',return_value=amount),patch('city_war.random.sample',return_value=selected) as sample:
+                record_battle(self.db,'Town',30_000_000,30_000_000,'Север',defended=True)
+                self.assertEqual(set(sample.call_args.args[0]),set(CATALOG))
+            remaining=dict(self.db.execute("SELECT building_type,count FROM buildings WHERE city_name='Town'"))
+            self.assertEqual(set(remaining),set(CATALOG)-set(selected))
+            self.assertEqual(self.db.execute("SELECT count FROM buildings WHERE city_name='Other'").fetchone()[0],1)
+            self.db.execute('ROLLBACK TO defense');self.db.execute('RELEASE defense')
+
+    def test_defense_of_partially_built_town_only_removes_existing_buildings(self):
+        record_battle(self.db,'Town',10,10,'Север',defended=True)
+        self.assertEqual(self.db.execute('SELECT COUNT(*) FROM buildings').fetchone()[0],0)
+        self.assertEqual(self.db.execute("SELECT faction FROM cities WHERE name='Town'").fetchone()[0],'Север')
+
     def test_both_armies_must_reach_threshold_inclusive(self):
         record_battle(self.db, 'Town', 20_000_000, 19_999_999, 'Север')
         self.assertFalse(self.state().ruined)

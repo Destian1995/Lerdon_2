@@ -115,6 +115,8 @@ class MapUITests(unittest.TestCase):
         with patch.object(self.owner,'play_beam') as animate:
             popup=send_from_map(self.owner,1,self.target);settle()
             self.assertEqual(len(popup.unit_buttons),2)
+            self.assertEqual(popup.unit_buttons['Hero'].text,'Hero')
+            self.assertIn('1',popup.unit_buttons['troop1'].text)
             self.assertTrue(popup.send.disabled)
             popup.unit_buttons['troop1'].dispatch('on_release')
             popup.send.dispatch('on_release');settle()
@@ -123,6 +125,7 @@ class MapUITests(unittest.TestCase):
             city=ForeignCityPopup(self.owner,w.cities(self.db,'Север')[0])
             self.assertEqual(len(city.army_box.rows.children),1)
             self.assertEqual(city.army_box.rows.children[0].name,'Hero')
+            self.assertEqual(city.army_box.rows.children[0].title.text,'Hero')
             send_from_map(self.owner,1,self.target)
             self.assertEqual(animate.call_count,2)
 

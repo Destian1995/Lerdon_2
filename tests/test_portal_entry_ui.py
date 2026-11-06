@@ -71,5 +71,12 @@ class PortalEntryUITests(unittest.TestCase):
             self.source.dismiss.assert_called_once_with()
             overview.return_value.open.assert_called_once_with()
 
+    def test_class_four_alone_cannot_enable_departure(self):
+        self.db.execute("UPDATE units SET unit_class='4' WHERE unit_name='Hero'")
+        popup=PortalEntryPopup(self.source)
+        self.assertTrue(popup.enter_button.disabled)
+        self.assertIn('2–3',popup.readiness.text)
+        self.assertIn('4 класса',popup.rules[0].description.text)
+
 
 if __name__=='__main__':unittest.main()

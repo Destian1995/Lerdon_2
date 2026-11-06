@@ -53,7 +53,7 @@ class MirrorTurnProgressTests(unittest.TestCase):
         self.assertIn('Вампиры',indicator.label.text)
         self.screen._turn_overlay=None;self.popup.map.effects.update(.1)
         self.assertEqual(indicator.opacity,0)
-        self.assertEqual(self.popup.zoom_controls.opacity,1)
+        self.assertFalse(hasattr(self.popup,'zoom_controls'))
         self.assertFalse(self.popup.next_turn_button.disabled)
         self.assertFalse(self.popup.quest_button.disabled)
 

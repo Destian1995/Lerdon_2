@@ -121,6 +121,7 @@ class WorldMapCanvas(StencilView):
         self.hits=[]
         from map_camera import MapCamera
         self.camera=MapCamera(self.size,(0,0,*self.size))
+        self.camera.minimum=self.camera.maximum=1.0
         self.touches={}
         from city_army_drag import CityArmyDrag
         self.army_drag=CityArmyDrag(self,self.city_at,self.army_at,self.send_army,
@@ -222,7 +223,7 @@ class WorldMapCanvas(StencilView):
     def on_touch_down(self,touch):
         # HUD surfaces must not start a map drag or open a city underneath.
         if any(widget.collide_point(*touch.pos) for name in
-               ('header','resource_panel','status','action_bar','zoom_controls')
+               ('header','resource_panel','status','action_bar')
                if (widget:=getattr(self.owner,name,None)) is not None):
             return False
         if not self.collide_point(*touch.pos):
@@ -230,7 +231,6 @@ class WorldMapCanvas(StencilView):
         if _busy(self.owner.conn):
             return True
         if getattr(touch,'is_mouse_scrolling',False):
-            self.change_zoom(.1 if touch.button=='scrollup' else -.1,(touch.x-self.x,touch.y-self.y))
             return True
         self.touches[touch.uid]={'touch':touch,'origin':touch.pos,'moved':False}
         touch.grab(self)
@@ -249,12 +249,10 @@ class WorldMapCanvas(StencilView):
             if self.army_drag.active:item['moved']=True
             return True
         if len(self.touches)>1:
-            other=next(v['touch'] for k,v in self.touches.items() if k!=touch.uid)
-            old=math.dist(touch.ppos,other.pos);new=math.dist(touch.pos,other.pos)
-            if old>1:self.set_zoom(self.camera.zoom*new/old,((touch.x+other.x)/2-self.x,(touch.y+other.y)/2-self.y))
+            self.army_drag.cancel()
+            for active in self.touches.values():active['moved']=True
         elif math.dist(item['origin'],touch.pos)>7:
             item['moved']=True
-            self.camera.move(touch.dx,touch.dy);self.redraw_camera()
         return True
 
     def on_touch_up(self,touch):
@@ -299,7 +297,6 @@ class WorldMapCanvas(StencilView):
     def redraw_camera(self):
         self.draw()
         if hasattr(self,'effects'):self.effects.update(0)
-        self.owner.zoom_label.text=f'×{self.camera.zoom:.1f}'
 
 
 class OtherworldMap(WorldPopup):
@@ -351,13 +348,6 @@ class OtherworldMap(WorldPopup):
         bar.add_widget(self.next_turn_button)
         bar.add_widget(_button('Основная карта',self.dismiss))
         self.stage.add_widget(bar)
-        self.zoom_controls=surface(BoxLayout(size_hint=(None,None),spacing=4,padding=4),accent=self.accent)
-        self.zoom_label=_button('×1.0',lambda *_:self.map.set_zoom(1),accent=self.accent)
-        self.zoom_minus=_button('−',lambda *_:self.map.change_zoom(-.1),accent=self.accent)
-        self.zoom_plus=_button('+',lambda *_:self.map.change_zoom(.1),accent=self.accent)
-        for button in (self.zoom_minus,self.zoom_label,self.zoom_plus):self.zoom_controls.add_widget(button)
-        self.stage.add_widget(self.zoom_controls)
-        compact_frame(self.zoom_controls)
         from mirror_turn_ui import MirrorTurnProgress
         self.turn_progress=MirrorTurnProgress(self.accent,size_hint=(None,None),opacity=0)
         self.stage.add_widget(self.turn_progress)
@@ -378,7 +368,7 @@ class OtherworldMap(WorldPopup):
         if hasattr(self,'_layout_event'):self._layout_event()
 
     def layout_content(self):
-        if not hasattr(self,'zoom_controls'):return
+        if not hasattr(self,'turn_progress'):return
         self.root.padding=dp(3);self.root.spacing=0
         x,y=self.stage.pos;w,h=self.stage.size
         portrait=w<h
@@ -408,10 +398,6 @@ class OtherworldMap(WorldPopup):
         self.action_bar.pos=(x+margin,y+margin);self.action_bar.spacing=dp(6)
         self.return_button.text='Портал'
         for button in self.action_bar.children:button.font_size=sp(15)
-        self.zoom_controls.size=(dp(148),dp(44))
-        self.zoom_controls.pos=(x+w-dp(148)-margin,
-                                self.resource_panel.y-dp(50) if portrait else self.header.y-dp(48))
-        for button in self.zoom_controls.children:button.font_size=sp(17)
         self.message.pos=(x+margin,self.action_bar.top+dp(4))
         self.message.size=(w-2*margin,dp(28));self.message.maximum=sp(13);self.message.minimum=sp(13)
         self.turn_progress.pos=(x+margin,self.action_bar.top+dp(4))
@@ -424,8 +410,6 @@ class OtherworldMap(WorldPopup):
         was_active=self._turn_progress_active
         self._turn_progress_active=active
         self.turn_progress.opacity=1 if active else 0
-        self.zoom_controls.opacity=0 if active else 1
-        self.zoom_controls.disabled=active
         self.message.opacity=0 if active else 1
         if active:
             progress=getattr(overlay,'_bar_progress',0) if overlay else 0
@@ -775,4 +759,5 @@ class ForeignCityPopup(WorldPopup):
             BattleReport(rows,faction,faction,defending,rounds=result['rounds']).open()
         ForeignBattle(result['rounds'],faction,defending,'attacker' if result['won'] else 'defender',
                       faction,'Экспедиция',result['city'],callback=report,
+                      attacker_image=result.get('attacker_image'),
                       defender_image=result['guards'][0]['unit_image']).open()

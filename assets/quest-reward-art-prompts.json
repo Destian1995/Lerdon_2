@@ -1,0 +1,110 @@
+{
+  "generator": "built-in image_gen",
+  "assets": [
+    {
+      "file": "files/otherworld/rewards/north/war-weapon.png",
+      "faction": "north",
+      "reward": 102,
+      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Sword of Aldar, Nordic straight broad longsword, ice-blue runes shaped as abstract carvings, carved golden raven crossguard, weathered silver blade with blue crystalline fuller, dark blue leather grip. Diagonal blade lower-left to upper-right. Strong blue and warm gold palette, unmistakably a sword.",
+      "sha256": "3fc0507c182e697d8696bff3ed8866eb31d23f53e41873f58bf902a265411a82"
+    },
+    {
+      "file": "files/otherworld/rewards/adepts/war-weapon.png",
+      "faction": "adepts",
+      "reward": 102,
+      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Crossbow of Gwindenzet, ornate crusader abbey heavy crossbow, carved warm walnut stock, bronze-gold arms with small amber gems, steel bowstring and loaded bolt, abstract radiant church tracery engraved on stock. Three-quarter view diagonally across square, clearly recognizable complete crossbow. Amber, pale steel and dark wood.",
+      "sha256": "3b0dd2019536001c264c0d99d7430e5c1a3c04c97e97ee1ad4c282e99634b5a3"
+    },
+    {
+      "file": "files/otherworld/rewards/elines/war-weapon.png",
+      "faction": "elines",
+      "reward": 102,
+      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Staff of Migion, slender desert sun mage staff in antique gold, dark polished wood shaft, circular sun-disc head holding a large turquoise gemstone, tiny lapis inlays and ivory details. Whole staff diagonally across square. Elegant ancient desert kingdom styling, unmistakably a magic staff, not a spear or sword.",
+      "sha256": "afac4972b236acaa8bfdb293e252b5c2f6459f34dd4505fa6da2724331c323c4"
+    },
+    {
+      "file": "files/otherworld/rewards/vampires/war-weapon.png",
+      "faction": "vampires",
+      "reward": 102,
+      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Blade of Argan, elegant long slightly curved vampiric sword, dark obsidian steel blade, polished silver bat-wing crossguard, deep crimson ruby at hilt, subtle wine-red magical edge, black leather grip. Entire blade diagonally across square. Gothic aristocratic craftsmanship, unmistakably an ornate dark sword.",
+      "sha256": "9f401ed847a1ce023e12d344788b773fb2ea8d0d570cb9c8b31fec8285fd08d2"
+    },
+    {
+      "file": "files/otherworld/rewards/elves/war-weapon.png",
+      "faction": "elves",
+      "reward": 102,
+      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Bow of Zorin, elegant complete elven longbow, pale living wood limbs intertwined with gold vine filigree, emerald stones, taut silver string, a single luminous pale arrow resting across bow. Complete graceful curved silhouette on diagonal, readable as a bow rather than sword. Sunlit green and white-gold woodland craftsmanship.",
+      "sha256": "1ce130e77159d685ffcfcb2c3e57beaec7443a086a078756487acc725e8fb23e"
+    },
+    {
+      "file": "files/otherworld/rewards/north/truth-crown.png",
+      "faction": "north",
+      "reward": 101,
+      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Crown of Truth of the frozen north, ONE complete wearable Nordic royal circlet, silver and antique gold carved raven motifs, low angular ice-crystal points and three luminous blue sapphires, dark blue enamel, tiny knotwork. Three-quarter front view, bold clear crown silhouette. No head, no pedestal.",
+      "sha256": "c5e5f3e5f2fe6a85f0ff6909335eaa30e18216273eaf22bbc1638868bdb26745"
+    },
+    {
+      "file": "files/otherworld/rewards/elines/truth-crown.png",
+      "faction": "elines",
+      "reward": 101,
+      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Crown of Truth of the desert sun kingdom: one low ancient gold circlet with a central radiant sun-disc, turquoise and lapis gems, delicate ivory details and warm hammered gold rays, aristocratic desert castle craftsmanship. Three-quarter front view, complete wearable crown with clear broad silhouette, no head or pedestal.",
+      "sha256": "f5e1e8a130a7ed86e2e361f9948135a7376a0871c97c3e7743e684d55af32ce0"
+    },
+    {
+      "file": "files/otherworld/rewards/adepts/truth-crown.png",
+      "faction": "adepts",
+      "reward": 101,
+      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Crown of Truth of the crusader abbey order: one dignified circlet in bronze and pale gold, amber gemstones, Gothic pointed-arch tracery and a small central radiant cross finial, autumn copper-red enamel accents. Three-quarter front view, compact complete wearable crown, no head or pedestal.",
+      "sha256": "244f4728e473426333cefad7d8f1d90fe8b900ebf23e945ed34648e433f3e3be"
+    },
+    {
+      "file": "files/otherworld/rewards/vampires/truth-crown.png",
+      "faction": "vampires",
+      "reward": 101,
+      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Crown of Truth of the blood moon: one Gothic royal circlet, blackened silver filigree shaped as slender bat wings, sharp elegant dark metal peaks, three deep garnet ruby drops, restrained crimson inner magic. Three-quarter front view, complete wearable crown, no head, no pedestal, luxurious dark aristocratic style.",
+      "sha256": "22a891ae9d34a29f4feb7d2ccf45879ce3b558bf10d1c0f0fb0829518aa47ffb"
+    },
+    {
+      "file": "files/otherworld/rewards/elves/truth-crown.png",
+      "faction": "elves",
+      "reward": 101,
+      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Crown of Truth of the woodland elves: one delicate royal circlet made of flowing white gold branches, small emerald leaves and dewlike pale crystal drops, central luminous emerald with elegant leaf-shaped gold points. Three-quarter front view, complete wearable crown, bold recognizable crown silhouette, no head or pedestal.",
+      "sha256": "389eb02097092f8c55bd6e9722da130e53a78742d7b664a66ef8bc7d3b0d6c5a"
+    },
+    {
+      "file": "files/otherworld/rewards/north/mirror-heart.png",
+      "faction": "north",
+      "reward": 103,
+      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Heart of the Mirror Realm of the frozen north: ONE legendary pendant relic, a large faceted icy sapphire heart-crystal held in a compact silver and gold raven-wing cage with subtle knotwork, a fractured mirror-like icy core with one bright blue inner star. A tiny pendant loop, no long chain. Symmetrical readable magical jewel, not an anatomical heart. Complete object.",
+      "sha256": "f8e543ff3adc76404f91a9b3959fa841642d794f8ed219d30d4c54ef90b9d24c"
+    },
+    {
+      "file": "files/otherworld/rewards/elines/mirror-heart.png",
+      "faction": "elines",
+      "reward": 103,
+      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Heart of the Mirror Realm of the desert sun kingdom: ONE legendary pendant relic, a large amber-gold faceted crystal heart holding a tiny turquoise sun, encircled by a compact antique golden solar frame with lapis gems and elegant ancient desert geometry. A tiny pendant loop, no long chain. Complete readable magical jewel, not an anatomical heart.",
+      "sha256": "5ad1b3bf22d27f7f278bf03a943515f301649bc705a1994bb022af3e9060cab1"
+    },
+    {
+      "file": "files/otherworld/rewards/adepts/mirror-heart.png",
+      "faction": "adepts",
+      "reward": 103,
+      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Heart of the Mirror Realm of the crusader abbey: ONE legendary pendant reliquary, a brilliant amber faceted crystal heart inside a compact pale-gold Gothic chapel tracery frame, a tiny radiant cross at top and copper autumn leaf flourishes, warm golden inner light. Tiny pendant loop, no long chain. Complete magical jewel, not anatomical.",
+      "sha256": "ede5f56c255d6c2662d7e996582c0843444a10e98cf14a672131d5c57059b1ee"
+    },
+    {
+      "file": "files/otherworld/rewards/vampires/mirror-heart.png",
+      "faction": "vampires",
+      "reward": 103,
+      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Heart of the Mirror Realm of the vampires: ONE legendary pendant relic, a deep ruby faceted crystal heart inside a compact blackened silver bat-wing frame, tiny garnet droplets and a polished obsidian crescent embracing it, restrained crimson glow inside gem. Tiny pendant loop, no long chain. Aristocratic Gothic magical jewel, not anatomical, no gore.",
+      "sha256": "8e3db3330e328fe01a60ea080ac18db685bfd7f54e19debe125b6af2ac335e75"
+    },
+    {
+      "file": "files/otherworld/rewards/elves/mirror-heart.png",
+      "faction": "elves",
+      "reward": 103,
+      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Heart of the Mirror Realm of the woodland elves: ONE legendary pendant relic, luminous emerald faceted crystal heart cupped by elegant white-gold living branches and tiny golden leaves, a pale teal star reflected inside the gem, a few restrained dew crystals. Tiny pendant loop, no long chain. Complete elegant organic magical jewel, not anatomical.\nFinal cleanup edit: Edit target: elven emerald heart pendant icon. Remove the ENTIRE white and gray haze and halo surrounding the pendant. Make ALL space outside the solid gold, silver, green gem and dew-drop silhouette fully transparent alpha zero. Preserve the exact heart pendant artwork, shape, gold branches, jewel colors, facets, tiny drops and loop. Keep inner reflections inside the gemstone only. No external glow, no mist, no backdrop, no background pixels. A crisp clean game inventory cutout, same complete centered object with margin, transparent background.",
+      "sha256": "c1169bd34b9518c791487afbbbd12eb83f6e20633f4bdf70f83087c81fe3787e"
+    }
+  ]
+}

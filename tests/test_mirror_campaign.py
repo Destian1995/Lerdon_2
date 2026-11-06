@@ -162,6 +162,33 @@ class MirrorCampaignTests(unittest.TestCase):
             self.assertEqual(offer['attack'],math.ceil(i*10*3.3))
             self.assertEqual(offer['defense'],math.ceil(i*20*3.3))
 
+    def test_detective_reward_is_65_percent_stronger_for_every_faction(self):
+        for faction in THEMES:
+            with self.subTest(faction=faction):
+                base=items.analogs(self.db)[1]
+                reward=items.reward(self.db,faction,101)
+                expected=((math.ceil(base['attack']*5)*165+99)//100,
+                          (math.ceil(base['defense']*5)*165+99)//100)
+                self.assertEqual((reward['attack'],reward['defense']),expected)
+                self.assertEqual(reward['duration'],25)
+                self.assertEqual(reward['artifact_type'],1)
+                self.assertEqual(items.reward(self.db,faction,101),reward)
+                for key,slot,factor in ((102,0,6.25),(103,4,6.5)):
+                    other=items.reward(self.db,faction,key);analog=items.analogs(self.db)[slot]
+                    self.assertEqual(other['attack'],math.ceil(analog['attack']*factor))
+                    self.assertEqual(other['defense'],math.ceil(analog['defense']*factor))
+
+    def test_war_reward_has_exact_faction_name_and_shared_strength(self):
+        names={'Север':'Меч Альдара','Элины':'Посох Мигиона','Адепты':'Арбалет Гвиндензета',
+               'Вампиры':'Клинок Аргана','Эльфы':'Лук Зорина'}
+        base=items.analogs(self.db)[0]
+        for faction,name in names.items():
+            reward=items.reward(self.db,faction,102)
+            self.assertEqual(reward['name'],name)
+            self.assertEqual(reward['attack'],math.ceil(base['attack']*6.25))
+            self.assertEqual(reward['defense'],math.ceil(base['defense']*6.25))
+            self.assertEqual(reward['duration'],25)
+
     def test_expiry_restores_previous_equipment_and_hides_expired_item(self):
         self.db.execute("INSERT INTO hero_equipment VALUES('Север','Hero','0',1,'old.png')");self.db.commit()
         w.buy_artifact(self.db,'Север',1)

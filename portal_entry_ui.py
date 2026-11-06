@@ -67,12 +67,12 @@ class PortalEntryPopup(WorldPopup):
         self.faction_label=text_label(self.faction.upper()+'  /  ПЕРЕХОД МЕЖДУ МИРАМИ',12,self.accent,
                                       bold=True,size_hint_y=None)
         self.title_label=text_label(self.portal_name,32,TEXT,bold=True,size_hint_y=None)
-        self.source_label=text_label('Из города '+city_popup.city_name+' — всем гарнизоном с героем',15,MUTED,
+        self.source_label=text_label('Из города '+city_popup.city_name+' — бойцы и герои 2–3 классов',15,MUTED,
                                      size_hint_y=None)
         for label in (self.faction_label,self.title_label,self.source_label):
             self.details.add_widget(label)
         self.rules=[
-            PassageRule('1 действие','Только портал и дорога','files/pict/hire/sword.png',self.accent),
+            PassageRule('1 действие','Герой 4 класса остаётся в городе','files/pict/hire/sword.png',self.accent),
             PassageRule('Чужие города','Торговля и бои без захвата','files/buildings/poly.png',self.accent),
             PassageRule('Обратный путь','Через Врата странников','files/status/resource_box/crystal.png',self.accent),
         ]
@@ -135,23 +135,21 @@ class PortalEntryPopup(WorldPopup):
         center_after_resize(self)
 
     def refresh_readiness(self):
-        units=self.conn.execute('''SELECT g.unit_count,u.unit_class FROM garrisons g
-            JOIN units u ON g.unit_name=u.unit_name WHERE g.city_name=? AND g.unit_count>0''',
-                                (self.city_popup.city_name,)).fetchall()
-        heroes=sum(n for n,cls in units if str(cls).split()[0] in ('2','3','4'))
-        soldiers=sum(n for n,cls in units if str(cls).split()[0]=='1')
+        units=worlds.departure_units(self.conn,self.city_popup.city_name)
+        heroes=any(str(row[7]).split()[0] in ('2','3') for row in units)
+        soldiers=sum(row[1] for row in units if str(row[7]).split()[0]=='1')
         row=self.conn.execute('SELECT moves_left FROM turn_check_move WHERE faction=?',(self.faction,)).fetchone()
         moves=row[0] if row else 0
         ready=bool(heroes and soldiers and moves>0)
         self.enter_button.disabled=not ready or _busy(self.conn)
         if not heroes:
-            self.readiness.text='Для путешествия нужен герой в гарнизоне.'
+            self.readiness.text='Для путешествия нужен герой 2–3 класса в гарнизоне.'
         elif not soldiers:
             self.readiness.text='Герою нужны войска для путешествия.'
         elif moves<1:
             self.readiness.text='Нет действий — завершите текущий ход.'
         else:
-            self.readiness.text='Готовы к переходу: '+format_number(soldiers)+' бойцов · героев: '+str(heroes)
+            self.readiness.text='Готовы к переходу: '+format_number(soldiers)+' бойцов и герои 2–3 класса'
         self.readiness.color=(.43,.89,.63,1) if ready else (1,.74,.42,1)
 
     def enter(self,*_):

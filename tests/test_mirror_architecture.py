@@ -78,8 +78,7 @@ class ArchitectureTests(unittest.TestCase):
         Window.size=(1280,576);Metrics.density=2;settle();self.owner.fit();settle()
         self.assertLessEqual(self.owner.action_bar.height,dp(44)+1)
         for button in self.owner.action_bar.children:self.assertGreaterEqual(button.font_size,sp(15)-.1)
-        self.assertLessEqual(self.owner.zoom_controls.width,dp(148)+1)
-        self.assertGreater(self.owner.zoom_controls.y,self.owner.action_bar.top)
+        self.assertFalse(hasattr(self.owner,'zoom_controls'))
 
 
 class GuardRewardTests(unittest.TestCase):

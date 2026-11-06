@@ -29,7 +29,7 @@ class ExpeditionUnitRow(BoxLayout):
         columns=[r[1] for r in city.conn.execute('PRAGMA table_info(units)')]
         row=city.conn.execute('SELECT * FROM units WHERE unit_name=?',(name,)).fetchone()
         self.unit=dict(zip(columns,row)) if row else {}
-        cls=str(self.unit.get('unit_class','1'))
+        cls=str(self.unit.get('unit_class','1')).split()[0]
         surface(self,(.09,.12,.17,1) if cls=='1' else (.17,.13,.08,1),city.accent if cls=='1' else GOLD)
         compact_frame(self)
         self.art=Image(source=resolve_unit_image(image or self.unit.get('image_path','')),size_hint_x=None,width=dp(42),mipmap=True,fit_mode='contain')
@@ -40,7 +40,7 @@ class ExpeditionUnitRow(BoxLayout):
         from mirror_readable_ui import ReadableText,compact_number
         copy=NaturalList(spacing=dp(1),pos_hint={'center_y':.5})
         label=name.removeprefix('Странник: ').split(' / ')[0]
-        self.title=ReadableText(label+' · '+format_number(count),size=15,bold=True,color=GOLD)
+        self.title=ReadableText(label+(' · '+format_number(count) if cls=='1' else ''),size=15,bold=True,color=GOLD)
         self.stats=ReadableText('АТК '+compact_number(profile.get('attack',0)*count)+' · ЗАЩ '+compact_number(profile.get('defense',0)*count),size=14)
         self.summary=self.stats
         for w in (self.title,self.stats):copy.add_widget(w)
@@ -53,8 +53,9 @@ class ExpeditionUnitRow(BoxLayout):
         from unit_stats_ui import UnitStatsPanel
         popup=WorldPopup(self.title.text,accent=self.city.accent)
         body=BoxLayout(spacing=dp(12))
-        stats=[('Урон','files/pict/hire/sword.png',format_number(self.profile.get('attack',0))+' × '+format_number(self.count)),
-               ('Защита','files/pict/hire/shield.png',format_number(self.profile.get('defense',0))+' × '+format_number(self.count)),
+        multiplier=' × '+format_number(self.count) if str(self.unit.get('unit_class','1')).split()[0]=='1' else ''
+        stats=[('Урон','files/pict/hire/sword.png',format_number(self.profile.get('attack',0))+multiplier),
+               ('Защита','files/pict/hire/shield.png',format_number(self.profile.get('defense',0))+multiplier),
                ('Живучесть','files/pict/hire/health.png',format_number(self.unit.get('durability',0))),
                ('Опыт','files/pict/hire/class.png',str(self.experience)),
                ('Расход','files/pict/hire/consumption.png',str(self.unit.get('consumption',0)))]

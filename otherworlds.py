@@ -194,6 +194,11 @@ def _move(conn,faction):
     conn.execute('UPDATE turn_check_move SET moves_left=moves_left-1 WHERE faction=?',(faction,))
 
 
+def departure_units(conn,source):
+    """Only troops and class 2–3 heroes may cross; legends stay at home."""
+    return [row for row in _camp_units(conn,source) if str(row[7]).split()[0] in ('1','2','3')]
+
+
 def enter(conn,faction,source):
     create_world(conn)
     with atomic(conn):
@@ -202,16 +207,16 @@ def enter(conn,faction,source):
         owner=conn.execute('SELECT faction FROM cities WHERE name=?',(source,)).fetchone()
         if not owner or owner[0]!=faction:
             raise ValueError('Отправиться можно только из своего города.')
-        units=_camp_units(conn,source)
-        if not any(str(r[7]).split()[0] in ('2','3','4') for r in units):
-            raise ValueError('Для перехода нужен гарнизон с героем.')
+        units=departure_units(conn,source)
+        if not any(str(r[7]).split()[0] in ('2','3') for r in units):
+            raise ValueError('Для перехода нужен герой 2–3 класса. Герой 4 класса остаётся в основном мире.')
         if not any(str(r[7]).split()[0]=='1' for r in units):
             raise ValueError('Герою нужны войска для путешествия.')
         _move(conn,faction)
         camp='@portal:'+faction
         for name,count,image,exp,*_ in units:
             _credit(conn,camp,name,count,image,exp,training_source=source)
-        conn.execute('DELETE FROM garrisons WHERE city_name=?',(source,))
+            conn.execute('DELETE FROM garrisons WHERE city_name=? AND unit_name=?',(source,name))
         # A newly validated expedition must not inherit another campaign's loss.
         conn.execute('DELETE FROM portal_home_losses WHERE faction=?',(faction,))
         conn.execute('INSERT INTO portal_parties VALUES(?,1,1,?,?)',(faction,source,camp))
@@ -511,6 +516,15 @@ def fight_guards(conn,faction,skirmish=None):
         p,city=_party_city(conn,faction)
         if battle_ready(conn,faction):
             raise ValueError('Следующий бой здесь через '+str(battle_ready(conn,faction))+' х.')
+        from battle_presentation import pick_battle_image
+        roster=_camp_units(conn,p['camp'])
+        portraits=[]
+        for name,_,image,*rest in roster:
+            if not image:
+                row=conn.execute('SELECT image_path FROM units WHERE unit_name=?',(name,)).fetchone()
+                image=row[0] if row else None
+            portraits.append(dict(unit_class=rest[-1],unit_image=image))
+        attacker_image=pick_battle_image(portraits,faction)
         profiles=expedition_profiles(conn,faction,p['camp'])
         army=[]
         for name,count,image,exp,attack,defense,durability,cls in _camp_units(conn,p['camp']):
@@ -556,4 +570,5 @@ def fight_guards(conn,faction,skirmish=None):
             conn.execute('INSERT INTO portal_guard_buffs VALUES(?,?) ON CONFLICT(faction) DO UPDATE SET expires_turn=excluded.expires_turn',
                          (faction,current_turn(conn)+9))
         quest_win=battle_won(conn,faction,city['id']) if won else False
-    return dict(won=won,coins=coins,city=city['name'],army=army,guards=[guard],rounds=frames,quest_win=quest_win,quest_target=target)
+    return dict(won=won,coins=coins,city=city['name'],army=army,guards=[guard],rounds=frames,quest_win=quest_win,quest_target=target,
+                attacker_image=attacker_image)

@@ -6,7 +6,7 @@ from frontend_ui import NaturalList
 from mirror_readable_ui import ReadableText
 from otherworld_ui import WorldPopup,_button
 from strategy_ui import GOLD,MUTED
-from city_construction import CATALOG,building_counts,construction_allowed
+from city_construction import CATALOG,building_counts,construction_allowed,building_name
 from city_development import average_loyalty
 from utils.helpers import format_number
 
@@ -21,6 +21,8 @@ class DevelopmentPopup(WorldPopup):
         self.rule_label=ReadableText(f'{len(CATALOG)} уникальных типов. Ручное строительство — на панораме.',size=14)
         self.page.add_widget(self.rule_label)
         self.summary=ReadableText('',size=15,color=GOLD);self.page.add_widget(self.summary)
+        self.priority_hint=ReadableText('',size=14,color=(1,.72,.34,1),bold=True)
+        self.page.add_widget(self.priority_hint)
         self.city_rows=NaturalList(spacing=dp(8));self.page.add_widget(self.city_rows)
         actions=BoxLayout(size_hint_y=None,height=dp(44),spacing=dp(6))
         actions.add_widget(_button('Обновить',self.refresh));actions.add_widget(_button('Закрыть',self.dismiss))
@@ -39,15 +41,23 @@ class DevelopmentPopup(WorldPopup):
         model.auto_build_enabled=active
         self.loyalty_label.text=f'Совет: {loyalty:.1f}% · '+('Автостройка работает' if active else 'Авто: пауза (нужно >80%)')
         self.loyalty_label.color=(.4,.9,.6,1) if active else GOLD
-        self.city_rows.clear_widgets();done=total=cost=0
+        self.city_rows.clear_widgets();done=total=cost=0;needs_economy=False
         for city, in conn.execute('SELECT name FROM cities WHERE faction=? ORDER BY name',(name,)).fetchall():
             if not construction_allowed(conn,city,name):continue
             counts=building_counts(conn,city,name);missing=[b for b in CATALOG if not counts.get(b,0)]
             count=len(CATALOG)-len(missing);done+=count;total+=len(CATALOG)
             cost+=sum(CATALOG[b]['cost'] for b in missing)
+            essentials=[b for b in ('Больница','Фабрика') if b in missing]
+            needs_economy=needs_economy or bool(essentials)
             text=f'{city} · {count} из {len(CATALOG)}'
-            text+='\nОсталось: '+', '.join(missing) if missing else '\nВсе здания построены'
-            self.city_rows.add_widget(ReadableText(text,size=15,color=MUTED if missing else (.4,.9,.6,1)))
+            if essentials:
+                text+='\nОбязательно постройте '+ ' и '.join({'Больница':'больницу','Фабрика':'фабрику'}[b] for b in essentials)+'.'
+            text+='\nОсталось: '+', '.join(building_name(name,b) for b in missing) if missing else '\nВсе здания построены'
+            color=(1,.72,.34,1) if essentials else MUTED if missing else (.4,.9,.6,1)
+            self.city_rows.add_widget(ReadableText(text,size=15,color=color))
+        self.priority_hint.text=('Больница и фабрика обязательны для развития экономики. '
+                                 'В отмеченных городах постройте недостающее: город → «Построить».'
+                                 if needs_economy else '')
         self.summary.text=f'Построено {done} из {total} · На завершение: {format_number(cost)} крон'
 
 

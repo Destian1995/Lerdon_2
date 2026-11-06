@@ -4,6 +4,27 @@ import sqlite3
 from city_war import current_turn
 from otherworld_themes import theme,image_path
 
+WAR_REWARD_NAMES={'Север':'Меч Альдара','Элины':'Посох Мигиона',
+                  'Адепты':'Арбалет Гвиндензета','Вампиры':'Клинок Аргана','Эльфы':'Лук Зорина'}
+
+
+def reward_image(faction,key):
+    filename={101:'truth-crown',102:'war-weapon',103:'mirror-heart'}[key]
+    return 'files/otherworld/rewards/'+theme(faction)['key']+'/'+filename+'.png'
+
+
+def refresh_reward_images(conn):
+    """Update issued rewards and nested slot snapshots without changing stats."""
+    tables={row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if 'artifacts' not in tables:return
+    for aid,faction,key in conn.execute('''SELECT artifact_id,faction,catalog_id
+            FROM portal_timed_items WHERE catalog_id IN (101,102,103)''').fetchall():
+        image=reward_image(faction,key)
+        conn.execute('UPDATE artifacts SET image_url=? WHERE id=? AND image_url IS NOT ?',(image,aid,image))
+        if 'hero_equipment' in tables:
+            conn.execute('UPDATE hero_equipment SET image_url=? WHERE artifact_id=? AND image_url IS NOT ?',(image,aid,image))
+        conn.execute('UPDATE portal_timed_items SET previous_image=? WHERE previous_id=? AND previous_image IS NOT ?',(image,aid,image))
+
 
 def ensure_schema(conn):
     conn.execute('''CREATE TABLE IF NOT EXISTS portal_timed_items(
@@ -21,6 +42,7 @@ def ensure_schema(conn):
             conn.execute('INSERT INTO portal_timed_items VALUES(?,?,?,?,?,?,NULL,NULL,?,0)',
                          (aid,faction,hero,slot,turn,turn+5,key))
     except sqlite3.OperationalError:pass
+    refresh_reward_images(conn)
 
 
 def champions(conn,faction,camp=None):
@@ -81,11 +103,18 @@ def offers(conn,faction):
 def reward(conn,faction,key):
     slot={101:1,102:0,103:4}[key]
     base=analogs(conn)[slot]
-    factor=6.5 if key==103 else 5.0
-    name={101:'Венец истины',102:'Клинок союзного двора',103:'Сердце Зазеркалья'}[key]
-    return dict(id=key,name=name+' · '+theme(faction)['prefix'],artifact_type=slot,
-                attack=math.ceil(base['attack']*factor),defense=math.ceil(base['defense']*factor),
-                cost=0,duration=25,image_url=image_path(faction,'artifacts',{101:'crown',102:'blade',103:'relic'}[key]),season_name='Все',is_created=0)
+    factor={101:5.0,102:6.25,103:6.5}[key]
+    attack=math.ceil(base['attack']*factor)
+    defense=math.ceil(base['defense']*factor)
+    if key==101:
+        # Increase the detective reward's previous integer bonuses by 65%.
+        attack=(attack*165+99)//100
+        defense=(defense*165+99)//100
+    name={101:'Венец истины',102:'Меч Альдара',103:'Сердце Зазеркалья'}[key]
+    title=WAR_REWARD_NAMES.get(faction,name) if key==102 else name+' · '+theme(faction)['prefix']
+    return dict(id=key,name=title,artifact_type=slot,
+                attack=attack,defense=defense,
+                cost=0,duration=25,image_url=reward_image(faction,key),season_name='Все',is_created=0)
 
 
 def issue(conn,faction,camp,item,hero=None):

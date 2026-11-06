@@ -46,8 +46,10 @@ class MirrorArmySelection(WorldPopup):
         rows=BoxLayout(orientation='vertical',size_hint_y=None,spacing=dp(8))
         rows.bind(minimum_height=rows.setter('height'))
         self.unit_buttons={}
-        for name,count,*_ in units:
-            button=_button(name+' · '+format_number(count),lambda *_:None,
+        for row in units:
+            name,count=row[:2]
+            caption=name+(' · '+format_number(count) if str(row[7]).split()[0]=='1' else '')
+            button=_button(caption,lambda *_:None,
                            size_hint_y=None,height=dp(56),accent=owner.accent)
             def toggle(btn,n=name):
                 if n in self.selected:self.selected.remove(n)

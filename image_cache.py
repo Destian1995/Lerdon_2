@@ -4,7 +4,7 @@ from pathlib import Path
 import shutil
 import sys
 
-IMAGE_CACHE_VERSION='north-arsenal-rifles-20261106'
+IMAGE_CACHE_VERSION='quest-reward-icons-20261106'
 IMAGE_CACHE_DIRS=('artifact_icon_cache','cache/artifact_icons','image_cache',
                   'icon_cache','texture_cache','cache/images','cache/icons','cache/textures')
 

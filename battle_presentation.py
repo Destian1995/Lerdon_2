@@ -1,6 +1,27 @@
 """Truthful battle replay/statistics transforms; no UI and no combat randomness."""
 
 
+def pick_battle_image(army,faction):
+    """Shared portrait priority: champion, hero, legend, then regular troops."""
+    if faction=='Нежить':
+        heroes={'Низар':'files/army/death/king_.png','Моргана':'files/army/death/morgana.png'}
+        for name,image in heroes.items():
+            if any(unit.get('unit_name')==name and unit.get('unit_count',1)>0 for unit in army):return image
+        for unit in army:
+            image=unit.get('unit_image') or unit.get('image_path')
+            if image in heroes.values() and unit.get('unit_count',1)>0:return image
+        return 'files/army/death/banshi.png'
+    by_class={}
+    for unit in army:
+        stats=unit.get('units_stats') or {}
+        raw=stats.get('Класс юнита',unit.get('unit_class',1))
+        try:cls=int(str(raw).strip().split()[0])
+        except (ValueError,IndexError):cls=1
+        image=unit.get('unit_image') or unit.get('image_path')
+        if image:by_class.setdefault(cls,image)
+    return next((by_class[cls] for cls in (3,2,4,1) if cls in by_class),None)
+
+
 def side_name(value):
     return {'attacker': 'attacking', 'defender': 'defending',
             'attacking': 'attacking', 'defending': 'defending'}.get(value)

@@ -244,6 +244,7 @@ def check_and_trigger_invasion(conn, current_turn, player_faction):
     print(f"[UNDEAD] === ИНВАЗИЯ НАЧИНАЕТСЯ НА ХОДУ {current_turn}! ===")
 
     cursor.execute("UPDATE undead_invasion SET invasion_started = 1 WHERE id = 1")
+    _ensure_undead_resources(cursor)
 
     # Используем сохранённый город или выбираем случайный
     chosen_city_id = None
@@ -600,19 +601,8 @@ def process_undead_turn(conn, current_turn):
 
 def _ensure_undead_resources(cursor):
     """Создаёт запись ресурсов для фракции Нежить если её нет."""
-    cursor.execute("SELECT COUNT(*) FROM resources WHERE faction = ?", (UNDEAD_FACTION_NAME,))
-    if cursor.fetchone()[0] == 0:
-        resources = [
-            (UNDEAD_FACTION_NAME, 'Кроны', 5000),
-            (UNDEAD_FACTION_NAME, 'Рабочие', 0),
-            (UNDEAD_FACTION_NAME, 'Кристаллы', 500),
-            (UNDEAD_FACTION_NAME, 'Население', 5000),
-        ]
-        for faction, res_type, amount in resources:
-            cursor.execute(
-                "INSERT OR IGNORE INTO resources (faction, resource_type, amount) VALUES (?, ?, ?)",
-                (faction, res_type, amount)
-            )
+    from undead_economy import initialize_resources
+    initialize_resources(cursor.connection)
 
 
 def _buy_artifact_for_king(cursor):
