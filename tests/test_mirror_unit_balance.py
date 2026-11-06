@@ -38,13 +38,14 @@ class MirrorUnitBalanceTests(unittest.TestCase):
                 self.assertLess(first['consumption'],second['consumption'])
         self.assertEqual(list(db.execute('SELECT * FROM units')),before)
 
-    def test_tier_price_is_charged_without_old_double_or_city_markup(self):
+    def test_tier_price_has_city_markup_once_and_template_keeps_base_price(self):
         db=fixture();self.addCleanup(db.close)
         party=w.enter(db,'Север','Home')
         db.execute('UPDATE portal_cities SET price=133 WHERE id=1')
         u=w.unit_offers(db,'Север')[3]
         cost=w.recruit(db,'Север',u['id'],13)
-        self.assertEqual(cost,u['cost_money']*13)
+        marked_up=int((Decimal(u['cost_money'])*Decimal('1.33')).to_integral_value(rounding=ROUND_CEILING))
+        self.assertEqual(cost,marked_up*13)
         name='Странник: '+u['unit_name']+' / Север'
         self.assertEqual(db.execute('SELECT attack,defense,cost_money FROM units WHERE unit_name=?',(name,)).fetchone(),
                          (u['attack'],u['defense'],u['cost_money']))

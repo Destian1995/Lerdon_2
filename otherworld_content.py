@@ -4,6 +4,8 @@ BACKGROUND=ROOT+'map/mirror_realm.png'
 CITY_ART=('gate','harbor','sanctuary','moon','market','dawn','stars')
 CITY_POSITIONS=((245,410),(1010,290),(420,615),(865,550),(380,235),(650,430),(760,200))
 CITY_ROADS=((1,3),(3,4),(2,4),(2,7),(5,7),(1,5),(1,6),(4,6),(6,7))
+FACTION_UNIT_TYPES={'Север':'archer','Эльфы':'infantry','Вампиры':'beast',
+                    'Адепты':'cavalry','Элины':'mage'}
 
 
 def city_art(city_id,faction=None):
@@ -83,7 +85,7 @@ def unit_catalog(faction=None):
         for item,(_,key,*_) in zip(result,_UNITS):
             attack,defense=UNIT_PROFILES.get(faction,UNIT_PROFILES['Адепты'])[item['id']-1]
             item.update(unit_name=skin['units'][item['id']-1],image_path=image_path(faction,'units',key),
-                        attack=attack,defense=defense)
+                        attack=attack,defense=defense,unit_type=FACTION_UNIT_TYPES.get(faction,'cavalry'))
     return result
 
 

@@ -1077,7 +1077,7 @@ class FortressInfoPopup(Popup):
         _TYPE_NAMES = {
             'infantry': 'Пехота',
             'cavalry': 'Рыцари',
-            'archer': 'Стрелки',
+            'archer': 'Охотники',
             'mage': 'Маги',
             'beast': 'Бестии',
             'siege': 'Восставшие',

@@ -75,7 +75,7 @@ def upgrade_world(conn):
         return
     row=conn.execute('SELECT version FROM portal_presentation WHERE world_id=1').fetchone()
     version=row[0] if row else 0
-    if version>=6:
+    if version>=7:
         return
     with atomic(conn):
         if version<1:
@@ -87,6 +87,7 @@ def upgrade_world(conn):
             # Old market keys referred to ordinary faction goods, not local goods.
             conn.execute("DELETE FROM portal_market WHERE kind IN ('unit','artifact')")
         from otherworld_themes import THEMES
+        has_unit_type='unit_type' in {row[1] for row in conn.execute('PRAGMA table_info(units)')}
         for faction in THEMES:
             for unit in unit_offers(conn,faction):
                 if version<5:
@@ -98,9 +99,12 @@ def upgrade_world(conn):
                                  (unit['image_path'],'Странник: '+unit['unit_name']+' / '+faction,faction))
                 conn.execute('UPDATE garrisons SET unit_image=? WHERE unit_name=?',
                              (unit['image_path'],'Странник: '+unit['unit_name']+' / '+faction))
+                if has_unit_type:
+                    conn.execute('UPDATE units SET unit_type=? WHERE unit_name=? AND faction=?',
+                                 (unit['unit_type'],'Странник: '+unit['unit_name']+' / '+faction,faction))
         from otherworld_quests import migrate_conflict_sides
         migrate_conflict_sides(conn)
-        conn.execute('INSERT OR REPLACE INTO portal_presentation VALUES(1,6)')
+        conn.execute('INSERT OR REPLACE INTO portal_presentation VALUES(1,7)')
 
 
 def _dicts(cursor):
@@ -483,11 +487,12 @@ def guard_profile(conn,faction,city):
     count=100_000 if target else city['guards']
     attack=round((45+city['id']*15)*(1.5 if target else 1))
     defense=QUEST_GARRISON_DEFENSE//count if target else (CITY_GARRISON_DEFENSE+count-1)//count
+    kind=unit_catalog(faction)[0]['unit_type']
     guard=dict(unit_name=target or 'Стражи '+city['name'],unit_count=count,initial_count=count,
                unit_image=image_path(faction,'units','boss') if target else unit_catalog(faction)[0]['image_path'],
                unit_class='1',attack=attack,defense=defense,durability=0,
-               unit_type='infantry',initiative=50,morale=100,crit_chance=5)
-    guard['units_stats']={'Урон':attack,'Защита':defense,'Живучесть':0,'Класс юнита':'1','Тип':'infantry'}
+               unit_type=kind,initiative=50,morale=100,crit_chance=5)
+    guard['units_stats']={'Урон':attack,'Защита':defense,'Живучесть':0,'Класс юнита':'1','Тип':kind}
     return guard,target
 
 

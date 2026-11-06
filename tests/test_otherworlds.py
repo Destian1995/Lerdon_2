@@ -48,6 +48,35 @@ class PortalTests(unittest.TestCase):
     def enter(self):
         return w.enter(self.db,'Север','Home')
 
+    def test_every_mirror_tier_and_guard_uses_ordinary_faction_combat_type(self):
+        from otherworld_content import unit_catalog,FACTION_UNIT_TYPES
+        from unittest.mock import patch
+        self.enter()
+        for faction,kind in FACTION_UNIT_TYPES.items():
+            with self.subTest(faction=faction):
+                self.assertEqual({unit['unit_type'] for unit in unit_catalog(faction)},{kind})
+                self.assertEqual({unit['unit_type'] for unit in w.unit_offers(self.db,faction)},{kind})
+                for target in (None,'Квестовая армия'):
+                    with patch('otherworld_quests.war_target',return_value=target):
+                        guard,_=w.guard_profile(self.db,faction,w.cities(self.db,faction)[0])
+                        self.assertEqual(guard['unit_type'],kind)
+                        self.assertEqual(guard['units_stats']['Тип'],kind)
+
+    def test_old_recruits_gain_correct_type_without_rebalancing_or_changing_stacks(self):
+        self.enter();w.recruit(self.db,'Север',4,7)
+        self.db.execute("UPDATE units SET unit_type='mage',attack=9876 WHERE unit_name LIKE 'Странник:%'")
+        self.db.execute('UPDATE portal_presentation SET version=6')
+        stacks=list(self.db.execute('SELECT * FROM garrisons ORDER BY city_name,unit_name'))
+        resources=list(self.db.execute('SELECT * FROM resources'))
+        ordinary=list(self.db.execute("SELECT * FROM units WHERE unit_name NOT LIKE 'Странник:%'"))
+        w.upgrade_world(self.db)
+        self.assertEqual(self.db.execute("SELECT unit_type,attack FROM units WHERE unit_name LIKE 'Странник:%'").fetchone(),('archer',9876))
+        self.assertEqual(list(self.db.execute('SELECT * FROM garrisons ORDER BY city_name,unit_name')),stacks)
+        self.assertEqual(list(self.db.execute('SELECT * FROM resources')),resources)
+        self.assertEqual(list(self.db.execute("SELECT * FROM units WHERE unit_name NOT LIKE 'Странник:%'")),ordinary)
+        before=list(self.db.iterdump());w.upgrade_world(self.db)
+        self.assertEqual(list(self.db.iterdump()),before)
+
     def test_departure_leaves_class_four_at_home_with_original_state(self):
         self.db.execute("INSERT INTO units SELECT 90,faction,'Legend',cost_money,cost_time,image_path,attack,defense,durability,'4',consumption,unit_type FROM units WHERE unit_name='Hero'")
         self.db.execute("INSERT INTO garrisons VALUES('Home','Legend',1,'legend.png',7)")
@@ -121,11 +150,11 @@ class PortalTests(unittest.TestCase):
         self.assertTrue(all(a['image_url'].startswith('files/otherworld/') for a in artifacts))
         self.assertEqual(list(self.db.execute('SELECT * FROM units')),before)
         p=self.enter();w.recruit(self.db,'Север',4)
-        self.assertEqual(self.db.execute("SELECT unit_type FROM units WHERE unit_name LIKE 'Странник:%'").fetchone()[0],'mage')
+        self.assertEqual(self.db.execute("SELECT unit_type FROM units WHERE unit_name LIKE 'Странник:%'").fetchone()[0],'archer')
         from test_battle_ui import combat_namespace
         battle=w.fight_guards(self.db,'Север',combat_namespace()['battle_chain'])
         mage=next(u for u in battle['army'] if u['unit_name'].startswith('Странник:'))
-        self.assertEqual(mage['units_stats']['Тип'],'mage')
+        self.assertEqual(mage['units_stats']['Тип'],'archer')
         # The ordinary recruitment UI must not offer imported portal troops.
         node=next(n for n in ast.parse(Path('army.py').read_text(encoding='utf-8')).body
                   if isinstance(n,ast.FunctionDef) and n.name=='load_unit_data')
