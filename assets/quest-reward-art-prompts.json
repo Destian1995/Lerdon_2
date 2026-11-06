@@ -5,8 +5,12 @@
       "file": "files/otherworld/rewards/north/war-weapon.png",
       "faction": "north",
       "reward": 102,
-      "prompt": "Use case: stylized-concept. Asset: ONE unique legendary reward inventory icon for a hand-painted fantasy strategy game. Square composition, item centered, full silhouette with 8% empty margin, readable at 64 pixels. Detailed painted metal, crisp bold silhouette, luminous gems, restrained magical accents. Truly transparent alpha background. No backdrop, no gradient, no frame, no text, no letters, no people, no hands, no scenery. Sword of Aldar, Nordic straight broad longsword, ice-blue runes shaped as abstract carvings, carved golden raven crossguard, weathered silver blade with blue crystalline fuller, dark blue leather grip. Diagonal blade lower-left to upper-right. Strong blue and warm gold palette, unmistakably a sword.",
-      "sha256": "3fc0507c182e697d8696bff3ed8866eb31d23f53e41873f58bf902a265411a82"
+      "prompt": "Use case: stylized-concept. Asset: ONE legendary fantasy strategy game inventory reward icon, Markov's Rifle for the Nordic faction. Input image 1 is a reference for the rifle silhouette, walnut stock, polished dark steel and gold craftsmanship; image 2 is a reference for painted game-art rendering. Create a new unique premium rifle based mainly on image 1: long classic lever-action rifle, rich carved walnut buttstock, slender steel barrel, ornate gold receiver and barrel bands, small ice-blue gem and restrained Nordic frost-rune carvings, no scope, unmistakably a complete rifle. Single item diagonal from lower-left stock to upper-right muzzle, full silhouette centered within a SQUARE 512x512 composition with 8% transparent margins, readable at 64px. Rich hand-painted artifact rendering, crisp edges. Truly transparent alpha background, no black backdrop, no gradient, no text, no frame, no hands, no people, no ammunition, no second weapon. Match the existing game's fantasy artifact aesthetic.",
+      "sha256": "d1d1b1fd8cda461999d859392f873843d52ae6ffaec4bcf3a46efaebee534bc1",
+      "references": [
+        "files/pict/artifacts/custom/0vushket_markova.png",
+        "files/pict/artifacts/custom/0vintovka_greynjger.png"
+      ]
     },
     {
       "file": "files/otherworld/rewards/adepts/war-weapon.png",

@@ -58,7 +58,7 @@ def ai_build(ai,kinds=None,limit=None):
 
 
 def develop_military_cities(ai):
-    """Rebels and undead build from their real treasury without a council."""
+    """Military AI's paid construction without a council; undead restore separately."""
     with ai.db_connection:
         built=auto_develop(ai.db_connection,ai.faction,require_council=False)
     refresh_ai_buildings(ai)

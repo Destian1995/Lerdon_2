@@ -179,7 +179,7 @@ class MirrorCampaignTests(unittest.TestCase):
                     self.assertEqual(other['defense'],math.ceil(analog['defense']*factor))
 
     def test_war_reward_has_exact_faction_name_and_shared_strength(self):
-        names={'Север':'Меч Альдара','Элины':'Посох Мигиона','Адепты':'Арбалет Гвиндензета',
+        names={'Север':'Винтовка Маркова','Элины':'Посох Мигиона','Адепты':'Арбалет Гвиндензета',
                'Вампиры':'Клинок Аргана','Эльфы':'Лук Зорина'}
         base=items.analogs(self.db)[0]
         for faction,name in names.items():

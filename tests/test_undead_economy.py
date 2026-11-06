@@ -1,4 +1,4 @@
-"""Paid undead development is independent of the invasion reinforcement timer."""
+"""Free undead rebuilding and paid hiring are independent of invasion waves."""
 from contextlib import redirect_stdout
 import io
 import unittest
@@ -6,7 +6,7 @@ from unittest.mock import Mock
 from test_rebel_campaign import extracted_class
 from test_otherworlds import fixture
 from ai_strategy import apply_ai_improvements
-from undead_economy import initialize_resources
+from undead_economy import initialize_resources,restore_undead_buildings
 from city_construction import CATALOG,building_counts
 
 
@@ -86,9 +86,35 @@ class UndeadEconomyTests(unittest.TestCase):
         self.ai.sell_resources=lambda:None
         self.ai.hire_army=hire
         with redirect_stdout(io.StringIO()):
-            for _ in range(40):self.ai.make_turn()
+            self.ai.make_turn()
         for city in ('Home','Safe'):
             self.assertEqual(building_counts(self.db,city,'Нежить'),dict.fromkeys(CATALOG,1))
         self.assertTrue(any(amount>0 for amount in hired))
         cash=self.db.execute("SELECT amount FROM resources WHERE faction='Нежить' AND resource_type='Кроны'").fetchone()[0]
-        self.assertEqual(1000+40*15000,2*sum(info['cost'] for info in CATALOG.values())+sum(hired)+cash)
+        self.assertEqual(1000+15000,sum(hired)+cash)
+
+    def test_zero_balances_restore_full_catalogue_without_spending_or_duplicates(self):
+        initialize_resources(self.db)
+        self.db.execute("UPDATE resources SET amount=0 WHERE faction='Нежить'")
+        before=list(self.db.execute('SELECT * FROM resources'))
+        restore_undead_buildings(self.db)
+        self.db.execute("DELETE FROM buildings WHERE city_name='Home'")
+        restore_undead_buildings(self.db)
+        restore_undead_buildings(self.db)
+        self.assertEqual(building_counts(self.db,'Home','Нежить'),dict.fromkeys(CATALOG,1))
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM buildings WHERE city_name='Home'").fetchone()[0],6)
+        self.assertEqual(before,list(self.db.execute('SELECT * FROM resources')))
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM buildings WHERE city_name='Safe'").fetchone()[0],0)
+
+    def test_damaged_town_recovers_next_turn_and_lost_town_does_not(self):
+        from city_war import record_battle,read_city_war_states
+        with redirect_stdout(io.StringIO()):self.ai.make_turn()
+        record_battle(self.db,'Home',30_000_000,30_000_000,'Нежить')
+        self.assertFalse(building_counts(self.db,'Home','Нежить'))
+        self.assertTrue(read_city_war_states(self.db)['Home'].ruined)
+        with redirect_stdout(io.StringIO()):self.ai.make_turn()
+        self.assertEqual(building_counts(self.db,'Home','Нежить'),dict.fromkeys(CATALOG,1))
+        self.assertFalse(read_city_war_states(self.db)['Home'].ruined)
+        self.db.execute("UPDATE cities SET faction='Север' WHERE name='Home'")
+        with redirect_stdout(io.StringIO()):self.ai.make_turn()
+        self.assertFalse(building_counts(self.db,'Home','Север'))

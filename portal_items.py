@@ -4,7 +4,7 @@ import sqlite3
 from city_war import current_turn
 from otherworld_themes import theme,image_path
 
-WAR_REWARD_NAMES={'Север':'Меч Альдара','Элины':'Посох Мигиона',
+WAR_REWARD_NAMES={'Север':'Винтовка Маркова','Элины':'Посох Мигиона',
                   'Адепты':'Арбалет Гвиндензета','Вампиры':'Клинок Аргана','Эльфы':'Лук Зорина'}
 
 
@@ -21,6 +21,9 @@ def refresh_reward_images(conn):
             FROM portal_timed_items WHERE catalog_id IN (101,102,103)''').fetchall():
         image=reward_image(faction,key)
         conn.execute('UPDATE artifacts SET image_url=? WHERE id=? AND image_url IS NOT ?',(image,aid,image))
+        if faction=='Север' and key==102:
+            conn.execute("UPDATE artifacts SET name=? WHERE id=? AND name='Меч Альдара'",
+                         (WAR_REWARD_NAMES[faction],aid))
         if 'hero_equipment' in tables:
             conn.execute('UPDATE hero_equipment SET image_url=? WHERE artifact_id=? AND image_url IS NOT ?',(image,aid,image))
         conn.execute('UPDATE portal_timed_items SET previous_image=? WHERE previous_id=? AND previous_image IS NOT ?',(image,aid,image))
