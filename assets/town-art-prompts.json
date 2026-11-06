@@ -262,16 +262,6 @@
       "reference": "files/city/interiors/north/city-1.jpg"
     },
     {
-      "file": "files/city/interiors/north/wall.png",
-      "size": [
-        648,
-        431
-      ],
-      "sha256": "f960a889d8009578adcd6782d7681d12904d66721004aaa9f0a55a5ede6b26a3",
-      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one wide fortified city gatehouse and two short curtain wall wings, a coherent medium-width fortified entrance, not an entire city wall or city. Match Nordic snow-covered timber longhouses and blue-grey granite, blue rune details, cold clear winter daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
-      "reference": "files/city/interiors/north/city-1.jpg"
-    },
-    {
       "file": "files/city/interiors/north/market.png",
       "size": [
         648,
@@ -382,16 +372,6 @@
       "reference": "files/city/interiors/elves/city-1.jpg"
     },
     {
-      "file": "files/city/interiors/elves/wall.png",
-      "size": [
-        648,
-        433
-      ],
-      "sha256": "534011c1476fe9cde3e22fb33c0e8c9223e258073d147bb825d827576ba1bd84",
-      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one wide fortified city gatehouse and two short curtain wall wings, a coherent medium-width fortified entrance, not an entire city wall or city. Match elegant pale living-wood and ivory elven architecture, emerald roofs, sunlit green foliage, soft clear daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
-      "reference": "files/city/interiors/elves/city-1.jpg"
-    },
-    {
       "file": "files/city/interiors/elves/market.png",
       "size": [
         648,
@@ -442,16 +422,6 @@
       "reference": "files/city/interiors/adepts/city-1.jpg"
     },
     {
-      "file": "files/city/interiors/adepts/wall.png",
-      "size": [
-        648,
-        435
-      ],
-      "sha256": "2a9c6f184e391944cb099d7ad54474f2588425d943d111d517933725b84e786e",
-      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one wide fortified city gatehouse and two short curtain wall wings, a coherent medium-width fortified entrance, not an entire city wall or city. Match fortified golden sandstone religious abbey architecture, amber domes, warm afternoon sun. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
-      "reference": "files/city/interiors/adepts/city-1.jpg"
-    },
-    {
       "file": "files/city/interiors/adepts/market.png",
       "size": [
         648,
@@ -499,16 +469,6 @@
       ],
       "sha256": "7f4a0b514b82ea35cf7ed388ad83a05c5da88e211266c12eb2d4ddc194999279",
       "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE a fantasy crystal processing workshop and refinery, two smoking kiln chimneys and crystal-working annex, industrial medieval fantasy craft, not modern industry. Match arcane academic city of white marble, azure crystal ornaments and fine gold roofs, bright clear daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
-      "reference": "files/city/interiors/elines/city-1.jpg"
-    },
-    {
-      "file": "files/city/interiors/elines/wall.png",
-      "size": [
-        648,
-        437
-      ],
-      "sha256": "fe6c570dca67093cc107ecf30403d722be258b4ee19a5093ec8af0a95272d14f",
-      "prompt": "Use case: stylized-concept. Asset type: ORIGINAL transparent fantasy strategy town BUILDING SPRITE. Reference image is ONLY the visual style, camera and lighting reference. Draw ONE one wide fortified city gatehouse and two short curtain wall wings, a coherent medium-width fortified entrance, not an entire city wall or city. Match arcane academic city of white marble, azure crystal ornaments and fine gold roofs, bright clear daylight. Camera elevated three-quarter view 30 degrees, light from upper left, same perspective and materials as the reference town. Rich realistic hand-painted fantasy game illustration, crisp readable silhouette. Isolated COMPLETE building, generous transparent margins, no cut-off roof. A small natural integrated ground foundation and subtle soft contact shadow beneath the building, no broad landscape patch. Object occupies about 80% of image. No other large buildings, no people, no text, no UI, no border or watermark. True transparent background. Designed to blend organically into an empty lot of the supplied town panorama.",
       "reference": "files/city/interiors/elines/city-1.jpg"
     },
     {
@@ -807,6 +767,46 @@
       "prompt": "Fantasy town game sprite, perspective correction. Image 1 is the edit target and faction identity. Image 2 is the panorama into which it must fit. Image 3, the desert Elines citadel, is the APPROVED CAMERA AND PERSPECTIVE BENCHMARK: copy its moderate elevated THREE-QUARTER camera precisely, its relationship of front facade to visible right-side walls, the amount of roof tops visible, and the believable upward recession of masonry into the scene. The previous edit became a flat FRONT ELEVATION: fix that. Render real architectural VOLUME like image 3. We should see front wall plus a modest right-hand side, with roofs and parapets seen from slightly above; vertical walls remain upright. Use the same moderately elevated camera as image 3, neither a frontal 2D facade nor a steep top-down isometric dollhouse. Use panorama image 2 for local daylight, paint detail and harmonious color. Classical medieval grey-stone keep, blue-grey roofs and modest grey banners. Preserve faction-specific architecture, not desert materials from image 3. Full compact citadel, all towers inside frame, hand-painted fantasy strategy art. The MAIN entrance is near the front center, visible and unobstructed, directed down toward the viewer and the approaching stairway. A small entrance stoop is okay, no long added staircase, no raised island plinth, no large courtyard ground patch. Single isolated citadel on a truly TRANSPARENT alpha background; no terrain, no sky, no brown gradient, no backdrop, no text or UI. Keep the corrected gateway easy to align with a stair landing in the game.",
       "reference": "files/city/interiors/neutral/city-1.jpg",
       "camera_reference": "files/city/interiors/elines/citadel.png"
+    },
+    {
+      "file": "files/city/interiors/north/wall.png",
+      "size": [
+        648,
+        419
+      ],
+      "sha256": "fad53c5d7eb7785a764bafb77cd5f886ab5197bbc742c8e968dd522dd3e25168",
+      "prompt": "Use case: precise-object-edit. Image 1 is EDIT TARGET: transparent Nordic arsenal game building. Image 2 is WEAPON REFERENCE ONLY: the rifle carried by the shooter. Change ONLY the displayed weapon props on the arsenal. Replace every spear and axe in the outdoor racks with recognizable dark metal AK-style rifles with curved magazines, wooden/dark stocks and long barrels matching the shooter's gun in image 2. Rifles stored safely upright, muzzles upward, several arranged visibly in the left rack and right rack. Replace the two crossed axes above the main doorway with two crossed rifles of the same style, readable silhouettes. Keep the blue-and-gold shields and all crates. Preserve exact building architecture, carved timber, snow roofs, doors, perspective, colors, lighting, compact footprint and silhouette. Do not add characters, gunfire or effects from image 2. Maintain original fully transparent background and crisp cutout. No backdrop, no glow or gradient, no ground plane, no text, no UI. Detailed hand-painted fantasy town sprite, entire building visible.",
+      "reference": "files/army/people/predator.jpg"
+    },
+    {
+      "file": "files/city/interiors/elines/wall.png",
+      "size": [
+        648,
+        330
+      ],
+      "sha256": "42395003aa3569a8a9413b78f07f6ff9ddbd0f36e6a8e60ee68b48887bd8d44c",
+      "prompt": "Use case: stylized-concept. Asset: transparent cutout sprite for painted fantasy strategy town, desert Elines faction. One dragon cave: low compact sandstone rock outcrop with deep arched cave entrance, golden bronze dragon resting partly inside, a few turquoise crystals and ancient warm sandstone carved pillars integrated at entrance. Entire rock and dragon visible. Moderately elevated three-quarter town camera, door faces viewer slightly left, upright forms. Detailed hand-painted realistic fantasy strategy architecture, warm sun, sand ochre, no terrain around base, no environment, no text, no border. True transparent background. Wide low silhouette appropriate for a city building plot, not a landscape.",
+      "reference": null
+    },
+    {
+      "file": "files/city/interiors/elves/wall.png",
+      "size": [
+        617,
+        648
+      ],
+      "sha256": "fc1b8a059c9f2b5103006f12706f2d26c4db4b7df9f661d307fa4c08bb07ec9a",
+      "prompt": "Use case: stylized-concept. Asset: transparent cutout sprite for detailed painted fantasy strategy elven town. One Tree of Power, majestic ancient living tree with thick intertwined roots forming compact round base, emerald and golden green crown, subtly glowing cyan runes in bark, elegant elven white-gold shrine and doorway integrated into trunk. Full tree visible including crown and roots. Moderately elevated three-quarter town camera, upright verticals, entrance toward viewer slightly left. Hand-painted realistic fantasy strategy architecture, sunny green forest palette. Isolated on true transparent background. No terrain, no forest backdrop, no text, no border, no people. Strong readable silhouette, crown not too broad.",
+      "reference": null
+    },
+    {
+      "file": "files/city/interiors/adepts/wall.png",
+      "size": [
+        648,
+        334
+      ],
+      "sha256": "195b3ee115851f7fea641288b50ebce10a6b3a2897760d033d120cf582280a4b",
+      "prompt": "Use case: style-transfer. Create a replacement ABBEY sprite for a painted fantasy strategy town. Inputs: the user's small autumn abbey crop is the PRIMARY ARCHITECTURAL AND CAMERA REFERENCE. The other transparent twin-towered abbey is the OLD asset being replaced; do NOT preserve its tall twin towers or its frontal camera. Closely reproduce the small crop's long Gothic abbey: low elongated arcaded cloister/gallery across the front, a church nave rising behind it, steep slate blue-gray roofs, pale warm limestone, pointed Gothic windows, modest buttresses, small side bell structure. Copy the reference camera and building orientation: we see the front-facing gabled end toward the upper LEFT and the long RIGHT flank receding to the upper RIGHT, a gentle elevated three-quarter view with upright verticals. Keep the whole building LOW AND WIDE and subordinate to a citadel. Architectural proportions, roof slope, gallery arches and painterly detailing should closely match the user's crop. Only the abbey itself, remove the castle behind it, trees, terrain and panorama. True clean transparent alpha background, entire building within canvas, no platform, no environment, no gradient, no UI or text. Warm autumn daylight, detailed hand-painted fantasy game sprite. Make a compact complete freestanding abbey suitable for a small town plot.",
+      "reference": "user-provided autumn abbey architecture crop"
     }
   ]
 }

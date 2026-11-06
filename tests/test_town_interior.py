@@ -183,6 +183,19 @@ class TownTests(unittest.TestCase):
                         self.assertLessEqual(text.texture.height,label.height+1)
                 self.assertGreaterEqual(town.build.y,town.root.y-1)
                 self.assertLessEqual(town.build.top,town.root.top+1)
+                from town_ui import BUILDING_SUMMARIES
+                for name,(text,color) in BUILDING_SUMMARIES.items():
+                    town.choose(name);settle()
+                    summary=town.effect_summary
+                    self.assertEqual(summary.text,text)
+                    self.assertEqual(tuple(summary.color),tuple(color))
+                    self.assertEqual(summary.opacity,1)
+                    measure=CoreLabel(text=text,font_size=summary.font_size)
+                    measure.refresh()
+                    self.assertLessEqual(measure.texture.width,summary.width+2)
+                    self.assertLessEqual(measure.texture.height,summary.height+2)
+                    self.assertGreaterEqual(summary.y,town.root.y-1)
+                    self.assertLessEqual(summary.right,town.root.right+1)
 
 
 class TownArtTests(unittest.TestCase):

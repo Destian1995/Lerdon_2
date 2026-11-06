@@ -3,11 +3,19 @@ LEGACY_PRODUCTION_MULTIPLIER=12
 HOSPITAL_GROWTH=50*LEGACY_PRODUCTION_MULTIPLIER*65//100
 FACTORY_YIELD=105*LEGACY_PRODUCTION_MULTIPLIER*65//100
 AI_FACTORY_YIELD=100*LEGACY_PRODUCTION_MULTIPLIER*65//100
+DEFENSE_BONUS=.15
+DEFENSE_NAMES={'Север':'Арсенал','Элины':'Пещера дракона','Вампиры':'Стена',
+               'Эльфы':'Древо силы','Адепты':'Аббатство'}
+
+
+def building_name(faction,building):
+    """Faction presentation; keep the stable building ID for existing saves."""
+    return DEFENSE_NAMES.get(faction,'Стена') if building=='Стена' else building
 
 CATALOG={
     'Больница':dict(key='hospital',cost=20,max=1,desc=f'+{HOSPITAL_GROWTH} населения и рабочих/ход',color=(.80,.22,.35,1)),
     'Фабрика':dict(key='factory',cost=30,max=1,desc=f'+{FACTORY_YIELD} кристаллов/ход',color=(.50,.50,.12,1)),
-    'Стена':dict(key='wall',cost=40000,max=1,desc='+15% защита гарнизона',color=(.45,.45,.55,1)),
+    'Стена':dict(key='wall',cost=40000,max=1,desc=f'+{DEFENSE_BONUS*100:g}% защита гарнизона',color=(.45,.45,.55,1)),
     'Рынок':dict(key='market',cost=30000,max=1,desc='+10% доход крон',color=(.85,.65,.10,1)),
     'Кузница':dict(key='forge',cost=30000,max=1,desc='−5% потребление кристаллов гарнизоном города',color=(.60,.38,.12,1)),
     'Цитадель':dict(key='citadel',cost=50000,max=1,desc='+500 лимит армии',color=(.20,.55,.75,1)),
@@ -15,6 +23,12 @@ CATALOG={
 
 
 def ensure_unique_buildings(conn):
+    # Ownership changes have several entry points (battle, neutral occupation,
+    # rebellion and invasion). Enforce demolition in their own transaction.
+    conn.execute('''CREATE TRIGGER IF NOT EXISTS demolish_captured_city_buildings
+        AFTER UPDATE OF faction ON cities
+        WHEN OLD.faction IS NOT NEW.faction
+        BEGIN DELETE FROM buildings WHERE city_name=NEW.name; END''')
     # Captures can happen after the uniqueness migration. Infrastructure belongs
     # to its town's current owner, even when the index already exists.
     conn.execute('''UPDATE buildings SET faction=(SELECT faction FROM cities
@@ -48,8 +62,21 @@ def ensure_unique_buildings(conn):
         conn.execute('ROLLBACK TO unique_buildings');conn.execute('RELEASE unique_buildings');raise
 
 
-def building_counts(conn,city,faction):
+def ensure_neutral_buildings(conn):
+    """Neutral towns have the full catalogue, independent of treasury/council."""
     ensure_unique_buildings(conn)
+    for building in CATALOG:
+        conn.execute('''UPDATE buildings SET count=1 WHERE building_type=? AND count<>1
+            AND city_name IN (SELECT name FROM cities WHERE faction='Нейтрал')''',(building,))
+        conn.execute('''INSERT INTO buildings(city_name,faction,building_type,count)
+            SELECT c.name,c.faction,?,1 FROM cities c WHERE c.faction='Нейтрал'
+            AND NOT EXISTS(SELECT 1 FROM buildings b WHERE b.city_name=c.name AND b.building_type=?)''',
+            (building,building))
+
+
+def building_counts(conn,city,faction):
+    if faction=='Нейтрал':ensure_neutral_buildings(conn)
+    else:ensure_unique_buildings(conn)
     return dict(conn.execute('''SELECT building_type,SUM(count) FROM buildings
         WHERE city_name=? AND faction=? GROUP BY building_type HAVING SUM(count)>0''',(city,faction)))
 

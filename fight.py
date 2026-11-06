@@ -650,7 +650,8 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         )
         for b_type, b_count in _cur.fetchall():
             if b_type == 'Стена':
-                city_wall_bonus += b_count * 0.15
+                from city_construction import DEFENSE_BONUS
+                city_wall_bonus += b_count * DEFENSE_BONUS
     except Exception:
         pass
 

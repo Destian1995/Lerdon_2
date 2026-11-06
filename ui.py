@@ -151,7 +151,8 @@ class FortressInfoPopup(Popup):
             buildings_data = cursor.fetchall()
 
             # Формируем список с информацией о зданиях
-            buildings = [f"{building_type}: {format_number(count)}" for building_type, count in buildings_data]
+            from city_construction import building_name
+            buildings = [f"{building_name(self.ai_fraction,building_type)}: {format_number(count)}" for building_type, count in buildings_data]
 
             # Если зданий нет, возвращаем пустой список
             return buildings if buildings else []

@@ -208,7 +208,8 @@ def current_effect_rows(conn, faction, season):
                    SUM(CASE WHEN building_type='Кузница' THEN count ELSE 0 END)
             FROM buildings WHERE faction=? GROUP BY city_name''', (faction,)):
         if walls:
-            rows.append((f'Стены · {city}', walls, f'+{walls * 15}% защиты гарнизона этого города'))
+            from city_construction import building_name,DEFENSE_BONUS
+            rows.append((f"{building_name(faction,'Стена')} · {city}", walls, f'+{walls * DEFENSE_BONUS * 100:g}% защиты гарнизона этого города'))
         if smithies:
             rows.append((f'Кузницы · {city}', smithies, '−5% потребление кристаллов гарнизоном этого города'))
     for kind in ('Больница', 'Фабрика', 'Рынок', 'Цитадель'):

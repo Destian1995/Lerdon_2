@@ -1,5 +1,6 @@
 """Read-only opening combat strength of a whole city garrison."""
 import sqlite3
+from city_construction import DEFENSE_BONUS
 
 from utils.faction_bonuses import combat_bonus_status, combat_multiplier,battle_spirit_multiplier
 
@@ -34,7 +35,7 @@ def garrison_profiles(conn, city, faction=None):
     raw_stats={r[6]:(int(r[1] or 0),int(r[2] or 0),int(r[3] or 0)) for r in rows}
     for cls,attack,defense,durability,count,exp,name in rows:
         prepared.append((str(cls).split()[0],int(attack or 0),
-                         int((defense or 0)*(1+walls*.15)*undead),int(durability or 0),count,exp,name))
+                         int((defense or 0)*(1+walls*DEFENSE_BONUS)*undead),int(durability or 0),count,exp,name))
     heroes=tuple(sum(int(r[i]) for r in prepared if r[0] in ('2','3')) for i in (1,2,3))
     if capital_bonus:
         heroes=(heroes[0]+100,heroes[1]+850,heroes[2])

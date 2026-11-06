@@ -131,6 +131,9 @@ class GameStateManager:
 
     def initialize(self, selected_faction):
         """Инициализация объектов игры."""
+        from city_construction import ensure_neutral_buildings
+        with self.conn:
+            ensure_neutral_buildings(self.conn)
         self.faction = Faction(selected_faction, self.conn)  # Создаем объект фракции
         # PRAGMA настройки устанавливаются в DBManager при создании соединения
 
@@ -1568,6 +1571,16 @@ class GameScreen(Screen):
         """
         if getattr(self, '_troop_movement_busy', False):
             return
+        if getattr(self, '_turn_failed', False) or self.end_turn_button.disabled:
+            return
+        from turn_storage import check_turn_storage
+        try:
+            check_turn_storage(self.conn)
+        except OSError:
+            show_message('Недостаточно места',
+                         'Освободите место на диске или в памяти телефона и повторите ход.\n'
+                         'Нужно не менее 128 МБ свободного места. Ход не начат.')
+            return
         import threading
 
         # === Фаза 1: Быстрые операции на главном потоке ===
@@ -1622,6 +1635,7 @@ class GameScreen(Screen):
         # === Фаза 2: Тяжёлые операции в фоновом потоке ===
         def _background_work():
             _new_season = None
+            _error = None
             try:
                 self.ensure_rebellion_ai_controller()
                 from terrain_journeys import advance_journeys
@@ -1667,14 +1681,39 @@ class GameScreen(Screen):
                 self.season_manager.reset_absent_third_class_units(self.conn)
 
             except Exception as e:
-                print(f"[ERROR] Ошибка в фоновом потоке хода: {e}")
-                import traceback
-                traceback.print_exc()
+                _error=e
+                # stderr may itself point to a log on the full disk.
+                try:
+                    print(f"[ERROR] Ошибка в фоновом потоке хода: {e}")
+                    import traceback
+                    traceback.print_exc()
+                except (OSError,ValueError):
+                    pass
             finally:
-                Clock.schedule_once(lambda dt: self._finish_turn(_new_season))
+                if _error is not None:
+                    Clock.schedule_once(lambda dt, error=_error: self._abort_turn(error))
+                else:
+                    Clock.schedule_once(lambda dt: self._finish_turn(_new_season))
 
         thread = threading.Thread(target=_background_work, daemon=True)
         thread.start()
+
+    def _abort_turn(self,error):
+        """Stop after a partial turn; committed AI actions cannot be rolled back."""
+        self._turn_failed=True
+        self.end_turn_button.disabled=True
+        try:
+            self.conn.rollback()
+        except Exception:
+            pass
+        if getattr(self,'_turn_overlay',None):
+            self._turn_overlay.dismiss()
+            self._turn_overlay=None
+        from turn_storage import is_storage_full
+        reason=('Закончилось место на диске или в памяти телефона. Освободите место.'
+                if is_storage_full(error) else 'Произошла ошибка при обработке хода.')
+        show_message('Ход прерван',reason+'\nПерезапустите игру перед продолжением. '
+                     'Часть действий хода могла сохраниться.')
 
     def _finish_turn(self, new_season=None):
         """Завершение хода: обновление UI на главном потоке после фоновой работы."""
@@ -1722,13 +1761,16 @@ class GameScreen(Screen):
             print(f"Ход {self.turn_counter} завершён")
             from tutorial import notify_event
             notify_event('turn_finished')
+        except Exception as error:
+            self._abort_turn(error)
         finally:
-            self.end_turn_button.disabled = False
+            self.end_turn_button.disabled = bool(getattr(self,'_turn_failed',False))
             if hasattr(self, '_turn_overlay') and self._turn_overlay:
                 self._turn_overlay.dismiss()
                 self._turn_overlay = None
             from troop_movement import play_ai_marches
-            Clock.schedule_once(lambda dt: play_ai_marches(self), 0.3)
+            if not getattr(self,'_turn_failed',False):
+                Clock.schedule_once(lambda dt: play_ai_marches(self), 0.3)
 
     def _check_council_loyalty_warning(self):
         """Предупреждение если средняя лояльность советников ниже 40%"""

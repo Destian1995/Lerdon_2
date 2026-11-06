@@ -57,7 +57,26 @@ def citadel_lot(faction,city,panorama_aspect,sprite_aspect):
 
 def building_mirrored(faction,building):
     """Match the gate's visible side to the keep in the faction panorama."""
-    return building=='Стена' and theme_key(faction) in ('adepts','elines')
+    return False  # New faction defenses are painted in their final orientation.
+
+
+def defense_lot(faction,panorama_aspect,sprite_aspect):
+    """Keep tall towers and trees inside the panorama without stretching them."""
+    x,y,width=LOTS['Стена']
+    if theme_key(faction)=='north':
+        # The compact arsenal sits farther back inside the upper oval lot.
+        return .83,.62,min(.185,.165/(panorama_aspect*sprite_aspect))
+    if theme_key(faction)=='adepts':
+        # A low abbey occupies its terrace rather than dominating the skyline.
+        return .83,.58,min(.20,.21/(panorama_aspect*sprite_aspect))
+    if theme_key(faction)=='elves':
+        # Move the tree back on its terrace, keeping the crown inside the view.
+        y=.60
+    width={'elves':.23}.get(theme_key(faction),width)
+    height=width*panorama_aspect*sprite_aspect
+    if theme_key(faction) in ('north','elves','adepts','elines'):
+        width*=min(1,(.98-y)/height)
+    return x,y,width
 
 
 def theme_key(faction):return THEMES.get(faction,'neutral')

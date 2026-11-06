@@ -33,6 +33,7 @@ class AndroidWallTests(unittest.TestCase):
         for faction,image_height in (('Адепты',503),('Элины',520)):
             with self.subTest(faction=faction):
                 db.execute('UPDATE cities SET faction=?',(faction,))
+                db.execute("INSERT OR IGNORE INTO buildings VALUES('Home',?,'Стена',1)",(faction,))
                 padded=Texture.create(size=(1024,1024),colorfmt='rgba')
                 padded.blit_buffer(bytes(1024*1024*4),colorfmt='rgba',bufferfmt='ubyte')
                 region=padded.get_region(0,0,520,image_height)
@@ -43,7 +44,7 @@ class AndroidWallTests(unittest.TestCase):
                     scene=TownScene(db,'Home',faction,size_hint=(None,None),size=(640,360))
                 scene.effects.stop()
                 sprite=scene.sprites['Стена']
-                self.assertEqual(tuple(sprite.tex_coords),tuple(mirrored_tex_coords(region.tex_coords)))
+                self.assertEqual(tuple(sprite.tex_coords),tuple(region.tex_coords))
                 fbo=Fbo(size=(640,360),with_stencilbuffer=True)
                 with fbo:ClearColor(0,0,0,1);ClearBuffers()
                 fbo.add(scene.canvas)

@@ -4,16 +4,43 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.image import Image
+from kivy.uix.label import Label
+from kivy.core.text import Label as CoreLabel
 from kivy.graphics import Color,RoundedRectangle,Line
 from otherworld_ui import WorldPopup,_button
 from mirror_readable_ui import ReadableText
 from mirror_readable_ui import compact_number
 from mirror_layout import FitLabel
 from strategy_ui import FACTIONS,GOLD,MUTED,TEXT
-from city_construction import CATALOG,building_counts,construction_allowed,city_owner
+from city_construction import CATALOG,building_counts,construction_allowed,city_owner,building_name,HOSPITAL_GROWTH,FACTORY_YIELD,DEFENSE_BONUS
 from town_scene import TownScene
 from town_art import building_path
 from utils.helpers import format_number
+
+
+BUILDING_SUMMARIES={
+    'Больница':(f'+{HOSPITAL_GROWTH} жителей и рабочих/ход',(.45,.88,.56,1)),
+    'Фабрика':(f'+{FACTORY_YIELD} кристаллов/ход',(.35,.78,1,1)),
+    'Стена':(f'+{DEFENSE_BONUS*100:g}% защиты гарнизона',(.45,.88,.56,1)),
+    'Рынок':('+10% дохода крон',GOLD),
+    'Кузница':('−5% расхода кристаллов гарнизона',(.35,.78,1,1)),
+    'Цитадель':('+500 к лимиту армии',(.45,.88,.56,1)),
+}
+
+
+class SummaryLabel(Label):
+    """Keep the resource strip to one line, including on narrow phones."""
+    def __init__(self,**kwargs):
+        super().__init__(halign='left',valign='middle',**kwargs)
+        self.bind(size=self.fit,text=self.fit)
+
+    def fit(self,*_):
+        font=sp(14)
+        measure=CoreLabel(text=self.text,font_size=font,font_name=self.font_name)
+        measure.refresh()
+        self.font_size=max(1,int(min(font,font*max(1,self.width-2)/max(1,measure.texture.width),
+                                    font*max(1,self.height-2)/max(1,measure.texture.height)))-1)
+        self.text_size=(self.width,self.height)
 
 
 class BuildingRow(ButtonBehavior,BoxLayout):
@@ -64,6 +91,8 @@ class BuildingRow(ButtonBehavior,BoxLayout):
         self.border.rounded_rectangle=(*self.pos,*self.size,dp(7))
 
     def refresh(self,town):
+        display_name=building_name(town.scene.faction,self.name)
+        self.title.text=display_name
         self.is_built=bool(town.scene.counts.get(self.name,0))
         self.art.source=building_path(town.scene.faction,self.name)
         grey=(.48,.50,.53,1)
@@ -73,7 +102,7 @@ class BuildingRow(ButtonBehavior,BoxLayout):
         self.status.color=grey if self.is_built else GOLD
         self.status.text='Построено' if self.is_built else format_number(CATALOG[self.name]['cost'])+' крон'
         price=compact_number(CATALOG[self.name]['cost']).replace('.0т','т').replace('.0м','м')
-        self.compact_label.text=self.name+'\n'+('Построено' if self.is_built else price+' кр.')
+        self.compact_label.text=display_name+'\n'+('Построено' if self.is_built else price+' кр.')
         self.compact_label.color=grey if self.is_built else TEXT
         self.fill_color.rgba=(.085,.09,.105,1) if self.is_built else (.065,.085,.12,1)
         self.border_color.rgba=(*GOLD[:3],.9) if self.name==town.selected else (*grey[:3],.3)
@@ -102,16 +131,20 @@ class TownPopup(WorldPopup):
         self.controls.add_widget(self.building_area)
         self.build=_button('Построить',self.purchase,size_hint_y=None,height=dp(44))
         self.controls.add_widget(self.build);self.body.add_widget(self.controls)
-        self.message=ReadableText('',size=14,color=MUTED)
+        self.resource_strip=BoxLayout(size_hint_y=None,height=dp(24),spacing=dp(10))
+        self.message=SummaryLabel(color=GOLD,size_hint_x=None,width=dp(100))
         self.budget=self.message
-        self.root.add_widget(self.message)
+        self.effect_summary=SummaryLabel()
+        self.resource_strip.add_widget(self.message)
+        self.resource_strip.add_widget(self.effect_summary)
+        self.root.add_widget(self.resource_strip)
         self.building_area.bind(size=self.fit_catalog)
         self.choose(self.selected);self.fit()
 
     def layout_content(self):
         if not hasattr(self,'controls'):return
         compact=self.root.height<dp(300)
-        self.root.padding=dp(4 if compact else 6);self.root.spacing=dp(4 if compact else 5)
+        self.root.padding=dp(4 if compact else 6);self.root.spacing=dp(2 if compact else 5)
         self.header.height=dp(36 if compact else 40)
         self.heading.font_size=sp(18)
         self.header.children[0].width=dp(36 if compact else 40)
@@ -132,12 +165,12 @@ class TownPopup(WorldPopup):
             self.build.size_hint=(1,None)
         self.selector.opacity=0 if compact else 1
         self.selector.height=0 if compact else max(dp(20),self.selector.texture_size[1]+dp(2))
-        self.message.height=0 if compact else max(dp(20),self.message.texture_size[1]+dp(2))
-        self.message.opacity=0 if compact else 1
+        self.resource_strip.height=dp(22 if compact else 24)
+        self.message.width=min(dp(120),self.root.width*.28)
         self.heading.text=self.city+(' · '+compact_number(getattr(self,'money',0))+' кр.' if compact else '')
         if not self.emergency:self.build.height=dp(44)
-        self.build.text=(self.selected+' · ' if compact else '')+getattr(self,'build_caption','Построить')
-        self.controls.spacing=dp(4 if compact else 6)
+        self.build.text=(building_name(self.faction,self.selected)+' · ' if compact else '')+getattr(self,'build_caption','Построить')
+        self.controls.spacing=dp(2 if compact else 6)
         self.fit_catalog()
 
     def fit_catalog(self,*_):
@@ -146,21 +179,26 @@ class TownPopup(WorldPopup):
         for row in rows:row.copy.width=max(1,self.building_area.width-dp(72))
         required=sum(row.natural_height for row in rows)+dp(5)*5+dp(4)
         compact=getattr(self,'emergency',False) or required>self.building_area.height
-        self.building_list.cols=(3 if getattr(self,'emergency',False) or self.building_area.width>=dp(220) and
-                                 self.building_area.height<dp(230) else 2) if compact else 1
+        three_columns=(getattr(self,'emergency',False) or
+                       self.building_area.width>=dp(220) and self.building_area.height<dp(230) or
+                       self.building_area.width>=dp(144) and self.building_area.height<dp(146))
+        self.building_list.cols=(3 if three_columns else 2) if compact else 1
         self.building_list.spacing=dp(4 if compact else 5)
         for row in rows:row.set_compact(compact)
 
     def choose(self,name):
         if name:self.selected=name
         self.scene.selected=self.selected;self.scene.refresh()
+        self.faction=self.scene.faction
         counts=self.scene.counts;info=CATALOG[self.selected]
         row=self.conn.execute("SELECT amount FROM resources WHERE faction=? AND resource_type='Кроны'",(self.player,)).fetchone() if self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='resources'").fetchone() else None
         money=row[0] if row else 0
         self.money=money
         owned=construction_allowed(self.conn,self.city,self.player)
-        self.budget.text=f'{format_number(money)} крон' if owned else 'Осмотр'
-        self.selector.text=self.selected
+        self.budget.text=compact_number(money)+' крон' if owned else 'Осмотр'
+        self.budget.color=GOLD
+        self.effect_summary.text,self.effect_summary.color=BUILDING_SUMMARIES[self.selected]
+        self.selector.text=building_name(self.scene.faction,self.selected)
         for row in self.selectors.values():row.refresh(self)
         self.build.disabled=not owned or bool(counts.get(self.selected,0)) or money<info['cost']
         self.build.text='Только осмотр' if not owned else 'Уже построено' if counts.get(self.selected,0) else 'Недостаточно крон' if money<info['cost'] else 'Построить · '+compact_number(info['cost']).replace('.0т','т').replace('.0м','м')
@@ -170,7 +208,6 @@ class TownPopup(WorldPopup):
     def purchase(self,*_):
         if self.owner._build_building(self.selected,CATALOG[self.selected]['cost']):
             self.choose(self.selected)
-            self.message.color=(.4,.9,.6,1);self.message.text='Построено: '+self.selected
         else:
             self.choose(self.selected)
             self.message.color=(1,.5,.4,1);self.message.text=getattr(self.owner,'_construction_error','Строительство недоступно.')

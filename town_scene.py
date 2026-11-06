@@ -5,7 +5,7 @@ from kivy.core.image import Image as CoreImage
 from kivy.graphics import Color,Rectangle,Line,Mesh,Canvas
 from kivy.metrics import dp
 from kivy.uix.stencilview import StencilView
-from town_art import panorama_path,building_path,building_mirrored,citadel_lot,LOTS,map_icon
+from town_art import panorama_path,building_path,building_mirrored,citadel_lot,defense_lot,LOTS,map_icon
 from city_construction import building_counts
 
 
@@ -113,6 +113,10 @@ class TownScene(StencilView):
         self.scene_bounds=(left,bottom,width,height)
         self.lots=dict(LOTS)
         citadel=building_path(self.faction,'Цитадель')
+        defense=building_path(self.faction,'Стена')
+        if Path(defense).is_file():
+            art=texture(defense)
+            self.lots['Стена']=defense_lot(self.faction,background.width/background.height,art.height/art.width)
         if Path(citadel).is_file():
             art=texture(citadel)
             self.lots['Цитадель']=citadel_lot(self.faction,self.city,
