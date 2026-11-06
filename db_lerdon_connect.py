@@ -127,6 +127,8 @@ def migrate_city_icon_paths(conn):
 _icon_migration_conn = sqlite3.connect(db_path)
 try:
     migrate_city_icon_paths(_icon_migration_conn)
+    from artifact_image_updates import migrate_artifact_image_paths
+    migrate_artifact_image_paths(_icon_migration_conn)
     migrate_morgana(_icon_migration_conn)
     from undead_garrison import migrate_capital_archers
     migrate_capital_archers(_icon_migration_conn)
