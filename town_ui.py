@@ -139,7 +139,13 @@ class TownPopup(WorldPopup):
         self.resource_strip.add_widget(self.effect_summary)
         self.root.add_widget(self.resource_strip)
         self.building_area.bind(size=self.fit_catalog)
+        self.bind(on_open=self._tutorial_opened)
         self.choose(self.selected);self.fit()
+
+    def _tutorial_opened(self,*_):
+        if construction_allowed(self.conn,self.city,self.player):
+            from tutorial import notify_event
+            notify_event('town_opened')
 
     def layout_content(self):
         if not hasattr(self,'controls'):return
@@ -204,6 +210,9 @@ class TownPopup(WorldPopup):
         self.build.text='Только осмотр' if not owned else 'Уже построено' if counts.get(self.selected,0) else 'Недостаточно крон' if money<info['cost'] else 'Построить · '+compact_number(info['cost']).replace('.0т','т').replace('.0м','м')
         self.build_caption=self.build.text
         self._layout_event()
+        if owned and self.parent is not None:
+            from tutorial import notify_event
+            notify_event('building_inspected')
 
     def purchase(self,*_):
         if self.owner._build_building(self.selected,CATALOG[self.selected]['cost']):

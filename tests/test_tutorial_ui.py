@@ -97,6 +97,27 @@ class TutorialUITests(unittest.TestCase):
                 conn.close()
         self.assertEqual(events, ['owned_city_opened'])
 
+    def test_construction_exercises_require_own_town_and_no_purchase(self):
+        from town_ui import TownPopup
+        class Receiver:
+            def receive(self,event):events.append(event)
+        events=[];receiver=Receiver();set_event_handler(receiver.receive)
+        for owner in ('Эльфы','Адепты'):
+            events.clear()
+            popup,conn=city_fixture(owner=owner)
+            town=TownPopup(popup)
+            try:
+                # Initial default selection, before opening, is not an exercise.
+                self.assertEqual(events,[])
+                town.open(animation=False);self.settle()
+                town.choose('Рынок');self.settle()
+                if owner=='Адепты':
+                    self.assertEqual(events,['town_opened','building_inspected'])
+                else:self.assertEqual(events,[])
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM buildings WHERE building_type='Рынок'").fetchone()[0],0)
+            finally:
+                town.dismiss(animation=False);self.settle();conn.close()
+
     def test_screen_skip_detaches_panel_and_ignores_late_events(self):
         tree = ast.parse(Path('game_process.py').read_text(encoding='utf-8'))
         game = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'GameScreen')
