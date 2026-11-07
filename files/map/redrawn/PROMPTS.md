@@ -1,6 +1,6 @@
 # Redrawn terrain maps
 
-Generated using the built-in image_gen tool. Originals remain in ../generate. These alternatives are not connected to the game yet. All images visually inspected; in-game overlay readability has not been tested.
+The seven images in this folder are synchronized with the active maps in ../generate. On 2026-11-07 all ten active maps were enriched with forests, wetlands and relief using the built-in image_gen tool. Current revision prompts and image hashes are recorded in assets/map-rich-terrain-prompts.json. The prompts below document the earlier artwork revision. Original pre-enrichment images are backed up in .release/maps-before-rich-terrain; terrain annotations are rebuilt from the active artwork.
 
 ## map_1.png
 

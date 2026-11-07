@@ -73,6 +73,22 @@ SPECS = {
 COLORS = {LAND: '#d9c382', WATER: '#187fbb', FOREST: '#376d35', MOUNTAIN: '#715364',
           SNOW: '#dae9f4', DESERT: '#e6b756', CORRUPTION: '#635346', SWAMP: '#737a43', VOID: '#181e27'}
 
+# Reviewed wetland cores in the richer November maps. Coordinates are fractions
+# of the image, measured from its top-left, rather than gameplay screen pixels.
+RICH_WETLANDS={
+    1:[(.33,.22,.40,.28),(.37,.44,.45,.51),(.40,.63,.47,.70)],
+    2:[(.41,.36,.47,.42),(.40,.62,.47,.68)],
+    8:[(.59,.25,.67,.31),(.39,.47,.48,.53),(.65,.68,.73,.73)],
+    9:[(.53,.30,.62,.34),(.48,.54,.57,.59),(.76,.65,.84,.69)],
+    10:[(.53,.27,.59,.31),(.65,.48,.71,.51),(.35,.57,.44,.62),(.22,.79,.30,.84)],
+}
+for number,rects in RICH_WETLANDS.items():
+    SPECS[number]['regions'].extend((SWAMP,[(l,t),(r,t),(r,b),(l,b)]) for l,t,r,b in rects)
+for number in (1,2,5,6,8,9,10):
+    SPECS[number]['rich_forest_scan']=True
+SPECS[10].pop('preserve_forests',None)
+SPECS[10]['autumn_forest']=True
+
 
 def polygon(draw, points, size, fill):
     draw.polygon([(round(x * size[0]), round(y * size[1])) for x, y in points], fill=fill)
@@ -130,10 +146,17 @@ def build(number, spec):
         polygon(ImageDraw.Draw(annotation),points,GRID,WATER)
     # Refine forest regions to actual tree clusters, leaving their clearings open.
     small = image.resize(GRID, Image.Resampling.BOX)
+    wetland_reach=list(water.filter(ImageFilter.MaxFilter(9)).getdata())
     values = list(annotation.getdata())
     for index, ((r, g, b), kind) in enumerate(zip(small.getdata(), values)):
-        if kind == FOREST and not spec.get('preserve_forests',False) and not (g > r * .92 and g > b * 1.12 and (r + g + b) / 3 < 140):
+        leafy=g > r * 1.02 and g > b * 1.15 and (r + g + b) / 3 < 130
+        autumn=spec.get('autumn_forest',False) and r>g*1.42 and g>b*1.25 and 65<r<220 and (r+g+b)/3<130
+        if kind==SWAMP and not wetland_reach[index]:
+            values[index]=FOREST if leafy or autumn else LAND
+        if kind == FOREST and not spec.get('preserve_forests',False) and not (leafy or autumn):
             values[index] = LAND
+        if spec.get('rich_forest_scan',False) and kind in (LAND,FOREST) and (leafy or autumn):
+            values[index]=FOREST
     for y in range(GRID[1]):
         for x in range(GRID[0]):
             if x < 8 or x >= GRID[0] - 8 or y < 8 or y >= GRID[1] - 8:
