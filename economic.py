@@ -1492,6 +1492,11 @@ class Faction:
             from portal_home import loss_reason
             portal_loss=loss_reason(self.conn,self.faction)
             if portal_loss:return False,portal_loss
+            from mirror_monster_quest import soul_loss_reason,pact
+            from city_war import current_turn
+            soul_loss=soul_loss_reason(self.conn,self.faction)
+            deal=pact(self.conn,self.faction)
+            if soul_loss and current_turn(self.conn)>deal['deadline']:return False,soul_loss
             # Условия завершения игры
             if self.population <= 0:
                 message = "Города опустели...."
@@ -1524,6 +1529,7 @@ class Faction:
                     print(message)
                     return False, message
 
+            if soul_loss:return False,soul_loss
             # Если ни одно из условий не выполнено, игра продолжается
             return True, "Игра продолжается."
 

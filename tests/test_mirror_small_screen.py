@@ -80,7 +80,7 @@ class MirrorSmallScreenTests(unittest.TestCase):
             self.db.execute('UPDATE portal_parties SET city_id=?',(place,));self.db.commit()
             q.action(self.db,'Север',kind,d['search_sites'][d['search_answer']] if kind=='ledger' else None)
         journal=QuestJournal(self.owner);journal.open(animation=False);settle()
-        self.assertEqual(len(journal.cards.pages),2)
+        self.assertEqual(len(journal.cards.pages),3)
         for index,card in enumerate(journal.cards.pages):
             journal.cards.select(index);settle()
             self.assertIs(card.parent,journal.cards.detail_host)
@@ -96,7 +96,7 @@ class MirrorSmallScreenTests(unittest.TestCase):
         self.db.execute("INSERT INTO portal_quest_rewards VALUES('Север',1,102,NULL)")
         self.db.execute("INSERT INTO portal_quest_buffs VALUES('Север',25)");self.db.commit()
         journal.refresh();settle()
-        self.assertEqual(len(journal.cards.pages),4)
+        self.assertEqual(len(journal.cards.pages),5)
         for index,card in enumerate(journal.cards.pages):
             journal.cards.select(index);settle();self.readable(card)
 

@@ -97,6 +97,7 @@ class QuestJournal(WorldPopup):
                 (war['premise']+'\n\n' if stage==0 else '')+tasks[stage],buttons,
                 details='ЗАЩ '+defense+' · Артефакт 25 х.')
             self._layout_event()
+        self.monster_card(p,here,names)
         pending=quests.pending(self.conn,self.faction)
         if pending:
             from portal_items import champions
@@ -107,6 +108,95 @@ class QuestJournal(WorldPopup):
         left=quests.cap_turns(self.conn,self.faction)
         if left:self.card('Благословение Зазеркалья',f'Лимиты крон, кристаллов, рабочих и населения увеличены на 35%.\nОсталось {left} ходов. Бонус не складывается сам с собой.')
         self.cards.select(selected)
+
+    def monster_card(self,party,here,names):
+        import json
+        import mirror_monster_quest as hunt
+        case=hunt.state(self.conn,self.faction)
+        deal=hunt.pact(self.conn,self.faction)
+        if deal:
+            left=max(0,deal['deadline']-current_turn(self.conn))
+            self.card('Сделка за душу · '+str(left)+' х.',
+                      'Монстр на вашей стороне. Победите в кампании не позднее хода '+str(deal['deadline'])+
+                      '.\nОсталось ходов: '+str(left)+'. Срок не сбрасывается при возвращении домой или потере монстра. '
+                      'Если не победите за 30 ходов после сделки — поражение без нового звания.')
+        if not case or case['stage']==3:
+            left=max(0,case['finished_turn']+hunt.COOLDOWN-current_turn(self.conn)) if case else 0
+            copy=('Необязательное дело о гибели и исчезновениях жителей. Найдите улики и победите монстра. '
+                  'База монстра: 260 млн атаки и 310 млн защиты. Зимой сила ×4, весной ×1, летом ×0,05, осенью ×2. '
+                  'Сезон фиксируется при принятии. Можно сразиться или договориться ценой души.\n'
+                  'Награда: один уникальный спутник в отряд победителя. База: 100 млн атаки и 100 млн защиты; '
+                  'каждая характеристика получает отдельную надбавку от 14,2% до 27,1%. '
+                  'Спутник остаётся с отрядом при возвращении домой.')
+            if case:copy+='\nПредыдущее дело раскрыто героем '+case['hero']+'. Новое дело через '+str(left)+' х.'
+            available=bool(party and hunt.heroes(self.conn,party['camp'],self.faction) and not left)
+            self.card('Исчезнувшие жители · необязательно',copy,
+                      [('Принять расследование',lambda *_:self.perform(lambda:hunt.begin(self.conn,self.faction)),available)])
+            return
+        story=json.loads(case['scenario']);stage=case['stage'];enemy=hunt.monster(case)
+        from utils.helpers import format_number
+        copy=story['premise']+'\nГород: '+names[case['city_id']-1]+'. Сезон дела: '+hunt.SEASONS[case['season']]+'.'
+        if stage>=1:copy+='\n'+story['witness']
+        if stage>=2:copy+='\n'+story['clue']+'\nМонстр: '+story['monster']+'. Атака: '+format_number(enemy['attack'])+' · Защита: '+format_number(enemy['defense'])+'.'
+        buttons=[]
+        if stage<2:
+            buttons=[('Опросить свидетеля' if stage==0 else 'Проверить следы',
+                      lambda *_:self.perform(lambda:hunt.investigate(self.conn,self.faction)),here==case['city_id'])]
+        elif party:
+            buttons=[('В бой · '+hero,lambda *_,h=hero:self.hunt_battle(h),here==case['city_id'])
+                     for hero in hunt.heroes(self.conn,party['camp'],self.faction)]
+            if not deal:
+                buttons += [('Договориться · '+hero,lambda *_,h=hero:self.offer_soul(h),here==case['city_id'])
+                            for hero in hunt.heroes(self.conn,party['camp'],self.faction)]
+            confirm=getattr(self,'_soul_offer',None)
+            if confirm and confirm==(case['id'],here):
+                hero=self._soul_hero
+                copy+='\nРиск: цена сделки — ваша душа. Монстр присоединится без боя: атака '+format_number(enemy['attack'])+', защита '+format_number(enemy['defense'])+'. '
+                copy+='Вы обязаны победить в кампании за 30 ходов, иначе проиграете без присвоения звания. Сделка необратима.'
+                buttons=[('Продать душу · '+hero,lambda *_:self.accept_soul(hero),True),
+                         ('Отказаться от сделки',lambda *_:self.offer_soul(None),True)]
+        self.card(story['title']+' · '+str(stage)+'/3',copy,buttons,
+                  details='Награда: спутник · АТК +'+str(case['attack_bonus']/10)+'% · ЗАЩ +'+str(case['defense_bonus']/10)+'%')
+        if stage==2:
+            from kivy.uix.image import Image
+            card=self.cards.pages[-1]
+            card.content.add_widget(Image(source=enemy['unit_image'],fit_mode='contain',
+                                          size_hint_y=None,height=dp(130)),index=1 if buttons else 0)
+
+    def offer_soul(self,hero):
+        import mirror_monster_quest as hunt
+        case=hunt.state(self.conn,self.faction);party=worlds.party(self.conn,self.faction)
+        self._soul_offer=(case['id'],party['city_id']) if hero and case and party else None
+        self._soul_hero=hero
+        self.refresh()
+
+    def accept_soul(self,hero):
+        import mirror_monster_quest as hunt
+        def accept():
+            hunt.sell_soul(self.conn,self.faction,hero)
+            self._soul_offer=None
+            return 'Монстр присоединился к отряду. Победите за 30 ходов. При неудаче — поражение без звания.'
+        self.perform(accept)
+
+    def hunt_battle(self,hero):
+        import mirror_monster_quest as hunt
+        result=[]
+        def battle():
+            outcome=hunt.fight(self.conn,self.faction,hero);result.append(outcome)
+            return ('Расследование раскрыто! Спутник присоединился к отряду героя '+hero+'.'
+                    if outcome['won'] else 'Монстр не побеждён. Соберите силы и возвращайтесь в логово.')
+        self.perform(battle)
+        if not result:return
+        outcome=result[0]
+        from battle_ui import BattleViewer
+        class HuntBattle(BattleViewer):
+            def reveal_result(view):
+                super().reveal_result()
+                view.result_detail.text=('Победа · уникальный спутник в отряде героя '+hero
+                                        if outcome['won'] else 'Отступление · расследование продолжается')
+        HuntBattle(outcome['rounds'],self.faction,outcome['guards'][0]['unit_name'],
+                   'attacker' if outcome['won'] else 'defender',self.faction,'Экспедиция',outcome['city'],
+                   attacker_image=outcome.get('attacker_image'),defender_image=outcome['guards'][0]['unit_image']).open()
 
     def step(self,kind,choice=None):
         def action():
@@ -124,6 +214,11 @@ class QuestJournal(WorldPopup):
         except ValueError as exc:
             self.feedback.text=str(exc);return
         screen=_screen(self.conn)
-        if screen:screen.season_manager.apply_artifact_bonuses(self.conn)
+        if screen:
+            screen.season_manager.apply_artifact_bonuses(self.conn)
+            if hasattr(screen,'turn_label'):
+                from mirror_monster_quest import deadline_caption
+                caption=deadline_caption(self.conn,self.faction)
+                screen.turn_label.text=f'Текущий ход: {screen.turn_counter}'+('\n'+caption if caption else '')
         _refresh_main(self.conn,self.faction)
         self.refresh();self.owner.map.draw();self.owner.refresh()

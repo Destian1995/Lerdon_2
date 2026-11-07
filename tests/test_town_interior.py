@@ -42,12 +42,16 @@ class TownTests(unittest.TestCase):
         town.build.dispatch('on_release');settle()
         self.assertTrue(row.is_built)
         self.assertEqual(row.status.text,'Построено')
-        self.assertEqual(tuple(row.title.color),(.48,.50,.53,1))
+        self.assertEqual(tuple(row.title.color),(.45,.88,.56,1))
+        self.assertIn('[color=73e08f]Рынок[/color]',row.compact_label.text)
         self.assertTrue(town.build.disabled)
         self.assertFalse(row.disabled)  # Built buildings remain inspectable.
         self.assertFalse(town.selectors['Стена'].is_built)
         self.assertNotEqual(tuple(row.title.color),tuple(town.selectors['Стена'].title.color))
         self.assertEqual(self.money(),470000)
+        town.choose('Стена');settle()
+        self.assertEqual(tuple(row.title.color),(.48,.50,.53,1))
+        self.assertNotIn('[color=',row.compact_label.text)
 
     def test_purchased_building_appears_in_both_scenes_and_survives_reopening(self):
         town=self.owner._open_build_menu();settle()

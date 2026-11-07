@@ -178,7 +178,7 @@ class AIController:
         query = """
             SELECT unit_name, cost_money, cost_time, attack, defense, durability, unit_class, consumption 
             FROM units 
-            WHERE faction = ?
+            WHERE faction = ? AND unit_name NOT LIKE 'Спутник:%'
         """
         self.cursor.execute(query, (self.faction,))
         return {

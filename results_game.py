@@ -63,6 +63,8 @@ def clear_tables(conn):
         "artifact_effects_log",
         "player_allies",
         "negotiation_history",
+        "portal_soul_pacts",
+        "portal_monster_cases",
     ]
 
     cursor = conn.cursor()
@@ -178,7 +180,7 @@ class ResultsGame:
         self.reason = reason
         self.current_faction = faction_name
         self.update_dossier_stats()  # ← ОБНОВЛЯЕМ СТАТИСТИКУ
-        self.calculate_military_rank()  # ← ТЕПЕРЬ РАСЧЁТ ЗВАНИЙ РАБОТАЕТ
+        if self.game_status=='win':self.calculate_military_rank()
 
         # Загружаем и фильтруем результаты (исключая Нейтралов)
         calculated_results = [r for r in self.calculate_results()
@@ -207,6 +209,7 @@ class ResultsGame:
         в таблице dossier на основе расчёта итоговых очков.
         Использует новые системы званий (уровни 1-19).
         """
+        if self.game_status!='win':return
         if not hasattr(self, 'current_faction') or self.current_faction is None:
             return
 

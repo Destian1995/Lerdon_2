@@ -37,7 +37,7 @@ class MirrorCampaignUITests(unittest.TestCase):
     def test_journal_records_clues_and_fits_small_landscape_screen(self):
         journal=QuestJournal(self.map);journal.open(animation=False);settle()
         journal.perform(lambda:q.begin(self.db,'Север'))
-        self.assertEqual(len(journal.cards.pages),2)
+        self.assertEqual(len(journal.cards.pages),3)
         witness=q.details(q.state(self.db,'Север'))['detective']['cities'][0]
         self.db.execute("UPDATE portal_parties SET city_id=? WHERE faction='Север'",(witness,))
         self.db.execute('UPDATE turn_check_move SET moves_left=10');self.db.commit()

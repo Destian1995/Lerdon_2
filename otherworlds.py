@@ -510,7 +510,7 @@ def expedition_profiles(conn,faction,camp):
     return profiles
 
 
-def fight_guards(conn,faction,skirmish=None):
+def fight_guards(conn,faction,skirmish=None,encounter=None):
     """Use ordinary skirmish rules but never invoke city capture/political writes."""
     if skirmish is None:
         from fight import battle_chain
@@ -519,7 +519,7 @@ def fight_guards(conn,faction,skirmish=None):
     ensure_resource_schema(conn)
     with atomic(conn):
         p,city=_party_city(conn,faction)
-        if battle_ready(conn,faction):
+        if encounter is None and battle_ready(conn,faction):
             raise ValueError('Следующий бой здесь через '+str(battle_ready(conn,faction))+' х.')
         from battle_presentation import pick_battle_image
         roster=_camp_units(conn,p['camp'])
@@ -548,7 +548,7 @@ def fight_guards(conn,faction,skirmish=None):
         if not army:
             raise ValueError('Для боя нужны обычные войска в отряде.')
         from otherworld_quests import battle_won
-        guard,target=guard_profile(conn,faction,city)
+        guard,target=(encounter,None) if encounter is not None else guard_profile(conn,faction,city)
         initial=sum(u['unit_count'] for u in army);frames=[]
         for round_number in range(1,61):
             if guard['unit_count']<=0 or not any(u['unit_count']>0 for u in army):
@@ -566,14 +566,15 @@ def fight_guards(conn,faction,skirmish=None):
             conn.execute('UPDATE garrisons SET unit_count=?,experience=COALESCE(experience,0)+? WHERE city_name=? AND unit_name=?',
                          (unit['unit_count'],int(won),p['camp'],unit['unit_name']))
         conn.execute('DELETE FROM garrisons WHERE city_name=? AND unit_count<=0',(p['camp'],))
-        conn.execute('INSERT INTO portal_battles VALUES(?,?,?) ON CONFLICT(city_id,faction) DO UPDATE SET ready_turn=excluded.ready_turn',
-                     (city['id'],faction,current_turn(conn)+5))
-        coins=(10_000+city['id']*5000) if won else 0
+        if encounter is None:
+            conn.execute('INSERT INTO portal_battles VALUES(?,?,?) ON CONFLICT(city_id,faction) DO UPDATE SET ready_turn=excluded.ready_turn',
+                         (city['id'],faction,current_turn(conn)+5))
+        coins=(10_000+city['id']*5000) if won and encounter is None else 0
         if coins:
             _grant(conn,faction,'Кроны',coins)
-        if won:
+        if won and encounter is None:
             conn.execute('INSERT INTO portal_guard_buffs VALUES(?,?) ON CONFLICT(faction) DO UPDATE SET expires_turn=excluded.expires_turn',
                          (faction,current_turn(conn)+9))
-        quest_win=battle_won(conn,faction,city['id']) if won else False
+        quest_win=battle_won(conn,faction,city['id']) if won and encounter is None else False
     return dict(won=won,coins=coins,city=city['name'],army=army,guards=[guard],rounds=frames,quest_win=quest_win,quest_target=target,
                 attacker_image=attacker_image)

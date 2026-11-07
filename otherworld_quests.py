@@ -246,10 +246,12 @@ def claim(conn,faction,hero=None):
 
 
 def objectives(conn,faction):
+    from mirror_monster_quest import objectives as monster_objectives
+    optional=monster_objectives(conn,faction)
     run=state(conn,faction)
-    if not run or run['finished_turn'] is not None:return {1}
+    if not run or run['finished_turn'] is not None:return {1}|optional
     scenario=details(run);d=scenario['detective'];w=scenario['war']
     result=set()
     if run['detective']<3:result.add(d['cities'][run['detective']])
     if run['war']<3:result.add((w['embassy'],w['supplies'][0 if run['side']==w['sides'][0] else 1],w['target'])[run['war']])
-    return result
+    return result|optional

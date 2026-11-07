@@ -1472,6 +1472,9 @@ class GameScreen(Screen):
         turn_counter_container.bind(pos=update_turn_rect, size=update_turn_rect)
         self.turn_label = Label(text=f"Текущий ход: {self.turn_counter}", font_size='18sp', color=(1, 1, 1, 1),
                                 bold=True, halign='center')
+        from mirror_monster_quest import deadline_caption
+        soul_caption=deadline_caption(self.conn,self.selected_faction)
+        if soul_caption:self.turn_label.text+='\n'+soul_caption
         turn_counter_container.add_widget(self.turn_label)
         self.root_overlay.add_widget(turn_counter_container)
 
@@ -1586,6 +1589,9 @@ class GameScreen(Screen):
         # === Фаза 1: Быстрые операции на главном потоке ===
         self.turn_counter += 1
         self.turn_label.text = f"Текущий ход: {self.turn_counter}"
+        from mirror_monster_quest import deadline_caption
+        soul_caption=deadline_caption(self.conn,self.selected_faction)
+        if soul_caption:self.turn_label.text+='\n'+soul_caption
         self.save_turn(self.selected_faction, self.turn_counter)
         self.save_turn_history(self.selected_faction, self.turn_counter)
         from city_war import reconcile_city_rebuilding

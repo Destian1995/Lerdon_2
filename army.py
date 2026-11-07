@@ -135,6 +135,8 @@ class ArmyCash:
         :param unit_image: Путь к изображению юнита.
         :return: True, если найм успешен; False в противном случае.
         """
+        if unit_name.startswith('Спутник: '):
+            return False  # Unique quest companions can only be awarded by their case.
         crowns, workers = unit_cost
         required_crowns = int(crowns) * int(quantity)
         required_workers = int(workers) * int(quantity)
@@ -398,6 +400,7 @@ def load_unit_data(faction, conn):
     cursor.execute("""
         SELECT unit_name, consumption, cost_money, cost_time, image_path, attack, defense, durability, unit_class
         FROM units WHERE faction = ? AND unit_name NOT LIKE 'Странник:%'
+            AND unit_name NOT LIKE 'Спутник:%'
     """, (faction,))
     rows = cursor.fetchall()
 

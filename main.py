@@ -284,6 +284,8 @@ def clear_tables(conn):
         "portal_quest_rewards",
         "portal_quest_buffs",
         "portal_quest_history",
+        "portal_monster_cases",
+        "portal_soul_pacts",
     ]
 
     cursor = conn.cursor()

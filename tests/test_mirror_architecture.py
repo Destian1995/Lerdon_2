@@ -54,7 +54,7 @@ class ArchitectureTests(unittest.TestCase):
     def test_journal_selects_tasks_from_left_and_actions_work_on_right(self):
         q.begin(self.db,'Север',random.Random(54))
         journal=QuestJournal(self.owner,tavern_city=1);journal.open(animation=False);settle()
-        self.assertEqual(len(journal.cards.selectors),2)
+        self.assertEqual(len(journal.cards.selectors),3)
         for size,density,scale in (((640,360),1,1),((1280,576),2,1),((1280,576),2.5,1.2),((392,844),1,1)):
             Window.size=size;Metrics.density=density;Metrics.fontscale=scale;settle();journal.fit();settle()
             self.inside(journal.cards.sidebar,journal.root);self.inside(journal.cards.detail_host,journal.root)

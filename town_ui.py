@@ -65,7 +65,7 @@ class BuildingRow(ButtonBehavior,BoxLayout):
         for label in (self.title,self.effect,self.status):copy.add_widget(label)
         self.add_widget(copy)
         copy.bind(height=self.measure)
-        self.compact_label=FitLabel(maximum=sp(13),minimum=sp(11),halign='center',bold=True)
+        self.compact_label=FitLabel(maximum=sp(13),minimum=sp(11),halign='center',bold=True,markup=True)
         self.bind(pos=self.layout_frame,size=self.layout_frame,
                   on_release=lambda *_:town.choose(name))
 
@@ -97,12 +97,14 @@ class BuildingRow(ButtonBehavior,BoxLayout):
         self.art.source=building_path(town.scene.faction,self.name)
         grey=(.48,.50,.53,1)
         self.art.color=(.48,.48,.48,.65) if self.is_built else (1,1,1,1)
-        self.title.color=grey if self.is_built else TEXT
+        selected=self.name==town.selected
+        self.title.color=(.45,.88,.56,1) if selected else grey if self.is_built else TEXT
         self.effect.color=grey if self.is_built else MUTED
         self.status.color=grey if self.is_built else GOLD
         self.status.text='Построено' if self.is_built else format_number(CATALOG[self.name]['cost'])+' крон'
         price=compact_number(CATALOG[self.name]['cost']).replace('.0т','т').replace('.0м','м')
-        self.compact_label.text=display_name+'\n'+('Построено' if self.is_built else price+' кр.')
+        compact_title='[color=73e08f]'+display_name+'[/color]' if selected else display_name
+        self.compact_label.text=compact_title+'\n'+('Построено' if self.is_built else price+' кр.')
         self.compact_label.color=grey if self.is_built else TEXT
         self.fill_color.rgba=(.085,.09,.105,1) if self.is_built else (.065,.085,.12,1)
         self.border_color.rgba=(*GOLD[:3],.9) if self.name==town.selected else (*grey[:3],.3)
