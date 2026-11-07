@@ -48,10 +48,13 @@ class FactionBonusTests(unittest.TestCase):
                 self.assertEqual(soldier['unit_count'], 10 + expected)
 
     def test_north_and_adepts_use_new_multipliers(self):
+        from combat_stats import base_power
+        soldier=dict(unit_name='Воин',units_stats={'Урон':1000,'Защита':1000,'Класс юнита':1})
         for season in (1, 2.75):
-            ns = bonus_namespace(season)
-            self.assertAlmostEqual(ns['shkval_mult'], 1.8 * season)
-            self.assertAlmostEqual(ns['oplot_mult'], 1.55 * season)
+            north=base_power(soldier,(19000,19000,0),'Север',season)
+            adepts=base_power(soldier,(19000,19000,0),'Адепты',season)
+            self.assertEqual(north,(int(20000*(1.8*season)),20000))
+            self.assertEqual(adepts,(20000,int(20000*(1.55*season))))
 
 
 if __name__ == '__main__':

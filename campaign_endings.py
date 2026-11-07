@@ -23,6 +23,7 @@ def epilogue(conn,faction,status,reason):
     theme,chronicle,hope,ruin=FACTIONS.get(faction,FACTIONS['Север'])
     won=status=='win';lower=reason.lower()
     pact=bool(_rows(conn,'SELECT 1 FROM portal_soul_pacts WHERE faction=?',(faction,)))
+    direct=bool(_rows(conn,'SELECT 1 FROM portal_soul_pacts WHERE faction=? AND case_id=0',(faction,)))
     service=bool(_rows(conn,"SELECT 1 FROM morgana_covenants WHERE faction=? AND status='accepted'",(faction,)))
     kind='conquest' if won else 'defeat'
     title='Корона завоевателя' if won else 'Павшее королевство'
@@ -30,7 +31,7 @@ def epilogue(conn,faction,status,reason):
     art=f'{theme}-'+('victory' if won else 'defeat')
     if won and service:
         kind='morgana';title='Трон под властью Морганы';art='morgana-victory'
-        story='Вы выиграли войну под знамёнами Нежити. Ваш герой и дворянин стоят рядом с Морганой; легионы Низара занимают последние вражеские крепости. Города стали некрополями. Победа принадлежит вам, но новый мир служит своей бессмертной королеве.'
+        story='Вы выиграли войну под знамёнами Нежити. Ваши герои стоят рядом с Морганой; легионы Низара занимают последние вражеские крепости. Города стали некрополями. Победа принадлежит вам, но новый мир служит своей бессмертной королеве.'
     elif won and 'мир во всем мире' in lower:
         kind='peace';title='Мир, который вы построили'
         story='Вы добились того, чего не могло дать одно оружие: бывшие соперники признали общий мир. Договоры открыли границы, и караваны заняли дороги, по которым прежде шли армии.\n\n'+hope
@@ -39,6 +40,7 @@ def epilogue(conn,faction,status,reason):
     elif 'срок сделки' in lower or 'забрал вашу душу' in lower:
         kind='soul';title='Цена проданной души';art='soul-forfeit'
         story=('Даже легионы Морганы не успели принести вам победу. ' if service else '')+'Истёк срок обещания, данного дворянину Зазеркалья. Он пришёл за платой. Полученная сила не спасла вас от собственной клятвы; эта кампания не принесёт вам звания.'
+        if direct:story='Моргана потребовала плату: срок договора истёк, а война ещё не выиграна. Ваша душа принадлежит ей. Легионы продолжают поход без вас; эта кампания не принесёт вам звания.'
     elif 'путь домой' in lower or 'город входа в портал' in lower:
         kind='portal';title='По ту сторону зеркала'
         story='Пока вы искали силу в Зазеркалье, враг захватил город у портала. Дорога домой закрылась. За зеркалом осталось ваше королевство, а впереди — чужой мир, в котором больше нет пути назад.'
@@ -55,7 +57,7 @@ def epilogue(conn,faction,status,reason):
         kind='error';title='Летопись прервана'
         story='Кампания прервана технической ошибкой. Это событие не является последствием решений игрока.'
     if pact and won:
-        story+='\n\nВы успели победить до истечения сделки за душу. Дворянин Зазеркалья помог изменить ход войны, но память о цене этой силы останется с вами.'
+        story+='\n\nВы успели победить до истечения сделки за душу. '+('Легион Морганы' if direct else 'Дворянин Зазеркалья')+' помог изменить ход войны, но память о цене этой силы останется с вами.'
     if not pact and won and _rows(conn,"SELECT 1 FROM portal_monster_cases WHERE faction=? AND reward_unit IS NOT NULL",(faction,)):
         story+='\n\nРасследование в Зазеркалье принесло вам необычного союзника. Вы получили его силу, сохранив свою душу.'
     path=Path('files/endings')/(art+'.jpg')

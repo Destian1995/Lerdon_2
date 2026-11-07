@@ -33,6 +33,8 @@ def refresh_map():
         return
     gs = _active_game_screen
     if gs:
+        from campaign_guard import finish_portal_campaign
+        if finish_portal_campaign(getattr(gs,'conn',None),getattr(gs,'selected_faction',None),gs):return
         gs._prev_star_levels = None
         gs.update_army_rating()
         # Полная перезагрузка ресурсов из БД после боя/захвата
@@ -1732,6 +1734,8 @@ class GameScreen(Screen):
     def _finish_turn(self, new_season=None):
         """Завершение хода: обновление UI на главном потоке после фоновой работы."""
         try:
+            from campaign_guard import finish_portal_campaign
+            if finish_portal_campaign(self.conn,self.selected_faction,self,force=True):return
             # Перезагружаем ресурсы из БД после хода ИИ (города могли смениться)
             self.faction.refresh_from_db()
 
@@ -1756,8 +1760,8 @@ class GameScreen(Screen):
                     status = "win"
                 else:
                     status = "lose"
-                results_game_instance = ResultsGame(status, reason, self.conn)
-                results_game_instance.show_results(self.selected_faction, status, reason)
+                from campaign_guard import finish_campaign
+                finish_campaign(self.conn,self.selected_faction,self,status,reason)
                 return
 
             # Чистка старых записей побед (боевой дух)
@@ -1777,12 +1781,12 @@ class GameScreen(Screen):
         except Exception as error:
             self._abort_turn(error)
         finally:
-            self.end_turn_button.disabled = bool(getattr(self,'_turn_failed',False))
+            self.end_turn_button.disabled = bool(getattr(self,'_turn_failed',False) or getattr(self,'_game_ended',False))
             if hasattr(self, '_turn_overlay') and self._turn_overlay:
                 self._turn_overlay.dismiss()
                 self._turn_overlay = None
             from troop_movement import play_ai_marches
-            if not getattr(self,'_turn_failed',False):
+            if not getattr(self,'_turn_failed',False) and not getattr(self,'_game_ended',False):
                 Clock.schedule_once(lambda dt: play_ai_marches(self), 0.3)
                 from morgana_covenant_ui import schedule_offer
                 Clock.schedule_once(lambda dt: schedule_offer(self.conn,self.selected_faction), .6)
@@ -2334,8 +2338,8 @@ class GameScreen(Screen):
                 status = "lose"
 
                 # Создаем и показываем результаты игры
-                results_game_instance = ResultsGame(status, reason, conn)
-                results_game_instance.show_results(self.selected_faction, status, reason)
+                from campaign_guard import finish_campaign
+                finish_campaign(conn,self.selected_faction,self,status,reason)
                 return True
 
             return False

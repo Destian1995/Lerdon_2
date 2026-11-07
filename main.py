@@ -275,6 +275,8 @@ def clear_tables(conn):
         "portal_cities",
         "portal_roads",
         "portal_home_losses",
+        "portal_return_history",
+        "campaign_map_context",
         "portal_market",
         "portal_battles",
         "portal_presentation",
@@ -629,6 +631,8 @@ class MapWidget(Widget):
         self.random_map_source = self.get_random_map_source()
         from map_terrain import load_terrain
         self._map_terrain = load_terrain(self.random_map_source)
+        from tactical_geography import remember_map
+        with self.conn:remember_map(self.conn,self.random_map_source)
         generate_map_and_cities(self.conn, terrain=self._map_terrain, sprite_scale=self.map_scale,
                                label_size_provider=lambda text:self._get_city_label_texture(text).size)
 

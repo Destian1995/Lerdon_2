@@ -1,0 +1,11 @@
+{
+  "generator": "built-in image_gen",
+  "sprites": [
+    {
+      "id": "elves/disease",
+      "reference": "files/army/elfs/disease.jpg",
+      "prompt": "Background removal only for this existing 30-frame white-robed plague mage animation sheet. Remove the entire white/gray cloudy background and cast ground shadows so empty space has ALPHA EXACTLY ZERO. Preserve the exact sprites, poses, cell coordinates, dimensions, scale, all thirty figures, staff and green magic, and generous cell padding unchanged. Keep the WHITE ROBES opaque and intact; do not mistake white clothing for backdrop. Output actual RGBA with true transparency, not a white fill, gray fill or checkerboard. Six columns x five rows, no added objects or text, no floor, no residual cloudy background.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-34b802ae-a040-4778-ad21-f711c0bbdbc9.png"
+    }
+  ]
+}

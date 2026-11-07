@@ -1,0 +1,17 @@
+{
+  "generator": "built-in image_gen",
+  "sprites": [
+    {
+      "id": "adepts/war",
+      "reference": "files/army/adepts/war.jpg",
+      "prompt": "Remove the ENTIRE white/gray background, fog, cloudy paper texture, ground plane and cast shadows from this existing 30-frame sprite atlas. Background removal only: keep all 30 figures and all their exact pixels, small magical effects, action poses, armor, weapons, faces, hair, size, position and existing 6 columns by 5 rows grid unchanged. Produce a real RGBA PNG where all empty space between and around figures has alpha=0, not a white or gray fill or a painted checkerboard. Preserve fine hair, cloth, blade edges and transparent magical effects with clean edges. Do not add anything. Every figure must be isolated on genuinely transparent background. No floor or contact shadows.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-5222506f-ca96-4051-be04-c63c8dc9154c.png"
+    },
+    {
+      "id": "undead/morgana",
+      "reference": "files/army/death/morgana.png",
+      "prompt": "Remove the ENTIRE white/gray background, fog, cloudy paper texture, ground plane and cast shadows from this existing 30-frame sprite atlas. Background removal only: keep all 30 figures and all their exact pixels, small magical effects, action poses, armor, weapons, faces, hair, size, position and existing 6 columns by 5 rows grid unchanged. Produce a real RGBA PNG where all empty space between and around figures has alpha=0, not a white or gray fill or a painted checkerboard. Preserve fine hair, cloth, blade edges and transparent magical effects with clean edges. Do not add anything. Every figure must be isolated on genuinely transparent background. No floor or contact shadows.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-dbc46f0e-88f9-4448-aa24-19c3d435b6f8.png"
+    }
+  ]
+}

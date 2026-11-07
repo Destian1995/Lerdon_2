@@ -1,0 +1,11 @@
+{
+  "generator": "built-in image_gen",
+  "sprites": [
+    {
+      "id": "elves/archer",
+      "reference": "files/army/elfs/archer.jpg",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-e0b255ad-4e5c-4b48-b65b-0483c50d34b0.png",
+      "prompt": "Clean and repack this elf archer sprite sheet for a game. Preserve the curved LONG BOW AND ARROWS, never add a firearm. Remove ALL red halos, red blobs, red pixels, colored fringes, glowing outlines, drop shadows and background artifacts around every figure. Isolate clean realistic painted opaque elf figures on actual transparent background with clean anti-aliased edges. Keep 6 columns x 5 rows, square cells, but shrink every figure and its bow to 70 percent of cell width and 75 percent of cell height, with completely empty transparent gutters on all four sides. Keep full head and bow top inside every frame and final fallen body inside the final cell. Same adult blonde female elf, fully opaque emerald gold leaf armor and fitted leggings and cloak. Face right. Six idle poses row1, six walking phases row2, six sequential BOW shooting poses row3 (reach arrow, nock, draw, aim, release arrow, recover), six hit/recovery poses row4, six death/collapse poses row5. Keep illustrated body poses distinct. Fixed scale and camera, baseline at 90 percent of cell height for ALL frames including lying figures. No red, no glow, no muzzle flash, no blood, no weapons other than curved longbow and arrows, no text or grid."
+    }
+  ]
+}

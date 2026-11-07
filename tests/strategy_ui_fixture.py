@@ -75,6 +75,7 @@ def hud_fixture():
     exec(compile(ast.Module(body=classes + methods, type_ignores=[]), 'game_process.py', 'exec'), namespace)
     cls = type('HUDPreview', (Screen,), {method.name: namespace[method.name] for method in methods})
     host = cls()
+    host.conn=sqlite3.connect(':memory:')
     host.selected_faction = 'Адепты'
     host.is_android, host.turn_counter, host.tutorial_enabled = True, 10, False
     for name in ('show_advisor', 'switch_to_economy', 'switch_to_army', 'switch_to_politics',
@@ -94,3 +95,4 @@ def cleanup_hud(host):
     host.resource_box.cleanup()
     Window.unbind(on_resize=host._hud_fit)
     Window.unbind(on_resize=host.update_resource_box_position)
+    host.conn.close()

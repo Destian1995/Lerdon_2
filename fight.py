@@ -201,10 +201,18 @@ def _enrich_with_db_stats(units, conn):
         else:
             info = {}
 
+        consumption={}
+        if 'consumption' in cols:
+            names=list({u['unit_name'] for u in units})
+            marks=','.join('?' for _ in names)
+            consumption=dict(cur.execute(f'SELECT unit_name,consumption FROM units WHERE unit_name IN ({marks})',names))
+
         for u in units:
             rec = info.get(u['unit_name']) if info else None
             u_class = get_unit_class(u)
             stats = u.setdefault('units_stats', {})
+            if u['unit_name'] in consumption:
+                u['consumption']=consumption[u['unit_name']] or 0
             if rec:
                 _, ini, utype, crit = rec[:4]
                 morale_val = rec[4] if has_morale and len(rec) > 4 else 100
@@ -298,68 +306,11 @@ def battle_chain(attacker, defender, city, user_faction, conn,
     if attacker['unit_count'] <= 0 or defender['unit_count'] <= 0:
         return attacker, defender
 
-    atk_attack = calculate_unit_power(attacker, is_attacking=True)
-    atk_defense = calculate_unit_power(attacker, is_attacking=False)
-    def_attack = calculate_unit_power(defender, is_attacking=True)
-    def_defense = calculate_unit_power(defender, is_attacking=False)
-
-    # Мятежники: все характеристики ×0.6
-    if atk_fraction == 'Мятежники' and get_unit_class(attacker) == 1:
-        atk_attack *= 0.6
-        atk_defense *= 0.6
-    if def_fraction == 'Мятежники' and get_unit_class(defender) == 1:
-        def_attack *= 0.6
-        def_defense *= 0.6
-
-    # Сохраняем базовый урон до бонусов (для Шквала Севера)
-    atk_base_attack = atk_attack
-    def_base_attack = def_attack
-    atk_base_attack = attacker.get('_faction_base_attack',atk_base_attack)
-    def_base_attack = defender.get('_faction_base_attack',def_base_attack)
-
-    # Бонус от героев 2+ класса: сырые характеристики прибавляются к каждому юниту 1 класса
-    # Зомби нежити не получают бафф от Низара (непослушные)
-    if get_unit_class(attacker) == 1 and attacker.get('unit_name') != 'Зомби':
-        atk_attack += atk_hero_bonus[0]
-        atk_defense += atk_hero_bonus[1] + atk_hero_bonus[2] / 2.0
-    if get_unit_class(defender) == 1 and defender.get('unit_name') != 'Зомби':
-        def_attack += def_hero_bonus[0]
-        def_defense += def_hero_bonus[1] + def_hero_bonus[2] / 2.0
-
-    # Север: Шквал — при 20x от базового урона +80%, с сезонным усилением.
-    shkval_mult = NORTH_MULTIPLIER * _get_season_mult('Север', conn) if atk_fraction == 'Север' or def_fraction == 'Север' else NORTH_MULTIPLIER
-    if atk_fraction == 'Север' and get_unit_class(attacker) == 1 and atk_base_attack > 0:
-        if atk_attack / atk_base_attack >= 20.0:
-            atk_attack = int(atk_attack * shkval_mult)
-    if def_fraction == 'Север' and get_unit_class(defender) == 1 and def_base_attack > 0:
-        if def_attack / def_base_attack >= 20.0:
-            def_attack = int(def_attack * shkval_mult)
-
-    # Адепты: Оплот — если защита увеличена в 20+ раз от базовой, +55% защиты.
-    atk_base_defense = calculate_unit_power(attacker, is_attacking=False)
-    def_base_defense = calculate_unit_power(defender, is_attacking=False)
-    atk_base_defense = attacker.get('_faction_base_defense',atk_base_defense)
-    def_base_defense = defender.get('_faction_base_defense',def_base_defense)
-    oplot_mult = ADEPT_MULTIPLIER * _get_season_mult('Адепты', conn) if atk_fraction == 'Адепты' or def_fraction == 'Адепты' else ADEPT_MULTIPLIER
-    if atk_fraction == 'Адепты' and get_unit_class(attacker) == 1 and atk_base_defense > 0:
-        if atk_defense / atk_base_defense >= 20.0:
-            atk_defense = int(atk_defense * oplot_mult)
-    if def_fraction == 'Адепты' and get_unit_class(defender) == 1 and def_base_defense > 0:
-        if def_defense / def_base_defense >= 20.0:
-            def_defense = int(def_defense * oplot_mult)
-
-    # Experience strengthens the complete soldier, including hero auras.
-    # Faction thresholds above stay based on the untrained base stats.
-    atk_experience = attacker.get('_experience_multiplier',1.0)
-    def_experience = defender.get('_experience_multiplier',1.0)
-    atk_attack *= atk_experience
-    atk_defense *= atk_experience
-    def_attack *= def_experience
-    def_defense *= def_experience
-
-    # City relief belongs to the defending army, including initiative reversals.
-    atk_defense *= attacker.get('_terrain_defense_multiplier',1.0)
-    def_defense *= defender.get('_terrain_defense_multiplier',1.0)
+    from combat_stats import base_power
+    atk_attack, atk_defense = base_power(attacker, atk_hero_bonus, atk_fraction,
+        _get_season_mult(atk_fraction, conn) if atk_fraction in ('Север','Адепты') else 1)
+    def_attack, def_defense = base_power(defender, def_hero_bonus, def_fraction,
+        _get_season_mult(def_fraction, conn) if def_fraction in ('Север','Адепты') else 1)
 
     # Боевой дух: 2+ победы над контрпиком за последние 4 хода → +15% урон
     # Контрпики — фракции, которые сильнее тебя по типу юнита
@@ -478,7 +429,7 @@ def battle_chain(attacker, defender, city, user_faction, conn,
 # ======================================================================
 
 def fight(attacking_city, defending_city, defending_army, attacking_army,
-          attacking_fraction, defending_fraction, conn):
+          attacking_fraction, defending_fraction, conn, ui_conn=None):
     """
     Сигнатура совместима со старой версией.
     Возвращает: winner='attacker'|'defender', efficiency_ratio, rounds,
@@ -804,9 +755,26 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                 f"[color=#FF6644]Враг воодушевлён![/color] {_spf}: +15% урон"
             )
 
+    # Player battles pause the campaign worker while the main thread runs the
+    # actual tactical simulation. Quick combat uses the untouched loop below.
+    tactical_state = None
+    if is_user_involved:
+        from tactical_battle_bridge import request_battle, battle_context
+        tactical_context = battle_context(conn, defending_city, defending_fraction)
+        tactical_context.update(season_multipliers={f: _season_mult(f) for f in (attacking_fraction, defending_fraction)},
+                                spirit_factions=_spirit_factions, capital_bonus=_is_undead_capital)
+        tactical_state = request_battle(
+            atk_army, def_army,
+            'attacker' if user_faction == attacking_fraction else 'defender',
+            defending_city, tactical_context,
+            TYPE_MOD, (attacking_fraction, defending_fraction))
+        if tactical_state is not None:
+            tactical_state.apply_to(atk_army, def_army)
+            battle_rounds = list(tactical_state.frames)
+
     # Боевой цикл
     round_num = 0
-    while round_num < MAX_ROUNDS:
+    while tactical_state is None and round_num < MAX_ROUNDS:
         round_num += 1
         round_criticals = {'A': 0, 'D': 0}
         round_heroes = []
@@ -923,6 +891,9 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             'heroes': round_heroes,
         })
 
+    if tactical_state is not None:
+        round_num = min(tactical_state.round, 80)
+
     # Подсчёт потерь
     for u in atk_army + def_army:
         if u.get('hero_engaged', False) or u['unit_count'] > 0 or u['initial_count'] > 0:
@@ -980,7 +951,9 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
     atk_remaining = sum(u['unit_count'] for u in atk_army)
     def_remaining = sum(u['unit_count'] for u in def_army)
 
-    if atk_remaining > 0 and def_remaining == 0:
+    if tactical_state is not None:
+        winner = tactical_state.winner
+    elif atk_remaining > 0 and def_remaining == 0:
         winner = 'attacker'
     elif def_remaining > 0 and atk_remaining == 0:
         winner = 'defender'
@@ -1038,7 +1011,9 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             defending_army=def_army,
             attacking_fraction=attacking_fraction,
             defending_fraction=defending_fraction,
-            conn=conn
+            conn=conn,
+            preserve_attack_survivors=tactical_state is not None,
+            ui_conn=ui_conn
         )
     except Exception as e:
         print(f"[ERROR] update_garrisons_after_battle: {e}")
@@ -1104,7 +1079,7 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
             _defending_city = defending_city
             _attacking_city = attacking_city
             _is_user_involved = is_user_involved
-            _conn = conn
+            _conn = ui_conn if ui_conn is not None else conn
             _bonus_msgs = list(_faction_bonus_messages)
 
             _atk_hero_img = battle_attacker_image
@@ -1112,6 +1087,9 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
 
             def _show_battle_on_main_thread(dt):
                 try:
+                    import sys
+                    screen=getattr(sys.modules.get('game_process'),'_active_game_screen',None)
+                    if screen and getattr(screen,'_game_ended',False):return
                     def show_report():
                         report_data = generate_battle_report(
                             _atk_army_copy, _def_army_copy,
@@ -1128,6 +1106,9 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                                            bonus_messages=_bonus_msgs,
                                            battle_rounds=_battle_rounds_copy)
 
+                    if tactical_state is not None:
+                        show_report()
+                        return
                     show_battle_animation(_battle_rounds_copy, _attacking_fraction,
                                           _defending_fraction, winner, _user_faction,
                                           _attacking_city, _defending_city,
@@ -1297,7 +1278,8 @@ def show_battle_animation(battle_rounds, attacking_fraction, defending_fraction,
 
 def update_garrisons_after_battle(winner, attacking_city, defending_city,
                                   attacking_army, defending_army,
-                                  attacking_fraction, defending_fraction, conn):
+                                  attacking_fraction, defending_fraction, conn,
+                                  preserve_attack_survivors=False, ui_conn=None):
 
     """Обновляет гарнизоны после боя."""
     _faction_hex_colors = {
@@ -1432,6 +1414,8 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
 
         for unit in attacking_army:
             remaining_in_source = original_counts.get(unit['unit_name'], 0) - unit['initial_count']
+            if preserve_attack_survivors and winner != 'attacking':
+                remaining_in_source += unit['unit_count']
             if remaining_in_source > 0:
                 cursor.execute("""
                     UPDATE garrisons 
@@ -1514,7 +1498,7 @@ def update_garrisons_after_battle(winner, attacking_city, defending_city,
                             try:
                                 from kivy.clock import Clock as _SwordClock
                                 _SwordClock.schedule_once(
-                                    lambda dt: _show_sword_offer(conn, _sword_id), 1.0)
+                                    lambda dt: _show_sword_offer(ui_conn if ui_conn is not None else conn, _sword_id), 1.0)
                             except Exception:
                                 pass
                         else:

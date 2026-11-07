@@ -1975,17 +1975,17 @@ class FortressInfoPopup(Popup):
                     _actual_atk_fraction = source_owner
 
                 # Запускаем сам бой
-                result = fight(
+                from tactical_battle_bridge import launch_campaign_battle
+                self.close_current_popup()
+                launch_campaign_battle(
+                    self.conn, on_complete=lambda result: refresh_map(),
                     attacking_city=source_fortress_name,
                     defending_city=destination_fortress_name,
                     defending_army=defending_army,
                     attacking_army=attacking_army,
                     attacking_fraction=_actual_atk_fraction,
-                    defending_fraction=destination_owner,
-                    conn=self.conn
+                    defending_fraction=destination_owner
                 )
-                self.close_current_popup()
-                refresh_map()  # Моментальное обновление карты
 
 
         except sqlite3.Error as e:

@@ -1,0 +1,59 @@
+{
+  "generator": "built-in image_gen",
+  "sprites": [
+    {
+      "id": "companions/elves-noble-lord",
+      "reference": "files/otherworld/companions/elves/noble-lord.jpg",
+      "prompt": "Perform BACKGROUND REMOVAL ONLY on this existing 30-frame animation sheet. Remove ALL gray cloudy backdrop, white or gray fill, fog behind the figures, ground plane and cast ground shadows. Preserve the exact thirty creatures/characters, their poses, faces, limbs, equipment, delicate hair/feathers, colors, scale, cell positions and SIX-column FIVE-row atlas layout. Do not redraw, resize, reposition or change any creature, and do not add a floor, pedestal or anything else. Output an actual RGBA PNG on truly transparent background (alpha exactly zero for all empty spaces between and around every figure), with clean antialiased edges. Retain the figures' own internal magical effects; the surrounding rectangular background MUST be fully transparent. No text or grid or painted checkerboard.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-c657fa65-6035-49d9-be6b-3b70ffa0d302.png"
+    },
+    {
+      "id": "monsters/monster_1",
+      "reference": "files/map/monsters/monster_1.png",
+      "prompt": "Perform BACKGROUND REMOVAL ONLY on this existing 30-frame animation sheet. Remove ALL gray cloudy backdrop, white or gray fill, fog behind the figures, ground plane and cast ground shadows. Preserve the exact thirty creatures/characters, their poses, faces, limbs, equipment, delicate hair/feathers, colors, scale, cell positions and SIX-column FIVE-row atlas layout. Do not redraw, resize, reposition or change any creature, and do not add a floor, pedestal or anything else. Output an actual RGBA PNG on truly transparent background (alpha exactly zero for all empty spaces between and around every figure), with clean antialiased edges. Retain the figures' own internal magical effects; the surrounding rectangular background MUST be fully transparent. No text or grid or painted checkerboard.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-7bfb3099-8af3-4f8a-90ff-66c218070b03.png"
+    },
+    {
+      "id": "monsters/monster_1_5",
+      "reference": "files/map/monsters/monster_1_5.png",
+      "prompt": "Perform BACKGROUND REMOVAL ONLY on this existing 30-frame animation sheet. Remove ALL gray cloudy backdrop, white or gray fill, fog behind the figures, ground plane and cast ground shadows. Preserve the exact thirty creatures/characters, their poses, faces, limbs, equipment, delicate hair/feathers, colors, scale, cell positions and SIX-column FIVE-row atlas layout. Do not redraw, resize, reposition or change any creature, and do not add a floor, pedestal or anything else. Output an actual RGBA PNG on truly transparent background (alpha exactly zero for all empty spaces between and around every figure), with clean antialiased edges. Retain the figures' own internal magical effects; the surrounding rectangular background MUST be fully transparent. No text or grid or painted checkerboard.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-82f3073b-2159-46de-bfb8-aa329d9db485.png"
+    },
+    {
+      "id": "monsters/monster_2_4",
+      "reference": "files/map/monsters/monster_2_4.png",
+      "prompt": "Perform BACKGROUND REMOVAL ONLY on this existing 30-frame animation sheet. Remove ALL gray cloudy backdrop, white or gray fill, fog behind the figures, ground plane and cast ground shadows. Preserve the exact thirty creatures/characters, their poses, faces, limbs, equipment, delicate hair/feathers, colors, scale, cell positions and SIX-column FIVE-row atlas layout. Do not redraw, resize, reposition or change any creature, and do not add a floor, pedestal or anything else. Output an actual RGBA PNG on truly transparent background (alpha exactly zero for all empty spaces between and around every figure), with clean antialiased edges. Retain the figures' own internal magical effects; the surrounding rectangular background MUST be fully transparent. No text or grid or painted checkerboard.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-c59d760e-9b21-4fd2-b728-06bd646cee00.png"
+    },
+    {
+      "id": "monsters/monster_4_2",
+      "reference": "files/map/monsters/monster_4_2.png",
+      "prompt": "Perform BACKGROUND REMOVAL ONLY on this existing 30-frame animation sheet. Remove ALL gray cloudy backdrop, white or gray fill, fog behind the figures, ground plane and cast ground shadows. Preserve the exact thirty creatures/characters, their poses, faces, limbs, equipment, delicate hair/feathers, colors, scale, cell positions and SIX-column FIVE-row atlas layout. Do not redraw, resize, reposition or change any creature, and do not add a floor, pedestal or anything else. Output an actual RGBA PNG on truly transparent background (alpha exactly zero for all empty spaces between and around every figure), with clean antialiased edges. Retain the figures' own internal magical effects; the surrounding rectangular background MUST be fully transparent. No text or grid or painted checkerboard.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-bd0fe0a7-d0c7-42a4-b7d5-768050541188.png"
+    },
+    {
+      "id": "monsters/monster_4_5",
+      "reference": "files/map/monsters/monster_4_5.png",
+      "prompt": "Perform BACKGROUND REMOVAL ONLY on this existing 30-frame animation sheet. Remove ALL gray cloudy backdrop, white or gray fill, fog behind the figures, ground plane and cast ground shadows. Preserve the exact thirty creatures/characters, their poses, faces, limbs, equipment, delicate hair/feathers, colors, scale, cell positions and SIX-column FIVE-row atlas layout. Do not redraw, resize, reposition or change any creature, and do not add a floor, pedestal or anything else. Output an actual RGBA PNG on truly transparent background (alpha exactly zero for all empty spaces between and around every figure), with clean antialiased edges. Retain the figures' own internal magical effects; the surrounding rectangular background MUST be fully transparent. No text or grid or painted checkerboard.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-2db5e071-2af1-41b9-91bb-d626fc1a0091.png"
+    },
+    {
+      "id": "monsters/monster_5_4",
+      "reference": "files/map/monsters/monster_5_4.png",
+      "prompt": "Perform BACKGROUND REMOVAL ONLY on this existing 30-frame animation sheet. Remove ALL gray cloudy backdrop, white or gray fill, fog behind the figures, ground plane and cast ground shadows. Preserve the exact thirty creatures/characters, their poses, faces, limbs, equipment, delicate hair/feathers, colors, scale, cell positions and SIX-column FIVE-row atlas layout. Do not redraw, resize, reposition or change any creature, and do not add a floor, pedestal or anything else. Output an actual RGBA PNG on truly transparent background (alpha exactly zero for all empty spaces between and around every figure), with clean antialiased edges. Retain the figures' own internal magical effects; the surrounding rectangular background MUST be fully transparent. No text or grid or painted checkerboard.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-5e5cdbcd-a935-4ae7-8468-22737206760c.png"
+    },
+    {
+      "id": "monsters/monster_6",
+      "reference": "files/map/monsters/monster_6.png",
+      "prompt": "Perform BACKGROUND REMOVAL ONLY on this existing 30-frame animation sheet. Remove ALL gray cloudy backdrop, white or gray fill, fog behind the figures, ground plane and cast ground shadows. Preserve the exact thirty creatures/characters, their poses, faces, limbs, equipment, delicate hair/feathers, colors, scale, cell positions and SIX-column FIVE-row atlas layout. Do not redraw, resize, reposition or change any creature, and do not add a floor, pedestal or anything else. Output an actual RGBA PNG on truly transparent background (alpha exactly zero for all empty spaces between and around every figure), with clean antialiased edges. Retain the figures' own internal magical effects; the surrounding rectangular background MUST be fully transparent. No text or grid or painted checkerboard.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-3ff1f9b0-5477-43cf-86da-57ca3dcbf4c5.png"
+    },
+    {
+      "id": "monsters/monster_6_3",
+      "reference": "files/map/monsters/monster_6_3.png",
+      "prompt": "Perform BACKGROUND REMOVAL ONLY on this existing 30-frame animation sheet. Remove ALL gray cloudy backdrop, white or gray fill, fog behind the figures, ground plane and cast ground shadows. Preserve the exact thirty creatures/characters, their poses, faces, limbs, equipment, delicate hair/feathers, colors, scale, cell positions and SIX-column FIVE-row atlas layout. Do not redraw, resize, reposition or change any creature, and do not add a floor, pedestal or anything else. Output an actual RGBA PNG on truly transparent background (alpha exactly zero for all empty spaces between and around every figure), with clean antialiased edges. Retain the figures' own internal magical effects; the surrounding rectangular background MUST be fully transparent. No text or grid or painted checkerboard.",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-8b279168-6048-49a5-892a-ce1c9809a6ac.png"
+    }
+  ]
+}

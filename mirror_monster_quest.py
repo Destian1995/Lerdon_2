@@ -63,16 +63,20 @@ def ensure_schema(conn):
 
 
 def pact(conn,faction):
-    try:
-        row=conn.execute('SELECT case_id,signed_turn,deadline FROM portal_soul_pacts WHERE faction=?',(faction,)).fetchone()
-    except sqlite3.OperationalError:return None
+    # A campaign may never have entered the Mirror Realm. Check the optional
+    # schema before querying: SQLite can report a missing table as DatabaseError
+    # as well as OperationalError on the shared turn connection.
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='portal_soul_pacts'").fetchone():
+        return None
+    row=conn.execute('SELECT case_id,signed_turn,deadline FROM portal_soul_pacts WHERE faction=?',(faction,)).fetchone()
     return dict(zip(('case_id','signed_turn','deadline'),row)) if row else None
 
 
 def soul_loss_reason(conn,faction):
     deal=pact(conn,faction)
     if deal and current_turn(conn)>=deal['deadline']:
-        return 'Срок сделки за душу истёк: вы не победили за 30 ходов. Монстр забрал вашу душу. Поражение! Звание не присваивается.'
+        owner='Моргана' if deal['case_id']==0 else 'Монстр'
+        return 'Срок сделки за душу истёк: вы не победили за 30 ходов. '+owner+' забирает вашу душу. Поражение! Звание не присваивается.'
     return ''
 
 
@@ -186,6 +190,21 @@ def noble_image(case):
     story=json.loads(case['scenario'])
     gender=story.get('companion_gender') or ('lady' if name.startswith('Леди') or name.endswith('Астрид') else 'lord')
     return 'files/otherworld/companions/'+theme(case['faction'])['key']+'/noble-'+gender+'.jpg'
+
+
+def companion_name(case):
+    story=json.loads(case['scenario']);original=noble_name(case)
+    gender=story.get('companion_gender')
+    if not gender:return original
+    names=NOBLES[case['faction']]
+    if original not in names:return original
+    pair=names.index(original)//2*2
+    male=names[pair];female=names[pair+1]
+    if gender=='lord':return male
+    title=male.split()[0]
+    feminine={'Барон':'Баронесса','Граф':'Графиня','Князь':'Княгиня','Лорд':'Леди',
+              'Эмир':'Эмира','Визирь':'Визиресса','Тан':'Тана','Ярл':'Ярл'}
+    return feminine.get(title,'Леди')+' '+female.split()[-1]
 
 
 def reject_soul(conn,faction):
@@ -307,17 +326,28 @@ def choose_gender(conn,faction,gender):
         row=cursor.fetchone();case=dict(zip((c[0] for c in cursor.description),row))
         story=json.loads(case['scenario']);story['companion_gender']=gender
         conn.execute('UPDATE portal_monster_cases SET scenario=? WHERE id=?',(json.dumps(story,ensure_ascii=False),case['id']))
+        case['scenario']=json.dumps(story,ensure_ascii=False)
+        old=data['unit_name']
+        new=PREFIX+companion_name(case)+' / '+faction+' #'+str(case['id'])
+        if old!=new:
+            conn.execute('PRAGMA defer_foreign_keys=ON')
+            # Keep equipment/training links as well as the visible stack.
+            for (table,) in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall():
+                quoted='"'+table.replace('"','""')+'"'
+                columns={r[1] for r in conn.execute('PRAGMA table_info('+quoted+')')}
+                if 'unit_name' in columns:conn.execute('UPDATE '+quoted+' SET unit_name=? WHERE unit_name=?',(new,old))
+            conn.execute('UPDATE portal_monster_cases SET reward_unit=? WHERE reward_unit=?',(new,old))
         return set_form(conn,faction,data['form'])
 
 
-def fight(conn,faction,hero,skirmish=None):
+def fight(conn,faction,hero,skirmish=None,tactical=False):
     import otherworlds as worlds
     with worlds.atomic(conn):
         party,city=worlds._party_city(conn,faction);case=state(conn,faction)
         if not case or case['stage']!=2 or case['city_id']!=city['id'] or not revealed(case):
             raise ValueError('Сначала разоблачите дворянина-монстра в городе расследования.')
         if hero not in heroes(conn,party['camp'],faction):raise ValueError('Выберите героя 2 или 3 класса из этого отряда.')
-        result=worlds.fight_guards(conn,faction,skirmish=skirmish,encounter=monster(case))
+        result=worlds.fight_guards(conn,faction,skirmish=skirmish,encounter=monster(case),tactical=tactical)
         result['hero']=hero;result['companion']=None
         if result['won']:
             # Tenths of a percent, integer arithmetic: no rounding drift or rerolls.

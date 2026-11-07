@@ -425,6 +425,9 @@ class OtherworldMap(WorldPopup):
 
     def refresh(self,*_):
         from portal_items import expire
+        from campaign_guard import finish_portal_campaign
+        screen=_screen(self.conn)
+        if finish_portal_campaign(self.conn,self.faction,screen):return
         if expire(self.conn):
             screen=_screen(self.conn)
             if screen:screen.season_manager.apply_artifact_bonuses(self.conn)
@@ -456,6 +459,9 @@ class OtherworldMap(WorldPopup):
             self.message.text=str(exc);return
         _refresh_main(self.conn,self.faction)
         self.dismiss()
+        from morgana_covenant_ui import schedule_offer
+        from kivy.clock import Clock
+        Clock.schedule_once(lambda dt:schedule_offer(self.conn,self.faction),0)
 
     def next_turn(self,*_):
         screen=_screen(self.conn)
@@ -666,7 +672,7 @@ class ForeignCityPopup(WorldPopup):
                                ' · Победа: +3% урона на 9 ходов')
         party=worlds.party(self.conn,self.faction)
         edge=tuple(sorted((party['city_id'],self.city['id']))) if party else (0,0)
-        connected=bool(self.conn.execute('SELECT 1 FROM portal_roads WHERE city1=? AND city2=?',edge).fetchone())
+        connected=bool(party and party['city_id']!=self.city['id'])
         self.travel_button.disabled=bool(p) or not connected
         cooldown=worlds.battle_ready(self.conn,self.faction) if p else 0
         self.battle_button.disabled=not p or cooldown>0
@@ -738,10 +744,12 @@ class ForeignCityPopup(WorldPopup):
     def battle(self,*_):
         if _busy(self.conn):
             return
-        try:
-            result=worlds.fight_guards(self.conn,self.faction)
-        except ValueError as exc:
-            self.feedback.text=str(exc);return
+        from tactical_battle_bridge import launch_operation
+        launch_operation(self.conn,
+            lambda db:worlds.fight_guards(db,self.faction,tactical=True),
+            self.battle_result,lambda error:setattr(self.feedback,'text',error))
+
+    def battle_result(self,result):
         _refresh_main(self.conn,self.faction);self.refresh();self.owner.refresh()
         from battle_ui import BattleViewer,BattleReport
         from fight import generate_battle_report
@@ -757,6 +765,9 @@ class ForeignCityPopup(WorldPopup):
             rows=generate_battle_report(result['army'],result['guards'],'attacker' if result['won'] else 'defender',
                                         faction,defending,faction,result['city'])
             BattleReport(rows,faction,faction,defending,rounds=result['rounds']).open()
+        if result.get('tactical'):
+            report()
+            return
         ForeignBattle(result['rounds'],faction,defending,'attacker' if result['won'] else 'defender',
                       faction,'Экспедиция',result['city'],callback=report,
                       attacker_image=result.get('attacker_image'),

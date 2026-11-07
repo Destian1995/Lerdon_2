@@ -60,6 +60,8 @@ def ensure_schema(conn):
         PRIMARY KEY(faction,catalog_id))''')
     conn.execute('''CREATE TABLE IF NOT EXISTS portal_beam_journeys(
         faction TEXT PRIMARY KEY,source INTEGER NOT NULL,destination INTEGER NOT NULL)''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS portal_return_history(
+        faction TEXT PRIMARY KEY,returned_turn INTEGER NOT NULL,source TEXT NOT NULL)''')
     backwards=conn.execute('SELECT city1,city2 FROM portal_roads WHERE city1>city2').fetchall()
     if backwards:
         with atomic(conn):
@@ -265,9 +267,9 @@ def begin_beam(conn,faction,destination,selected_units=None,source=None):
             conn.execute('UPDATE portal_parties SET city_id=? WHERE faction=?',(source,faction))
             _collect_city_camp(conn,faction,source,p['camp'])
             p=party(conn,faction)
-        edge=tuple(sorted((p['city_id'],int(destination))))
-        if not conn.execute('SELECT 1 FROM portal_roads WHERE city1=? AND city2=?',edge).fetchone():
-            raise ValueError('Выберите соседний город, соединённый дорогой.')
+        destination=int(destination)
+        if destination==p['city_id'] or not conn.execute('SELECT 1 FROM portal_cities WHERE id=?',(destination,)).fetchone():
+            raise ValueError('Выберите другой город Зазеркалья.')
         units=_camp_units(conn,p['camp'])
         selected=set(selected_units) if selected_units is not None else {r[0] for r in units}
         if not selected or not selected.issubset({r[0] for r in units}):
@@ -298,6 +300,9 @@ def travel(conn,faction,destination):
 def return_home(conn,faction):
     with atomic(conn):
         p,_=_party_city(conn,faction)
+        conn.execute('''INSERT INTO portal_return_history VALUES(?,?,?) ON CONFLICT(faction)
+            DO UPDATE SET returned_turn=excluded.returned_turn,source=excluded.source''',
+            (faction,current_turn(conn),p['source']))
         from portal_home import loss_reason
         reason=loss_reason(conn,faction)
         if reason:raise ValueError(reason)
@@ -510,7 +515,7 @@ def expedition_profiles(conn,faction,camp):
     return profiles
 
 
-def fight_guards(conn,faction,skirmish=None,encounter=None):
+def fight_guards(conn,faction,skirmish=None,encounter=None,tactical=False):
     """Use ordinary skirmish rules but never invoke city capture/political writes."""
     if skirmish is None:
         from fight import battle_chain
@@ -550,7 +555,37 @@ def fight_guards(conn,faction,skirmish=None,encounter=None):
         from otherworld_quests import battle_won
         guard,target=(encounter,None) if encounter is not None else guard_profile(conn,faction,city)
         initial=sum(u['unit_count'] for u in army);frames=[]
-        for round_number in range(1,61):
+        tactical_state=None
+        if tactical:
+            from fight import TYPE_MOD,_get_season_mult
+            from tactical_battle_bridge import request_battle,battle_context
+            from monster_sites import experience_multiplier
+            tactical_army=[]
+            for name,count,image,exp,attack,defense,durability,cls in _camp_units(conn,p['camp']):
+                template=_dicts(conn.execute('SELECT * FROM units WHERE unit_name=?',(name,)))[0]
+                regular=str(cls).split()[0]=='1'
+                tactical_army.append(dict(unit_name=name,unit_count=count,initial_count=count,
+                    unit_image=image or template.get('image_path'),
+                    consumption=template.get('consumption') or 0,
+                    _experience_multiplier=experience_multiplier(conn,faction,exp,p['camp'],name) if regular else 1,
+                    _encounter_attack_multiplier=1.03 if not regular and guard_bonus_left(conn,faction) else 1,
+                    units_stats={'Урон':attack,'Защита':defense,'Живучесть':durability,'Класс юнита':cls,
+                                 'Тип':template.get('unit_type') or 'infantry',
+                                 'Инициатива':template.get('initiative') or 50,'Крит':template.get('crit_chance') or 5}))
+                if regular:
+                    # The quick Mirror fight receives these completed profiles
+                    # rather than raw soldiers. Preserve that exact rounding.
+                    tactical_army[-1]['_quick_combat_power']=(int(profiles[name]['attack']),int(profiles[name]['defense']))
+            context=battle_context(conn,city['name'],faction)
+            context['season_multipliers']={faction:_get_season_mult(faction,conn)}
+            context['morale_rules']=False
+            tactical_state=request_battle(tactical_army,[guard],'attacker',city['name'],context,TYPE_MOD,
+                                           (faction,'Независимая стража'))
+            if tactical_state is not None:
+                army=tactical_army
+                tactical_state.apply_to(army,[guard])
+                frames=list(tactical_state.frames)
+        for round_number in range(1,61) if tactical_state is None else ():
             if guard['unit_count']<=0 or not any(u['unit_count']>0 for u in army):
                 break
             before=(sum(u['unit_count'] for u in army),guard['unit_count'])
@@ -561,10 +596,10 @@ def fight_guards(conn,faction,skirmish=None,encounter=None):
                                atk_total=sum(u['unit_count'] for u in army),def_total=guard['unit_count']))
             if before==(sum(u['unit_count'] for u in army),guard['unit_count']):
                 break
-        won=guard['unit_count']<=0
+        won=tactical_state.winner=='attacker' if tactical_state is not None else guard['unit_count']<=0
         for unit in army:
             conn.execute('UPDATE garrisons SET unit_count=?,experience=COALESCE(experience,0)+? WHERE city_name=? AND unit_name=?',
-                         (unit['unit_count'],int(won),p['camp'],unit['unit_name']))
+                         (unit['unit_count'],int(won and str(unit['units_stats'].get('Класс юнита',1)).split()[0]=='1'),p['camp'],unit['unit_name']))
         conn.execute('DELETE FROM garrisons WHERE city_name=? AND unit_count<=0',(p['camp'],))
         if encounter is None:
             conn.execute('INSERT INTO portal_battles VALUES(?,?,?) ON CONFLICT(city_id,faction) DO UPDATE SET ready_turn=excluded.ready_turn',
@@ -577,4 +612,4 @@ def fight_guards(conn,faction,skirmish=None,encounter=None):
                          (faction,current_turn(conn)+9))
         quest_win=battle_won(conn,faction,city['id']) if won and encounter is None else False
     return dict(won=won,coins=coins,city=city['name'],army=army,guards=[guard],rounds=frames,quest_win=quest_win,quest_target=target,
-                attacker_image=attacker_image)
+                attacker_image=attacker_image,tactical=tactical_state is not None)

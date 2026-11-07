@@ -18,16 +18,18 @@ class MorganaOffer(WorldPopup):
         body.add_widget(self.art)
         scroll=ScrollView(do_scroll_x=False);self.copy_scroll=scroll;body.add_widget(scroll)
         copy=NaturalList(padding=dp(4),spacing=dp(8));scroll.add_widget(copy)
-        from mirror_monster_quest import deadline_caption
-        text=('«Ваша душа уже обещана. Примите мой легион и приведите его к победе».\n'
-              'Ваши города станут некрополями. Герой и дворянин останутся с вами; вы получите отряд Нежити и сможете нанимать её воинов.\n'
-              'Все живые фракции объявят вам вечную войну. Мир и союзы с ними станут невозможны.\n'
-              'Лимит армии и лимиты всех ресурсов навсегда увеличатся на 45%. Моргана и Низар продолжат воевать со своими армиями как ваши союзники.\n'
-              'Исходный срок сделки за душу не изменится. '+deadline_caption(conn,faction)+' Без победы в срок — поражение без звания.')
+        from mirror_monster_quest import deadline_caption,pact
+        existing=pact(conn,faction)
+        text=('«Отдайте мне свою душу — и возглавьте мой легион».\n\n'
+              'Вы получите войска Нежити и её найм. Ваши города станут некрополями; герои и спутник останутся с вами.\n\n'
+              'Армия и лимиты ресурсов: +45% навсегда. Моргана и Низар — союзники со своими армиями. '
+              'Со всеми живыми фракциями — вечная война, без мира.\n\n'+
+              ('Срок прежней сделки сохранится. '+deadline_caption(conn,faction) if existing else 'На победу — 30 ходов после принятия.')+
+              '\nНе успеете победить — потеряете душу и кампанию. Звание не присваивается.')
         copy.add_widget(ReadableText(text,size=15))
         self.feedback=ReadableText('',size=14);copy.add_widget(self.feedback)
         actions=BoxLayout(size_hint_y=None,height=dp(44),spacing=dp(6));self.root.add_widget(actions)
-        actions.add_widget(_button('Служить Моргане',self.accept))
+        actions.add_widget(_button('Служить Моргане' if existing else 'Продать душу Моргане',self.accept))
         actions.add_widget(_button('Отказаться',self.decline))
 
     def layout_content(self):
@@ -55,6 +57,8 @@ class MorganaOffer(WorldPopup):
 
 
 def show_offer(conn,faction,force=False):
+    screen=_screen(conn)
+    if screen and getattr(screen,'_game_ended',False):return None
     if _busy(conn):return None
     with conn:row=covenant.offer(conn,faction)
     if not row or row['status']!='offered' or row['notified'] and not force:return None
@@ -67,6 +71,8 @@ def schedule_offer(conn,faction,attempts=120):
     """Wait for AI marches/portal travel, rather than losing the event."""
     import sqlite3
     from kivy.clock import Clock
+    screen=_screen(conn)
+    if screen and getattr(screen,'_game_ended',False):return
     try:
         with conn:row=covenant.offer(conn,faction)
         if not row or row['status']!='offered' or row['notified']:return

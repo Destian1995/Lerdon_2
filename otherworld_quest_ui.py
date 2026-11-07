@@ -127,14 +127,14 @@ class QuestJournal(WorldPopup):
             form=hunt.companion_form(self.conn,self.faction)
             alive=bool(form and self.conn.execute('SELECT 1 FROM garrisons WHERE unit_name=? AND unit_count>0',(form['unit_name'],)).fetchone())
             self.card('Сделка за душу · '+str(left)+' х.',
-                      'Монстр на вашей стороне. Победите в кампании не позднее хода '+str(deal['deadline'])+
-                      '.\nОсталось ходов: '+str(left)+'. Срок не сбрасывается при возвращении домой или потере монстра. '
-                      'Если не победите за 30 ходов после сделки — поражение без нового звания.\n'
-                      'Облик дворянина: атака +50%, защита −50%. Облик монстра: атака −50%, защита +50%.',
+                      'Победите до хода '+str(deal['deadline'])+' включительно. Осталось: '+str(left)+' х.\n'
+                      'Не успеете — поражение без звания. Возвращение домой и потеря спутника срок не меняют.\n'+
+                      ('Спутник: '+form['unit_name'].removeprefix(hunt.PREFIX).split(' / ')[0]+'.\n'
+                       'Дворянин: атака ×1,5, защита ×0,5. Монстр: атака ×0,5, защита ×1,5.' if form else 'Договор заключён с Морганой.'),
                       [('Облик дворянина',lambda *_:self.change_form('noble'),alive),
                        ('Облик монстра',lambda *_:self.change_form('monster'),alive),
                        ('Мужской персонаж',lambda *_:self.change_gender('lord'),alive),
-                       ('Женский персонаж',lambda *_:self.change_gender('lady'),alive)])
+                       ('Женский персонаж',lambda *_:self.change_gender('lady'),alive)] if form else [])
         if not case or case['stage']==3:
             left=max(0,case['finished_turn']+hunt.COOLDOWN-current_turn(self.conn)) if case else 0
             seasonal=' · '.join(hunt.SEASONS[i]+' ×'+str(hunt.stat_percent(self.faction,i)/100).replace('.',',') for i in range(4))
@@ -165,6 +165,7 @@ class QuestJournal(WorldPopup):
             if story.get('nobles'):copy+='\n'+story['nobles'][story['culprit']]['name']+' раскрывает свою истинную сущность.'
             copy+='\nМонстр: '+story['monster']+'. Атака: '+format_number(enemy['attack'])+' · Защита: '+format_number(enemy['defense'])+'.'
         buttons=[]
+        confirming=False
         if stage<2:
             buttons=[('Опросить свидетеля' if stage==0 else 'Проверить следы',
                       lambda *_:self.perform(lambda:hunt.investigate(self.conn,self.faction)),here==case['city_id'])]
@@ -185,12 +186,16 @@ class QuestJournal(WorldPopup):
             confirm=getattr(self,'_soul_offer',None)
             if not exposed and confirm and confirm==(case['id'],here):
                 hero=self._soul_hero
-                copy+='\nРиск: цена сделки — ваша душа. Союзник присоединится без боя в облике дворянина: атака '+format_number(enemy['attack']*3//2)+', защита '+format_number(enemy['defense']//2)+'. '
-                copy+='Вы обязаны победить в кампании за 30 ходов, иначе проиграете без присвоения звания. Сделка необратима.'
+                confirming=True
+                copy=(hunt.noble_name(case)+' станет вашим спутником без боя.\n'
+                      'Атака: '+format_number(enemy['attack']*3//2)+' · Защита: '+format_number(enemy['defense']//2)+'.\n'
+                      'Пол и облик спутника можно менять после сделки.\n\n'
+                      'Цена — ваша душа. Победите в кампании за 30 ходов после принятия. '
+                      'Иначе — поражение без звания. Сделка необратима; возвращение домой срок не продлевает.')
                 buttons=[('Продать душу · '+hero,lambda *_:self.accept_soul(hero),True),
                          ('Отказаться от сделки',lambda *_:self.offer_soul(None),True)]
         self.card(story['title']+' · '+str(stage)+'/3',copy,buttons,
-                  details='Награда: спутник · АТК +'+str(case['attack_bonus']/10)+'% · ЗАЩ +'+str(case['defense_bonus']/10)+'%')
+                  details='Цена: душа · Срок: 30 ходов' if confirming else 'Награда: спутник · АТК +'+str(case['attack_bonus']/10)+'% · ЗАЩ +'+str(case['defense_bonus']/10)+'%')
         if stage==2 and identified:
             from kivy.uix.image import Image
             card=self.cards.pages[-1]
@@ -230,14 +235,16 @@ class QuestJournal(WorldPopup):
 
     def hunt_battle(self,hero):
         import mirror_monster_quest as hunt
-        result=[]
-        def battle():
-            outcome=hunt.fight(self.conn,self.faction,hero);result.append(outcome)
-            return ('Расследование раскрыто! Спутник присоединился к отряду героя '+hero+'.'
-                    if outcome['won'] else 'Монстр не побеждён. Соберите силы и возвращайтесь в логово.')
-        self.perform(battle)
-        if not result:return
-        outcome=result[0]
+        if _busy(self.conn):return
+        from tactical_battle_bridge import launch_operation
+        launch_operation(self.conn,lambda db:hunt.fight(db,self.faction,hero,tactical=True),
+                         lambda outcome:self.hunt_battle_result(hero,outcome),
+                         lambda error:setattr(self.feedback,'text',error))
+
+    def hunt_battle_result(self,hero,outcome):
+        self.perform(lambda:('Расследование раскрыто! Спутник присоединился к отряду героя '+hero+'.'
+                             if outcome['won'] else 'Монстр не побеждён. Соберите силы и возвращайтесь в логово.'))
+        if outcome.get('tactical'):return
         from battle_ui import BattleViewer
         class HuntBattle(BattleViewer):
             def reveal_result(view):

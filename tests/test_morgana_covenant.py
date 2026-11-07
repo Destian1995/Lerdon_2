@@ -12,6 +12,37 @@ import morgana_covenant as covenant
 from utils.resource_caps import caps
 
 
+class LegacyCovenantTests(unittest.TestCase):
+    def setUp(self):
+        self.db=sqlite3.connect(':memory:');self.addCleanup(self.db.close)
+        self.db.executescript('''CREATE TABLE cities(name,faction);
+            INSERT INTO cities VALUES('Home','Север');
+            CREATE TABLE resources(faction,resource_type,amount);
+            INSERT INTO resources VALUES('Север','Кроны',12345);''')
+
+    def test_pact_read_before_first_mirror_visit_is_safe_and_read_only(self):
+        before=list(self.db.iterdump())
+        self.assertIsNone(hunt.pact(self.db,'Север'))
+        self.assertEqual(hunt.deadline_caption(self.db,'Север'),'')
+        self.assertEqual(list(self.db.iterdump()),before)
+
+    def test_turn_initializes_dependencies_without_resetting_legacy_campaign(self):
+        before_cities=list(self.db.execute('SELECT * FROM cities'))
+        before_resources=list(self.db.execute('SELECT * FROM resources'))
+        covenant.turn(self.db,'Север');covenant.turn(self.db,'Север')
+        self.assertIsNotNone(self.db.execute("SELECT 1 FROM sqlite_master WHERE name='portal_soul_pacts'").fetchone())
+        self.assertIsNone(hunt.pact(self.db,'Север'))
+        self.assertIsNone(covenant.state(self.db,'Север'))
+        self.assertEqual(list(self.db.execute('SELECT * FROM cities')),before_cities)
+        self.assertEqual(list(self.db.execute('SELECT * FROM resources')),before_resources)
+
+    def test_existing_pact_survives_schema_initialization(self):
+        hunt.ensure_schema(self.db)
+        self.db.execute("INSERT INTO portal_soul_pacts VALUES('Север',7,3,33)")
+        covenant.ensure_schema(self.db);covenant.ensure_schema(self.db)
+        self.assertEqual(hunt.pact(self.db,'Север'),dict(case_id=7,signed_turn=3,deadline=33))
+
+
 class MorganaCovenantTests(unittest.TestCase):
     def setUp(self):
         seed=pact_tests.SoulPactTests();seed.setUp();self.addCleanup(seed.doCleanups)

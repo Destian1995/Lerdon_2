@@ -27,6 +27,8 @@ def peace_locked(conn,a,b):
 
 
 def ensure_schema(conn):
+    from mirror_monster_quest import ensure_schema as ensure_monster_schema
+    ensure_monster_schema(conn)
     conn.execute('''CREATE TABLE IF NOT EXISTS morgana_covenants(
         faction TEXT PRIMARY KEY,status TEXT NOT NULL,offered_turn INTEGER NOT NULL,
         accepted_turn INTEGER,notified INTEGER NOT NULL DEFAULT 0)''')
@@ -39,9 +41,20 @@ def undead_present(conn):
 def offer(conn,faction):
     from mirror_monster_quest import pact
     ensure_schema(conn)
-    if not state(conn,faction) and pact(conn,faction) and undead_present(conn):
+    if not state(conn,faction) and (pact(conn,faction) or returned_from_mirror(conn,faction)) and undead_present(conn):
         conn.execute('INSERT INTO morgana_covenants VALUES(?,?,?,NULL,0)',(faction,'offered',current_turn(conn)))
     return state(conn,faction)
+
+
+def returned_from_mirror(conn,faction):
+    table=conn.execute("SELECT 1 FROM sqlite_master WHERE name='portal_return_history'").fetchone()
+    if table and conn.execute('SELECT 1 FROM portal_return_history WHERE faction=?',(faction,)).fetchone():return True
+    # Older saves did not record returns. A quest belonging to this faction,
+    # with no active expedition, is evidence of an earlier visit and return.
+    tables={r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if 'portal_parties' in tables and conn.execute('SELECT 1 FROM portal_parties WHERE faction=?',(faction,)).fetchone():return False
+    return any(table in tables and conn.execute('SELECT 1 FROM '+table+' WHERE faction=? LIMIT 1',(faction,)).fetchone()
+               for table in ('portal_monster_cases','portal_quest_runs'))
 
 
 def presentation_faction(conn,city,owner):
@@ -136,8 +149,13 @@ def accept(conn,faction):
     ensure_schema(conn)
     with worlds.atomic(conn):
         row=offer(conn,faction);deal=pact(conn,faction)
-        if not row or row['status']!='offered' or not undead_present(conn) or not deal:
+        if not row or row['status']!='offered' or not undead_present(conn):
             raise ValueError('Предложение Морганы сейчас недоступно.')
+        if not deal:
+            if not returned_from_mirror(conn,faction):raise ValueError('Сначала вернитесь из Зазеркалья.')
+            now=current_turn(conn)
+            conn.execute('INSERT INTO portal_soul_pacts VALUES(?,?,?,?)',(faction,0,now,now+30))
+            deal=pact(conn,faction)
         if current_turn(conn)>=deal['deadline']:raise ValueError('Срок сделки за душу уже истёк.')
         homes=[r[0] for r in conn.execute('SELECT name FROM cities WHERE faction=? ORDER BY id',(faction,))]
         if not homes:raise ValueError('Для принятия легиона нужен собственный город.')
