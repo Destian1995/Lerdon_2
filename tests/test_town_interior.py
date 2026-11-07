@@ -181,7 +181,8 @@ class TownTests(unittest.TestCase):
                     self.assertLessEqual(row.top,grid.top+1)
                     if row.compact_mode:
                         label=row.compact_label
-                        text=CoreLabel(text=label.text,font_size=label.font_size,bold=True,
+                        from kivy.core.text.markup import MarkupLabel
+                        text=MarkupLabel(text=label.text,font_size=label.font_size,bold=True,
                                        text_size=(label.width,None))
                         text.refresh()
                         self.assertLessEqual(text.texture.height,label.height+1)

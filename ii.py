@@ -4625,7 +4625,7 @@ class AIController:
 
     # ---------------------------------------------------------------------
 
-    def _undead_direct_attack(self, from_city, target_city, target_faction):
+    def _undead_direct_attack(self, from_city, target_city, target_faction,hero=None):
         """Атака нежити без проверки дорог — армия мёртвых не нуждается в дорогах."""
         from fight import fight
         try:
@@ -4658,7 +4658,7 @@ class AIController:
                     if _is_capital and unit_name == 'Лучник нежити':
                         take = 0
                 else:
-                    take = unit_count
+                    take = unit_count if hero is None or unit_name==hero else 0
                 if take <= 0:
                     continue
                 attack_units.append({
@@ -4676,6 +4676,11 @@ class AIController:
                 return
             from troop_movement import queue_ai_march
             queue_ai_march(self.db_connection, self.faction, from_city, target_city, attack_units)
+
+            if hero is not None:
+                from morgana_covenant import resolve_royal_attack
+                resolve_royal_attack(self,from_city,target_city,target_faction,attack_units)
+                return
 
             # Вычитаем из гарнизона
             for unit in attack_units:
@@ -4825,6 +4830,9 @@ class AIController:
         Каждая атака направлена на город ДРУГОЙ фракции (не повторяет фракцию).
         Все юниты ходят с Царём как единая армия, перемещаясь после каждой победы.
         """
+        from morgana_covenant import ally_attacks
+        if self.db_connection.execute("SELECT 1 FROM sqlite_master WHERE name='morgana_covenants'").fetchone() and self.db_connection.execute("SELECT 1 FROM morgana_covenants WHERE status='accepted'").fetchone():
+            ally_attacks(self);return
         import math
         import ast
         from undead_invasion import KING_OF_DEAD_NAME

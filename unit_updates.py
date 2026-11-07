@@ -10,6 +10,8 @@ def canonical_unit_name(name):
 
 
 def ensure_morgana_guardian(cursor, city):
+    if cursor.execute("SELECT 1 FROM sqlite_master WHERE name='morgana_covenants'").fetchone() and cursor.execute("SELECT 1 FROM morgana_covenants WHERE status='accepted'").fetchone():
+        if cursor.execute('SELECT 1 FROM garrisons WHERE unit_name=? AND unit_count>0 LIMIT 1',(MORGANA_NAME,)).fetchone():return False
     previous = cursor.execute('SELECT unit_count FROM garrisons WHERE city_name=? AND unit_name=?',
                               (city, MORGANA_NAME)).fetchone()
     cursor.execute('''INSERT INTO garrisons(city_name,unit_name,unit_count,unit_image) VALUES (?,?,1,?)

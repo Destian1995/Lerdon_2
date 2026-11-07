@@ -64,6 +64,11 @@ class ExpeditionUnitRow(BoxLayout):
         from portrait_ui import style_portrait_image
         style_portrait_image(art,enabled=True)
         body.add_widget(art);popup.root.add_widget(body)
+        from companion_form_ui import form_button
+        def refresh_form_card():
+            popup.dismiss();self.city.refresh()
+        form_action=form_button(self.city.conn,self.city.faction,self.name,refresh_form_card)
+        if form_action:popup.root.add_widget(form_action)
         popup.open();self.details_popup=popup
 
 

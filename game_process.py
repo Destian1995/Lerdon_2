@@ -1036,6 +1036,10 @@ class GameScreen(Screen):
     def _handle_diplomacy_response(self, faction_name, answer, original_message):
         """Обработка ответа игрока на дипломатическое сообщение с реальными игровыми эффектами."""
         try:
+            from morgana_covenant import peace_locked
+            if answer=='да' and peace_locked(self.conn,self.selected_faction,faction_name) and any(token in original_message for token in ('[СОЮЗ]','[ПОЩАДА]','[УМОЛЯЮ]')):
+                from ui_components import show_message
+                show_message('Вечная война','Мир и союзы с живыми фракциями больше невозможны.');return
             if answer == '__open_chat__':
                 self.show_advisor(None, preselect_faction=faction_name)
                 return
@@ -1664,6 +1668,10 @@ class GameScreen(Screen):
                 if is_invasion_active(self.conn):
                     process_undead_turn(self.conn, self.turn_counter)
 
+                from morgana_covenant import turn as morgana_turn
+                morgana_turn(self.conn,self.selected_faction)
+                self.conn.commit()
+
                 # Ход ИИ — самая тяжёлая часть
                 faction_items = list(self.ai_controllers.items())
                 for idx, (faction_name, ai_controller) in enumerate(faction_items):
@@ -1750,7 +1758,6 @@ class GameScreen(Screen):
                     status = "lose"
                 results_game_instance = ResultsGame(status, reason, self.conn)
                 results_game_instance.show_results(self.selected_faction, status, reason)
-                App.get_running_app().restart_app()
                 return
 
             # Чистка старых записей побед (боевой дух)
@@ -1777,6 +1784,8 @@ class GameScreen(Screen):
             from troop_movement import play_ai_marches
             if not getattr(self,'_turn_failed',False):
                 Clock.schedule_once(lambda dt: play_ai_marches(self), 0.3)
+                from morgana_covenant_ui import schedule_offer
+                Clock.schedule_once(lambda dt: schedule_offer(self.conn,self.selected_faction), .6)
 
     def _check_council_loyalty_warning(self):
         """Предупреждение если средняя лояльность советников ниже 40%"""
@@ -2327,7 +2336,6 @@ class GameScreen(Screen):
                 # Создаем и показываем результаты игры
                 results_game_instance = ResultsGame(status, reason, conn)
                 results_game_instance.show_results(self.selected_faction, status, reason)
-                App.get_running_app().restart_app()
                 return True
 
             return False

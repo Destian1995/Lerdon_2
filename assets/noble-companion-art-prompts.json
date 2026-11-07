@@ -1,0 +1,26 @@
+{
+  "generator": "built-in image_gen",
+  "prompt": "Use case: stylized-concept. Asset: fantasy strategy army unit portrait, landscape 3:2, fully painted background, no transparency. Use the reference images for detailed cinematic painterly army-card lighting, material realism and composition only. ONE human aristocrat of the Mirror Realm, waist-up centered, face clearly visible and entirely human, restrained confident expression, ornate practical dark steel armour with silver and gold decoration, deep blue cloak, sword held downward, misty enchanted castle and faint soldiers behind. Elegant noble warrior, not a monster, no glowing monster eyes, no claws, no supernatural transformation. Highly detailed premium game army illustration, dramatic natural lighting. No text, no frame, no letters, no UI.",
+  "files": [
+    "files/otherworld/companions/noble-lord.jpg",
+    "files/otherworld/companions/noble-lady.jpg"
+  ],
+  "references": [
+    "files/army/people/vlad.jpg",
+    "files/army/death/morgana.png"
+  ],
+  "variants": [
+    {
+      "file": "files/otherworld/companions/noble-lord.jpg",
+      "subject": "Adult male noble, dark wavy hair, neat beard, strong dignified face.",
+      "prompt": "Use case: stylized-concept. Asset: fantasy strategy army unit portrait, landscape 3:2, fully painted background, no transparency. Use the reference images for detailed cinematic painterly army-card lighting, material realism and composition only. ONE human aristocrat of the Mirror Realm, waist-up centered, face clearly visible and entirely human, restrained confident expression, ornate practical dark steel armour with silver and gold decoration, deep blue cloak, sword held downward, misty enchanted castle and faint soldiers behind. Elegant noble warrior, not a monster, no glowing monster eyes, no claws, no supernatural transformation. Highly detailed premium game army illustration, dramatic natural lighting. No text, no frame, no letters, no UI. Adult male noble, dark wavy hair, neat beard, strong dignified face.",
+      "sha256": "102eaaf3ee75a3b49dabd79f1553369534b014cb0e2f06613a2363a1bd714934"
+    },
+    {
+      "file": "files/otherworld/companions/noble-lady.jpg",
+      "subject": "Beautiful adult noblewoman with a voluptuous fuller figure, rounded cheeks, expressive eyes, auburn hair, and fully covering ornate armour.",
+      "prompt": "Use case: precise-object-edit. Edit this existing fantasy army unit portrait. Keep the same adult noblewoman, auburn hair, pose with hands resting on a downward sword, ornate dark steel and gold armour, blue cloak, army, snowy castle background, landscape 3:2 framing, detailed cinematic game-painting style. Make her clearly voluptuous and fuller figured: fuller softly rounded cheeks, broader shoulders and upper arms, fuller bust and curvy waist/hips with natural realistic proportions. Give her a beautiful harmonious adult face, expressive eyes and a warm confident noble expression. Adapt the fully covering breastplate naturally to her fuller figure. She remains a capable elegant aristocratic warrior. Preserve the composition and background. No text, no frame, no UI.",
+      "sha256": "b6b862eb02228b896355f60a457e914640eb9888f850edb45d44bcf482060b41"
+    }
+  ]
+}

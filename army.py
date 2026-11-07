@@ -137,6 +137,9 @@ class ArmyCash:
         """
         if unit_name.startswith('Спутник: '):
             return False  # Unique quest companions can only be awarded by their case.
+        from morgana_covenant import serving,LEGION_PREFIX
+        if serving(self.conn,self.faction) and str(unit_stats.get('Класс юнита','')).split()[0]=='1' and not unit_name.startswith(LEGION_PREFIX):
+            return False
         crowns, workers = unit_cost
         required_crowns = int(crowns) * int(quantity)
         required_workers = int(workers) * int(quantity)
@@ -403,6 +406,8 @@ def load_unit_data(faction, conn):
             AND unit_name NOT LIKE 'Спутник:%'
     """, (faction,))
     rows = cursor.fetchall()
+    from morgana_covenant import serving,LEGION_PREFIX
+    if serving(conn,faction):rows=[r for r in rows if str(r[8]).split()[0]!='1' or r[0].startswith(LEGION_PREFIX)]
 
     unit_data = {}
     for row in rows:

@@ -1170,6 +1170,12 @@ class FortressInfoPopup(Popup):
 
         content.add_widget(body)
 
+        from companion_form_ui import form_button
+        def refresh_form_card():
+            popup.dismiss();self.update_garrison()
+        form_action=form_button(self.conn,self.player_fraction,name,refresh_form_card)
+        if form_action:content.add_widget(form_action)
+
         popup = Popup(
             title=title,
             content=content,

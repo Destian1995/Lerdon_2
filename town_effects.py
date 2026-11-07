@@ -94,7 +94,7 @@ class TownEffects:
         x=max(scene.x,left);y=max(scene.y,bottom)
         self.bounds=(x,y,max(0,min(scene.right,left+width)-x),max(0,min(scene.top,bottom+height)-y))
         for mask in (self.mask,self.unmask):mask.pos=self.bounds[:2];mask.size=self.bounds[2:]
-        key=theme_key(scene.faction)
+        key=theme_key(getattr(scene,'art_faction',scene.faction))
         if key!=self.key:self.configure(key)
         self.chimneys=[]
         for name,anchors in CHIMNEYS.get(key,{}).items():

@@ -91,10 +91,10 @@ class BuildingRow(ButtonBehavior,BoxLayout):
         self.border.rounded_rectangle=(*self.pos,*self.size,dp(7))
 
     def refresh(self,town):
-        display_name=building_name(town.scene.faction,self.name)
+        display_name=building_name(town.scene.art_faction,self.name)
         self.title.text=display_name
         self.is_built=bool(town.scene.counts.get(self.name,0))
-        self.art.source=building_path(town.scene.faction,self.name)
+        self.art.source=building_path(town.scene.art_faction,self.name)
         grey=(.48,.50,.53,1)
         self.art.color=(.48,.48,.48,.65) if self.is_built else (1,1,1,1)
         selected=self.name==town.selected
@@ -177,7 +177,7 @@ class TownPopup(WorldPopup):
         self.message.width=min(dp(120),self.root.width*.28)
         self.heading.text=self.city+(' · '+compact_number(getattr(self,'money',0))+' кр.' if compact else '')
         if not self.emergency:self.build.height=dp(44)
-        self.build.text=(building_name(self.faction,self.selected)+' · ' if compact else '')+getattr(self,'build_caption','Построить')
+        self.build.text=(building_name(self.scene.art_faction,self.selected)+' · ' if compact else '')+getattr(self,'build_caption','Построить')
         self.controls.spacing=dp(2 if compact else 6)
         self.fit_catalog()
 
@@ -206,7 +206,7 @@ class TownPopup(WorldPopup):
         self.budget.text=compact_number(money)+' крон' if owned else 'Осмотр'
         self.budget.color=GOLD
         self.effect_summary.text,self.effect_summary.color=BUILDING_SUMMARIES[self.selected]
-        self.selector.text=building_name(self.scene.faction,self.selected)
+        self.selector.text=building_name(self.scene.art_faction,self.selected)
         for row in self.selectors.values():row.refresh(self)
         self.build.disabled=not owned or bool(counts.get(self.selected,0)) or money<info['cost']
         self.build.text='Только осмотр' if not owned else 'Уже построено' if counts.get(self.selected,0) else 'Недостаточно крон' if money<info['cost'] else 'Построить · '+compact_number(info['cost']).replace('.0т','т').replace('.0м','м')

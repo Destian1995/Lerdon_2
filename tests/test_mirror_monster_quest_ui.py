@@ -1,4 +1,5 @@
 import random
+import json
 import unittest
 from strategy_ui_fixture import Window
 from test_dialog_layout import settle
@@ -36,6 +37,22 @@ class MonsterCaseUITests(unittest.TestCase):
                 self.assertFalse(button.disabled);button.dispatch('on_release');settle()
             journal.refresh();settle();card=journal.cards.pages[1]
             self.assertEqual(hunt.state(db,'Север')['stage'],2)
+            self.assertFalse(any(isinstance(w,Image) for w in card.content.children))
+            story=json.loads(hunt.state(db,'Север')['scenario'])
+            name=story['nobles'][story['culprit']]['name']
+            wrong=story['nobles'][(story['culprit']+1)%3]['name']
+            self.assertFalse(any(story['monster'] in label.text for label in card.sections))
+            next(b for b in card.buttons.children if b.text=='Обвинить: '+wrong).dispatch('on_release');settle()
+            card=journal.cards.pages[1]
+            self.assertFalse(hunt.revealed(hunt.state(db,'Север')))
+            self.assertFalse(any(isinstance(w,Image) for w in card.content.children))
+            self.assertTrue(next(b for b in card.buttons.children if b.text=='Обвинить: '+wrong).disabled)
+            Window.size=(392,844);settle();journal.fit();settle()
+            journal.export_to_png('.release/mirror-noble-investigation-phone.png')
+            next(b for b in card.buttons.children if b.text=='Обвинить: '+name).dispatch('on_release');settle()
+            card=journal.cards.pages[1]
+            self.assertTrue(hunt.identified(hunt.state(db,'Север')))
+            self.assertFalse(hunt.revealed(hunt.state(db,'Север')))
             image=next(w for w in card.content.children if isinstance(w,Image))
             self.assertIsNotNone(image.texture)
             self.assertTrue(any('Hero' in b.text for b in card.buttons.children))
@@ -61,7 +78,19 @@ class MonsterCaseUITests(unittest.TestCase):
             self.assertEqual(hunt.pact(db,'Север')['deadline'],30)
             self.assertIn('Сделка за душу',journal.cards.pages[1].title)
             prize=hunt.state(db,'Север')['reward_unit']
-            self.assertEqual(db.execute('SELECT attack,defense FROM units WHERE unit_name=?',(prize,)).fetchone(),(13_000_000,15_500_000))
+            self.assertEqual(db.execute('SELECT attack,defense FROM units WHERE unit_name=?',(prize,)).fetchone(),(253_500_000,100_750_000))
+            journal.change_form('monster');settle()
+            self.assertEqual(db.execute('SELECT attack,defense FROM units WHERE unit_name=?',(prize,)).fetchone(),(84_500_000,302_250_000))
+            from companion_form_ui import CompanionForms,form_button
+            self.assertIsNotNone(form_button(db,'Север',prize))
+            self.assertIsNone(form_button(db,'Север','troop1'))
+            forms=CompanionForms(db,'Север');forms.open(animation=False);settle()
+            forms.switch('noble');settle()
+            self.assertTrue(forms.art.source.endswith('.jpg'))
+            self.assertIsNotNone(forms.art.texture)
+            self.assertIn('АТК +50%',forms.stats.text)
+            self.assertEqual(hunt.pact(db,'Север')['deadline'],30)
+            forms.export_to_png('.release/companion-noble-form-phone.png')
         finally:
             for widget in list(Window.children):
                 if isinstance(widget,Popup):widget.dismiss(animation=False)

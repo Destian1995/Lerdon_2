@@ -36,6 +36,7 @@ def clear_tables(conn):
     :param conn: Подключение к базе данных SQLite.
     """
     tables_to_clear = [
+        "morgana_covenants",
         "buildings",
         "cities",
         "diplomacies",
@@ -64,13 +65,16 @@ def clear_tables(conn):
         "player_allies",
         "negotiation_history",
         "portal_soul_pacts",
+        "portal_companion_forms",
         "portal_monster_cases",
     ]
 
     cursor = conn.cursor()
 
     try:
+        present={row[0] for row in cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         for table in tables_to_clear:
+            if table not in present:continue
             # Используем TRUNCATE или DELETE для очистки таблицы
             cursor.execute(f"DELETE FROM {table};")
             print(f"Таблица '{table}' успешно очищена.")

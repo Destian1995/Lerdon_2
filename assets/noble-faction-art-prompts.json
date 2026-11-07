@@ -1,0 +1,85 @@
+{
+  "generator": "built-in image_gen",
+  "assets": [
+    {
+      "file": "files/otherworld/companions/north/noble-lady.jpg",
+      "faction": "Север",
+      "gender": "lady",
+      "prompt": "Use case: precise-object-edit. Make a small body-proportion adjustment to this existing fantasy army portrait of a clearly ADULT noblewoman. Give her a slightly fuller overall figure: gently rounder shoulders and upper arms, a softer fuller waist and slightly wider hips, with natural harmonious proportions. This is a subtle overall change, about 5-8 percent, not an exaggerated redesign. Adapt the existing opaque court gown naturally to the fuller silhouette. Preserve her exact face and identity, hair, expression, pose, hands, staff or sword, jewellery, neckline, clothing coverage, intricate embroidery, faction colours, composition, cinematic painted game-art rendering, and the entire background. Keep landscape 3:2 framing and headroom. Fully clothed, no nudity, no text, no frame, no UI. Change only the overall fullness of her build and the corresponding fit of the clothing.",
+      "reference": "files/otherworld/companions/north/noble-lady.jpg",
+      "sha256": "5fe9c1e0faca20a41173bbe9e22fb25f2bd561c794e6aac39c8ba6791464ec12"
+    },
+    {
+      "file": "files/otherworld/companions/north/noble-lord.jpg",
+      "faction": "Север",
+      "gender": "lord",
+      "prompt": "Use case: stylized-concept. ONE fantasy strategy army portrait in LANDSCAPE 3:2, premium detailed cinematic painted game art, full background, no transparency. The reference is for painterly rendering, lighting, faction palette and court atmosphere. Create a new clearly adult MALE aristocrat, waist-to-thigh view, face fully within frame with headroom, confident and noble, wearing lavish opaque court clothing and armour. Anatomically natural, no monster transformation, no text, no frame, no UI. A dignified adult Nordic jarl, blond braided hair and beard, strong weathered face, silver-and-blue engraved armour, fur-trimmed cloak and sheathed sword, snowy northern castle and disciplined northern soldiers. Blue frost light.",
+      "reference": "files/otherworld/companions/noble-lord.jpg",
+      "sha256": "3f7cadc7b41ee242b9327e04b2713db995b3e64f1555d597e095eef0b9c2dd2a"
+    },
+    {
+      "file": "files/otherworld/companions/elines/noble-lady.jpg",
+      "faction": "Элины",
+      "gender": "lady",
+      "prompt": "Use case: precise-object-edit. Make a small body-proportion adjustment to this existing fantasy army portrait of a clearly ADULT noblewoman. Give her a slightly fuller overall figure: gently rounder shoulders and upper arms, a softer fuller waist and slightly wider hips, with natural harmonious proportions. This is a subtle overall change, about 5-8 percent, not an exaggerated redesign. Adapt the existing opaque court gown naturally to the fuller silhouette. Preserve her exact face and identity, hair, expression, pose, hands, staff or sword, jewellery, neckline, clothing coverage, intricate embroidery, faction colours, composition, cinematic painted game-art rendering, and the entire background. Keep landscape 3:2 framing and headroom. Fully clothed, no nudity, no text, no frame, no UI. Change only the overall fullness of her build and the corresponding fit of the clothing.",
+      "reference": "files/otherworld/companions/elines/noble-lady.jpg",
+      "sha256": "f95cfe26701abcb04d167f9ce075e84835077b42c8cde38c9fa245df4f0c7617"
+    },
+    {
+      "file": "files/otherworld/companions/elines/noble-lord.jpg",
+      "faction": "Элины",
+      "gender": "lord",
+      "prompt": "Use case: stylized-concept. ONE fantasy strategy army portrait in LANDSCAPE 3:2, premium detailed cinematic painted game art, full background, no transparency. The reference is for painterly rendering, lighting, faction palette and court atmosphere. Create a new clearly adult MALE aristocrat, waist-to-thigh view, face fully within frame with headroom, confident and noble, wearing lavish opaque court clothing and armour. Anatomically natural, no monster transformation, no text, no frame, no UI. A dignified adult desert emir, warm olive complexion, neat dark beard, ivory turban with turquoise and gold clasp, high-collared ivory and gold embroidered court coat and gilded armour, ceremonial sun staff, oasis sandstone palace and guards in warm sunlight.",
+      "reference": "files/army/poly/clare.jpg",
+      "sha256": "2247b771485ee039e6be3094c8ba5dbe2facbb38b3f17b743b89d1a2f5f825e2"
+    },
+    {
+      "file": "files/otherworld/companions/adepts/noble-lady.jpg",
+      "faction": "Адепты",
+      "gender": "lady",
+      "prompt": "Use case: precise-object-edit. Make a small body-proportion adjustment to this existing fantasy army portrait of a clearly ADULT noblewoman. Give her a slightly fuller overall figure: gently rounder shoulders and upper arms, a softer fuller waist and slightly wider hips, with natural harmonious proportions. This is a subtle overall change, about 5-8 percent, not an exaggerated redesign. Adapt the existing opaque court gown naturally to the fuller silhouette. Preserve her exact face and identity, hair, expression, pose, hands, staff or sword, jewellery, neckline, clothing coverage, intricate embroidery, faction colours, composition, cinematic painted game-art rendering, and the entire background. Keep landscape 3:2 framing and headroom. Fully clothed, no nudity, no text, no frame, no UI. Change only the overall fullness of her build and the corresponding fit of the clothing.",
+      "reference": "files/otherworld/companions/adepts/noble-lady.jpg",
+      "sha256": "9d9b06d11255f41cab46ce941dcd88a7032739477791ad972b61798b00bd242e"
+    },
+    {
+      "file": "files/otherworld/companions/adepts/noble-lord.jpg",
+      "faction": "Адепты",
+      "gender": "lord",
+      "prompt": "Use case: stylized-concept. ONE fantasy strategy army portrait in LANDSCAPE 3:2, premium detailed cinematic painted game art, full background, no transparency. The reference is for painterly rendering, lighting, faction palette and court atmosphere. Create a new clearly adult MALE aristocrat, waist-to-thigh view, face fully within frame with headroom, confident and noble, wearing lavish opaque court clothing and armour. Anatomically natural, no monster transformation, no text, no frame, no UI. A dignified adult crusader baron, short blond hair and trimmed beard, engraved steel armour with ivory, black and gold surcoat, ruby medallion and sword, grand crusader abbey in an orange autumn forest with armoured guards, warm amber light.",
+      "reference": "files/army/adepts/sestra.jpg",
+      "sha256": "bce62fae5cca923e5b429f321ba01cba6381715199ec606e8f0f34132d3d892b"
+    },
+    {
+      "file": "files/otherworld/companions/elves/noble-lady.jpg",
+      "faction": "Эльфы",
+      "gender": "lady",
+      "prompt": "Use case: precise-object-edit. Make a small body-proportion adjustment to this existing fantasy army portrait of a clearly ADULT noblewoman. Give her a slightly fuller overall figure: gently rounder shoulders and upper arms, a softer fuller waist and slightly wider hips, with natural harmonious proportions. This is a subtle overall change, about 5-8 percent, not an exaggerated redesign. Adapt the existing opaque court gown naturally to the fuller silhouette. Preserve her exact face and identity, hair, expression, pose, hands, staff or sword, jewellery, neckline, clothing coverage, intricate embroidery, faction colours, composition, cinematic painted game-art rendering, and the entire background. Keep landscape 3:2 framing and headroom. Fully clothed, no nudity, no text, no frame, no UI. Change only the overall fullness of her build and the corresponding fit of the clothing.",
+      "reference": "files/otherworld/companions/elves/noble-lady.jpg",
+      "sha256": "e7185ecf61f6e015734070a62310afeb4496bc58fb2bff127d4983ef7d0090e0"
+    },
+    {
+      "file": "files/otherworld/companions/elves/noble-lord.jpg",
+      "faction": "Эльфы",
+      "gender": "lord",
+      "prompt": "Use case: stylized-concept. ONE fantasy strategy army portrait in LANDSCAPE 3:2, premium detailed cinematic painted game art, full background, no transparency. The reference is for painterly rendering, lighting, faction palette and court atmosphere. Create a new clearly adult MALE aristocrat, waist-to-thigh view, face fully within frame with headroom, confident and noble, wearing lavish opaque court clothing and armour. Anatomically natural, no monster transformation, no text, no frame, no UI. A dignified adult elven lord with graceful pointed ears, long chestnut hair, refined handsome face, gold leaf circlet and intricate green-gold leaf armour, flowing green cloak, living-wood staff, sunlit woodland palace and elven guards.",
+      "reference": "files/army/elfs/valery.jpg",
+      "sha256": "20bd45d951dcdadd5d505f4d18e163537a2756a9d09c522342203ea0ce0cd70b"
+    },
+    {
+      "file": "files/otherworld/companions/vampires/noble-lady.jpg",
+      "faction": "Вампиры",
+      "gender": "lady",
+      "prompt": "Use case: precise-object-edit. Make a small body-proportion adjustment to this existing fantasy army portrait of a clearly ADULT noblewoman. Give her a slightly fuller overall figure: gently rounder shoulders and upper arms, a softer fuller waist and slightly wider hips, with natural harmonious proportions. This is a subtle overall change, about 5-8 percent, not an exaggerated redesign. Adapt the existing opaque court gown naturally to the fuller silhouette. Preserve her exact face and identity, hair, expression, pose, hands, staff or sword, jewellery, neckline, clothing coverage, intricate embroidery, faction colours, composition, cinematic painted game-art rendering, and the entire background. Keep landscape 3:2 framing and headroom. Fully clothed, no nudity, no text, no frame, no UI. Change only the overall fullness of her build and the corresponding fit of the clothing.",
+      "reference": "files/otherworld/companions/vampires/noble-lady.jpg",
+      "sha256": "cafbc9516015d15614bfd7fda8af1ad6d0cf0411358439775429c4f431c68172"
+    },
+    {
+      "file": "files/otherworld/companions/vampires/noble-lord.jpg",
+      "faction": "Вампиры",
+      "gender": "lord",
+      "prompt": "Use case: stylized-concept. ONE fantasy strategy army portrait in LANDSCAPE 3:2, premium detailed cinematic painted game art, full background, no transparency. The reference is for painterly rendering, lighting, faction palette and court atmosphere. Create a new clearly adult MALE aristocrat, waist-to-thigh view, face fully within frame with headroom, confident and noble, wearing lavish opaque court clothing and armour. Anatomically natural, no monster transformation, no text, no frame, no UI. A dignified adult gothic count, pale handsome face, raven-black shoulder-length hair, ruby clasp, high-collared black-and-burgundy brocade coat over elegant dark armour, ornate sword, moonlit gothic castle with crimson forest and aristocratic guards, purple and wine-red palette.",
+      "reference": "files/army/vampires/isabel.jpg",
+      "sha256": "02670eba34976b1dabcb9953cbb8b386bf77dcc2480920da0427f552db2636ed"
+    }
+  ]
+}

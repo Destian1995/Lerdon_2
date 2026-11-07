@@ -79,11 +79,17 @@ class TownScene(StencilView):
         self.bind(pos=self.draw,size=self.draw)
         self.refresh()
 
+    @property
+    def art_faction(self):
+        return getattr(self,'_art_faction',self.faction)
+
     def refresh(self,*_):
         from city_construction import city_owner
         previous=self.counts
         old_faction=self.faction
         self.faction=city_owner(self.conn,self.city) or self.faction
+        from morgana_covenant import presentation_faction
+        self._art_faction=presentation_faction(self.conn,self.city,self.faction)
         self.counts=building_counts(self.conn,self.city,self.faction)
         if old_faction!=self.faction:self.effects.flashes.clear()
         self.draw()
@@ -99,10 +105,10 @@ class TownScene(StencilView):
             self.scene_bounds=(self.x,self.y,0,0)
             self.effects.layout()
             return
-        path=panorama_path(self.faction,self.city)
+        path=panorama_path(self.art_faction,self.city)
         # Used only while art is being generated, or for a damaged installation.
         if not Path(path).is_file():
-            path=map_icon(self.faction)
+            path=map_icon(self.art_faction)
         background=texture(path)
         # The inspection preview fills its frame; the interactive construction
         # scene keeps every district visible and reachable.
@@ -112,14 +118,14 @@ class TownScene(StencilView):
         left,bottom=self.x+(self.width-width)/2,self.y+(self.height-height)/2
         self.scene_bounds=(left,bottom,width,height)
         self.lots=dict(LOTS)
-        citadel=building_path(self.faction,'Цитадель')
-        defense=building_path(self.faction,'Стена')
+        citadel=building_path(self.art_faction,'Цитадель')
+        defense=building_path(self.art_faction,'Стена')
         if Path(defense).is_file():
             art=texture(defense)
-            self.lots['Стена']=defense_lot(self.faction,background.width/background.height,art.height/art.width)
+            self.lots['Стена']=defense_lot(self.art_faction,background.width/background.height,art.height/art.width)
         if Path(citadel).is_file():
             art=texture(citadel)
-            self.lots['Цитадель']=citadel_lot(self.faction,self.city,
+            self.lots['Цитадель']=citadel_lot(self.art_faction,self.city,
                 background.width/background.height,art.height/art.width)
         with self.paint:
             Color(.025,.035,.05,1);Rectangle(pos=self.pos,size=self.size)
@@ -128,7 +134,7 @@ class TownScene(StencilView):
                 count=self.counts.get(name,0)
                 x,y=left+u*width,bottom+v*height
                 size=relative_width*width
-                image=building_path(self.faction,name)
+                image=building_path(self.art_faction,name)
                 art=texture(image) if count and Path(image).is_file() else None
                 selected=name==self.selected
                 if art:
@@ -136,7 +142,7 @@ class TownScene(StencilView):
                     fit=min(1,max(1,bottom+height*.98-y)/h)
                     size*=fit;h*=fit
                     self.sprite_colors[name]=Color(1,1,1,self.effects.opacity(name))
-                    mirrored=building_mirrored(self.faction,name)
+                    mirrored=building_mirrored(self.art_faction,name)
                     coords=list(art.tex_coords)
                     if mirrored:
                         coords=mirrored_tex_coords(coords)
@@ -186,8 +192,8 @@ class TownScene(StencilView):
                         if distance<=dp(22)**2:nearby.append((distance,name))
                     name=next((n for n,(x,y,w,h) in reversed(self.hits)
                          if self.counts.get(n,0) and x<=touch.x<x+w and y<=touch.y<y+h
-                         and shape_contains(building_path(self.faction,n),
-                             1-(touch.x-x)/w if building_mirrored(self.faction,n) else (touch.x-x)/w,
+                         and shape_contains(building_path(self.art_faction,n),
+                             1-(touch.x-x)/w if building_mirrored(self.art_faction,n) else (touch.x-x)/w,
                              (touch.y-y)/h)),None)
                     if name is None and nearby:name=min(nearby)[1]
                     if name:

@@ -98,6 +98,14 @@ class QuestJournal(WorldPopup):
                 details='ЗАЩ '+defense+' · Артефакт 25 х.')
             self._layout_event()
         self.monster_card(p,here,names)
+        from morgana_covenant import offer
+        morgana=offer(self.conn,self.faction)
+        if morgana and morgana['status']=='offered':
+            from morgana_covenant_ui import show_offer
+            self.card('Предложение Морганы','Моргана предлагает вам возглавить легион Нежити. Решение изменит города и дипломатию до конца кампании.',
+                      [('Выслушать Моргану',lambda *_:show_offer(self.conn,self.faction,force=True),True)])
+        elif morgana and morgana['status']=='accepted':
+            self.card('Служение Моргане','Ваши города — некрополи. Лимиты армии и ресурсов +45% навсегда. С живыми фракциями — вечная война. Исходный срок сделки за душу продолжает идти.')
         pending=quests.pending(self.conn,self.faction)
         if pending:
             from portal_items import champions
@@ -116,14 +124,22 @@ class QuestJournal(WorldPopup):
         deal=hunt.pact(self.conn,self.faction)
         if deal:
             left=max(0,deal['deadline']-current_turn(self.conn))
+            form=hunt.companion_form(self.conn,self.faction)
+            alive=bool(form and self.conn.execute('SELECT 1 FROM garrisons WHERE unit_name=? AND unit_count>0',(form['unit_name'],)).fetchone())
             self.card('Сделка за душу · '+str(left)+' х.',
                       'Монстр на вашей стороне. Победите в кампании не позднее хода '+str(deal['deadline'])+
                       '.\nОсталось ходов: '+str(left)+'. Срок не сбрасывается при возвращении домой или потере монстра. '
-                      'Если не победите за 30 ходов после сделки — поражение без нового звания.')
+                      'Если не победите за 30 ходов после сделки — поражение без нового звания.\n'
+                      'Облик дворянина: атака +50%, защита −50%. Облик монстра: атака −50%, защита +50%.',
+                      [('Облик дворянина',lambda *_:self.change_form('noble'),alive),
+                       ('Облик монстра',lambda *_:self.change_form('monster'),alive),
+                       ('Мужской персонаж',lambda *_:self.change_gender('lord'),alive),
+                       ('Женский персонаж',lambda *_:self.change_gender('lady'),alive)])
         if not case or case['stage']==3:
             left=max(0,case['finished_turn']+hunt.COOLDOWN-current_turn(self.conn)) if case else 0
-            copy=('Необязательное дело о гибели и исчезновениях жителей. Найдите улики и победите монстра. '
-                  'База монстра: 260 млн атаки и 310 млн защиты. Зимой сила ×4, весной ×1, летом ×0,05, осенью ×2. '
+            seasonal=' · '.join(hunt.SEASONS[i]+' ×'+str(hunt.stat_percent(self.faction,i)/100).replace('.',',') for i in range(4))
+            copy=('Необязательное дело о гибели и исчезновениях жителей. Соберите две улики и вычислите, кто из трёх дворян скрывает чудовище. '
+                  'База монстра: 260 млн атаки и 310 млн защиты. Сезонные коэффициенты вашей фракции: '+seasonal+'. '
                   'Сезон фиксируется при принятии. Можно сразиться или договориться ценой души.\n'
                   'Награда: один уникальный спутник в отряд победителя. База: 100 млн атаки и 100 млн защиты; '
                   'каждая характеристика получает отдельную надбавку от 14,2% до 27,1%. '
@@ -137,31 +153,63 @@ class QuestJournal(WorldPopup):
         from utils.helpers import format_number
         copy=story['premise']+'\nГород: '+names[case['city_id']-1]+'. Сезон дела: '+hunt.SEASONS[case['season']]+'.'
         if stage>=1:copy+='\n'+story['witness']
-        if stage>=2:copy+='\n'+story['clue']+'\nМонстр: '+story['monster']+'. Атака: '+format_number(enemy['attack'])+' · Защита: '+format_number(enemy['defense'])+'.'
+        if story.get('nobles'):
+            copy+='\nДворянский реестр:\n'+'\n'.join(n['name']+' — герб: '+n['crest']+'; '+n['mark']+'.' for n in story['nobles'])
+        if stage>=2:copy+='\n'+story['clue']
+        exposed=hunt.revealed(case)
+        identified=hunt.identified(case)
+        if stage>=2 and identified and not exposed:
+            copy+='\n'+hunt.noble_name(case)+' сохраняет человеческий облик и предлагает помощь в обмен на вашу душу. '
+            copy+='После сделки можно менять облик: дворянин усиливает атаку на 50%, ослабляя защиту на 50%; монстр — наоборот.'
+        if stage>=2 and exposed:
+            if story.get('nobles'):copy+='\n'+story['nobles'][story['culprit']]['name']+' раскрывает свою истинную сущность.'
+            copy+='\nМонстр: '+story['monster']+'. Атака: '+format_number(enemy['attack'])+' · Защита: '+format_number(enemy['defense'])+'.'
         buttons=[]
         if stage<2:
             buttons=[('Опросить свидетеля' if stage==0 else 'Проверить следы',
                       lambda *_:self.perform(lambda:hunt.investigate(self.conn,self.faction)),here==case['city_id'])]
+        elif not identified:
+            copy+='\nКто из дворян совпадает с обеими уликами?'
+            buttons=[('Обвинить: '+n['name'],lambda *_,n=n['name']:self.perform(lambda:hunt.accuse(self.conn,self.faction,n)),
+                      here==case['city_id'] and n['name'] not in story.get('cleared',[])) for n in story['nobles']]
         elif party:
-            buttons=[('В бой · '+hero,lambda *_,h=hero:self.hunt_battle(h),here==case['city_id'])
-                     for hero in hunt.heroes(self.conn,party['camp'],self.faction)]
-            if not deal:
-                buttons += [('Договориться · '+hero,lambda *_,h=hero:self.offer_soul(h),here==case['city_id'])
-                            for hero in hunt.heroes(self.conn,party['camp'],self.faction)]
+            buttons=[]
+            if exposed:
+                buttons=[('В бой · '+hero,lambda *_,h=hero:self.hunt_battle(h),here==case['city_id'])
+                         for hero in hunt.heroes(self.conn,party['camp'],self.faction)]
+            elif not exposed:
+                if not deal:
+                    buttons += [('Договориться · '+hero,lambda *_,h=hero:self.offer_soul(h),here==case['city_id'])
+                                for hero in hunt.heroes(self.conn,party['camp'],self.faction)]
+                buttons.append(('Отказать и увидеть сущность',lambda *_:self.perform(lambda:hunt.reject_soul(self.conn,self.faction)),here==case['city_id']))
             confirm=getattr(self,'_soul_offer',None)
-            if confirm and confirm==(case['id'],here):
+            if not exposed and confirm and confirm==(case['id'],here):
                 hero=self._soul_hero
-                copy+='\nРиск: цена сделки — ваша душа. Монстр присоединится без боя: атака '+format_number(enemy['attack'])+', защита '+format_number(enemy['defense'])+'. '
+                copy+='\nРиск: цена сделки — ваша душа. Союзник присоединится без боя в облике дворянина: атака '+format_number(enemy['attack']*3//2)+', защита '+format_number(enemy['defense']//2)+'. '
                 copy+='Вы обязаны победить в кампании за 30 ходов, иначе проиграете без присвоения звания. Сделка необратима.'
                 buttons=[('Продать душу · '+hero,lambda *_:self.accept_soul(hero),True),
                          ('Отказаться от сделки',lambda *_:self.offer_soul(None),True)]
         self.card(story['title']+' · '+str(stage)+'/3',copy,buttons,
                   details='Награда: спутник · АТК +'+str(case['attack_bonus']/10)+'% · ЗАЩ +'+str(case['defense_bonus']/10)+'%')
-        if stage==2:
+        if stage==2 and identified:
             from kivy.uix.image import Image
             card=self.cards.pages[-1]
-            card.content.add_widget(Image(source=enemy['unit_image'],fit_mode='contain',
+            card.content.add_widget(Image(source=enemy['unit_image'] if exposed else hunt.noble_image(case),fit_mode='contain',
                                           size_hint_y=None,height=dp(130)),index=1 if buttons else 0)
+
+    def change_form(self,form):
+        import mirror_monster_quest as hunt
+        def change():
+            hunt.set_form(self.conn,self.faction,form)
+            return 'Облик спутника изменён. Срок сделки остался прежним.'
+        self.perform(change)
+
+    def change_gender(self,gender):
+        import mirror_monster_quest as hunt
+        def change():
+            hunt.choose_gender(self.conn,self.faction,gender)
+            return 'Облик персонажа выбран. Характеристики и срок сделки не изменились.'
+        self.perform(change)
 
     def offer_soul(self,hero):
         import mirror_monster_quest as hunt
@@ -177,6 +225,8 @@ class QuestJournal(WorldPopup):
             self._soul_offer=None
             return 'Монстр присоединился к отряду. Победите за 30 ходов. При неудаче — поражение без звания.'
         self.perform(accept)
+        from morgana_covenant_ui import show_offer
+        show_offer(self.conn,self.faction)
 
     def hunt_battle(self,hero):
         import mirror_monster_quest as hunt

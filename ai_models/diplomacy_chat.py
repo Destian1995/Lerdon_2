@@ -4004,6 +4004,8 @@ class EnhancedDiplomacyChat():
 
     def _handle_peace_proposal(self, message, faction):
         """Обрабатывает предложение мира с разнообразными репликами"""
+        from morgana_covenant import peace_locked
+        if peace_locked(self.db_connection,self.faction,faction):return 'Вы служите Моргане. Между нами вечная война — мир невозможен.'
         try:
             cursor = self.db_connection.cursor()
 

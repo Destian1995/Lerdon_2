@@ -699,7 +699,8 @@ class Faction:
         base_limit = 4000
         city_bonus = 1000 * self.city_count
         tower_bonus = 500 * self.towers  # +500 за каждую Вышку
-        return base_limit + city_bonus + tower_bonus
+        from morgana_covenant import multiplier
+        return round((base_limit + city_bonus + tower_bonus)*multiplier(self.conn,self.faction))
 
     def load_relations(self):
         """
@@ -1507,6 +1508,10 @@ class Faction:
                 message = "Противник завоевал все ваши города. Поражение!"
                 print(message)
                 return False, message
+
+            from morgana_covenant import won
+            if won(self.conn,self.faction):
+                return False,'Все фракции были уничтожены. Вы привели легионы Морганы к победе.'
 
             # Пока нежить жива — игра не может завершиться победой
             _undead_active = False

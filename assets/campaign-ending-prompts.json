@@ -1,0 +1,85 @@
+{
+  "tool": "built-in image_gen",
+  "images": [
+    {
+      "id": "north-victory",
+      "prompt": "Triumphant northern kingdom, snowy mountains, blue silver banners, Nordic citadels, rifle hunters, ruler overlooking restored capital at dawn. Detailed realistic painterly fantasy epilogue, no text.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-6fbb4335-db23-4654-8a02-4564b098e697.png"
+    },
+    {
+      "id": "north-defeat",
+      "prompt": "Use case: stylized-concept. Widescreen 3:2 fantasy strategy campaign defeat epilogue. northern snowy kingdom, Nordic stone and timber citadels, blue silver banners, fur-cloaked rifle hunters. Defeated ruler seen from behind leaving the ruined capital with surviving refugees, fallen banners, smoke and twilight, tragic loss without gore. Highly detailed realistic painterly fantasy game art, coherent architecture, cinematic atmosphere, no text, no UI, no collage.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-928aaf69-18ac-4a31-9af8-c97e89dfb6be.png"
+    },
+    {
+      "id": "elines-victory",
+      "prompt": "Use case: stylized-concept. Widescreen 3:2 fantasy strategy campaign victory epilogue. desert kingdom, sandstone castles and oasis, turquoise gold banners, sun mages. Triumphant ruler seen from behind overlooking a restored prosperous capital at sunrise, soldiers returning home, hope and earned victory. Highly detailed realistic painterly fantasy game art, coherent architecture, cinematic atmosphere, no text, no UI, no collage.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-5aefabf9-a21f-40c9-83f4-2086c747dee7.png"
+    },
+    {
+      "id": "elines-defeat",
+      "prompt": "Use case: stylized-concept. Widescreen 3:2 fantasy strategy campaign defeat epilogue. desert kingdom, sandstone castles and oasis, turquoise gold banners, sun mages. Defeated ruler seen from behind leaving the ruined capital with surviving refugees, fallen banners, smoke and twilight, tragic loss without gore. Highly detailed realistic painterly fantasy game art, coherent architecture, cinematic atmosphere, no text, no UI, no collage.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-baa12725-a58d-49b7-b9ca-c1fc370fbf60.png"
+    },
+    {
+      "id": "adepts-victory",
+      "prompt": "Use case: stylized-concept. Widescreen 3:2 fantasy strategy campaign victory epilogue. crusader abbey kingdom in copper autumn forests, ivory monasteries, white red cross banners, knights. Triumphant ruler seen from behind overlooking a restored prosperous capital at sunrise, soldiers returning home, hope and earned victory. Highly detailed realistic painterly fantasy game art, coherent architecture, cinematic atmosphere, no text, no UI, no collage.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-c465f283-66bd-4aa9-b93f-2efa91852c98.png"
+    },
+    {
+      "id": "adepts-defeat",
+      "prompt": "Use case: stylized-concept. Widescreen 3:2 fantasy strategy campaign defeat epilogue. crusader abbey kingdom in copper autumn forests, ivory monasteries, white red cross banners, knights. Defeated ruler seen from behind leaving the ruined capital with surviving refugees, fallen banners, smoke and twilight, tragic loss without gore. Highly detailed realistic painterly fantasy game art, coherent architecture, cinematic atmosphere, no text, no UI, no collage.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-8a7515d0-a4b7-47d2-9491-7c1f03bb8fde.png"
+    },
+    {
+      "id": "elves-victory",
+      "prompt": "Use case: stylized-concept. Widescreen 3:2 fantasy strategy campaign victory epilogue. elven green forest kingdom and waterfalls, elegant ivory gold tree palaces, emerald banners, archers. Triumphant ruler seen from behind overlooking a restored prosperous capital at sunrise, soldiers returning home, hope and earned victory. Highly detailed realistic painterly fantasy game art, coherent architecture, cinematic atmosphere, no text, no UI, no collage.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-a932f64a-20f7-4de4-8180-06431971e167.png"
+    },
+    {
+      "id": "elves-defeat",
+      "prompt": "Use case: stylized-concept. Widescreen 3:2 fantasy strategy campaign defeat epilogue. elven green forest kingdom and waterfalls, elegant ivory gold tree palaces, emerald banners, archers. Defeated ruler seen from behind leaving the ruined capital with surviving refugees, fallen banners, smoke and twilight, tragic loss without gore. Highly detailed realistic painterly fantasy game art, coherent architecture, cinematic atmosphere, no text, no UI, no collage.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-e934e14e-12f9-4af0-aec2-71a8f7e5cd3e.png"
+    },
+    {
+      "id": "vampires-victory",
+      "prompt": "Use case: stylized-concept. Widescreen 3:2 fantasy strategy campaign victory epilogue. vampire gothic kingdom and purple moon, crimson black banners, noble vampire warriors. Triumphant ruler seen from behind overlooking a restored prosperous capital at sunrise, soldiers returning home, hope and earned victory. Highly detailed realistic painterly fantasy game art, coherent architecture, cinematic atmosphere, no text, no UI, no collage.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-775ee837-5a40-447e-8904-f16139761f01.png"
+    },
+    {
+      "id": "vampires-defeat",
+      "prompt": "Use case: stylized-concept. Widescreen 3:2 fantasy strategy campaign defeat epilogue. vampire gothic kingdom and purple moon, crimson black banners, noble vampire warriors. Defeated ruler seen from behind leaving the ruined capital with surviving refugees, fallen banners, smoke and twilight, tragic loss without gore. Highly detailed realistic painterly fantasy game art, coherent architecture, cinematic atmosphere, no text, no UI, no collage.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-fb69974a-dbd2-4461-8992-f2f3764717e6.png"
+    },
+    {
+      "id": "soul-forfeit",
+      "prompt": "Widescreen 3:2 detailed painterly realistic fantasy game epilogue: exhausted adult ruler kneels before an elegant sinister noble and a vast shadow monster at a shattered mirror gate; luminous soul threads bound to an expired pact, dying hourglass, ruined kingdom beyond, violet and cold blue magical light, tragic loss, no gore, no writing, no text, no UI.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-4a0da1fa-73e1-485e-9940-ace6080d3d0c.png"
+    },
+    {
+      "id": "morgana-victory",
+      "prompt": "Widescreen 3:2 detailed painterly realistic fantasy strategy dark victory epilogue: regal adult necromancer queen Morgana in black silver armor beside a crowned player ruler and elegant noble companion before an endless undead legion, Nizar skeletal armored king commanding separate soldiers in distance, conquered capital transformed into grand turquoise glowing necropolis, ominous victorious dawn, no gore, no text, no UI.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-92b68e98-f0a4-4dc3-99cd-467c1a9eaa2d.png"
+    },
+    {
+      "id": "undead-victory",
+      "prompt": "Widescreen 3:2 detailed realistic painterly fantasy strategy campaign victory epilogue. undead necropolis kingdom, turquoise spectral lights, skeletal legions, towering gothic citadels. A ruler seen from behind surveys the triumphant restored capital at dawn, soldiers returning victorious. Cinematic atmospheric depth, no text, no UI, no gore.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-4b5bd12e-7abd-4a8e-b493-1dd6852c12df.png"
+    },
+    {
+      "id": "undead-defeat",
+      "prompt": "Widescreen 3:2 detailed realistic painterly fantasy strategy campaign defeat epilogue. undead necropolis kingdom, turquoise spectral lights, skeletal legions, towering gothic citadels. A defeated ruler retreats with survivors from the ruined capital, fallen banners, dark tragic twilight. Cinematic atmospheric depth, no text, no UI, no gore.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-d59ee414-e036-46ba-9419-9ea688df9d83.png"
+    },
+    {
+      "id": "rebels-victory",
+      "prompt": "Widescreen 3:2 detailed realistic painterly fantasy strategy campaign victory epilogue. rebellious free cities, rugged human soldiers, purple and gold rebel banners, medieval hillforts. A ruler seen from behind surveys the triumphant restored capital at dawn, soldiers returning victorious. Cinematic atmospheric depth, no text, no UI, no gore.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-6a57e655-1408-4185-80b7-c3d04329d984.png"
+    },
+    {
+      "id": "rebels-defeat",
+      "prompt": "Widescreen 3:2 detailed realistic painterly fantasy strategy campaign defeat epilogue. rebellious free cities, rugged human soldiers, purple and gold rebel banners, medieval hillforts. A defeated ruler retreats with survivors from the ruined capital, fallen banners, dark tragic twilight. Cinematic atmospheric depth, no text, no UI, no gore.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-83806e9e-5923-4f3d-9c97-cc8c0b0b68ee.png"
+    }
+  ]
+}

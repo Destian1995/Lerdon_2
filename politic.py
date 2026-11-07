@@ -512,6 +512,8 @@ class DiplomacyManager:
 
     def _create_action_button(self, target_faction, status, table, relations):
         """Создаёт кнопку действия: Объявить войну / Предложить мир."""
+        from morgana_covenant import peace_locked
+        if peace_locked(self.db_connection,self.faction,target_faction):return self._create_cell('Вечная война')
         if status == 'война':
             btn_text = "Предложить мир"
             btn_color = (0.2, 0.6, 0.3, 1)
@@ -600,6 +602,9 @@ class DiplomacyManager:
     def _propose_peace(self, target_faction):
         """Игрок предлагает мир фракции. Враг отказывается если он сильнее."""
         from ui_components import show_message
+        from morgana_covenant import peace_locked
+        if peace_locked(self.db_connection,self.faction,target_faction):
+            show_message('Вечная война','После служения Моргане мир с живыми фракциями невозможен.');return
         try:
             # Мир стоит денег — 500к крон
             peace_cost = 500000

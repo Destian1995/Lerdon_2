@@ -1,0 +1,141 @@
+{
+  "tool": "built-in image_gen",
+  "purpose": "Replace invented heraldry with faction banners from game assets",
+  "images": [
+    {
+      "id": "north-victory",
+      "ref": "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/buildings/people.png",
+      "desc": "deep blue cloth, pale gold interwoven angular Nordic knot rune exactly as on the doorway banners in image 2. Replace ALL deer/stag emblems with this knot rune",
+      "prompt": "Edit image 1 only. Image 2 is the game's authoritative faction heraldry reference, not a scene to insert. Change only the flags, banners and the same heraldic emblems on capes to use the actual faction design: deep blue cloth, pale gold interwoven angular Nordic knot rune exactly as on the doorway banners in image 2. Replace ALL deer/stag emblems with this knot rune. Preserve image 1 composition, all people, faces, poses, architecture, weather, lighting, color mood, image proportions and all story events exactly. Match cloth perspective, folds, tears and wear, paint emblems naturally onto fabric. Foreground flags must be recognizable and consistent with distant city banners. No new text or UI. Do not copy the reference building into the scene.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-986a8375-f1fa-4b4f-b8da-df310054bf5a.png",
+      "asset": "files/endings/north-victory.jpg",
+      "sha256": "29a352db344b91c3c82bd37d560a79b999f57ddc2055ce3eea6119be1aac6bee"
+    },
+    {
+      "id": "north-defeat",
+      "ref": "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/buildings/people.png",
+      "desc": "deep blue cloth, pale gold interwoven angular Nordic knot rune exactly as on the doorway banners in image 2. Replace ALL deer/stag emblems with this knot rune",
+      "prompt": "Edit image 1 only. Image 2 is the game's authoritative faction heraldry reference, not a scene to insert. Change only the flags, banners and the same heraldic emblems on capes to use the actual faction design: deep blue cloth, pale gold interwoven angular Nordic knot rune exactly as on the doorway banners in image 2. Replace ALL deer/stag emblems with this knot rune. Preserve image 1 composition, all people, faces, poses, architecture, weather, lighting, color mood, image proportions and all story events exactly. Match cloth perspective, folds, tears and wear, paint emblems naturally onto fabric. Foreground flags must be recognizable and consistent with distant city banners. No new text or UI. Do not copy the reference building into the scene.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-dfa255d7-97c6-4b26-9a5b-8949cbb9c1d8.png",
+      "asset": "files/endings/north-defeat.jpg",
+      "sha256": "21737734b70c26e803b652040674aefa75ef3719e7bc62c271730edd1cd7939e"
+    },
+    {
+      "id": "elines-victory",
+      "ref": "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/buildings/poly.png",
+      "desc": "turquoise cloth, golden stylized sun with symmetrical branching rays exactly as the central tall hanging banner on image 2",
+      "prompt": "Edit image 1 only. Image 2 is the game's authoritative faction heraldry reference, not a scene to insert. Change only the flags, banners and the same heraldic emblems on capes to use the actual faction design: turquoise cloth, golden stylized sun with symmetrical branching rays exactly as the central tall hanging banner on image 2. Preserve image 1 composition, all people, faces, poses, architecture, weather, lighting, color mood, image proportions and all story events exactly. Match cloth perspective, folds, tears and wear, paint emblems naturally onto fabric. Foreground flags must be recognizable and consistent with distant city banners. No new text or UI. Do not copy the reference building into the scene.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-3c1db751-59ce-4e0b-af46-9b99fb6ec8d6.png",
+      "asset": "files/endings/elines-victory.jpg",
+      "sha256": "411c585af482be49dc2ffa002c3736f06cbb1e0c7c569df8f77f62c17f3d30a8"
+    },
+    {
+      "id": "elines-defeat",
+      "ref": "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/buildings/poly.png",
+      "desc": "turquoise cloth, golden stylized sun with symmetrical branching rays exactly as the central tall hanging banner on image 2",
+      "prompt": "Edit image 1 only. Image 2 is the game's authoritative faction heraldry reference, not a scene to insert. Change only the flags, banners and the same heraldic emblems on capes to use the actual faction design: turquoise cloth, golden stylized sun with symmetrical branching rays exactly as the central tall hanging banner on image 2. Preserve image 1 composition, all people, faces, poses, architecture, weather, lighting, color mood, image proportions and all story events exactly. Match cloth perspective, folds, tears and wear, paint emblems naturally onto fabric. Foreground flags must be recognizable and consistent with distant city banners. No new text or UI. Do not copy the reference building into the scene.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-af2c9a90-f7a1-44d1-a2ad-1921a11a5713.png",
+      "asset": "files/endings/elines-defeat.jpg",
+      "sha256": "1cb9c381684c06bd1b55f8bda49d064fdd7a3a36843e9f82d4bab07976cc09b8"
+    },
+    {
+      "id": "adepts-victory",
+      "ref": "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/buildings/adepts.png",
+      "desc": "ivory cream cloth and dark red crusader cross with flared ends exactly as on the abbey banners in image 2",
+      "prompt": "Edit image 1 only. Image 2 is the game's authoritative faction heraldry reference, not a scene to insert. Change only the flags, banners and the same heraldic emblems on capes to use the actual faction design: ivory cream cloth and dark red crusader cross with flared ends exactly as on the abbey banners in image 2. Preserve image 1 composition, all people, faces, poses, architecture, weather, lighting, color mood, image proportions and all story events exactly. Match cloth perspective, folds, tears and wear, paint emblems naturally onto fabric. Foreground flags must be recognizable and consistent with distant city banners. No new text or UI. Do not copy the reference building into the scene.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-06e3f8a2-68ea-46d4-b1fb-bd841682aea3.png",
+      "asset": "files/endings/adepts-victory.jpg",
+      "sha256": "73ff605cc65db371d1b5b302a3c7ede06641003beca7b6f481c5d2c8b56aef00"
+    },
+    {
+      "id": "adepts-defeat",
+      "ref": "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/buildings/adepts.png",
+      "desc": "ivory cream cloth and dark red crusader cross with flared ends exactly as on the abbey banners in image 2",
+      "prompt": "Edit image 1 only. Image 2 is the game's authoritative faction heraldry reference, not a scene to insert. Change only the flags, banners and the same heraldic emblems on capes to use the actual faction design: ivory cream cloth and dark red crusader cross with flared ends exactly as on the abbey banners in image 2. Preserve image 1 composition, all people, faces, poses, architecture, weather, lighting, color mood, image proportions and all story events exactly. Match cloth perspective, folds, tears and wear, paint emblems naturally onto fabric. Foreground flags must be recognizable and consistent with distant city banners. No new text or UI. Do not copy the reference building into the scene.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-1b9ee689-cd34-45d6-a57c-752ceee919c5.png",
+      "asset": "files/endings/adepts-defeat.jpg",
+      "sha256": "ba8ef49d9ac13d941f36a203999b55c1798c710af80ad1a81f5a785cf71060f9"
+    },
+    {
+      "id": "elves-victory",
+      "ref": "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/buildings/elfs.png",
+      "desc": "emerald green cloth with refined golden tree and leaf heraldry matching the elven architecture in image 2",
+      "prompt": "Edit image 1 only. Image 2 is the game's authoritative faction heraldry reference, not a scene to insert. Change only the flags, banners and the same heraldic emblems on capes to use the actual faction design: emerald green cloth with refined golden tree and leaf heraldry matching the elven architecture in image 2. Preserve image 1 composition, all people, faces, poses, architecture, weather, lighting, color mood, image proportions and all story events exactly. Match cloth perspective, folds, tears and wear, paint emblems naturally onto fabric. Foreground flags must be recognizable and consistent with distant city banners. No new text or UI. Do not copy the reference building into the scene.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-4125f681-e4fb-4970-986e-b8fcba780d4b.png",
+      "asset": "files/endings/elves-victory.jpg",
+      "sha256": "be201ed1f8f98abdae52169364c28253ef3f5efbb2405a2fce5185cafbb3457d"
+    },
+    {
+      "id": "elves-defeat",
+      "ref": "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/buildings/elfs.png",
+      "desc": "emerald green cloth with refined golden tree and leaf heraldry matching the elven architecture in image 2",
+      "prompt": "Edit image 1 only. Image 2 is the game's authoritative faction heraldry reference, not a scene to insert. Change only the flags, banners and the same heraldic emblems on capes to use the actual faction design: emerald green cloth with refined golden tree and leaf heraldry matching the elven architecture in image 2. Preserve image 1 composition, all people, faces, poses, architecture, weather, lighting, color mood, image proportions and all story events exactly. Match cloth perspective, folds, tears and wear, paint emblems naturally onto fabric. Foreground flags must be recognizable and consistent with distant city banners. No new text or UI. Do not copy the reference building into the scene.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-6acd2b1a-64b8-454d-af00-04c41d668948.png",
+      "asset": "files/endings/elves-defeat.jpg",
+      "sha256": "b11900c49fbf1a39dbb6e13ba0b701f8f3c5fac01477e5ae5af064424cbe4121"
+    },
+    {
+      "id": "vampires-victory",
+      "ref": "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/buildings/vampires.png",
+      "desc": "dark crimson cloth with a narrow pointed red-gold angular occult sigil matching the hanging entrance banners in image 2. Replace bat emblems with this heraldic sigil",
+      "prompt": "Edit image 1 only. Image 2 is the game's authoritative faction heraldry reference, not a scene to insert. Change only the flags, banners and the same heraldic emblems on capes to use the actual faction design: dark crimson cloth with a narrow pointed red-gold angular occult sigil matching the hanging entrance banners in image 2. Replace bat emblems with this heraldic sigil. Preserve image 1 composition, all people, faces, poses, architecture, weather, lighting, color mood, image proportions and all story events exactly. Match cloth perspective, folds, tears and wear, paint emblems naturally onto fabric. Foreground flags must be recognizable and consistent with distant city banners. No new text or UI. Do not copy the reference building into the scene.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-4b60d9dc-fef8-4eb5-ab82-16fe0a10a07e.png",
+      "asset": "files/endings/vampires-victory.jpg",
+      "sha256": "681dddc0e7dc3ed0aa995d458b590ed3789ec0c65a37defc7bec6b4a076bff2d"
+    },
+    {
+      "id": "vampires-defeat",
+      "ref": "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/buildings/vampires.png",
+      "desc": "dark crimson cloth with a narrow pointed red-gold angular occult sigil matching the hanging entrance banners in image 2. Replace bat emblems with this heraldic sigil",
+      "prompt": "Edit image 1 only. Image 2 is the game's authoritative faction heraldry reference, not a scene to insert. Change only the flags, banners and the same heraldic emblems on capes to use the actual faction design: dark crimson cloth with a narrow pointed red-gold angular occult sigil matching the hanging entrance banners in image 2. Replace bat emblems with this heraldic sigil. Preserve image 1 composition, all people, faces, poses, architecture, weather, lighting, color mood, image proportions and all story events exactly. Match cloth perspective, folds, tears and wear, paint emblems naturally onto fabric. Foreground flags must be recognizable and consistent with distant city banners. No new text or UI. Do not copy the reference building into the scene.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-13a15ec9-b7c3-4947-beef-e035c700b877.png",
+      "asset": "files/endings/vampires-defeat.jpg",
+      "sha256": "4a2b30720d4203d89c6f99279faf041752d415a3eadeffb8b1d15a9c8ad43b8e"
+    },
+    {
+      "id": "rebels-victory",
+      "ref": "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/buildings/keig.png",
+      "desc": "red cloth with two crossed pale silver swords, exactly matching the main gate banners in image 2. Replace purple cloth, castle emblems, lion and wreath emblems on flags and heraldic capes",
+      "prompt": "Edit image 1 only. Image 2 is the game's authoritative faction heraldry reference, not a scene to insert. Change only the flags, banners and the same heraldic emblems on capes to use the actual faction design: red cloth with two crossed pale silver swords, exactly matching the main gate banners in image 2. Replace purple cloth, castle emblems, lion and wreath emblems on flags and heraldic capes. Preserve image 1 composition, all people, faces, poses, architecture, weather, lighting, color mood, image proportions and all story events exactly. Match cloth perspective, folds, tears and wear, paint emblems naturally onto fabric. Foreground flags must be recognizable and consistent with distant city banners. No new text or UI. Do not copy the reference building into the scene.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-52ccf6be-f7b5-44cb-bb20-3d9441060194.png",
+      "asset": "files/endings/rebels-victory.jpg",
+      "sha256": "06fec2d4287f657d9481a63060da74d402916660f1b1d8dea147d2d37c3aafed"
+    },
+    {
+      "id": "rebels-defeat",
+      "ref": "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/buildings/keig.png",
+      "desc": "red cloth with two crossed pale silver swords, exactly matching the main gate banners in image 2. Replace purple cloth, castle emblems, lion and wreath emblems on flags and heraldic capes",
+      "prompt": "Edit image 1 only. Image 2 is the game's authoritative faction heraldry reference, not a scene to insert. Change only the flags, banners and the same heraldic emblems on capes to use the actual faction design: red cloth with two crossed pale silver swords, exactly matching the main gate banners in image 2. Replace purple cloth, castle emblems, lion and wreath emblems on flags and heraldic capes. Preserve image 1 composition, all people, faces, poses, architecture, weather, lighting, color mood, image proportions and all story events exactly. Match cloth perspective, folds, tears and wear, paint emblems naturally onto fabric. Foreground flags must be recognizable and consistent with distant city banners. No new text or UI. Do not copy the reference building into the scene.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-f032972d-31be-42b5-9e2a-40a6bfa36733.png",
+      "asset": "files/endings/rebels-defeat.jpg",
+      "sha256": "5a8615325f17d555d249054e2dc0a3fd65df8d105157c5ec654c4233f86bd5d5"
+    },
+    {
+      "id": "undead-victory",
+      "ref": "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/status/army_in_city/standards/skull.png",
+      "desc": "nearly black charcoal cloth and a single bone white skull with dark eye sockets exactly as image 2. Replace purple cloth and invented occult wheel emblems",
+      "prompt": "Edit image 1 only. Image 2 is the game's authoritative faction heraldry reference, not a scene to insert. Change only the flags, banners and the same heraldic emblems on capes to use the actual faction design: nearly black charcoal cloth and a single bone white skull with dark eye sockets exactly as image 2. Replace purple cloth and invented occult wheel emblems. Preserve image 1 composition, all people, faces, poses, architecture, weather, lighting, color mood, image proportions and all story events exactly. Match cloth perspective, folds, tears and wear, paint emblems naturally onto fabric. Foreground flags must be recognizable and consistent with distant city banners. No new text or UI. Do not copy the reference building into the scene.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-79066528-9f49-4400-aed9-6f7ef05910f5.png",
+      "asset": "files/endings/undead-victory.jpg",
+      "sha256": "ca011ef56b468fe52ff61ed4cb5dfdda3999c6429dc6287d2d5312ea06f49538"
+    },
+    {
+      "id": "undead-defeat",
+      "ref": "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/status/army_in_city/standards/skull.png",
+      "desc": "nearly black charcoal cloth and a single bone white skull with dark eye sockets exactly as image 2. Replace purple cloth and invented occult wheel emblems",
+      "prompt": "Edit image 1 only. Image 2 is the game's authoritative faction heraldry reference, not a scene to insert. Change only the flags, banners and the same heraldic emblems on capes to use the actual faction design: nearly black charcoal cloth and a single bone white skull with dark eye sockets exactly as image 2. Replace purple cloth and invented occult wheel emblems. Preserve image 1 composition, all people, faces, poses, architecture, weather, lighting, color mood, image proportions and all story events exactly. Match cloth perspective, folds, tears and wear, paint emblems naturally onto fabric. Foreground flags must be recognizable and consistent with distant city banners. No new text or UI. Do not copy the reference building into the scene.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-b3f336e3-74b3-4dc7-b4c9-1e025fecf8be.png",
+      "asset": "files/endings/undead-defeat.jpg",
+      "sha256": "d9fe3f8831b1394fd2b5688c1c44b21b6cca54f2e8c1c28ba409bcadb3bb4d4b"
+    },
+    {
+      "id": "morgana-victory",
+      "ref": "C:/Users/lerdo/IdeaProjects/Lerdon_2/files/status/army_in_city/standards/skull.png",
+      "desc": "nearly black charcoal cloth with one bone-white skull exactly as image 2, on every undead legion standard and ceremonial drape. Replace invented occult wheel symbols",
+      "prompt": "Edit image 1 only. Image 2 is the game's authoritative faction heraldry reference, not a scene to insert. Change only the flags, banners and the same heraldic emblems on capes to use the actual faction design: nearly black charcoal cloth with one bone-white skull exactly as image 2, on every undead legion standard and ceremonial drape. Replace invented occult wheel symbols. Preserve image 1 composition, all people, faces, poses, architecture, weather, lighting, color mood, image proportions and all story events exactly. Match cloth perspective, folds, tears and wear, paint emblems naturally onto fabric. Foreground flags must be recognizable and consistent with distant city banners. No new text or UI. Do not copy the reference building into the scene.",
+      "path": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-c314d1a2-73c5-4bea-bef5-1ab654011395.png",
+      "asset": "files/endings/morgana-victory.jpg",
+      "sha256": "d1479e99dd17e43b4e3ea1843892c0ea87b4a77fa5a89178d82ec1c69243a0a1"
+    }
+  ]
+}
