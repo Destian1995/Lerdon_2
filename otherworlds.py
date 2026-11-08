@@ -402,6 +402,8 @@ def trade_crystals(conn,faction,buy=True):
         coins=crystal_trade_price(conn,buy)
         _pay(conn,faction,'Кроны' if buy else 'Кристаллы',coins if buy else quantity)
         _grant(conn,faction,'Кристаллы' if buy else 'Кроны',quantity if buy else coins)
+    from game_audio import play_effect
+    play_effect('coins')
     return coins
 
 

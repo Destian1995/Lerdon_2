@@ -6,7 +6,7 @@ import unittest
 import wave
 
 from game_audio import AudioManager
-from music_catalog import FACTIONS,track_for
+from music_catalog import FACTIONS,track_for,BATTLE_MIX
 from test_game_audio import Sound
 
 
@@ -36,7 +36,8 @@ class FactionMusicTests(unittest.TestCase):
             self.assertEqual(set(pair),{'background','battle'})
             self.assertGreater(pair['battle']['bpm'],pair['background']['bpm'])
             for scene,entry in pair.items():
-                path=track_for(faction,scene)
+                # Original faction scores remain available; battle playback uses the shared mix.
+                path=Path('files/music')/entry['file']
                 digest=hashlib.sha256(path.read_bytes()).hexdigest()
                 self.assertEqual(digest,entry['sha256']);digests.add(digest)
                 with wave.open(str(path)) as clip:
@@ -49,6 +50,31 @@ class FactionMusicTests(unittest.TestCase):
                 self.assertGreater(entry['rms'],.02)
                 self.assertLess(entry['peak'],.9)
         self.assertEqual(len(digests),14)
+
+    def test_shared_battle_mix_is_compatible_and_selected_for_every_faction(self):
+        metadata=json.loads(BATTLE_MIX.with_suffix('.json').read_text(encoding='utf-8'))
+        self.assertEqual(hashlib.sha256(BATTLE_MIX.read_bytes()).hexdigest(),metadata['sha256'])
+        self.assertEqual(len(metadata['sources']),2)
+        with wave.open(str(BATTLE_MIX)) as clip:
+            self.assertEqual((clip.getnchannels(),clip.getsampwidth(),clip.getframerate()),(1,2,22050))
+            self.assertAlmostEqual(clip.getnframes()/22050,metadata['seconds'],places=3)
+            self.assertGreater(metadata['seconds'],150)
+            self.assertEqual(struct.unpack('<h',clip.readframes(1))[0],0)
+            clip.setpos(clip.getnframes()-1)
+            self.assertEqual(struct.unpack('<h',clip.readframes(1))[0],0)
+        self.assertGreater(metadata['rms'],.02)
+        self.assertLess(metadata['peak'],.9)
+        for faction in FACTIONS:
+            self.assertEqual(track_for(faction,'battle'),BATTLE_MIX)
+            self.assertNotEqual(track_for(faction,'background'),BATTLE_MIX)
+        self.assertNotEqual(track_for(scene='menu'),BATTLE_MIX)
+        from game_audio import load_game_sound
+        sound=load_game_sound(str(BATTLE_MIX));self.addCleanup(sound.unload)
+        self.assertEqual(type(sound).__name__,'SoundSDL2')
+        self.assertAlmostEqual(sound.length,metadata['seconds'],places=2)
+        sound.volume=0;sound.play()
+        self.assertEqual(sound.state,'play')
+        sound.stop()
 
     def test_battle_overrides_exploration_and_restores_faction_background(self):
         m=self.manager();m.set_background('Вампиры')

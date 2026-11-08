@@ -15,6 +15,24 @@ def settle():
 
 
 class TacticalUITests(unittest.TestCase):
+    def test_sprite_landmark_is_stationary_for_both_armies(self):
+        from tactical_battle_ui import SpriteLibrary,sprite_position
+        library=SpriteLibrary()
+        unit={'unit_image':'files/army/vampires/frost.jpg'}
+        for defender in (False,True):
+            positions=[]
+            for frame in range(6):
+                texture,offset,anchor=library.frame(unit,'idle',frame/6+.001)
+                x,y=sprite_position((100,100),40,offset,anchor,defender)
+                size=40*1.4
+                source_x=anchor[0]+offset[0]
+                positions.append((x+size*(1-source_x if defender else source_x),
+                                  y+size*(anchor[1]-offset[1])))
+            for x,y in positions:
+                self.assertAlmostEqual(x,100)
+                self.assertAlmostEqual(y,100-40*.26)
+        library.clear()
+
     def setUp(self):
         self.size=Window.size
         install_window_theme()

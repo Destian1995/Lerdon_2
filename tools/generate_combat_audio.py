@@ -3,6 +3,7 @@
 Run from the project root: python tools/generate_combat_audio.py
 No samples from third-party recordings are used by this synthesizer.
 Recorded victory/defeat voices are maintained by prepare_result_audio.py.
+The user-provided coin sound is maintained by prepare_coin_audio.py.
 """
 import math
 from pathlib import Path

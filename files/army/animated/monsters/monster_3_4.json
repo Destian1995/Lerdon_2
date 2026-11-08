@@ -57,7 +57,7 @@
           ],
           "offset": [
             0,
-            7
+            5
           ]
         },
         {
@@ -69,7 +69,7 @@
           ],
           "offset": [
             0,
-            6
+            5
           ]
         },
         {
@@ -80,7 +80,7 @@
             229
           ],
           "offset": [
-            0,
+            -1,
             6
           ]
         },
@@ -415,5 +415,36 @@
       ]
     }
   },
-  "sha256": "a94bb6c2dbac91c1d77c3306bd4a0ca3a81b9f992ec64b825b5543611a40de16"
+  "sha256": "a94bb6c2dbac91c1d77c3306bd4a0ca3a81b9f992ec64b825b5543611a40de16",
+  "idle_registration": {
+    "version": 1,
+    "reference_frame": 0,
+    "method": "silhouette translation relative to first idle frame",
+    "shifts": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        -1
+      ],
+      [
+        0,
+        -2
+      ],
+      [
+        0,
+        -2
+      ],
+      [
+        -1,
+        -1
+      ],
+      [
+        0,
+        -1
+      ]
+    ]
+  }
 }

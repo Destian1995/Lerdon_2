@@ -1,0 +1,13 @@
+{
+  "method": "built-in image_gen, separate generation per terrain, transparent_background=true",
+  "reference": "files/map/features/forest_1.png",
+  "common_prompt": "Use case: stylized-concept. Asset type: painted terrain sprite for an existing fantasy strategy game tactical grid. The input tree cluster is a STYLE REFERENCE ONLY; create a NEW terrain object, do not edit that forest. Match its detailed painterly realistic fantasy-map rendering, natural colors, elevated three-quarter orthographic camera looking down around 55 degrees, soft upper-left daylight. A single isolated terrain island centered on a genuinely transparent background. Full object visible, no cutoff, generous transparent padding 12% on every side. Small ground shadow only, no backdrop, no scene, no text, no borders, no interface, no symbols, no geometric icons. Readable silhouette at 64 pixels. Square composition.",
+  "subjects": {
+    "hill": "A low rounded grassy hillock with a clearly visible green sloping dome, small exposed grey stone ledges on one side, a few tiny wildflowers, moss and natural earth at the base. Broad low silhouette, climbable hill, no trees, no mountain peaks, no triangle shape.",
+    "rock": "A compact cluster of large impassable rugged grey boulders with several irregular craggy silhouettes, cracks, a little moss and grass around their feet. The rocks occupy most of the small footprint. No mountain range, no trees.",
+    "water": "A small shallow blue freshwater pool seen from above, irregular oval shoreline with tiny pebbles and a few reeds, clear teal water with gentle painted ripples and light reflections. Very low flat ground patch, natural soft edge; no bridge, no trees, no large landscape.",
+    "bridge": "A small sturdy rustic wooden footbridge crossing a narrow stream on a compact ground island. The bridge runs LEFT TO RIGHT horizontally, with visible wooden planks, low simple timber rails and stone footings. A little clear water and grass under and around it. Entire bridge and its two ends visible. No people, no buildings."
+  },
+  "output_directory": "files/battlefields/terrain",
+  "reused": "Forests and swamps reuse existing files/map/features sprites. Original generated PNG alpha preserved; bounds.json records alpha extents for runtime texture regions."
+}

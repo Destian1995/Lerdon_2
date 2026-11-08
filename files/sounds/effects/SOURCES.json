@@ -22,5 +22,14 @@
       "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
       "sha256": "3f00fba827f20ff9ccea1bc07d2c21ab8d3a36e81b48a6005cf8459f02779586"
     }
+  ],
+  "user_recordings": [
+    {
+      "local_file": "coins-pour-out-2.wav",
+      "title": "Coin pour recording supplied by the user",
+      "usage": "Source of runtime coins.wav; converted to mono PCM16 at 22050 Hz with short edge fades and peak headroom",
+      "provenance": "User supplied; license not specified",
+      "sha256": "c5e9532ee290d579d49618ea5cad7b50c15f3c2632c2383844ae61183224c436"
+    }
   ]
 }

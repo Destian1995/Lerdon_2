@@ -96,6 +96,18 @@ class AudioTests(unittest.TestCase):
             self.now+=.01
         self.assertEqual(len(m.pool['rifle']),2)
 
+    def test_trade_coins_replace_click_in_either_callback_order(self):
+        m=self.manager()
+        self.assertTrue(m.play('click'))
+        self.assertTrue(m.play('coins'))
+        self.assertEqual(m.pool['click'][0][0].state,'stop')
+        self.assertFalse(m.play('click'))
+        self.assertFalse(m.play('coins'))
+        self.now+=.2
+        self.assertTrue(m.play('click'))
+        m.set('enabled',False)
+        self.assertFalse(m.play('coins'))
+
     def test_quiet_click_does_not_interrupt_a_full_set_of_important_sounds(self):
         m=self.manager()
         for key in ('rifle','bow','sword','magic','heal','build','victory'):

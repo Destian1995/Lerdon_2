@@ -9,7 +9,7 @@ from music_catalog import track_for
 ROOT = Path(__file__).resolve().parent
 EFFECTS = {name: ROOT/'files/sounds/effects'/f'{name}.wav' for name in (
     'click', 'step', 'rifle', 'bow', 'sword', 'hit', 'throw', 'explosion',
-    'magic', 'frost', 'heal', 'monster', 'victory', 'defeat', 'build')}
+    'magic', 'frost', 'heal', 'monster', 'victory', 'defeat', 'build', 'coins')}
 MUSIC = track_for('Север','background')
 DEFAULTS = dict(enabled=True, effects=.65, music=.20)
 LOG = logging.getLogger(__name__)
@@ -17,9 +17,9 @@ LOG = logging.getLogger(__name__)
 # SDL_mixer's default eight channels for it rather than requesting nine voices.
 # During a music overlap the effect budget drops to six automatically.
 EFFECT_VOICES = 7
-PRIORITY = dict(click=0, step=0, hit=1, explosion=3, build=4, victory=5, defeat=5,music=6)
-DEBOUNCE = dict(click=.045, step=.10, hit=.035, explosion=.035)
-EFFECT_GAIN = dict(click=.48,step=.65,hit=.8,throw=.75,build=.82,victory=.85,defeat=.8)
+PRIORITY = dict(click=0, step=0, hit=1, explosion=3, build=4, coins=4, victory=5, defeat=5,music=6)
+DEBOUNCE = dict(click=.045, step=.10, hit=.035, explosion=.035, coins=.12)
+EFFECT_GAIN = dict(click=.48,step=.65,hit=.8,throw=.75,build=.82,coins=.68,victory=.85,defeat=.8)
 
 
 def volume(value, default):
@@ -105,11 +105,17 @@ class AudioManager:
                 or self.settings['effects'] <= 0 or key not in EFFECTS or key in self.failed):
             return False
         now = self.now()
+        # Successful trades replace the release click regardless of Kivy callback order.
+        if key == 'click' and now-self.last_play.get('coins', -100) < .12:
+            return False
         if now < self.retry_after.get(key,0):
             return False
         if now-self.last_play.get(key, -100) < DEBOUNCE.get(key,0):
             return False
         try:
+            if key == 'coins':
+                for click, _ in self.pool.get('click', []):
+                    self._stop(click)
             # Kivy polls completed clips every 100 ms. A stalled UI can leave
             # stale 'play' states behind; don't count these forever as occupied.
             for clips in self.pool.values():

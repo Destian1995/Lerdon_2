@@ -4,7 +4,7 @@ from pathlib import Path
 import shutil
 import sys
 
-IMAGE_CACHE_VERSION='9.5.1-tactical-audio-20261108'
+IMAGE_CACHE_VERSION='9.5.4-tactical-art-audio-20261108'
 IMAGE_CACHE_DIRS=('artifact_icon_cache','cache/artifact_icons','image_cache',
                   'icon_cache','texture_cache','cache/images','cache/icons','cache/textures')
 

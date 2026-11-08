@@ -10,6 +10,32 @@ STATES={'idle','walk','attack','hit','death'}
 
 
 class UnitSpriteAssetTests(unittest.TestCase):
+    def test_idle_registration_covers_every_character_and_preserves_first_pose(self):
+        registry=json.loads((ROOT/'index.json').read_text(encoding='utf-8'))
+        for relative in registry['characters'].values():
+            data=json.loads((ROOT/relative).read_text(encoding='utf-8'))
+            registration=data['idle_registration']
+            self.assertEqual(registration['shifts'][0],[0,0])
+            frames=data['animations']['idle']['frames']
+            base=frames[0]['offset']
+            self.assertEqual(len(frames),len(registration['shifts']))
+            for frame,(dx,dy) in zip(frames,registration['shifts']):
+                self.assertEqual(frame['offset'],[base[0]+dx,base[1]+dy])
+
+    def test_frost_idle_silhouette_stays_in_place_across_the_loop_boundary(self):
+        data=json.loads((ROOT/'vampires/frost.json').read_text(encoding='utf-8'))
+        centers=[]
+        with Image.open(ROOT/'vampires/frost.png') as image:
+            for frame in data['animations']['idle']['frames']:
+                x,y,w,h=frame['rect']
+                alpha=image.crop((x,y,x+w,y+h)).getchannel('A')
+                masses=list(alpha.resize((w,1),Image.Resampling.BOX).tobytes())
+                center=sum(i*mass for i,mass in enumerate(masses))/sum(masses)
+                centers.append(center-frame['offset'][0])
+        # Previously the figure drifted 26 pixels and jumped back every second.
+        self.assertLess(max(centers)-min(centers),3)
+        self.assertLess(abs(centers[-1]-centers[0]),3)
+
     def test_complete_roster_has_all_five_actions_without_missing_or_opaque_sheets(self):
         registry=json.loads((ROOT/'index.json').read_text(encoding='utf-8'))
         self.assertEqual(len(registry['characters']),73)

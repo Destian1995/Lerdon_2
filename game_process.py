@@ -1166,6 +1166,8 @@ class GameScreen(Screen):
                 UPDATE relations SET relationship = MIN(100, relationship + 5)
                 WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
             """, (faction_name, self.selected_faction, self.selected_faction, faction_name))
+            from game_audio import play_effect
+            play_effect('coins')
             return f"Торговое соглашение с {faction_name} заключено. Отношения +5%."
 
         from utils.helpers import parse_formatted_number
@@ -1192,6 +1194,8 @@ class GameScreen(Screen):
             WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
         """, (faction_name, self.selected_faction, self.selected_faction, faction_name))
 
+        from game_audio import play_effect
+        play_effect('coins')
         return (f"Сделка заключена! Вы получили {ai_gives_amount} {ai_gives_type}, "
                 f"отдали {player_gives_amount} {player_gives_type}. Отношения +5%.")
 

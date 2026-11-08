@@ -17,6 +17,7 @@ from kivy.uix.widget import Widget
 from strategy_ui import StrategyButton, text_label, surface, GOLD, TEXT, MUTED, SURFACE
 from tactical_combat import TERRAINS, RANGE, WIDTH, HEIGHT
 from tactical_abilities import ABILITIES
+from tactical_terrain_art import TerrainArt, landmark_rect
 from window_theme import prepare_custom_popup
 from utils.helpers import format_number
 from game_audio import get_audio, attack_sound
@@ -41,6 +42,13 @@ def flowing_label(text='',size=13):
     label.bind(texture_size=lambda obj,value:setattr(obj,'height',value[1]+dp(12)))
     label.text_size=(label.width,None)
     return label
+
+
+def sprite_position(center, cell, offset, anchor, defender=False):
+    """Place source-space landmarks consistently when the texture is mirrored."""
+    size=cell*1.4
+    horizontal=1-anchor[0]-offset[0] if defender else anchor[0]+offset[0]
+    return center[0]-size*horizontal, center[1]-cell*.26-size*anchor[1]+offset[1]*size
 
 
 class SpriteLibrary:
@@ -99,6 +107,7 @@ class Battlefield(Widget):
         self.origin = (0,0)
         self.labels = {}
         self.library = SpriteLibrary()
+        self.terrain_art = TerrainArt()
         backdrop=ROOT/'files/battlefields'/(owner.battle.biome+'.png')
         self.backdrop=CoreImage(str(backdrop),nocache=True).texture if backdrop.is_file() else None
         self.bind(pos=self.draw,size=self.draw)
@@ -130,6 +139,7 @@ class Battlefield(Widget):
         selected = self.owner.selection
         affected=set(battle.ability_cells(self.owner.selected_skill,selected)) if self.owner.selected_skill and selected in battle.terrain else set()
         active = battle.active
+        occupied = {s.pos for s in battle.stacks.values() if s.alive}
         self.canvas.clear()
         with self.canvas:
             if self.backdrop:
@@ -144,22 +154,11 @@ class Battlefield(Widget):
                 alpha=(.03 if kind=='plain' else .23 if kind in ('forest','hill','snow','sand','blight') else .5) if self.backdrop else 1
                 Color(*(v*shade for v in col),alpha)
                 Rectangle(pos=(px,py),size=(c,c))
-                # Small drawn landmarks keep the tactical cells legible.
-                if kind == 'forest':
-                    for ox,oy in ((.25,.3),(.65,.6),(.3,.76)):
-                        Color(.07,.16,.10,.30)
-                        Ellipse(pos=(px+c*ox-c*.06,py+c*oy-c*.06),size=(c*.17,c*.17))
-                elif kind in ('water','swamp'):
-                    Color(.40,.66,.67,.4)
-                    for level in (.3,.65):
-                        Line(points=(px+c*.15,py+c*level,px+c*.7,py+c*(level+.08)),width=1)
-                elif kind in ('hill','rock'):
-                    Color(.68,.70,.58,.5)
-                    Line(points=(px+c*.15,py+c*.3,px+c*.5,py+c*.75,px+c*.8,py+c*.3),width=1.2)
-                elif kind == 'bridge':
-                    Color(.74,.59,.39,.7)
-                    for level in (.2,.4,.6,.8):
-                        Line(points=(px+c*.1,py+c*level,px+c*.9,py+c*level),width=1)
+                texture = self.terrain_art.texture(kind, (x,y), battle.biome)
+                if texture:
+                    Color(1,1,1,.38 if (x,y) in occupied else 1)
+                    art_pos, art_size = landmark_rect(texture.size, px, py, c)
+                    Rectangle(texture=texture,pos=art_pos,size=art_size)
                 if (x,y) in reachable or (x,y) in deployment:
                     Color(.36,.85,.63,.12)
                     Rectangle(pos=(px,py),size=(c,c))
@@ -208,7 +207,7 @@ class Battlefield(Widget):
                         coords = coords[2:4]+coords[:2]+coords[6:8]+coords[4:6]
                     Color(1,1,1,1 if visible_alive or state=='death' else .5)
                     Rectangle(texture=texture,tex_coords=coords,
-                              pos=(px-size*.5-offset[0]*size,py-c*.26-size*anchor[1]+offset[1]*size),
+                              pos=sprite_position((px,py),c,offset,anchor,s.side=='defender'),
                               size=(size,size))
                 else:
                     Color(*accent)
@@ -432,6 +431,7 @@ class TacticalBattlePopup(Popup):
             self.clock_event.cancel()
             self.clock_event = None
         self.board.library.clear()
+        self.board.terrain_art.clear()
         self.board.backdrop=None
 
     def show_rules(self,*args):

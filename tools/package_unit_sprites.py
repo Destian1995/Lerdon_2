@@ -2,7 +2,7 @@
 
 Run with one or more prompt manifests containing a ``sprites`` list. Atlas
 rectangles and foot offsets are metadata so the original transparent artwork
-stays intact. Pillow is needed only for this authoring command.
+stays intact. Pillow, numpy and scipy are needed only for this authoring command.
 """
 import argparse
 import hashlib
@@ -42,6 +42,12 @@ def package(item):
         facing='right',grid=[6,5],frame_size=[cell,cell],rect_origin='top-left',
         offset_origin='bottom-left',ground_anchor=[.5,.1],animations=animations,
         sha256=hashlib.sha256(target.read_bytes()).hexdigest())
+    if __package__:
+        from .stabilize_unit_idle import stabilize
+    else:
+        from stabilize_unit_idle import stabilize
+    with Image.open(target) as image:
+        stabilize(data,image)
     target.with_suffix('.json').write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     return item['id']
 

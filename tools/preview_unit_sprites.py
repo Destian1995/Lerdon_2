@@ -36,7 +36,7 @@ unit.onchange=load;action.onchange=()=>start=performance.now();document.getEleme
 document.getElementById('flip').onclick=()=>facing=-facing;document.getElementById('back').onclick=()=>light=!light;
 function draw(now){ctx.fillStyle=light?'#d4c4a5':'#182632';ctx.fillRect(0,0,900,650);ctx.strokeStyle='#8e7545';ctx.beginPath();ctx.moveTo(50,550);ctx.lineTo(850,550);ctx.stroke();
 const data=clips[unit.value],clip=data.animations[action.value],phase=Math.floor((now-start)/1000*clip.fps),index=clip.loop?phase%clip.frames.length:Math.min(phase,clip.frames.length-1),f=clip.frames[Math.max(0,index)],r=f.rect,scale=2;
-if(image.complete&&image.naturalWidth){ctx.save();ctx.translate(450,550);ctx.scale(facing,1);ctx.drawImage(image,r[0],r[1],r[2],r[3],-r[2]*data.ground_anchor[0]*scale+f.offset[0]*scale,-r[3]*(1-data.ground_anchor[1])*scale-f.offset[1]*scale,r[2]*scale,r[3]*scale);ctx.restore();status.textContent=unit.value+' · '+action.options[action.selectedIndex].text+' · '+(index+1)+'/'+clip.frames.length+' · '+clip.fps+' кадр/с'}requestAnimationFrame(draw)}load();requestAnimationFrame(draw);
+if(image.complete&&image.naturalWidth){ctx.save();ctx.translate(450,550);ctx.scale(facing,1);ctx.drawImage(image,r[0],r[1],r[2],r[3],-r[2]*data.ground_anchor[0]*scale-f.offset[0]*scale,-r[3]*(1-data.ground_anchor[1])*scale-f.offset[1]*scale,r[2]*scale,r[3]*scale);ctx.restore();status.textContent=unit.value+' · '+action.options[action.selectedIndex].text+' · '+(index+1)+'/'+clip.frames.length+' · '+clip.fps+' кадр/с'}requestAnimationFrame(draw)}load();requestAnimationFrame(draw);
 </script></html>'''
     (OUTPUT/'preview.html').write_text(page.replace('SPRITE_DATA',json.dumps(clips,ensure_ascii=False).replace('<','\\u003c')),encoding='utf-8')
     keys=['north-hunter','adepts/paladin','elines/blood-mage','elves/archer','vampires/death-herald','undead/banshee','monsters/monster_3','monsters/monster_6_5']
@@ -51,7 +51,8 @@ if(image.complete&&image.naturalWidth){ctx.save();ctx.translate(450,550);ctx.sca
                 factor=220/w;sprite=sprite.resize((220,round(h*factor)),Image.Resampling.LANCZOS)
                 x=i%4*240;y=i//4*265;baseline=y+225
                 top=round(baseline-h*(1-meta['ground_anchor'][1])*factor-data['offset'][1]*factor)
-                frame.paste(sprite,(x+10,top),sprite);draw.line((x+10,baseline,x+230,baseline),fill='#6e623e')
+                left=round(x+120-w*meta['ground_anchor'][0]*factor-data['offset'][0]*factor)
+                frame.paste(sprite,(left,top),sprite);draw.line((x+10,baseline,x+230,baseline),fill='#6e623e')
                 draw.text((x+10,y+235),key,fill='#ecdcad')
             draw.text((10,510),state.upper(),fill='#ecdcad');frames.append(frame);durations.append(120 if step<11 else 550)
     frames[0].save(OUTPUT/'sprite-collection-preview.gif',save_all=True,append_images=frames[1:],duration=durations,loop=0,disposal=2,optimize=False)

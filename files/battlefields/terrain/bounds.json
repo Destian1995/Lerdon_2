@@ -1,0 +1,164 @@
+{
+  "files/map/features/forest_1.png": [
+    0,
+    0,
+    1242,
+    1254
+  ],
+  "files/map/features/forest_1_dead.png": [
+    0,
+    9,
+    1254,
+    1254
+  ],
+  "files/map/features/forest_1_warm.png": [
+    0,
+    19,
+    1253,
+    1254
+  ],
+  "files/map/features/forest_2.png": [
+    0,
+    0,
+    1242,
+    1254
+  ],
+  "files/map/features/forest_2_dead.png": [
+    23,
+    10,
+    1196,
+    1246
+  ],
+  "files/map/features/forest_2_warm.png": [
+    0,
+    15,
+    1244,
+    1254
+  ],
+  "files/map/features/forest_3.png": [
+    0,
+    7,
+    1242,
+    1254
+  ],
+  "files/map/features/forest_3_dead.png": [
+    0,
+    16,
+    1242,
+    1254
+  ],
+  "files/map/features/forest_3_green.png": [
+    0,
+    21,
+    1236,
+    1254
+  ],
+  "files/map/features/forest_4.png": [
+    0,
+    4,
+    1248,
+    1254
+  ],
+  "files/map/features/forest_4_dead.png": [
+    0,
+    17,
+    1253,
+    1254
+  ],
+  "files/map/features/forest_4_warm.png": [
+    0,
+    4,
+    1240,
+    1254
+  ],
+  "files/map/features/forest_5.png": [
+    0,
+    0,
+    1244,
+    1254
+  ],
+  "files/map/features/forest_5_dead.png": [
+    0,
+    10,
+    1239,
+    1254
+  ],
+  "files/map/features/forest_5_warm.png": [
+    0,
+    0,
+    1244,
+    1254
+  ],
+  "files/map/features/swamp_1.png": [
+    0,
+    8,
+    1238,
+    1254
+  ],
+  "files/map/features/swamp_1_dead.png": [
+    0,
+    0,
+    1254,
+    1254
+  ],
+  "files/map/features/swamp_2.png": [
+    0,
+    0,
+    1253,
+    1254
+  ],
+  "files/map/features/swamp_2_dead.png": [
+    0,
+    1,
+    1248,
+    1254
+  ],
+  "files/map/features/swamp_3.png": [
+    0,
+    7,
+    1242,
+    1254
+  ],
+  "files/map/features/swamp_3_dead.png": [
+    0,
+    0,
+    1238,
+    1230
+  ],
+  "files/map/features/swamp_4.png": [
+    0,
+    9,
+    1240,
+    1254
+  ],
+  "files/map/features/swamp_4_dead.png": [
+    0,
+    0,
+    1240,
+    1254
+  ],
+  "files/battlefields/terrain/bridge.png": [
+    0,
+    0,
+    1246,
+    1254
+  ],
+  "files/battlefields/terrain/hill.png": [
+    0,
+    23,
+    1240,
+    1254
+  ],
+  "files/battlefields/terrain/rock.png": [
+    0,
+    9,
+    1248,
+    1254
+  ],
+  "files/battlefields/terrain/water.png": [
+    0,
+    20,
+    1236,
+    1254
+  ]
+}

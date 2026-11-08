@@ -2280,6 +2280,8 @@ def handle_trade(game_instance, action, quantity, trade_popup):
         result = game_instance.trade_raw_material(action, quantity)
 
         if result:
+            from game_audio import play_effect
+            play_effect('coins')
             economic_efficiency = round(price_per_lot / 100, 2)
             game_instance.update_economic_efficiency(economic_efficiency)
 
