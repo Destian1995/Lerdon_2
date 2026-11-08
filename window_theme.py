@@ -133,6 +133,8 @@ def skin_panel(widget):
 
 
 def _neutral_text(label):
+    if getattr(label, '_strategy_no_theme', False):
+        return
     rgb = label.color[:3]
     if min(rgb) > 0.78 and max(rgb) - min(rgb) < 0.16 or max(rgb) < 0.3:
         label.color = TEXT

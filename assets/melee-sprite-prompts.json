@@ -1,0 +1,78 @@
+{
+  "generator": "built-in image_gen",
+  "common_prompt": "Create an additional MELEE ATTACK sprite animation for the EXACT same character in the attached existing sprite sheet. Use its FIRST ROW as authoritative identity, proportions, costume, materials, colors and rendering style. Do not copy its old shooting/casting action. Realistic detailed hand-painted fantasy tactical-game sprites, full-body, three-quarter side view facing RIGHT. Exactly THREE columns by TWO rows of uniform SQUARE cells, six sequential frames read left to right then top to bottom. Canvas aspect ratio 3:2. One isolated character per cell, identical scale and consistent foot/root baseline at 87 percent cell height, at least 12 percent truly empty transparent padding on EVERY side of EVERY cell; all body parts, weapons and effects fit inside their own cell. Frame1 ready stance matching the existing idle; frame2 prepare a close-range strike; frame3 clear wind-up; frame4 contact strike toward an unseen adjacent enemy to the RIGHT; frame5 follow-through and withdraw; frame6 recover to the SAME ready stance as frame1. Distinct articulated body and arm poses, not translated or rotated copies. Keep the character's feet anchored within each cell, no cumulative sideways drift, no camera movement, no zoom, no costume changes. Fully clothed adult characters. Actual transparent alpha background, no background, scenery, floor, cast shadows, text, grid, frames, target or other figures, blood or gore. NO projectile, NO muzzle flash, NO spell beam or magic casting in any frame. ",
+  "sprites": [
+    {
+      "id": "north-hunter",
+      "sheet": "north/hunter.png",
+      "subject": "The northern male rifle hunter with dark hair and beard, charcoal wolf-fur cloak and dark armor. His long rifle stays in BOTH hands; he pivots it and delivers a strong BUTTSTOCK STRIKE to the right, the solid wooden/metal rear stock hitting the adjacent enemy. This is a rifle-butt clubbing motion, not shooting, not bayonet thrust. Same rifle, no new weapon.",
+      "weapon": "rifle-butt",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-cc933dfd-5724-4fc8-946c-30df3c0a1034.png",
+      "output": "files/army/animated/north/hunter-melee.png"
+    },
+    {
+      "id": "north/vlad",
+      "sheet": "north/vlad.png",
+      "subject": "Vladislav, rugged northern male rifle hero in dark armor and heavy wolf-fur cloak, same long rifle and sword strapped to his back. He grips his rifle in BOTH hands and swings the BUTTSTOCK forward to hit an adjacent enemy on the right, then recovers. A rifle-butt clubbing strike, NOT shooting or bayonet thrust. The back sword stays sheathed.",
+      "weapon": "rifle-butt",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-d9d27db4-dc8c-4af7-8c2a-9dbe71606046.png",
+      "output": "files/army/animated/north/vlad-melee.png"
+    },
+    {
+      "id": "elves/archer",
+      "sheet": "elves/archer.png",
+      "subject": "The beautiful adult blonde female elf archer, same green-gold leaf armor, cloak, boots, pointed ears and quiver. Her bow stays lowered in her LEFT hand and she draws and uses a SHORT KNIFE in her RIGHT hand for a quick close-range slash or stab toward the right. Clear visible short silver knife, not an arrow, not bow shooting. Keep the bow intact and the knife the only new melee weapon.",
+      "weapon": "knife",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-6c44cd88-69fa-42f8-8d1a-0c238e5e04d4.png",
+      "output": "files/army/animated/elves/archer-melee.png"
+    },
+    {
+      "id": "undead/archer",
+      "sheet": "undead/archer.png",
+      "subject": "The hooded undead male archer with glowing cyan eyes, tattered charcoal cloak, dark metal armor and quiver of cyan arrows. His bow stays lowered in his LEFT hand and his RIGHT hand uses a SHORT STEEL KNIFE for a close-range stab toward the right. A visible dagger, not an arrow, no shooting; preserve his hooded undead silhouette.",
+      "weapon": "knife",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-6ad1c8ae-5cea-41d8-8b53-46817bb27f42.png",
+      "output": "files/army/animated/undead/archer-melee.png"
+    },
+    {
+      "id": "elines/blood-mage",
+      "sheet": "elines/blood-mage.png",
+      "subject": "The adult male blood mage in burgundy-red and gold robes, long dark hair and beard. He uses the SAME staff topped by an orange sun disc as a physical quarterstaff: grip shaft with two hands, pull back, short horizontal staff strike toward the right, follow-through and return upright. No spell; the sun disc retains only its small existing glow, not casting.",
+      "weapon": "staff",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-11f296a7-8819-438f-b7c8-69684b6f3039.png",
+      "output": "files/army/animated/elines/blood-mage-melee.png"
+    },
+    {
+      "id": "elves/priestess",
+      "sheet": "elves/priestess.png",
+      "subject": "The adult blonde elf priestess in green and gold robes and leaf armor, with the SAME long staff topped by green crystal leaves. She grips it with both hands and physically strikes toward the right with the staff shaft, then recovers to the same upright ready pose. Short controlled quarterstaff blow, no spells, only the small constant crystal glow.",
+      "weapon": "staff",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-4122b092-bb5e-40ce-9015-85a785c690ca.png",
+      "output": "files/army/animated/elves/priestess-melee.png"
+    },
+    {
+      "id": "elves/disease",
+      "sheet": "elves/disease.png",
+      "subject": "The masked elven plague mage Lucy, same ivory hooded coat, black-green armor, beaked face mask and staff topped by a glowing green skull. He swings the SAME staff with two hands for a physical close-range staff blow toward the right, then recovers. Not a spell or thrown skull; the skull stays attached and retains only its original tiny glow.",
+      "weapon": "staff",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-2df84c91-f2de-4b87-8944-d84d6cfd1c00.png",
+      "output": "files/army/animated/elves/disease-melee.png"
+    },
+    {
+      "id": "undead/morgana",
+      "sheet": "undead/morgana.png",
+      "subject": "Morgana, same adult white-haired undead sorceress with jagged crown, dark silver armor and layered black dress, carrying a long dark staff with cyan ornaments. She physically strikes toward the right with the shaft of her OWN STAFF held in two hands, then returns upright. No casting, no beam; retain tiny constant cyan ornament highlights only.",
+      "weapon": "staff",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-0c0dd311-3c97-4f18-b264-456f44e7bae7.png",
+      "output": "files/army/animated/undead/morgana-melee.png"
+    },
+    {
+      "id": "undead/banshee",
+      "sheet": "undead/banshee.png",
+      "subject": "The same spectral white-haired female banshee in a ragged charcoal and cyan flowing gown. She has NO staff in her original design: preserve this and give her a close-range sweeping CLAW/HAND STRIKE toward the right using her spectral fingers, a physical lunge and withdrawal, not a ranged scream, no beam, no new weapon. Keep the hovering lower gown anchored at the same height.",
+      "weapon": "claw",
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-f640ecc1-141e-4c30-af92-db7330fc5e14.png",
+      "output": "files/army/animated/undead/banshee-melee.png"
+    }
+  ]
+}

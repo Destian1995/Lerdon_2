@@ -48,6 +48,13 @@ def package(item):
         from stabilize_unit_idle import stabilize
     with Image.open(target) as image:
         stabilize(data,image)
+    if target.with_name(target.stem+'-melee.png').is_file():
+        previous=json.loads(target.with_suffix('.json').read_text(encoding='utf-8'))
+        if __package__:
+            from .package_melee_sprites import attach
+        else:
+            from package_melee_sprites import attach
+        attach(data,target.with_suffix('.json'),previous['animations']['melee']['weapon'])
     target.with_suffix('.json').write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     return item['id']
 

@@ -50,9 +50,10 @@ class UnitSpriteAssetTests(unittest.TestCase):
                     self.assertLessEqual(max(image.size),2048)
                     histogram=image.getchannel('A').histogram()
                     self.assertGreater(sum(histogram[:11])/(image.width*image.height),.4)
-                    self.assertEqual(set(data['animations']),STATES)
+                    self.assertEqual(set(data['animations'])-{'melee'},STATES)
                     self.assertEqual(registry['references'][data['reference']],key)
                     for state,clip in data['animations'].items():
+                        if state=='melee':continue  # Its separate atlas is verified below.
                         self.assertEqual(len(clip['frames']),6)
                         self.assertGreater(clip['fps'],0)
                         self.assertEqual(clip['loop'],state in ('idle','walk'))
@@ -71,3 +72,47 @@ class UnitSpriteAssetTests(unittest.TestCase):
                                             (key,state,'opaque figure touches cell edge'))
                             drawings.add(hashlib.sha256(cut.tobytes()).digest())
                         self.assertEqual(len(drawings),6,(key,state,'duplicate drawn frames'))
+
+    def test_melee_supplements_are_complete_and_match_existing_idle_scale(self):
+        from tools.package_melee_sprites import bounds
+        expected={'north-hunter','north/vlad','elves/archer','undead/archer',
+                  'elines/blood-mage','elves/priestess','elves/disease',
+                  'undead/banshee','undead/morgana'}
+        registry=json.loads((ROOT/'index.json').read_text(encoding='utf-8'))
+        found=set()
+        for key,relative in registry['characters'].items():
+            path=ROOT/relative;data=json.loads(path.read_text(encoding='utf-8'))
+            clip=data['animations'].get('melee')
+            if not clip:continue
+            found.add(key)
+            extra=path.parent/clip['image']
+            self.assertEqual(hashlib.sha256(extra.read_bytes()).hexdigest(),clip['sha256'])
+            self.assertFalse(clip['loop']);self.assertEqual(len(clip['frames']),6)
+            with Image.open(path.parent/data['image']) as original,Image.open(extra) as image:
+                self.assertEqual(image.mode,'RGBA');self.assertLessEqual(max(image.size),2048)
+                idle=data['animations']['idle']['frames'][0]
+                box,root= bounds(original,idle['rect'])
+                target_height=(box[3]-box[1])/data['frame_size'][1]
+                target_root=root/data['frame_size'][0]-data['ground_anchor'][0]-idle['offset'][0]/data['frame_size'][0]
+                target_ground=1-box[3]/data['frame_size'][1]-data['ground_anchor'][1]+idle['offset'][1]/data['frame_size'][1]
+                first,_=bounds(image,clip['frames'][0]['rect'])
+                height=(first[3]-first[1])/clip['frame_size'][1]*clip['scale']
+                self.assertAlmostEqual(height,target_height,places=5)
+                drawings=set()
+                for frame in clip['frames']:
+                    x,y,w,h=frame['rect']
+                    self.assertGreaterEqual(min(x,y),0)
+                    self.assertLessEqual(x+w,image.width);self.assertLessEqual(y+h,image.height)
+                    box,root=bounds(image,frame['rect'])
+                    root_position=(root/w-clip['ground_anchor'][0]-frame['offset'][0]/w)*clip['scale']
+                    ground=(1-box[3]/h-clip['ground_anchor'][1]+frame['offset'][1]/h)*clip['scale']
+                    self.assertAlmostEqual(root_position,target_root,places=4)
+                    self.assertAlmostEqual(ground,target_ground,places=4)
+                    cut=image.crop((x,y,x+w,y+h));drawings.add(hashlib.sha256(cut.tobytes()).hexdigest())
+                    alpha=cut.getchannel('A')
+                    self.assertIsNotNone(alpha.point(lambda a:255 if a>48 else 0).getbbox())
+                    edges=(alpha.crop((0,0,1,h)),alpha.crop((w-1,0,w,h)),
+                           alpha.crop((0,0,w,1)),alpha.crop((0,h-1,w,h)))
+                    self.assertLess(max(sum(edge.histogram()[240:]) for edge in edges),8,(key,frame['rect']))
+                self.assertEqual(len(drawings),6,key)
+        self.assertEqual(found,expected)

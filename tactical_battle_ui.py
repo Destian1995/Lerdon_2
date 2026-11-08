@@ -44,9 +44,9 @@ def flowing_label(text='',size=13):
     return label
 
 
-def sprite_position(center, cell, offset, anchor, defender=False):
+def sprite_position(center, cell, offset, anchor, defender=False, scale=1):
     """Place source-space landmarks consistently when the texture is mirrored."""
-    size=cell*1.4
+    size=cell*1.4*scale
     horizontal=1-anchor[0]-offset[0] if defender else anchor[0]+offset[0]
     return center[0]-size*horizontal, center[1]-cell*.26-size*anchor[1]+offset[1]*size
 
@@ -55,6 +55,7 @@ class SpriteLibrary:
     def __init__(self):
         self.index = json.loads((ASSETS/'index.json').read_text(encoding='utf-8'))
         self.atlases = {}
+        self.extra_atlases = {}
         self.fallbacks = {}
 
     def key(self, unit):
@@ -81,6 +82,8 @@ class SpriteLibrary:
             atlas = CoreImage(str(path.parent/meta['image']), nocache=True).texture
             frames = {}
             for state, clip in meta['animations'].items():
+                if clip.get('image'):
+                    continue  # Additional actions load only when they are used.
                 regions = []
                 for f in clip['frames']:
                     x,y,w,h = f['rect']
@@ -88,14 +91,29 @@ class SpriteLibrary:
                 frames[state] = regions
             self.atlases[key] = (meta,atlas,frames)
         meta, _, frames = self.atlases[key]
+        if action not in meta['animations']:
+            action='attack'
         clip = meta['animations'][action]
+        if action not in frames:
+            path=ASSETS/self.index['characters'][key]
+            atlas=CoreImage(str(path.parent/clip['image']),nocache=True).texture
+            self.extra_atlases[key,action]=atlas
+            frames[action]=[atlas.get_region(x,atlas.height-y-h,w,h)
+                            for frame in clip['frames'] for x,y,w,h in [frame['rect']]]
         n = int(age*clip['fps'])
         n = n % len(clip['frames']) if clip['loop'] else min(n,len(clip['frames'])-1)
         offset = clip['frames'][n]['offset']
-        return frames[action][n], (offset[0]/meta['frame_size'][0], offset[1]/meta['frame_size'][1]), meta['ground_anchor']
+        width,height=clip.get('frame_size',meta['frame_size'])
+        return frames[action][n], (offset[0]/width, offset[1]/height), clip.get('ground_anchor',meta['ground_anchor'])
+
+    def scale(self,unit,action):
+        key=self.key(unit)
+        if key not in self.atlases:return 1
+        return self.atlases[key][0]['animations'].get(action,{}).get('scale',1)
 
     def clear(self):
         self.atlases.clear()
+        self.extra_atlases.clear()
         self.fallbacks.clear()
 
 
@@ -200,14 +218,16 @@ class Battlefield(Widget):
                     Color(*GOLD)
                     Line(ellipse=(px-c*.39,py-c*.4,c*.78,c*.30),width=1.5)
                 texture,offset,anchor = self.library.frame(s.unit,state,age)
-                size = c*1.4
+                scale=self.library.scale(s.unit,state)
+                size = c*1.4*scale
                 if texture:
                     coords = list(texture.tex_coords)
-                    if s.side=='defender':
+                    facing_left=self.owner.facings.get(s.id,s.side=='defender')
+                    if facing_left:
                         coords = coords[2:4]+coords[:2]+coords[6:8]+coords[4:6]
                     Color(1,1,1,1 if visible_alive or state=='death' else .5)
                     Rectangle(texture=texture,tex_coords=coords,
-                              pos=sprite_position((px,py),c,offset,anchor,s.side=='defender'),
+                              pos=sprite_position((px,py),c,offset,anchor,facing_left,scale),
                               size=(size,size))
                 else:
                     Color(*accent)
@@ -310,6 +330,7 @@ class TacticalBattlePopup(Popup):
         self.age = 0
         self.busy = 0
         self.animations = {}
+        self.facings = {}
         self.walk = None
         self.pending_strikes = []
         self.damage_labels = []
@@ -476,38 +497,11 @@ class TacticalBattlePopup(Popup):
         self.refresh()
 
     def show_skills(self,*args):
-        if not self.can_control:return
-        actor=self.battle.active
-        box=BoxLayout(orientation='vertical',padding=dp(10),spacing=dp(6))
-        box._strategy_fixed_layout=True
-        box.add_widget(text_label(actor.name+' · Способности',16,GOLD,size_hint_y=None,height=dp(30)))
-        scroll=ScrollView(do_scroll_x=False)
-        rows=BoxLayout(orientation='vertical',size_hint_y=None,spacing=dp(8))
-        rows.bind(minimum_height=rows.setter('height'))
-        scroll.add_widget(rows);box.add_widget(scroll)
-        popup=Popup(title=actor.name+' · Способности',content=box,size_hint=(.94,.9))
-        prepare_custom_popup(popup)
-        def choose(key):
-            self.selected_skill=key
-            self.selection=actor.pos if key and ABILITIES[key].target in ('self','army') else None
-            popup.dismiss();self.refresh()
-        for key in self.battle.skills(actor):
-            spec=ABILITIES[key];left=max(0,actor.cooldowns.get(key,0)-self.battle.round)
-            button=StrategyButton(text=spec.name+(' · '+str(left)+' р.' if left else ''),size_hint_y=None,height=dp(44))
-            button.disabled=left>0
-            button.bind(on_release=lambda *_,key=key:choose(key))
-            rows.add_widget(button)
-            rows.add_widget(flowing_label(spec.description+' Перезарядка: '+str(spec.cooldown)+' раунда.',13))
-        bonus=self.battle.army_skill_multiplier(actor)
-        rows.add_widget(flowing_label('Урон умений: 15% текущей атаки всех живых союзных отрядов, с учётом защиты цели.\n'
-            f'Усиление защитных умений армией: +{(bonus-1)*100:g}%.\n'
-            f'Атакующая сила умений: {format_number(self.battle.skill_power(actor,True))}. '
-            f'Защитная: {format_number(self.battle.skill_power(actor,False))}.',13))
-        close=StrategyButton(text='Обычная атака / отмена',size_hint_y=None,height=dp(44))
-        close.bind(on_release=lambda *_:choose(None));box.add_widget(close)
-        self.help_open=True
-        popup.bind(on_dismiss=lambda *_:setattr(self,'help_open',False))
+        if not self.can_control or self.help_open:return
+        from tactical_spellbook_ui import AbilityBook
+        popup=AbilityBook(self)
         popup.open()
+        return popup
 
     def refresh(self):
         s = self.battle.active
@@ -682,6 +676,8 @@ class TacticalBattlePopup(Popup):
             step = min(len(path)-1,(self.age-start)/.13)
             i = min(len(path)-2,int(step))
             fraction = min(1,step-i)
+            if path[i+1][0]!=path[i][0]:
+                self.facings[s.id]=path[i+1][0]<path[i][0]
             p = (path[i][0]+(path[i+1][0]-path[i][0])*fraction,
                  path[i][1]+(path[i+1][1]-path[i][1])*fraction)
         return state,age,p
@@ -699,13 +695,19 @@ class TacticalBattlePopup(Popup):
                 if not any(strike.get(key) for key in ('periodic','reflection','grenade')):
                     actor=self.battle.stacks[strike['actor']]
                     target=self.battle.stacks[strike['target']]
+                    if target.pos[0]!=actor.pos[0]:
+                        self.facings[actor.id]=target.pos[0]<actor.pos[0]
                     if strike.get('ability')=='burst':self.audio.play('rifle',owner=self)
                     elif not strike.get('ability'):
                         ranged=max(abs(actor.pos[0]-target.pos[0]),abs(actor.pos[1]-target.pos[1]))>1
                         self.audio.play(attack_sound(actor.unit,actor.role,ranged),owner=self)
                     self.sound_queue.append((when+.22,'hit'))
                 if not strike.get('periodic') and not strike.get('reflection') and not strike.get('grenade'):
-                    self.animations[strike['actor']] = ('attack',when,when+.6)
+                    actor=self.battle.stacks[strike['actor']]
+                    target=self.battle.stacks[strike['target']]
+                    adjacent=max(abs(actor.pos[0]-target.pos[0]),abs(actor.pos[1]-target.pos[1]))==1
+                    animation='melee' if adjacent and not strike.get('ability') else 'attack'
+                    self.animations[strike['actor']] = (animation,when,when+.6)
                 state = 'death' if strike['dead'] else 'hit'
                 self.animations[strike['target']] = (state,when+(0 if strike.get('grenade') else .22),when+1.05)
                 self.damage_labels.append((strike,0))

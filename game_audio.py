@@ -311,6 +311,8 @@ def get_audio():
 
 def attack_sound(unit, role, ranged=True):
     image = str(unit.get('unit_image') or unit.get('image_path') or '').replace('\\', '/').lower()
+    if not ranged and (role=='mage' or any(image.endswith(name) for name in ('people/predator.jpg','people/vlad.jpg'))):
+        return 'hit'
     if ranged and any(image.endswith(name) for name in ('people/predator.jpg', 'people/vlad.jpg')):
         return 'rifle'
     if role in ('mage', 'siege'):
