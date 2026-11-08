@@ -10,3 +10,7 @@ Editable MIDI and note scores: assets/music/scores.
 
 Standalone calm menu theme: tools/compose_menu_music.py.
 Independent piano/harp score, no faction motifs or percussion.
+
+Shared battle theme "Знамёна за зеркалом": tools/compose_mirror_battle_music.py.
+An original 72-bar note score and MIDI performance; no reference audio is sampled.
+The previous ChiFang crossfade experiment is no longer used or bundled.

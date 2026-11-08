@@ -67,6 +67,21 @@ class TacticalMeleeTests(unittest.TestCase):
         self.assertEqual(melee.tex_coords,attack.tex_coords)
         self.assertFalse(library.extra_atlases)
 
+    def test_mirror_atlas_references_animate_and_use_their_attack_sound(self):
+        for faction,kind,sound in (('north','archer','bow'),('north','weaver','frost'),
+                                   ('vampires','weaver','magic')):
+            image=f'atlas://files/otherworld/themes/{faction}/units/{kind}'
+            model,a,b,view=self.battle(distance=5,kind='beast',image=image)
+            view.animate(model.attack(b.id));view.tick(.01)
+            self.assertEqual(view.animations[a.id][0],'attack')
+            view.audio.play.assert_called_with(sound,owner=view)
+            library=view.board.library
+            self.assertEqual(library.key(a.unit),f'mirror/{faction}/{kind}')
+            first=library.frame(a.unit,'attack',0)[0]
+            contact=library.frame(a.unit,'attack',.25)[0]
+            self.assertNotEqual(first.tex_coords,contact.tex_coords)
+            self.assertFalse(library.fallbacks)
+
     def test_supplemental_frames_load_lazily_animate_and_release_with_the_battle(self):
         library=SpriteLibrary()
         soldier={'unit_image':'files/army/people/predator.jpg'}

@@ -14,7 +14,7 @@ import wave
 RATE = 22050
 DURATIONS = dict(click=.30, step=.18, rifle=.48, bow=.30, sword=.38, hit=.22,
                  throw=.48, explosion=1.35, magic=.85, frost=.95, heal=.85,
-                 monster=.85, build=.85)
+                 monster=.85, build=.85, hooves=.46,stone_step=.5)
 
 
 def synth(name, duration):
@@ -28,6 +28,14 @@ def synth(name, duration):
         decay=lambda speed: math.exp(-speed*t)
         if name=='click': value=(sine(620)*.60*decay(75)+sine(1330)*.20*decay(110)+noise*.035*decay(180))
         elif name=='step': value=(low*3+sine(95)*.3)*decay(27)
+        elif name in ('hooves','stone_step'):
+            value=0
+            for start in ((.012,.095,.235,.32) if name=='hooves' else (.012,.26)):
+                age=t-start
+                if age>=0:
+                    value+=(low*(2.5 if name=='hooves' else 4)*math.exp(-28*age)+
+                            noise*.12*math.exp(-95*age)+
+                            math.sin(math.tau*(140 if name=='hooves' else 65)*age)*.28*math.exp(-24*age))
         elif name=='rifle':
             value=noise*decay(75)*1.6+low*4*decay(11)+sine(72)*.4*decay(17)
             if .075<t<.13:value+=noise*.13*math.exp(-45*(t-.075))

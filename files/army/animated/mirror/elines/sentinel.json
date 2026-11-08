@@ -1,0 +1,532 @@
+{
+  "version": 1,
+  "image": "sentinel.png",
+  "character": "mirror/elines/sentinel",
+  "reference": "atlas://files/otherworld/themes/elines/units/sentinel",
+  "facing": "right",
+  "grid": [
+    6,
+    6
+  ],
+  "frame_size": [
+    209,
+    209
+  ],
+  "rect_origin": "top-left",
+  "offset_origin": "bottom-left",
+  "ground_anchor": [
+    0.5,
+    0.1
+  ],
+  "animations": {
+    "idle": {
+      "fps": 6,
+      "loop": true,
+      "hold_last": false,
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            0
+          ]
+        },
+        {
+          "rect": [
+            209,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            -5,
+            -1
+          ]
+        },
+        {
+          "rect": [
+            418,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            -5,
+            -1
+          ]
+        },
+        {
+          "rect": [
+            627,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            -8,
+            -1
+          ]
+        },
+        {
+          "rect": [
+            836,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            -10,
+            -1
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            -6,
+            0
+          ]
+        }
+      ]
+    },
+    "walk": {
+      "fps": 10,
+      "loop": true,
+      "hold_last": false,
+      "frames": [
+        {
+          "rect": [
+            0,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -8
+          ]
+        },
+        {
+          "rect": [
+            209,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -10
+          ]
+        },
+        {
+          "rect": [
+            418,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -9
+          ]
+        },
+        {
+          "rect": [
+            627,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -9
+          ]
+        },
+        {
+          "rect": [
+            836,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -9
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -9
+          ]
+        }
+      ]
+    },
+    "attack": {
+      "fps": 12,
+      "loop": false,
+      "hold_last": true,
+      "frames": [
+        {
+          "rect": [
+            0,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -11
+          ]
+        },
+        {
+          "rect": [
+            209,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -11
+          ]
+        },
+        {
+          "rect": [
+            418,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -12
+          ]
+        },
+        {
+          "rect": [
+            627,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -12
+          ]
+        },
+        {
+          "rect": [
+            836,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -12
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -11
+          ]
+        }
+      ]
+    },
+    "hit": {
+      "fps": 10,
+      "loop": false,
+      "hold_last": true,
+      "frames": [
+        {
+          "rect": [
+            0,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -15
+          ]
+        },
+        {
+          "rect": [
+            209,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -16
+          ]
+        },
+        {
+          "rect": [
+            418,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -17
+          ]
+        },
+        {
+          "rect": [
+            627,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -16
+          ]
+        },
+        {
+          "rect": [
+            836,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -16
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -17
+          ]
+        }
+      ]
+    },
+    "death": {
+      "fps": 9,
+      "loop": false,
+      "hold_last": true,
+      "frames": [
+        {
+          "rect": [
+            0,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -23
+          ]
+        },
+        {
+          "rect": [
+            209,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -23
+          ]
+        },
+        {
+          "rect": [
+            418,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -23
+          ]
+        },
+        {
+          "rect": [
+            627,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -26
+          ]
+        },
+        {
+          "rect": [
+            836,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -24
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -26
+          ]
+        }
+      ]
+    },
+    "melee": {
+      "fps": 12,
+      "loop": false,
+      "hold_last": true,
+      "frames": [
+        {
+          "rect": [
+            0,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -24
+          ]
+        },
+        {
+          "rect": [
+            209,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -24
+          ]
+        },
+        {
+          "rect": [
+            418,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -24
+          ]
+        },
+        {
+          "rect": [
+            627,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -24
+          ]
+        },
+        {
+          "rect": [
+            836,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -24
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -24
+          ]
+        }
+      ]
+    }
+  },
+  "sha256": "59e4129bb3b4d53b341f5a2f4a1bf1c83e22030195835930b744c5340c70105c",
+  "aliases": [
+    "atlas://files/otherworld/themes/elines/women/sentinel"
+  ],
+  "idle_registration": {
+    "version": 1,
+    "reference_frame": 0,
+    "method": "silhouette translation relative to first idle frame",
+    "shifts": [
+      [
+        0,
+        0
+      ],
+      [
+        -5,
+        -1
+      ],
+      [
+        -5,
+        -1
+      ],
+      [
+        -8,
+        -1
+      ],
+      [
+        -10,
+        -1
+      ],
+      [
+        -6,
+        0
+      ]
+    ]
+  }
+}

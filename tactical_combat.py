@@ -51,6 +51,9 @@ RANGE = {'archer': 7, 'mage': 6, 'siege': 6}
 
 def weapon_role(unit,kind):
     """Weapon range is independent of the faction's counter-pick type."""
+    from unit_combat_presentation import presentation_role
+    presentation=presentation_role(unit)
+    if presentation:return presentation
     explicit=unit.get('tactical_role') or (unit.get('units_stats') or {}).get('Тактика')
     if explicit in SPEED:return explicit
     image=str(unit.get('unit_image') or unit.get('image_path') or '').replace('\\','/').lower()

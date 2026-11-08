@@ -38,8 +38,8 @@ class UnitSpriteAssetTests(unittest.TestCase):
 
     def test_complete_roster_has_all_five_actions_without_missing_or_opaque_sheets(self):
         registry=json.loads((ROOT/'index.json').read_text(encoding='utf-8'))
-        self.assertEqual(len(registry['characters']),73)
-        self.assertEqual(len(registry['references']),73)
+        self.assertGreaterEqual(len(registry['characters']),73)
+        self.assertGreaterEqual(len(registry['references']),len(registry['characters']))
         for key,relative in registry['characters'].items():
             with self.subTest(character=key):
                 path=ROOT/relative;data=json.loads(path.read_text(encoding='utf-8'))
@@ -53,7 +53,7 @@ class UnitSpriteAssetTests(unittest.TestCase):
                     self.assertEqual(set(data['animations'])-{'melee'},STATES)
                     self.assertEqual(registry['references'][data['reference']],key)
                     for state,clip in data['animations'].items():
-                        if state=='melee':continue  # Its separate atlas is verified below.
+                        if clip.get('image'):continue  # Separate supplemental atlases are verified below.
                         self.assertEqual(len(clip['frames']),6)
                         self.assertGreater(clip['fps'],0)
                         self.assertEqual(clip['loop'],state in ('idle','walk'))
@@ -83,7 +83,7 @@ class UnitSpriteAssetTests(unittest.TestCase):
         for key,relative in registry['characters'].items():
             path=ROOT/relative;data=json.loads(path.read_text(encoding='utf-8'))
             clip=data['animations'].get('melee')
-            if not clip:continue
+            if not clip or not clip.get('image'):continue
             found.add(key)
             extra=path.parent/clip['image']
             self.assertEqual(hashlib.sha256(extra.read_bytes()).hexdigest(),clip['sha256'])

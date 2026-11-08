@@ -21,6 +21,8 @@ from tactical_terrain_art import TerrainArt, landmark_rect
 from window_theme import prepare_custom_popup
 from utils.helpers import format_number
 from game_audio import get_audio, attack_sound
+from unit_combat_presentation import movement_sound
+from tactical_unit_outline import UnitOutline
 
 ROOT = Path(__file__).resolve().parent
 ASSETS = ROOT/'files/army/animated'
@@ -60,6 +62,8 @@ class SpriteLibrary:
 
     def key(self, unit):
         ref = str(unit.get('unit_image') or unit.get('image_path') or '').replace('\\','/')
+        if ref.startswith('atlas://'):
+            return self.index['references'].get(ref)
         if '/files/' in ref:
             ref = 'files/'+ref.split('/files/',1)[1]
         return self.index['references'].get(ref)
@@ -126,6 +130,7 @@ class Battlefield(Widget):
         self.labels = {}
         self.library = SpriteLibrary()
         self.terrain_art = TerrainArt()
+        self.active_outline = UnitOutline()
         backdrop=ROOT/'files/battlefields'/(owner.battle.biome+'.png')
         self.backdrop=CoreImage(str(backdrop),nocache=True).texture if backdrop.is_file() else None
         self.bind(pos=self.draw,size=self.draw)
@@ -225,9 +230,13 @@ class Battlefield(Widget):
                     facing_left=self.owner.facings.get(s.id,s.side=='defender')
                     if facing_left:
                         coords = coords[2:4]+coords[:2]+coords[6:8]+coords[4:6]
+                    sprite_pos=sprite_position((px,py),c,offset,anchor,facing_left,scale)
+                    is_active=(s.id==self.owner.deployment_actor if self.owner.deploying else s is active)
+                    if visible_alive and is_active:
+                        self.active_outline.draw(self.canvas,texture,coords,sprite_pos,(size,size))
                     Color(1,1,1,1 if visible_alive or state=='death' else .5)
                     Rectangle(texture=texture,tex_coords=coords,
-                              pos=sprite_position((px,py),c,offset,anchor,facing_left,scale),
+                              pos=sprite_pos,
                               size=(size,size))
                 else:
                     Color(*accent)
@@ -453,6 +462,8 @@ class TacticalBattlePopup(Popup):
             self.clock_event = None
         self.board.library.clear()
         self.board.terrain_art.clear()
+        self.board.active_outline.rectangle.texture=None
+        self.board.canvas.clear()
         self.board.backdrop=None
 
     def show_rules(self,*args):
@@ -632,7 +643,7 @@ class TacticalBattlePopup(Popup):
                 self.pending_strikes.append((self.age+.65,dict(strike,grenade=True)))
             self.log_label.text=actor.name+' · Граната'
         elif action=='walk':
-            self.audio.play('step',owner=self)
+            self.audio.play(movement_sound(actor.unit),owner=self)
             self.walk = (actor.id,event['path'],self.age)
             self.busy = max(.2,(len(event['path'])-1)*.13)
             self.animations[actor.id] = ('walk',self.age,self.age+self.busy)

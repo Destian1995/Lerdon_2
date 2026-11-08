@@ -1,0 +1,19 @@
+{
+  "id": "battle_mirror_overture",
+  "title": "Знамёна за зеркалом",
+  "scene": "battle",
+  "faction": null,
+  "bpm": 126,
+  "bars": 72,
+  "seconds": 137.14285714285714,
+  "description": "Собственная тема: альт и струнные, перебор кото, мягкие низкие барабаны; две мелодические темы и плавная драматургия.",
+  "original_composition": true,
+  "uses_reference_audio": false,
+  "inspiration": "Broad rhythmic energy and plucked-string/orchestral palette of the two user-supplied ChiFang references; no copied notes or audio.",
+  "file": "battle_mirror_overture.wav",
+  "sha256": "ac1bce14ce88fa563fe16ee97dd73767e06059b3f777b73c9211d1b05ad3dd23",
+  "rms": 0.1035209727324209,
+  "peak": 0.555938720703125,
+  "sample_rate": 22050,
+  "channels": 1
+}

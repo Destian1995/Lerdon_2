@@ -9,7 +9,7 @@ from music_catalog import track_for
 ROOT = Path(__file__).resolve().parent
 EFFECTS = {name: ROOT/'files/sounds/effects'/f'{name}.wav' for name in (
     'click', 'step', 'rifle', 'bow', 'sword', 'hit', 'throw', 'explosion',
-    'magic', 'frost', 'heal', 'monster', 'victory', 'defeat', 'build', 'coins')}
+    'magic', 'frost', 'heal', 'monster', 'victory', 'defeat', 'build', 'coins', 'hooves', 'stone_step')}
 MUSIC = track_for('Север','background')
 DEFAULTS = dict(enabled=True, effects=.65, music=.20)
 LOG = logging.getLogger(__name__)
@@ -17,9 +17,9 @@ LOG = logging.getLogger(__name__)
 # SDL_mixer's default eight channels for it rather than requesting nine voices.
 # During a music overlap the effect budget drops to six automatically.
 EFFECT_VOICES = 7
-PRIORITY = dict(click=0, step=0, hit=1, explosion=3, build=4, coins=4, victory=5, defeat=5,music=6)
-DEBOUNCE = dict(click=.045, step=.10, hit=.035, explosion=.035, coins=.12)
-EFFECT_GAIN = dict(click=.48,step=.65,hit=.8,throw=.75,build=.82,coins=.68,victory=.85,defeat=.8)
+PRIORITY = dict(click=0, step=0, hooves=0, stone_step=0,hit=1, explosion=3, build=4, coins=4, victory=5, defeat=5,music=6)
+DEBOUNCE = dict(click=.045, step=.10, hit=.035, explosion=.035, coins=.12,hooves=.14,stone_step=.18)
+EFFECT_GAIN = dict(click=.48,step=.65,hit=.8,throw=.75,build=.82,coins=.68,victory=.85,defeat=.8,hooves=.55,stone_step=.6)
 
 
 def volume(value, default):
@@ -310,6 +310,9 @@ def get_audio():
 
 
 def attack_sound(unit, role, ranged=True):
+    from unit_combat_presentation import mirror_attack_sound
+    mirror=mirror_attack_sound(unit,ranged)
+    if mirror:return mirror
     image = str(unit.get('unit_image') or unit.get('image_path') or '').replace('\\', '/').lower()
     if not ranged and (role=='mage' or any(image.endswith(name) for name in ('people/predator.jpg','people/vlad.jpg'))):
         return 'hit'

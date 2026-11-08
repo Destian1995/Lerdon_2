@@ -51,14 +51,16 @@ class FactionMusicTests(unittest.TestCase):
                 self.assertLess(entry['peak'],.9)
         self.assertEqual(len(digests),14)
 
-    def test_shared_battle_mix_is_compatible_and_selected_for_every_faction(self):
+    def test_original_battle_theme_is_compatible_and_selected_for_every_faction(self):
         metadata=json.loads(BATTLE_MIX.with_suffix('.json').read_text(encoding='utf-8'))
         self.assertEqual(hashlib.sha256(BATTLE_MIX.read_bytes()).hexdigest(),metadata['sha256'])
-        self.assertEqual(len(metadata['sources']),2)
+        self.assertTrue(metadata['original_composition'])
+        self.assertFalse(metadata['uses_reference_audio'])
+        self.assertNotIn('sources',metadata)
         with wave.open(str(BATTLE_MIX)) as clip:
             self.assertEqual((clip.getnchannels(),clip.getsampwidth(),clip.getframerate()),(1,2,22050))
             self.assertAlmostEqual(clip.getnframes()/22050,metadata['seconds'],places=3)
-            self.assertGreater(metadata['seconds'],150)
+            self.assertGreater(metadata['seconds'],120)
             self.assertEqual(struct.unpack('<h',clip.readframes(1))[0],0)
             clip.setpos(clip.getnframes()-1)
             self.assertEqual(struct.unpack('<h',clip.readframes(1))[0],0)

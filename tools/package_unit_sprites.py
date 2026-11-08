@@ -22,11 +22,16 @@ def package(item):
     source=Path(item['source'])
     with Image.open(source) as image:
         if image.mode!='RGBA':raise ValueError(f'{item["id"]}: a transparent RGBA sheet is required')
+        histogram=image.getchannel('A').histogram()
+        if sum(histogram[:11])/(image.width*image.height)<=.4:
+            raise ValueError(f'{item["id"]}: the background is opaque; genuine transparent gutters are required')
         width,height=image.size
-        if width%6 or height%5 or width//6!=height//5:
-            raise ValueError(f'{item["id"]}: expected six by five square cells, got {image.size}')
+        rows=6 if width==height else 5
+        if width%6 or height%rows or width//6!=height//rows:
+            raise ValueError(f'{item["id"]}: expected 6x5 or 6x6 square cells, got {image.size}')
         cell=width//6;animations={}
-        for row,(state,fps,loop) in enumerate(STATES):
+        states=STATES+((('melee',12,False),) if rows==6 else ())
+        for row,(state,fps,loop) in enumerate(states):
             frames=[]
             for col in range(6):
                 rect=(col*cell,row*cell,(col+1)*cell,(row+1)*cell)
@@ -39,9 +44,10 @@ def package(item):
     target.parent.mkdir(parents=True,exist_ok=True)
     if source.resolve()!=target:shutil.copyfile(source,target)
     data=dict(version=1,image=target.name,character=item['id'],reference=item['reference'],
-        facing='right',grid=[6,5],frame_size=[cell,cell],rect_origin='top-left',
+        facing='right',grid=[6,rows],frame_size=[cell,cell],rect_origin='top-left',
         offset_origin='bottom-left',ground_anchor=[.5,.1],animations=animations,
         sha256=hashlib.sha256(target.read_bytes()).hexdigest())
+    if item.get('aliases'):data['aliases']=item['aliases']
     if __package__:
         from .stabilize_unit_idle import stabilize
     else:
@@ -66,6 +72,7 @@ def index():
         data=json.loads(path.read_text(encoding='utf-8'))
         characters[data['character']]=path.relative_to(DEST).as_posix()
         references[data['reference']]=data['character']
+        for alias in data.get('aliases',[]):references[alias]=data['character']
     (DEST/'index.json').write_text(json.dumps(dict(version=1,characters=characters,references=references),
         ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     return len(characters)
