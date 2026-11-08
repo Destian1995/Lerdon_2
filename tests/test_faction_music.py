@@ -11,6 +11,14 @@ from test_game_audio import Sound
 
 
 class FactionMusicTests(unittest.TestCase):
+    def test_backgrounds_are_quiet_and_north_has_no_flute_parts(self):
+        catalog=json.loads(Path('files/music/catalog.json').read_text(encoding='utf-8'))['tracks']
+        for track in catalog:
+            if track['scene']=='background':self.assertLess(track['rms'],.073)
+        north=json.loads(Path('assets/music/scores/north_background.json').read_text(encoding='utf-8'))
+        used={n['channel'] for n in north['notes'] if n['channel']!=9}
+        self.assertFalse(any(north['programs'][channel] in range(72,80) for channel in used))
+
     def manager(self):
         self.loaded=[]
         def load(path):

@@ -18,36 +18,40 @@ import tinysoundfont
 
 ROOT=Path(__file__).resolve().parents[1]
 RATE=22050
+CHANNEL_LEVELS={
+    'background':{0:64,1:52,2:100,3:72,4:38,5:38,9:32},
+    'battle':{0:82,1:76,2:100,3:100,4:65,5:60,9:82},
+}
 # Programs are zero-based General MIDI. Each score has its own written motif.
 PALETTES={
     'north':dict(faction='Север',title='Северные перевалы',battle_title='Сталь и метель',root=50,
-        scale=[0,2,3,5,7,9,10],tempo=[76,124],lead=[73,60],arp=46,pad=48,bass=42,
+        scale=[0,2,3,5,7,9,10],tempo=[72,124],lead=[42,60],arp=46,pad=49,bass=42,bg_response=42,
         harmony=[0,5,3,4,0,2,3,4],motif=[0,2,4,3,2,0,1,2,4,5,4,2,3,1,0,-1],
-        colors='Холодные флейты, арфа, валторны и низкие струнные.'),
+        colors='Мягкая виолончель, тихая арфа и протяжные струнные, без флейты.'),
     'elines':dict(faction='Элины',title='Караван у янтарных стен',battle_title='Песчаные знамёна',root=48,
-        scale=[0,1,4,5,7,8,10],tempo=[84,132],lead=[68,68],arp=15,pad=48,bass=43,
+        scale=[0,1,4,5,7,8,10],tempo=[78,132],lead=[24,68],arp=15,pad=49,bass=43,bg_response=24,
         harmony=[0,3,0,5,3,1,4,0],motif=[4,3,2,1,0,2,3,4,5,4,3,2,1,2,1,0],
-        colors='Гобой, цимбалы, восточный лад и ручная перкуссия.'),
+        colors='Нейлоновые струны, приглушённые цимбалы и тёплый восточный лад.'),
     'elves':dict(faction='Эльфы',title='Свет под кронами',battle_title='Стрелы рассвета',root=55,
-        scale=[0,2,4,6,7,9,11],tempo=[72,120],lead=[73,75],arp=46,pad=49,bass=42,
+        scale=[0,2,4,6,7,9,11],tempo=[68,120],lead=[49,75],arp=46,pad=89,bass=42,bg_response=46,
         harmony=[0,1,4,2,0,5,1,4],motif=[0,2,4,6,5,4,2,3,4,6,7,5,4,2,1,0],
-        colors='Арфа, флейты и воздушные струнные в светлом лидийском ладу.'),
+        colors='Тихая арфа и воздушные струнные в светлом лидийском ладу.'),
     'adepts':dict(faction='Адепты',title='Колокола рыжего леса',battle_title='Клятва аббатства',root=57,
-        scale=[0,2,3,5,7,8,10],tempo=[70,116],lead=[68,60],arp=46,pad=52,bass=42,
+        scale=[0,2,3,5,7,8,10],tempo=[66,116],lead=[52,60],arp=46,pad=49,bass=42,bg_response=19,
         harmony=[0,3,5,4,0,2,3,4],motif=[0,1,2,4,3,2,1,0,2,3,4,5,4,2,1,0],
-        colors='Сдержанный хор, гобой, колокольные акценты и хоральная гармония.'),
+        colors='Негромкий хор, мягкие струнные и сдержанная хоральная гармония.'),
     'vampires':dict(faction='Вампиры',title='Полночь алого двора',battle_title='Вальс кровавой луны',root=48,
-        scale=[0,2,3,5,7,8,11],tempo=[100,148],lead=[40,40],arp=6,pad=45,bass=43,
+        scale=[0,2,3,5,7,8,11],tempo=[84,148],lead=[41,40],arp=6,pad=49,bass=43,bg_arp=24,bg_response=42,
         harmony=[0,5,3,4,0,2,5,4],motif=[0,2,4,5,4,3,2,1,4,6,7,5,4,2,1,0],
-        colors='Подвижная скрипка, пульсирующий клавесин, пиццикато и напряжённый гармонический минор.'),
+        colors='Тёплый альт, приглушённые струны и плавное движение в гармоническом миноре.'),
     'undead':dict(faction='Нежить',title='Туман над некрополем',battle_title='Марш безымянных',root=42,
-        scale=[0,1,3,5,7,8,10],tempo=[64,112],lead=[69,61],arp=8,pad=53,bass=43,
+        scale=[0,1,3,5,7,8,10],tempo=[64,112],lead=[53,61],arp=8,pad=89,bass=43,bg_arp=46,bg_response=43,
         harmony=[0,1,3,0,5,3,1,0],motif=[0,1,0,-1,2,1,0,-2,3,2,1,0,-1,1,0,-1],
-        colors='Низкий хор, английский рожок, контрабасы и гулкие барабаны.'),
+        colors='Низкие хоровые оттенки, контрабасы и тихий туманный фон.'),
     'rebels':dict(faction='Мятежники',title='Огни вольного лагеря',battle_title='За свободные города',root=57,
-        scale=[0,2,3,5,7,8,10],tempo=[88,140],lead=[71,56],arp=24,pad=45,bass=42,
+        scale=[0,2,3,5,7,8,10],tempo=[80,140],lead=[24,56],arp=24,pad=49,bass=42,bg_arp=45,bg_response=42,
         harmony=[0,5,2,6,0,3,5,4],motif=[0,2,3,4,2,1,0,2,4,5,4,3,2,1,2,0],
-        colors='Кларнет, акустические струны, походные барабаны и медные духовые.'),
+        colors='Негромкая гитара, мягкое пиццикато и спокойные струнные.'),
 }
 
 
@@ -63,6 +67,9 @@ def compose(key,scene):
     programs=[p['lead'][battle],p['arp'],48 if battle else p['pad'],p['bass'],
               60 if key not in ('elines','elves','undead') else 68 if key=='elines' else 73 if key=='elves' else 19,
               19 if key in ('adepts','vampires','undead') else 46,0]
+    if not battle:
+        programs[1]=p.get('bg_arp',p['arp'])
+        programs[4]=p['bg_response']
     notes=[]
     def note(channel,beat,duration,key_note,velocity):
         # Human timing stays inside the bar; phrase rests are written explicitly.
@@ -89,7 +96,7 @@ def compose(key,scene):
         previous=voicing
         base=bar*4
         swell=1 if local<4 else 1.08
-        if battle or key=='vampires':
+        if battle:
             for beat in (np.arange(0,4,.5) if not battle else (0,1,2,3)):
                 for n in voicing:note(2,base+float(beat),.26,n,round((54 if beat%2 else 66)*swell)*(1 if battle else .7))
                 note(3,base+beat,.65,root-12,70 if beat%2==0 else 57)
@@ -99,7 +106,7 @@ def compose(key,scene):
             for n in voicing:note(2,base,3.8,n,38 if key!='undead' else 44)
             note(3,base,3.6,root-12,46)
         arp_pattern=[0,1,2,1,0,2,1,2] if key!='elines' else [0,2,1,2,0,1,2,1]
-        subdivision=.25 if key=='vampires' else .5 if battle or key in ('elves','elines') else 1
+        subdivision=.25 if key=='vampires' and battle else .5 if battle or key in ('elves','elines','vampires') else 1
         for step in range(int(4/subdivision)):
             if not battle and phrase==0 and local<2 and step%2:continue
             n=chord[arp_pattern[step%8]]+12
@@ -113,13 +120,10 @@ def compose(key,scene):
                 first+=2;second+=2
             octave=1 if battle and p['lead'][1] in (56,60,61) else 2
             if key=='undead':octave=2
+            if not battle:octave=1
             if not battle:
-                if key=='vampires':
-                    for offset,length,degree in ((0,.65,first),(1,.5,first+1),(1.75,.7,second),(3,.8,first-1)):
-                        note(0,base+offset,length,pitch(p,degree,octave),64)
-                else:
-                    note(0,base+.25,1.5,pitch(p,first,octave),64)
-                    if local not in (3,7):note(0,base+2.25,1.25,pitch(p,second,octave),59)
+                note(0,base+.25,1.85,pitch(p,first,octave),49)
+                if local not in (3,7):note(0,base+2.25,1.55,pitch(p,second,octave),45)
             else:
                 pattern=[(0,.7,first),(.75,.45,first+1),(1.5,.9,second),(2.75,.45,second-1),(3.25,.6,first)]
                 if local in (3,7):pattern=[(0,1.4,second),(2,1.5,0 if local==7 else first)]
@@ -136,12 +140,11 @@ def compose(key,scene):
             if local==7:
                 for step in range(4):note(9,base+3+step*.25,.12,45-step%3,50+step*6)
             if local==0:note(9,base,.5,49,52)
-        elif key in ('elines','rebels'):
-            for beat in (0,2.5):note(9,base+beat,.12,64 if key=='elines' else 41,30)
-        elif key in ('north','undead') and local%2==0:note(9,base,.3,41,32)
+        # Exploration deliberately leaves percussion out of the foreground.
     return dict(id=key+'_'+scene,faction=p['faction'],scene=scene,
         title=p['battle_title'] if battle else p['title'],bpm=bpm,bars=bars,
-        seconds=bars*4*60/bpm,programs=programs,notes=notes,description=p['colors'])
+        seconds=bars*4*60/bpm,programs=programs,notes=notes,description=(p['colors'] if not battle else
+            'Подвижная боевая аранжировка с мягкой ведущей партией и струнным ритмом.'))
 
 
 def midi_bytes(score):
@@ -152,6 +155,8 @@ def midi_bytes(score):
     events=[(0,b'\xff\x51\x03'+int(60e6/score['bpm']).to_bytes(3,'big'))]
     for channel,program in enumerate(score['programs'][:-1]):events.append((0,bytes([0xC0+channel,program])))
     events.append((0,bytes([0xC9,0])))
+    for channel,level in CHANNEL_LEVELS.get(score['scene'],{}).items():
+        events.append((0,bytes([0xB0+channel,7,level])))
     for n in score['notes']:
         events.append((round(n['beat']*480),bytes([0x90+n['channel'],n['note'],n['velocity']])))
         events.append((round((n['beat']+n['duration'])*480),bytes([0x80+n['channel'],n['note'],0])))
@@ -167,6 +172,8 @@ def render(score,font):
     sfid=synth.sfload(str(font),max_voices=384)
     for channel,program in enumerate(score['programs'][:-1]):synth.program_select(channel,sfid,0,program)
     synth.program_select(9,sfid,128,0,is_drums=True)
+    for channel,level in CHANNEL_LEVELS.get(score['scene'],{}).items():
+        synth.control_change(channel,7,level)
     # Two complete performances: the first supplies release tails at loop start.
     length=round(score['seconds']*RATE);audio=np.zeros((length*2+RATE*2,2),np.float32)
     events=[]
@@ -191,8 +198,11 @@ def render(score,font):
     wet=signal.sosfilt(signal.butter(2,4500,fs=RATE,output='sos'),wet,axis=0).astype(np.float32)
     audio=(audio+wet)[length:2*length].mean(axis=1)
     audio=signal.sosfilt(signal.butter(2,45,fs=RATE,btype='highpass',output='sos'),audio).astype(np.float32)
+    if score['scene'] in ('background','battle'):
+        cutoff=3400 if score['scene']=='background' else 5200
+        audio=signal.sosfilt(signal.butter(2,cutoff,fs=RATE,output='sos'),audio).astype(np.float32)
     rms=float(np.sqrt(np.mean(audio**2)))
-    target=.065 if score['scene']=='menu' else .105 if score['scene']=='battle' else .085
+    target=.065 if score['scene']=='menu' else .105 if score['scene']=='battle' else .067
     audio*=target/max(rms,1e-8)
     audio=np.tanh(audio*1.1)/1.1
     peak=float(np.max(np.abs(audio)))
