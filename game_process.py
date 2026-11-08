@@ -814,6 +814,8 @@ class GameScreen(Screen):
         global _active_game_screen
         _active_game_screen = self
         self.selected_faction = selected_faction
+        from game_audio import set_background_music
+        set_background_music(selected_faction)
         self.cities = cities
         self.conn = conn
         self.player_ideology = player_ideology

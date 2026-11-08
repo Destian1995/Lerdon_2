@@ -19,7 +19,7 @@ from strategy_ui import INK, SURFACE, GOLD, TEXT, MUTED, FACTIONS, StrategyButto
 from responsive_ui import WindowFlow
 from ui_motion import enter
 
-VERSION = '9.5.1'
+VERSION = '9.5.2'
 FACTION_ART = {'Север': 'people', 'Эльфы': 'elfs', 'Вампиры': 'vampire', 'Адепты': 'adepts', 'Элины': 'elins'}
 
 
@@ -210,6 +210,8 @@ class FrontPage(FloatLayout):
 
 
 def build_main_menu(owner):
+    from game_audio import set_menu_music
+    set_menu_music()
     from audio_settings_ui import show_audio_settings
     page = FrontPage(owner, 'Лэрдон', 'Создайте королевство. Измените судьбу мира.')
     layout = GridLayout(cols=2, size_hint_y=None, spacing=dp(10))

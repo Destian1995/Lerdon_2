@@ -3162,7 +3162,7 @@ class Lerdon(MDApp):
 
     def on_start(self):
         from game_audio import get_audio
-        get_audio()
+        get_audio().show_menu()
         Window.bind(focus=self._audio_focus)
 
     def _audio_focus(self, window, focused):

@@ -421,7 +421,7 @@ class TacticalBattlePopup(Popup):
 
     def begin(self,*args):
         if self.parent and self.clock_event is None:
-            self.audio.start_music(self)
+            self.audio.start_music(self,self.battle.factions.get(self.player_side))
             self.refresh()
             self.clock_event = Clock.schedule_interval(self.tick,1/30)
 

@@ -260,6 +260,10 @@ class BattleViewer(Popup):
 
     def start(self, *args):
         if self.clock_event is None and not self.closed:
+            from game_audio import get_audio
+            self.audio=get_audio()
+            faction=self.user if self.user in (self.attacking,self.defending) else self.attacking
+            self.audio.start_music(self,faction)
             self.clock_event = Clock.schedule_interval(self.update, 1 / 30)
 
     def toggle_pause(self, *args):
@@ -333,6 +337,7 @@ class BattleViewer(Popup):
         if self.closed:
             return
         self.closed = True
+        if hasattr(self,'audio'):self.audio.stop_owner(self)
         if self.clock_event:
             self.clock_event.cancel()
             self.clock_event = None

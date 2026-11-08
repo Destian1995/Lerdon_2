@@ -11,11 +11,16 @@ These two use CC0 recordings; authors, source links and hashes are recorded in
 The synthesizer preserves these recorded result sounds when run again.
 `build.wav` is a short sequence of hammer strikes, played after a successful
 manual building purchase. Failed purchases and AI construction remain silent.
+`click.wav` is a soft mechanical clock tick with quiet echoes at 65 and 125 ms.
+Effects use rounded attacks, filtered high frequencies and individual gain
+levels; UI clicks are intentionally quieter than combat effects.
 
 Format: PCM WAV, mono, signed 16-bit, 22050 Hz. Generated files are shipped
 with the game; no sound generation, download or network access at runtime.
-Battle music is `files/sounds/battle_theme.wav`, a compatible PCM conversion
+The legacy `files/sounds/battle_theme.wav` is a compatible PCM conversion
 of the existing `files/sounds/fon.mp3` (which actually contains ADTS AAC).
 The original file is preserved. Reproduce the conversion with:
 
 `ffmpeg -i files/sounds/fon.mp3 -ac 1 -ar 22050 -c:a pcm_s16le files/sounds/battle_theme.wav`
+
+The active soundtrack is now the faction-specific set in `files/music`.

@@ -1,0 +1,83 @@
+{
+  "note": "Numerical estimates, not a transcription. Original reference audio is not redistributed.",
+  "references": [
+    {
+      "file": "3_1_ChiFang_Town_Medium.Ogg.oga",
+      "sha256": "71969d70daba6132ed0fc670e958bc1be96ba070fe62c0891ac82608b953d418",
+      "seconds": 84.13,
+      "estimated_bpm": 57,
+      "estimated_key": "F major",
+      "chroma": [
+        0.843,
+        0.262,
+        0.465,
+        0.341,
+        0.434,
+        1.0,
+        0.474,
+        0.442,
+        0.356,
+        0.388,
+        0.453,
+        0.206
+      ],
+      "rms_percentiles": [
+        0.1742,
+        0.2107,
+        0.255
+      ]
+    },
+    {
+      "file": "3_2_ChiFang_Chan_Palace_Medium.Ogg.oga",
+      "sha256": "b83c4bd5b033105fe119b33eb36e6f7ba27811ab7452cb24510efffbb93e3277",
+      "seconds": 82.5,
+      "estimated_bpm": 103,
+      "estimated_key": "Bb major",
+      "chroma": [
+        0.476,
+        0.465,
+        0.51,
+        0.659,
+        0.649,
+        0.861,
+        0.694,
+        0.532,
+        0.627,
+        1.0,
+        0.944,
+        0.54
+      ],
+      "rms_percentiles": [
+        0.2012,
+        0.2981,
+        0.3531
+      ]
+    },
+    {
+      "file": "5_1_Ellenier_Village_Medium.oga",
+      "sha256": "a0276bd1ae404961b246f90a6850694fdb5834cc2e5ce409ea8ae51f31fb1165",
+      "seconds": 82.49,
+      "estimated_bpm": 123,
+      "estimated_key": "D minor",
+      "chroma": [
+        0.774,
+        0.376,
+        1.0,
+        0.294,
+        0.636,
+        0.67,
+        0.416,
+        0.53,
+        0.366,
+        0.705,
+        0.338,
+        0.37
+      ],
+      "rms_percentiles": [
+        0.2319,
+        0.2752,
+        0.3301
+      ]
+    }
+  ]
+}

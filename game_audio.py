@@ -4,19 +4,22 @@ import logging
 import math
 from pathlib import Path
 import time
+from music_catalog import track_for
 
 ROOT = Path(__file__).resolve().parent
 EFFECTS = {name: ROOT/'files/sounds/effects'/f'{name}.wav' for name in (
     'click', 'step', 'rifle', 'bow', 'sword', 'hit', 'throw', 'explosion',
     'magic', 'frost', 'heal', 'monster', 'victory', 'defeat', 'build')}
-MUSIC = ROOT/'files/sounds/battle_theme.wav'
+MUSIC = track_for('Север','background')
 DEFAULTS = dict(enabled=True, effects=.65, music=.20)
 LOG = logging.getLogger(__name__)
 # SoundSDL2 plays WAV music on an ordinary mixer channel too. Reserve one of
 # SDL_mixer's default eight channels for it rather than requesting nine voices.
+# During a music overlap the effect budget drops to six automatically.
 EFFECT_VOICES = 7
-PRIORITY = dict(click=0, step=0, hit=1, explosion=3, build=4, victory=5, defeat=5)
+PRIORITY = dict(click=0, step=0, hit=1, explosion=3, build=4, victory=5, defeat=5,music=6)
 DEBOUNCE = dict(click=.045, step=.10, hit=.035, explosion=.035)
+EFFECT_GAIN = dict(click=.48,step=.65,hit=.8,throw=.75,build=.82,victory=.85,defeat=.8)
 
 
 def volume(value, default):
@@ -28,8 +31,8 @@ def volume(value, default):
 
 
 class AudioManager:
-    """Seven effect voices plus music; important events replace quieter effects."""
-    def __init__(self, loader, settings_path=None, now=time.monotonic):
+    """Eight mixer channels shared by effects and smoothly overlapping music."""
+    def __init__(self, loader, settings_path=None, now=time.monotonic, schedule=None):
         self.loader, self.now = loader, now
         self.settings_path = Path(settings_path) if settings_path else None
         self.settings = dict(DEFAULTS)
@@ -38,7 +41,17 @@ class AudioManager:
         self.pause_reasons = set()
         self.music_sound = None
         self.music_owner = None
+        self.music_contexts=[]
+        self.background_faction=None
+        self.background_scene='background'
+        self.background_owner=object()
+        self.music_path=None
         self.closed = False
+        self.music_playback=None
+        if schedule is not None:
+            from music_playback import MusicPlayback
+            self.music_playback=MusicPlayback(self._load,self._stop,schedule,now,self._reserve_music,
+                lambda sound:setattr(self,'music_sound',sound))
         if self.settings_path:
             try:
                 data = json.loads(self.settings_path.read_text(encoding='utf-8'))
@@ -118,10 +131,11 @@ class AudioManager:
                     pool.append((sound, owner))
             sound = pool[index][0]
             playing=[(name,clip) for name,clips in self.pool.items() for clip,_ in clips if clip.state=='play']
-            if len(playing)>=EFFECT_VOICES and not self._preempt(key,playing):
+            music_voices=self.music_playback.playing_count if self.music_playback else int(self.music_sound is not None and self.music_sound.state=='play')
+            if len(playing)>=min(EFFECT_VOICES,8-music_voices) and not self._preempt(key,playing):
                 return False
             pool[index] = (sound, owner)
-            sound.volume = self.settings['effects']
+            sound.volume = self.settings['effects']*EFFECT_GAIN.get(key,1)
             sound.play()
             # SDL2 returns silently when no native channel is available.
             # Checking state prevents us from reporting a dropped sound as played.
@@ -155,29 +169,61 @@ class AudioManager:
         if key not in DEFAULTS:
             raise ValueError(key)
         self.settings[key] = bool(value) if key=='enabled' else volume(value, DEFAULTS[key])
-        for pool in self.pool.values():
+        for effect,pool in self.pool.items():
             for sound, _ in pool:
                 try:
-                    sound.volume = self.settings['effects'] if self.settings['enabled'] else 0
+                    sound.volume = self.settings['effects']*EFFECT_GAIN.get(effect,1) if self.settings['enabled'] else 0
                     if sound.volume <= 0:
                         self._stop(sound)
                 except Exception:
                     pass
         self._sync_music()
 
-    def start_music(self, owner):
+    def _reserve_music(self,count):
+        playing=[(name,clip) for name,clips in self.pool.items() for clip,_ in clips if clip.state=='play']
+        while len(playing)>8-count:
+            if not self._preempt('music',playing):break
+            playing=[(name,clip) for name,clip in playing if clip.state=='play']
+
+    def set_background(self,faction):
+        self.background_faction=faction
+        self.background_scene='background'
+        if not self.music_contexts:self.music_owner=self.background_owner if faction is not None else None
+        self._sync_music()
+
+    def show_menu(self):
+        self.music_contexts.clear()
+        self.background_faction=None
+        self.background_scene='menu'
+        self.music_owner=self.background_owner
+        self._sync_music()
+
+    def start_music(self, owner, faction=None, scene='battle'):
+        self.music_contexts=[item for item in self.music_contexts if item[0] is not owner]
+        self.music_contexts.append((owner,faction or self.background_faction or 'Север',scene))
         self.music_owner = owner
         self._sync_music()
 
     def _sync_music(self):
         allowed = (not self.closed and not self.pause_reasons and self.music_owner is not None
                    and self.settings['enabled'] and self.settings['music'] > 0)
+        faction,scene=(self.music_contexts[-1][1:] if self.music_contexts else (self.background_faction,self.background_scene))
+        path=track_for(faction,scene) if allowed else None
+        if self.music_playback is not None:
+            immediate=bool(self.closed or self.pause_reasons or not self.settings['enabled'] or self.settings['music']<=0)
+            self.music_path=path
+            self.music_playback.request(path,self.settings['music'],immediate=immediate)
+            return
         if not allowed:
             if self.music_sound is not None:
                 self._stop(self.music_sound)
             return
+        if self.music_path!=path:
+            if self.music_sound is not None:self._stop(self.music_sound,unload=True)
+            self.music_sound=None
+            self.music_path=path
         if self.music_sound is None:
-            self.music_sound = self._load('music', MUSIC)
+            self.music_sound = self._load('music:'+path.stem, path)
         if self.music_sound is not None:
             try:
                 self.music_sound.volume = self.settings['music']
@@ -188,7 +234,7 @@ class AudioManager:
                 LOG.warning('Music disabled: %s', error)
                 self._stop(self.music_sound, unload=True)
                 self.music_sound = None
-                self.failed.add('music')
+                self.failed.add('music:'+path.stem)
 
     def stop_owner(self, owner):
         for pool in self.pool.values():
@@ -196,8 +242,10 @@ class AudioManager:
                 if source is owner:
                     self._stop(sound)
                     pool[index] = (sound, None)
+        self.music_contexts=[item for item in self.music_contexts if item[0] is not owner]
         if self.music_owner is owner:
-            self.music_owner = None
+            self.music_owner = (self.music_contexts[-1][0] if self.music_contexts else
+                                self.background_owner if self.background_faction is not None or self.background_scene=='menu' else None)
             self._sync_music()
 
     def pause(self, reason='app'):
@@ -219,6 +267,8 @@ class AudioManager:
                 self._stop(sound, unload=True)
         self.pool.clear()
         self.started.clear();self.deadlines.clear()
+        self.music_contexts.clear()
+        self.music_owner=None
         if self.music_sound is not None:
             self._stop(self.music_sound, unload=True)
             self.music_sound = None
@@ -245,7 +295,8 @@ def get_audio():
         return _silent
     if not hasattr(app, '_game_audio'):
         try:
-            app._game_audio = AudioManager(load_game_sound, Path(app.user_data_dir)/'audio-settings.json')
+            from kivy.clock import Clock
+            app._game_audio = AudioManager(load_game_sound, Path(app.user_data_dir)/'audio-settings.json',schedule=Clock.schedule_interval)
         except Exception as error:
             LOG.warning('Audio backend unavailable: %s', error)
             app._game_audio = _silent
@@ -283,3 +334,13 @@ def bind_button_sound(button):
         if not widget.disabled:get_audio().play('click')
     button.bind(on_release=click)
     button._game_audio_bound=True
+
+
+def set_background_music(faction):
+    from kivy.app import App
+    if App.get_running_app() is not None:get_audio().set_background(faction)
+
+
+def set_menu_music():
+    from kivy.app import App
+    if App.get_running_app() is not None:get_audio().show_menu()

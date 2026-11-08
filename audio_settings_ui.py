@@ -22,7 +22,7 @@ def show_audio_settings(*args, manager=None, on_close=None):
     def switch(*_):
         audio.set('enabled', not audio.settings['enabled']); caption()
     caption(); toggle.bind(on_release=switch); rows.add_widget(toggle)
-    for key, title in (('effects', 'Эффекты'), ('music', 'Музыка боя')):
+    for key, title in (('effects', 'Эффекты'), ('music', 'Музыка')):
         label = text_label('', 14, GOLD, size_hint_y=None, height=dp(28))
         slider = Slider(min=0, max=100, value=audio.settings[key]*100, step=1,
                         size_hint_y=None, height=dp(48))

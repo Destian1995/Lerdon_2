@@ -61,7 +61,9 @@ class FrontendTests(unittest.TestCase):
         settle()
 
     def test_main_menu_all_routes_use_shared_buttons_and_version(self):
-        menu = self.show('MenuWidget')
+        with patch('game_audio.set_menu_music') as music:
+            menu = self.show('MenuWidget')
+            music.assert_called_once_with()
         self.assertEqual(len(menu.buttons), 7)
         self.assertIn('Звук',[button.text for button in menu.buttons])
         self.assertTrue(all(isinstance(b, StrategyButton) and b.height >= 48 for b in menu.buttons))

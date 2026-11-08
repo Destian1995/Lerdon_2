@@ -1,0 +1,12 @@
+Lerdon faction soundtrack — original instrumental scores, 2026.
+Composition and offline arrangement: tools/compose_faction_music.py.
+Instrument bank: GeneralUser GS v2.0.3 by S. Christian Collins.
+https://github.com/mrbumpy409/GeneralUser-GS
+License: see GeneralUser-GS-LICENSE.txt. The SoundFont bank is not bundled.
+User-provided reference recordings were analyzed for general musical context;
+no audio excerpts or transcribed melodies from them are included.
+Runtime: finished mono 22050 Hz 16-bit PCM WAV; no synthesis dependencies.
+Editable MIDI and note scores: assets/music/scores.
+
+Standalone calm menu theme: tools/compose_menu_music.py.
+Independent piano/harp score, no faction motifs or percussion.
