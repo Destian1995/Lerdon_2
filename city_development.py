@@ -43,6 +43,8 @@ def player_build(model,city,kind,quantity=1):
     if quantity<=0:return False
     if building_counts(model.conn,city,model.faction).get(kind,0):return False
     with model.conn:buy_building(model.conn,city,model.faction,kind)
+    from game_audio import play_effect
+    play_effect('build')
     model.load_buildings()
     from utils.resource_payments import sync_resources
     sync_resources(model.conn,model.faction,model)

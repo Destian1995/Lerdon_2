@@ -12,16 +12,24 @@ def unit(name='Воин',count=100,kind='infantry',attack=100,defense=100,initia
 
 def battle(a=None,b=None):
     model = TacticalBattle(a or [unit(initiative=100)],b or [unit('Враг')],
-                           terrain={(x,y):'plain' for x in range(10) for y in range(10)})
+                           terrain={(x,y):'plain' for x in range(10) for y in range(6)})
     return model,model.stacks['attacker:0'],model.stacks['defender:0']
 
 
 class TacticalCombatTests(unittest.TestCase):
+    def test_full_armies_deploy_without_overlap_on_rectangular_field(self):
+        m=TacticalBattle([unit(str(i)) for i in range(30)],
+                         [unit('enemy'+str(i)) for i in range(30)])
+        self.assertEqual(len({s.pos for s in m.stacks.values()}),60)
+        self.assertTrue(all(s.pos in m.terrain for s in m.stacks.values()))
+        for side in ('attacker','defender'):
+            self.assertTrue(all(s.pos in m.deployment_cells(side) for s in m.stacks.values() if s.side==side))
+
     def test_protected_enemy_heroes_do_not_block_archers_like_in_reported_screenshot(self):
         archer=unit('Охотники',13500,kind='archer',initiative=100)
         archer['unit_image']='files/army/people/predator.jpg'
         defenders=[unit('Бестии',69000),unit('Изабэлл',1,cls=3),unit('Дитрих Фрост',1,cls=3)]
-        m=TacticalBattle([archer],defenders,terrain={(x,y):'plain' for x in range(10) for y in range(10)})
+        m=TacticalBattle([archer],defenders,terrain={(x,y):'plain' for x in range(10) for y in range(6)})
         a,b,h1,h2=list(m.stacks.values())
         a.pos=(0,4);b.pos=(2,4);h1.pos=(1,3);h2.pos=(1,5)
         self.assertTrue(m.protected(h1));self.assertTrue(m.protected(h2))
@@ -66,7 +74,7 @@ class TacticalCombatTests(unittest.TestCase):
     def test_ai_takes_long_detour_instead_of_stopping_at_a_cliff(self):
         m,a,b=battle()
         a.pos=(3,0);b.pos=(7,0)
-        for y in range(8):m.terrain[5,y]='rock'
+        for y in range(4):m.terrain[5,y]='rock'
         first=m.ai_step()
         self.assertEqual(first['action'],'walk')
         self.assertGreater(a.pos[1],0)
@@ -76,14 +84,14 @@ class TacticalCombatTests(unittest.TestCase):
         self.assertIsNotNone(m.winner)
         self.assertTrue(any(e['action']=='attack' for e in m.events))
 
-    def test_field_has_100_cells_mirrored_obstacles_and_open_crossings(self):
+    def test_field_has_60_cells_mirrored_obstacles_and_open_crossings(self):
         for seed in range(40):
             for biome in ('plains','highland','lowland','snow'):
                 field = make_field(seed,biome)
-                self.assertEqual(len(field),100)
+                self.assertEqual(len(field),60)
                 for (x,y),kind in field.items():
                     self.assertEqual(kind,field[9-x,y])
-                    if y in (3,6):
+                    if y in (2,4):
                         self.assertFalse(TERRAINS[kind].blocked)
 
     def test_weighted_path_routes_around_rocks_and_respects_budget(self):

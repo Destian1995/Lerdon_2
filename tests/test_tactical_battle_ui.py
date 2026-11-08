@@ -40,7 +40,7 @@ class TacticalUITests(unittest.TestCase):
         return view
 
     def test_field_and_touch_controls_fit_landscape_and_portrait_phone(self):
-        for size in ((640,360),(800,480),(360,640)):
+        for size in ((568,320),(640,360),(800,480),(360,640)):
             with self.subTest(size=size):
                 Window.size=size;settle()
                 view=self.viewer()
@@ -52,6 +52,9 @@ class TacticalUITests(unittest.TestCase):
                 self.assertGreaterEqual(view.action.height,44)
                 self.assertGreaterEqual(view.guard.height,40)
                 self.assertGreaterEqual(view.board.cell,25)
+                if size[0]>size[1]:
+                    self.assertGreater(view.board.cell*10,Window.width*.70)
+                    self.assertGreater(view.board.cell*6,Window.height*.75)
                 self.assertEqual(view.board.library.key(view.battle.active.unit),'north-hunter')
                 view.dismiss(animation=False);settle()
 
@@ -105,6 +108,15 @@ class TacticalUITests(unittest.TestCase):
         view.confirm()
         self.assertEqual(model.events[0]['ability'],'grenade')
         self.assertTrue(view.ability_fx)
+        self.assertEqual(len(view.grenades),1)
+        self.assertTrue(all(when==view.age+.65 for when,hit in view.pending_strikes if hit.get('grenade')))
+        self.assertFalse(view.projectiles)
+        # All blast victims react together on impact, after the ballistic throw.
+        for _ in range(7):view.tick(.1)
+        self.assertFalse(any(hit.get('grenade') for _,hit in view.pending_strikes))
+        self.assertTrue(view.damage_labels)
+        for _ in range(10):view.tick(.1)
+        self.assertEqual(view.grenades,[])
         self.assertIsNone(view.selected_skill)
 
 

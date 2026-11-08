@@ -1,5 +1,6 @@
 import sqlite3
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from strategy_ui_fixture import Window,city_fixture
 from test_dialog_layout import settle
@@ -12,6 +13,28 @@ from town_art import THEMES,city_variant,panorama_path,building_path
 
 
 class TownTests(unittest.TestCase):
+    def test_every_successful_manual_build_plays_sound_but_rejected_purchase_is_silent(self):
+        town=self.owner._open_build_menu();settle()
+        with patch('game_audio.play_effect') as effect:
+            for kind in CATALOG:
+                town.choose(kind);town.purchase()
+                self.assertEqual(effect.call_count,1)
+                effect.assert_called_with('build')
+                self.assertEqual(self.db.execute('SELECT count FROM buildings WHERE building_type=?',(kind,)).fetchone()[0],1)
+                effect.reset_mock()
+                town.purchase()
+                effect.assert_not_called()
+
+    def test_unaffordable_and_rolled_back_building_purchases_do_not_play_success_sound(self):
+        with patch('game_audio.play_effect') as effect:
+            self.db.execute('UPDATE resources SET amount=0');self.db.commit()
+            self.assertFalse(self.owner._build_building('Рынок'))
+            effect.assert_not_called()
+            self.db.execute('UPDATE resources SET amount=500000');self.db.commit()
+            self.db.execute("CREATE TRIGGER fail_audio_build BEFORE INSERT ON buildings BEGIN SELECT RAISE(ABORT,'test failure'); END")
+            with self.assertRaises(sqlite3.IntegrityError):self.owner._build_building('Рынок')
+            effect.assert_not_called()
+
     def setUp(self):
         self.size=Window.size;self.metrics=Metrics.density,Metrics.fontscale
         Metrics.density=Metrics.fontscale=1;Window.size=(640,360);settle()

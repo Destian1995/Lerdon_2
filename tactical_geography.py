@@ -3,6 +3,7 @@ import ast
 from pathlib import Path
 import sqlite3
 from collections import Counter
+from tactical_combat import WIDTH, HEIGHT
 
 BIOMES={'Север':'snow','Элины':'desert','Эльфы':'forest','Адепты':'forest','Вампиры':'corruption','Нежить':'corruption'}
 
@@ -16,22 +17,22 @@ def local_field(terrain,x,y):
     from map_terrain import FOREST,MOUNTAIN,SNOW,SWAMP,WATER,DESERT,CORRUPTION
     kinds={FOREST:'forest',MOUNTAIN:'hill',SNOW:'snow',SWAMP:'swamp',WATER:'water',DESERT:'sand',CORRUPTION:'blight'}
     field={};counts=Counter()
-    for ix in range(10):
-        for iy in range(10):
-            kind=terrain.kind_at(x+(ix-4.5)*12,y+(iy-4.5)*12)
+    for ix in range(WIDTH):
+        for iy in range(HEIGHT):
+            kind=terrain.kind_at(x+(ix-(WIDTH-1)/2)*12,y+(iy-(HEIGHT-1)/2)*12)
             counts[kind]+=1
             tile=kinds.get(kind,'plain')
             if kind==MOUNTAIN and (ix*7+iy*3)%5==0:tile='rock'
             field[ix,iy]=tile
-    for iy in (3,6):
-        for ix in range(10):field[ix,iy]='bridge' if field[ix,iy]=='water' else 'road'
+    for iy in (2,4):
+        for ix in range(WIDTH):field[ix,iy]='bridge' if field[ix,iy]=='water' else 'road'
     for ix in (0,1,8,9):
-        for iy in range(10):field[ix,iy]='snow' if field[ix,iy]=='snow' else 'sand' if field[ix,iy]=='sand' else 'plain'
+        for iy in range(HEIGHT):field[ix,iy]='snow' if field[ix,iy]=='snow' else 'sand' if field[ix,iy]=='sand' else 'plain'
     biome='plains'
     options={FOREST:'forest',MOUNTAIN:'highland',SNOW:'snow',SWAMP:'swamp',DESERT:'desert',CORRUPTION:'corruption'}
     dominant=max(options,key=lambda k:counts[k])
-    if counts[dominant]>=18:biome=options[dominant]
-    elif counts[WATER]>=8:biome='coast'
+    if counts[dominant]>=WIDTH*HEIGHT*.18:biome=options[dominant]
+    elif counts[WATER]>=WIDTH*HEIGHT*.08:biome='coast'
     return biome,field
 
 

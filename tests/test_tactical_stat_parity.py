@@ -53,18 +53,45 @@ class TacticalStatParityTests(unittest.TestCase):
         g.unit['consumption']=0
         self.assertEqual(m.army_skill_multiplier(a),1)
 
-    def test_offensive_abilities_scale_from_hero_attack_and_current_army(self):
-        results=[]
-        for cost in (0,2.1):
-            m,a,g,b,h=arena('Владислав');g.count=100;g.unit['consumption']=cost
-            event=m.use_ability('snipe',b.pos)
-            results.append(event['strikes'][0]['damage'])
-        self.assertAlmostEqual(results[1]/results[0],3.1)
-        m,a,g,b,h=arena('Владислав');before=m.skill_power(a,True)
-        a.unit['units_stats']['Защита']*=3
-        self.assertEqual(m.skill_power(a,True),before)
-        a.unit['units_stats']['Урон']*=2
-        self.assertEqual(m.skill_power(a,True),before*2)
+    def test_offensive_abilities_use_fifteen_percent_of_living_garrison_attack(self):
+        m,a,g,b,h=arena('Владислав')
+        expected=.15*(m._power(a,True)*a.count+m._power(g,True)*g.count)
+        self.assertAlmostEqual(m.skill_power(a,True),expected)
+        g.unit['consumption']=999
+        self.assertAlmostEqual(m.skill_power(a,True),expected)
+        before=m.skill_power(a,True)
+        g.count//=2
+        self.assertLess(m.skill_power(a,True),before)
+        g.count=0;g.hp=0
+        self.assertAlmostEqual(m.skill_power(a,True),.15*m._power(a,True)*a.count)
+
+    def test_snipe_and_burst_have_same_total_damage_budget(self):
+        damage=[]
+        for key in ('snipe','burst'):
+            m,a,g,b,h=arena('Владислав')
+            expected=m.skill_power(a,True)/m._resistance(b)
+            event=m.use_ability(key,b.pos)
+            damage.append(sum(hit['damage'] for hit in event['strikes']))
+            self.assertAlmostEqual(damage[-1],expected)
+        self.assertAlmostEqual(*damage)
+
+    def test_grenade_and_drain_share_the_fifteen_percent_budget(self):
+        for name,key in (('Владислав','grenade'),('Валерия','drain')):
+            m,a,g,b,h=arena(name)
+            expected=m.skill_power(a,True)/m._resistance(b)
+            before=b.hp
+            m.use_ability(key,b.pos)
+            if key=='drain':
+                for _ in range(3):m._new_round()
+            self.assertAlmostEqual(before-b.hp,expected)
+
+    def test_offensive_power_includes_allied_heroes_but_excludes_enemy_and_dead_stacks(self):
+        m,a,g,b,h=arena('Владислав')
+        b.unit['units_stats']['Урон']=1e12
+        g.count=0;g.hp=0
+        self.assertEqual(m.skill_power(a,True),.15*m._power(a,True))
+        a.unit['units_stats']['Урон']=2000
+        self.assertEqual(m.skill_power(a,True),300)
 
     def test_shield_strength_uses_defense_not_attack_or_incoming_damage(self):
         powers=[]

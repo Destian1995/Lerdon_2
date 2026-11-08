@@ -1,0 +1,26 @@
+{
+  "recordings": [
+    {
+      "local_file": "cheers.ogg",
+      "title": "Cheers",
+      "author": "Nocturnal_Vanguard",
+      "page": "https://opengameart.org/content/cheers-0",
+      "download": "https://opengameart.org/sites/default/files/cheers_1.ogg",
+      "usage": "12 layered voices for victory crowd cheering",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sha256": "10d9f614307127a8c2b2b129e9a291b6071c8fc91f1fed4916f78ad47c956b25"
+    },
+    {
+      "local_file": "groans.wav",
+      "title": "grunts of male death and pain",
+      "author": "thebardofblasphemy",
+      "page": "https://opengameart.org/content/grunts-male-death-and-pain",
+      "download": "https://opengameart.org/sites/default/files/death%20pain%20grunts.wav",
+      "usage": "Three trimmed and layered pain groans for defeat",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sha256": "3f00fba827f20ff9ccea1bc07d2c21ab8d3a36e81b48a6005cf8459f02779586"
+    }
+  ]
+}

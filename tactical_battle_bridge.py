@@ -41,17 +41,17 @@ def request_battle(attackers,defenders,player_side,city='',context=None,type_mod
             from kivy.uix.popup import Popup
             from strategy_ui import StrategyButton,text_label,GOLD,TEXT
             from window_theme import prepare_custom_popup
-            from tactical_combat import TacticalBattle
+            from tactical_combat import TacticalBattle, WIDTH, HEIGHT
             from tactical_battle_ui import TacticalBattlePopup
             box = BoxLayout(orientation='vertical',padding=dp(12),spacing=dp(10))
             box._strategy_fixed_layout=True
             box.add_widget(text_label('Бой за '+city,18,GOLD,bold=True))
-            box.add_widget(text_label('Тактический: поле 10×10, местность и управление отрядами.\n'
+            box.add_widget(text_label('Тактический: поле 10×6, местность и управление отрядами.\n'
                 'Быстрый: привычный автоматический расчёт.',14,TEXT))
             buttons = BoxLayout(size_hint_y=None,height=dp(52),spacing=dp(10))
             quick = StrategyButton(text='Быстрый бой')
             tactical = StrategyButton(text='Тактический бой',primary=True)
-            if max(sum(u.get('unit_count',0)>0 for u in army) for army in (attackers,defenders))>40:
+            if max(sum(u.get('unit_count',0)>0 for u in army) for army in (attackers,defenders))>WIDTH//2*HEIGHT:
                 tactical.disabled = True
                 tactical.text = 'Слишком много отрядов'
             buttons.add_widget(quick)

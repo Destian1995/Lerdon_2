@@ -130,6 +130,8 @@ class FortressInfoPopup(Popup):
         except ValueError as exc:
             self._construction_error=str(exc)
             return False
+        from game_audio import play_effect
+        play_effect('build')
         from utils.resource_payments import sync_resources
         sync_resources(self.conn,self.player_fraction)
         self.load_buildings()

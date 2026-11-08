@@ -18,7 +18,7 @@ class TacticalGeographyTests(unittest.TestCase):
         with patch('map_terrain.load_terrain',return_value=mask):
             result=context(db,'Home','Север')
         self.assertEqual(result['biome'],'forest')
-        self.assertEqual(len(result['terrain']),100)
+        self.assertEqual(len(result['terrain']),60)
         self.assertAlmostEqual(sum(x for x,y in seen)/len(seen),138.5)
         self.assertAlmostEqual(sum(y for x,y in seen)/len(seen),124)
         self.assertIn('forest',result['terrain'].values())
@@ -28,7 +28,7 @@ class TacticalGeographyTests(unittest.TestCase):
             name,field=local_field(SimpleNamespace(kind_at=lambda x,y:kind),0,0)
             self.assertEqual(name,biome)
             self.assertTrue(set(field.values())<=set(TERRAINS))
-            for y in (3,6):self.assertTrue(all(not TERRAINS[field[x,y]].blocked for x in range(10)))
+            for y in (2,4):self.assertTrue(all(not TERRAINS[field[x,y]].blocked for x in range(10)))
 
     def test_all_eight_painted_backgrounds_exist(self):
         for kind in ('plains','forest','snow','desert','swamp','highland','coast','corruption'):

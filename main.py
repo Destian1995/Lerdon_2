@@ -1,4 +1,5 @@
 import os
+os.environ['KIVY_AUDIO'] = 'sdl2'
 os.environ['KIVY_VIDEO'] = 'ffpyplayer'
 from game_process import GameScreen
 from strategy_ui import StrategyButton
@@ -3159,6 +3160,25 @@ class Lerdon(MDApp):
         """Создает начальный интерфейс приложения."""
         return LoadingScreen(self.conn)
 
+    def on_start(self):
+        from game_audio import get_audio
+        get_audio()
+        Window.bind(focus=self._audio_focus)
+
+    def _audio_focus(self, window, focused):
+        from game_audio import get_audio
+        audio=get_audio()
+        audio.resume('focus') if focused else audio.pause('focus')
+
+    def on_pause(self):
+        from game_audio import get_audio
+        get_audio().pause('app')
+        return True
+
+    def on_resume(self):
+        from game_audio import get_audio
+        get_audio().resume('app')
+
     def restart_app(self):
         """Перезапуск игры — очистка БД, восстановление бэкапа, пересоздание интерфейса."""
         try:
@@ -3189,6 +3209,9 @@ class Lerdon(MDApp):
         print("Главное меню полностью пересоздано")
 
     def on_stop(self):
+        Window.unbind(focus=self._audio_focus)
+        if hasattr(self,'_game_audio'):
+            self._game_audio.close()
         print("Завершение работы приложения...")
 
         # 1) Делаем checkpoint и сразу закрываем — без переключения journal_mode

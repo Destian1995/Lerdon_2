@@ -88,6 +88,13 @@ class StrategyButton(Button):
         self._motion = ButtonMotion(self, self._feedback)
         self.bind(pos=self._layout, size=self._layout, disabled=self._state, selected=self._state)
         self._layout()
+        self.bind(on_release=self._click_sound)
+        self._game_audio_bound=True
+
+    def _click_sound(self,*args):
+        if not self.disabled:
+            from game_audio import get_audio
+            get_audio().play('click')
 
     def set_selected(self, value):
         self.selected = bool(value)

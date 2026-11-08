@@ -57,6 +57,8 @@ class Fill:
 
 
 def skin_button(button):
+    from game_audio import bind_button_sound
+    bind_button_sound(button)
     if isinstance(button, StrategyButton) or hasattr(button, '_window_button_skin'):
         return
     # Empty transparent buttons are hit regions over cards/portraits, not surfaces.
@@ -161,6 +163,9 @@ def theme_tree(root, observe=True):
         trigger = Clock.create_trigger(lambda dt: theme_tree(root), -1)
         root._window_theme_trigger = trigger
     for widget in list(root.walk()):
+        if isinstance(widget,ButtonBehavior):
+            from game_audio import bind_button_sound
+            bind_button_sound(widget)
         if isinstance(widget, Label):
             bind_plain_text(widget)
         if isinstance(widget, ButtonBehavior) and hasattr(widget, 'text'):

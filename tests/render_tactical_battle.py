@@ -24,7 +24,7 @@ try:
     for size,name in [((1000,600),'desktop'),((640,360),'phone'),((360,640),'portrait')]:
         Window.size=size;settle()
         model=TacticalBattle(*roster(),seed=7,biome='forest',factions=('Север','Адепты'))
-        for s,p in zip(model.stacks.values(),[(2,4),(1,6),(2,2),(5,4),(7,6),(6,2)]):
+        for s,p in zip(model.stacks.values(),[(2,4),(1,5),(2,2),(5,4),(7,5),(6,2)]):
             s.pos=p;model.terrain[p]='plain'
         model.terrain[2,4]='hill';model.terrain[3,4]='plain';model.terrain[4,4]='plain'
         view=TacticalBattlePopup(model,'attacker',lambda result:None,'Виндгар')

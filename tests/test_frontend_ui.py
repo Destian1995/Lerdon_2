@@ -11,7 +11,7 @@ from kivy.base import EventLoop
 from kivy.uix.spinner import Spinner
 from kivy.animation import Animation
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
-from frontend_ui import MenuButton, FactionChoice
+from frontend_ui import MenuButton, FactionChoice, VERSION
 from strategy_ui import StrategyButton
 from window_theme import install_window_theme, theme_tree
 
@@ -62,9 +62,10 @@ class FrontendTests(unittest.TestCase):
 
     def test_main_menu_all_routes_use_shared_buttons_and_version(self):
         menu = self.show('MenuWidget')
-        self.assertEqual(len(menu.buttons), 6)
+        self.assertEqual(len(menu.buttons), 7)
+        self.assertIn('Звук',[button.text for button in menu.buttons])
         self.assertTrue(all(isinstance(b, StrategyButton) and b.height >= 48 for b in menu.buttons))
-        self.assertTrue(any(isinstance(w, Label) and w.text == 'v8.0.3' for w in menu.walk()))
+        self.assertTrue(any(isinstance(w, Label) and w.text == 'v'+VERSION for w in menu.walk()))
         self.assertIsNone(menu._particle_event)
         self.assertEqual(menu.button_container.cols, 2)
         Window.size = (360, 640)

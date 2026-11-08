@@ -19,7 +19,7 @@ from strategy_ui import INK, SURFACE, GOLD, TEXT, MUTED, FACTIONS, StrategyButto
 from responsive_ui import WindowFlow
 from ui_motion import enter
 
-VERSION = '9.5.0'
+VERSION = '9.5.1'
 FACTION_ART = {'Север': 'people', 'Эльфы': 'elfs', 'Вампиры': 'vampire', 'Адепты': 'adepts', 'Элины': 'elins'}
 
 
@@ -210,6 +210,7 @@ class FrontPage(FloatLayout):
 
 
 def build_main_menu(owner):
+    from audio_settings_ui import show_audio_settings
     page = FrontPage(owner, 'Лэрдон', 'Создайте королевство. Измените судьбу мира.')
     layout = GridLayout(cols=2, size_hint_y=None, spacing=dp(10))
     layout.bind(minimum_height=layout.setter('height'))
@@ -217,6 +218,7 @@ def build_main_menu(owner):
     owner.buttons, owner.selected_button = [], None
     actions = [('Начать игру', 'start', owner.start_game), ('Обучение', 'tutorial', owner.open_tutorial),
                ('Рейтинг', 'rating', owner.open_dossier), ('История Лэрдона', 'help', owner.open_how_to_play),
+               ('Звук', 'help', show_audio_settings),
                ('Об авторе', 'author', owner.open_author), ('Выход', 'exit', owner.exit_game)]
     for title, kind, callback in actions:
         button = MenuButton(text=title, button_type=kind, size_hint_y=None, height=dp(64), font_size=sp(17))

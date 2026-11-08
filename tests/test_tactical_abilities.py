@@ -9,7 +9,7 @@ def arena(name):
     guard=unit('Солдаты',200,initiative=10)
     m=TacticalBattle([hero,guard],[unit('Враг',1000,initiative=50),unit('Чужой герой',1,cls=3)])
     a,g,b,h=list(m.stacks.values())
-    a.pos=(3,4);g.pos=(1,1);b.pos=(5,4);h.pos=(8,7)
+    a.pos=(3,4);g.pos=(1,1);b.pos=(5,4);h.pos=(8,5)
     m.terrain={p:'plain' for p in m.terrain}
     return m,a,g,b,h
 
@@ -26,7 +26,7 @@ class HeroAbilityTests(unittest.TestCase):
     def test_bodyguards_protect_heroes_from_shots_counters_area_and_dot(self):
         m,a,g,b,h=arena('Владислав')
         self.assertTrue(m.protected(a));self.assertTrue(m.protected(h))
-        a.pos=(7,7)
+        a.pos=(7,5)
         self.assertFalse(m.can_attack(a,h))
         self.assertFalse(m.ability_valid('snipe',h.pos))
         old=a.hp

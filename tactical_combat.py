@@ -1,4 +1,4 @@
-"""Deterministic 10x10 combat model. No database, UI, or global random state.
+"""Deterministic 10x6 combat model. No database, UI, or global random state.
 
 Coordinates start at the lower left. A stack keeps fractional wounds between
 attacks; its displayed count is the number of living soldiers, not hit points.
@@ -12,7 +12,8 @@ import random
 from tactical_abilities import ABILITIES,hero_abilities
 
 
-SIZE = 10
+WIDTH, HEIGHT = 10, 6
+SIZE = WIDTH  # Backward compatible horizontal dimension.
 
 
 @dataclass(frozen=True)
@@ -84,7 +85,7 @@ def distance(a, b):
 def make_field(seed=0, biome='plains'):
     """Mirrored terrain and two guaranteed crossing lanes: no trapped armies."""
     rng = random.Random(seed)
-    field = {(x, y): 'plain' for x in range(SIZE) for y in range(SIZE)}
+    field = {(x, y): 'plain' for x in range(WIDTH) for y in range(HEIGHT)}
     kinds = ['plain'] * 5 + ['forest'] * 3 + ['hill'] * 2 + ['swamp', 'rock']
     if biome == 'highland':
         kinds += ['hill'] * 4 + ['rock'] * 2
@@ -98,10 +99,10 @@ def make_field(seed=0, biome='plains'):
     elif biome == 'corruption':kinds += ['blight']*6
     elif biome == 'coast':kinds += ['water']*3
     for x in range(2, 5):
-        for y in range(SIZE):
+        for y in range(HEIGHT):
             kind = rng.choice(kinds)
             field[x, y] = field[9-x, y] = kind
-    for y in (3, 6):
+    for y in (2, 4):
         for x in range(SIZE):
             field[x, y] = 'bridge' if field[x, y] == 'water' else 'road'
     return field
@@ -146,8 +147,8 @@ class TacticalBattle:
         self.rng = random.Random(seed)
         self.biome=biome
         self.terrain = dict(terrain if terrain is not None else make_field(seed, biome))
-        if set(self.terrain) != {(x, y) for x in range(10) for y in range(10)}:
-            raise ValueError('Поле должно содержать ровно 10×10 клеток.')
+        if set(self.terrain) != {(x, y) for x in range(WIDTH) for y in range(HEIGHT)}:
+            raise ValueError('Поле должно содержать ровно 10×6 клеток.')
         if any(t not in TERRAINS for t in self.terrain.values()):
             raise ValueError('Неизвестная местность.')
         self.type_modifiers = type_modifiers or {}
@@ -167,13 +168,13 @@ class TacticalBattle:
         self.reason = ''
         for side, army in (('attacker', attackers), ('defender', defenders)):
             alive = [copy.deepcopy(u) for u in army if u.get('unit_count', 0) > 0]
-            if len(alive) > 40:
-                raise ValueError('На стороне может быть не больше 40 разных отрядов.')
+            if len(alive) > WIDTH//2*HEIGHT:
+                raise ValueError('На стороне может быть не больше 30 разных отрядов на поле 10×6.')
             # Spread small armies vertically, then fill additional columns.
-            rows = [4, 6, 2, 8, 0, 5, 3, 7, 1, 9]
+            rows = [2, 4, 1, 5, 0, 3]
             for i, unit in enumerate(alive):
-                x = i // 10 if side == 'attacker' else 9-i//10
-                pos = (x, rows[i % 10])
+                x = i // HEIGHT if side == 'attacker' else WIDTH-1-i//HEIGHT
+                pos = (x, rows[i % HEIGHT])
                 self.terrain[pos] = 'plain'
                 kind = str((unit.get('units_stats') or {}).get('Тип', 'infantry'))
                 role = weapon_role(unit,kind)
@@ -204,7 +205,7 @@ class TacticalBattle:
         return TERRAINS[self.terrain[pos]]
 
     def deployment_cells(self,side):
-        columns = max(2,math.ceil(sum(s.side==side for s in self.stacks.values())/10))
+        columns = max(2,math.ceil(sum(s.side==side for s in self.stacks.values())/HEIGHT))
         return {p for p in self.terrain if (p[0]<columns if side=='attacker' else p[0]>=10-columns)
                 and not self.tile(p).blocked}
 
@@ -434,6 +435,9 @@ class TacticalBattle:
         return 1+total/100
 
     def skill_power(self,source,attack=True):
+        if attack:
+            return .15*sum(self._power(s,True)*s.count for s in self.stacks.values()
+                           if s.alive and s.side==source.side)
         return self._power(source,attack)*source.count*self.army_skill_multiplier(source)
 
     def _resistance(self,target):
@@ -619,28 +623,30 @@ class TacticalBattle:
                 if t.alive and t.side==s.side and unit_class(t.unit)==1:self._effect(t,'vampirism',3,s,healing=self.skill_power(s,False)*.25)
         elif key=='fire_shield':
             power=self.skill_power(s,False)*.30
-            self._effect(target,key,3,s,armor=power,burn=power)
+            self._effect(target,key,3,s,armor=power,burn=self.skill_power(s,True))
         elif key in ('freeze','dominate'):self._effect(target,key,2,s,skip=1)
         elif key=='blood':self._effect(target,key,3,s)
         elif key=='drain':
-            strikes.append(self._ability_damage(s,target,.7))
-            if target.alive:self._effect(target,key,3,s,damage=self.skill_power(s,True)*.08/self._resistance(target))
+            power=self.skill_power(s,True)
+            strikes.append(self._ability_damage(s,target,.5,power))
+            if target.alive:self._effect(target,key,3,s,damage=power/6/self._resistance(target))
         elif key in ('snipe','burst'):
+            power=self.skill_power(s,True)
             for _ in range(3 if key=='burst' else 1):
                 if not target.alive or not s.alive:break
-                strikes.append(self._ability_damage(s,target,.65 if key=='burst' else 2.2))
+                strikes.append(self._ability_damage(s,target,1/3 if key=='burst' else 1,power))
         else:
             # An area hit never bypasses the hero's bodyguards by killing them
             # earlier in the same simultaneous blast.
             affected=[t for t in affected if not self.protected(t) and (key!='whirlwind' or t.side!=s.side)]
             cast_power=self.skill_power(s,True)
             for t in affected:
-                strikes.append(self._ability_damage(s,t,{'grenade':1.2,'blizzard':.9,'flame':1.3,'whirlwind':1}[key],cast_power))
+                strikes.append(self._ability_damage(s,t,1,cast_power))
                 if key=='blizzard' and t.alive:self._effect(t,'slow',2,s)
         s.cooldowns[key]=self.round+spec.cooldown
         strikes=[part for hit in strikes for part in ([hit,hit['reflected']] if hit.get('reflected') else [hit])]
         event=dict(action='ability',ability=key,actor=s.id,target=target.id if target else None,
-                   cells=cells,strikes=strikes)
+                   cells=cells,strikes=strikes,origin=old,impact=pos)
         if key=='flight':
             n=max(1,distance(old,pos))
             event['path']=[(old[0]+(pos[0]-old[0])*i/n,old[1]+(pos[1]-old[1])*i/n) for i in range(n+1)]
