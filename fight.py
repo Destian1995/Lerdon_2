@@ -236,6 +236,9 @@ def _enrich_with_db_stats(units, conn):
             stats.setdefault('Мораль', 100)
 
 
+    from heart_contract import apply_to_army
+    apply_to_army(conn,units)
+
 
 def calculate_hero_stat_bonus(army):
     """Сумма сырых характеристик живых героев классов 2 и 3 для бонуса юнитам 1 класса.

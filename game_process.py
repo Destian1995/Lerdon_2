@@ -2163,7 +2163,8 @@ class GameScreen(Screen):
             # Если проигрывает, предлагаем мир по этапам
             strongest_enemy = self.find_strongest_enemy(faction, game_state)
 
-            if strongest_enemy:
+            from morgana_covenant import peace_offer_blocked
+            if strongest_enemy and not peace_offer_blocked(getattr(self,'db_connection',None) or getattr(self,'conn',None),faction,strongest_enemy):
                 # Этап 1: Простое предложение мира
                 decisions['diplomacy'].append({
                     'action': 'peace_proposal',

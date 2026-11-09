@@ -13,6 +13,7 @@ from mirror_readable_ui import compact_number
 from mirror_layout import FitLabel
 from strategy_ui import FACTIONS,GOLD,MUTED,TEXT
 from city_construction import CATALOG,building_counts,construction_allowed,city_owner,building_name,HOSPITAL_GROWTH,FACTORY_YIELD,DEFENSE_BONUS
+from city_construction import building_description
 from town_scene import TownScene
 from town_art import building_path
 from utils.helpers import format_number
@@ -99,6 +100,7 @@ class BuildingRow(ButtonBehavior,BoxLayout):
         self.art.color=(.48,.48,.48,.65) if self.is_built else (1,1,1,1)
         selected=self.name==town.selected
         self.title.color=(.45,.88,.56,1) if selected else grey if self.is_built else TEXT
+        self.effect.text=building_description(town.conn,town.faction,self.name)
         self.effect.color=grey if self.is_built else MUTED
         self.status.color=grey if self.is_built else GOLD
         self.status.text='Построено' if self.is_built else format_number(CATALOG[self.name]['cost'])+' крон'
@@ -206,6 +208,11 @@ class TownPopup(WorldPopup):
         self.budget.text=compact_number(money)+' крон' if owned else 'Осмотр'
         self.budget.color=GOLD
         self.effect_summary.text,self.effect_summary.color=BUILDING_SUMMARIES[self.selected]
+        if self.selected=='Рынок':
+            from utils.market_income import market_policy
+            resource,_=market_policy(self.conn,self.faction)
+            self.effect_summary.text=building_description(self.conn,self.faction,self.selected)
+            self.effect_summary.color=GOLD if resource=='Кроны' else (.35,.78,1,1)
         self.selector.text=building_name(self.scene.art_faction,self.selected)
         for row in self.selectors.values():row.refresh(self)
         self.build.disabled=not owned or bool(counts.get(self.selected,0)) or money<info['cost']

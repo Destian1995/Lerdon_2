@@ -1,0 +1,166 @@
+{
+  "generator": "Built-in image_gen",
+  "intent": "New distinct faction noble portraits; existing portraits kept unchanged",
+  "assets": [
+    {
+      "file": "files/otherworld/companions/north/noble-lady-2.png",
+      "faction": "north",
+      "gender": "lady",
+      "appearance": 2,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-80002995-4521-4ad5-8b73-49a1522a9571.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait. Create a new distinct individual, A beautiful adult northern noblewoman, generously curvy build, copper-red braided updo, freckles, round face and green eyes. Silver-blue embroidered high court gown and fur cloak, an ornate axe resting beside her. Snowbound fjord fortress and aurora. Realistic detailed painted fantasy game unit illustration, cinematic natural lighting, luxurious textures, anatomy and face carefully rendered. Three-quarter portrait from knees up, entire head comfortably inside image, character centrally composed and dominant, eyes clearly readable at small size. Faction environment visible around character, a few distant guards allowed. Landscape 3:2 composition. Fully clothed adult, dignified courtly allure, no nudity. No writing, no lettering, no watermark, no UI or border. Same visual language as high quality realistic fantasy army hero portraits. One principal person only."
+    },
+    {
+      "file": "files/otherworld/companions/north/noble-lord-2.png",
+      "faction": "north",
+      "gender": "lord",
+      "appearance": 2,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-b161eb4a-d403-4c93-9133-82b6752862e8.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait. Create a new distinct individual, An adult northern nobleman about forty, black hair tied back, short dark beard, square jaw, dark eyes. Slate-blue coat with silver embroidery over steel cuirass and a heavy white fur mantle, a ceremonial rifle held safely downward. Snowbound fjord fortress and aurora. Realistic detailed painted fantasy game unit illustration, cinematic natural lighting, luxurious textures, anatomy and face carefully rendered. Three-quarter portrait from knees up, entire head comfortably inside image, character centrally composed and dominant, eyes clearly readable at small size. Faction environment visible around character, a few distant guards allowed. Landscape 3:2 composition. Fully clothed adult, dignified courtly allure, no nudity. No writing, no lettering, no watermark, no UI or border. Same visual language as high quality realistic fantasy army hero portraits. One principal person only."
+    },
+    {
+      "file": "files/otherworld/companions/elines/noble-lady-2.png",
+      "faction": "elines",
+      "gender": "lady",
+      "appearance": 2,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-1e32cf27-f1bb-4bb1-8b43-4f5b94716efb.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait. Create a new distinct individual, A beautiful adult desert noblewoman, generously curvy build, dark olive skin, long straight jet-black hair and an ornate golden circlet, almond dark eyes. Rich cobalt-blue and gold court gown with sapphire jewelry, silk cape, holding a golden fan. Sandstone palace terraces, palms, canyon and distant sunlit dunes. Realistic detailed painted fantasy game unit illustration, cinematic natural lighting, luxurious textures, anatomy and face carefully rendered. Three-quarter portrait from knees up, entire head comfortably inside image, character centrally composed and dominant, eyes clearly readable at small size. Faction environment visible around character, a few distant guards allowed. Landscape 3:2 composition. Fully clothed adult, dignified courtly allure, no nudity. No writing, no lettering, no watermark, no UI or border. Same visual language as high quality realistic fantasy army hero portraits. One principal person only."
+    },
+    {
+      "file": "files/otherworld/companions/elines/noble-lord-2.png",
+      "faction": "elines",
+      "gender": "lord",
+      "appearance": 2,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-f2f6f5ad-19ba-4819-a4ae-b268d581e835.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait. Create a new distinct individual, An adult desert emir about forty, dark olive skin, shaved head with short curled black beard, broad nose and amber eyes. Ivory-and-cobalt brocade robes over gold armor, lapis turban ornament and curved ceremonial saber. Sandstone palace terraces, palms, canyon and distant sunlit dunes. Realistic detailed painted fantasy game unit illustration, cinematic natural lighting, luxurious textures, anatomy and face carefully rendered. Three-quarter portrait from knees up, entire head comfortably inside image, character centrally composed and dominant, eyes clearly readable at small size. Faction environment visible around character, a few distant guards allowed. Landscape 3:2 composition. Fully clothed adult, dignified courtly allure, no nudity. No writing, no lettering, no watermark, no UI or border. Same visual language as high quality realistic fantasy army hero portraits. One principal person only."
+    },
+    {
+      "file": "files/otherworld/companions/adepts/noble-lady-2.png",
+      "faction": "adepts",
+      "gender": "lady",
+      "appearance": 2,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-978fc01b-4503-4b7b-ba43-89b324c24a3c.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait. Create a new distinct individual, A beautiful adult crusader noblewoman, generously curvy build, long auburn hair, pale freckled skin, angular face, warm brown eyes. Deep wine-red and ivory brocade gown, golden cross pendant, fur-trimmed dark cape and a small illuminated prayer book. Gothic crusader abbey in a vivid orange autumn forest. Realistic detailed painted fantasy game unit illustration, cinematic natural lighting, luxurious textures, anatomy and face carefully rendered. Three-quarter portrait from knees up, entire head comfortably inside image, character centrally composed and dominant, eyes clearly readable at small size. Faction environment visible around character, a few distant guards allowed. Landscape 3:2 composition. Fully clothed adult, dignified courtly allure, no nudity. No writing, no lettering, no watermark, no UI or border. Same visual language as high quality realistic fantasy army hero portraits. One principal person only."
+    },
+    {
+      "file": "files/otherworld/companions/adepts/noble-lord-2.png",
+      "faction": "adepts",
+      "gender": "lord",
+      "appearance": 2,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-8d6ed56c-fbcb-4209-9b42-044f03c6ceeb.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait. Create a new distinct individual, An adult crusader nobleman about fifty, grey hair swept back, neatly trimmed grey beard, lined aquiline face, grey eyes. Ivory surcoat with red cross over elaborate blackened plate, crimson cloak, gold signet and a long sheathed sword. Gothic crusader abbey in a vivid orange autumn forest. Realistic detailed painted fantasy game unit illustration, cinematic natural lighting, luxurious textures, anatomy and face carefully rendered. Three-quarter portrait from knees up, entire head comfortably inside image, character centrally composed and dominant, eyes clearly readable at small size. Faction environment visible around character, a few distant guards allowed. Landscape 3:2 composition. Fully clothed adult, dignified courtly allure, no nudity. No writing, no lettering, no watermark, no UI or border. Same visual language as high quality realistic fantasy army hero portraits. One principal person only."
+    },
+    {
+      "file": "files/otherworld/companions/elves/noble-lady-2.png",
+      "faction": "elves",
+      "gender": "lady",
+      "appearance": 2,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-ebbb1f75-88e1-46d6-8958-977eb1aa5867.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait. Create a new distinct individual, A beautiful adult elven noblewoman, generously curvy build, silver-white hair in a long loose braid, pointed ears, delicate heart-shaped face and violet eyes. Teal and silver silk court gown with leaf filigree jewelry and a moonstone diadem, carrying an elegant curved bow. Luminous green forest, waterfalls and white elven palaces. Realistic detailed painted fantasy game unit illustration, cinematic natural lighting, luxurious textures, anatomy and face carefully rendered. Three-quarter portrait from knees up, entire head comfortably inside image, character centrally composed and dominant, eyes clearly readable at small size. Faction environment visible around character, a few distant guards allowed. Landscape 3:2 composition. Fully clothed adult, dignified courtly allure, no nudity. No writing, no lettering, no watermark, no UI or border. Same visual language as high quality realistic fantasy army hero portraits. One principal person only."
+    },
+    {
+      "file": "files/otherworld/companions/elves/noble-lord-2.png",
+      "faction": "elves",
+      "gender": "lord",
+      "appearance": 2,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-078661d1-b17f-488f-b7b1-73f0760365dc.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait. Create a new distinct individual, An adult elven nobleman with long copper-red hair, clean-shaven angular face, pointed ears and green eyes. Ivory and emerald court armor, leaf-woven gold mantle and a slim ceremonial spear. Luminous green forest, waterfalls and white elven palaces. Realistic detailed painted fantasy game unit illustration, cinematic natural lighting, luxurious textures, anatomy and face carefully rendered. Three-quarter portrait from knees up, entire head comfortably inside image, character centrally composed and dominant, eyes clearly readable at small size. Faction environment visible around character, a few distant guards allowed. Landscape 3:2 composition. Fully clothed adult, dignified courtly allure, no nudity. No writing, no lettering, no watermark, no UI or border. Same visual language as high quality realistic fantasy army hero portraits. One principal person only."
+    },
+    {
+      "file": "files/otherworld/companions/vampires/noble-lady-2.png",
+      "faction": "vampires",
+      "gender": "lady",
+      "appearance": 2,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-2942ea93-db99-4fc4-a421-9a78d20ef47f.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait. Create a new distinct individual, A beautiful adult vampire countess, generously curvy build, platinum-white hair arranged in an elegant braided crown, porcelain skin, oval face and icy blue eyes. Dark midnight-blue velvet court gown with silver embroidery, high crimson-lined collar and a ruby pendant, an ornate chalice. Purple moon over a gothic castle, red trees and mist. Realistic detailed painted fantasy game unit illustration, cinematic natural lighting, luxurious textures, anatomy and face carefully rendered. Three-quarter portrait from knees up, entire head comfortably inside image, character centrally composed and dominant, eyes clearly readable at small size. Faction environment visible around character, a few distant guards allowed. Landscape 3:2 composition. Fully clothed adult, dignified courtly allure, no nudity. No writing, no lettering, no watermark, no UI or border. Same visual language as high quality realistic fantasy army hero portraits. One principal person only."
+    },
+    {
+      "file": "files/otherworld/companions/vampires/noble-lord-2.png",
+      "faction": "vampires",
+      "gender": "lord",
+      "appearance": 2,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-c01cc59e-eccf-4aad-8102-47e13efec2f5.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait. Create a new distinct individual, An adult vampire nobleman about forty, long white hair, clean-shaven narrow face, pale skin and dark red eyes. Charcoal silver-embroidered court coat with high collar, sapphire brooch, purple-lined cape and a rapier. Purple moon over a gothic castle, red trees and mist. Realistic detailed painted fantasy game unit illustration, cinematic natural lighting, luxurious textures, anatomy and face carefully rendered. Three-quarter portrait from knees up, entire head comfortably inside image, character centrally composed and dominant, eyes clearly readable at small size. Faction environment visible around character, a few distant guards allowed. Landscape 3:2 composition. Fully clothed adult, dignified courtly allure, no nudity. No writing, no lettering, no watermark, no UI or border. Same visual language as high quality realistic fantasy army hero portraits. One principal person only."
+    },
+    {
+      "file": "files/otherworld/companions/north/noble-lady-3.png",
+      "faction": "north",
+      "gender": "lady",
+      "appearance": 3,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-960a08ac-d2f2-47dc-af8c-1693c403267f.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait, additional distinct appearance. Subject: A beautiful adult northern noblewoman about forty, generously curvy build, long straight black hair with two thin silver braids, angular cheekbones, pale grey eyes. Ivory-and-dark-green embroidered court dress, rich brown fur shoulders, gold raven brooch, holding a carved ivory hunting horn. Snowbound fjord harbor, wooden northern great hall, pine-covered mountains. Realistic detailed painted fantasy army hero illustration, cinematic natural lighting, rich textured fabrics and carefully rendered face. Three-quarter portrait from knees up, head fully inside image with space above, central principal character, face readable at small size, environment visible around. Landscape 3:2. A few distant guards allowed. Fully clothed adult, dignified courtly allure. One principal person, no text or lettering, no watermark, no UI or border."
+    },
+    {
+      "file": "files/otherworld/companions/north/noble-lord-3.png",
+      "faction": "north",
+      "gender": "lord",
+      "appearance": 3,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-a974c06e-78f6-4ab8-913d-28d25f289c67.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait, additional distinct appearance. Subject: An adult northern nobleman about sixty, long silver hair in a braid, thick white beard, weathered broad face and pale blue eyes. Dark green and gold brocade mantle, wolf fur collar, ornate mail, ceremonial axe. Snowbound fjord harbor, wooden northern great hall, pine-covered mountains. Realistic detailed painted fantasy army hero illustration, cinematic natural lighting, rich textured fabrics and carefully rendered face. Three-quarter portrait from knees up, head fully inside image with space above, central principal character, face readable at small size, environment visible around. Landscape 3:2. A few distant guards allowed. Fully clothed adult, dignified courtly allure. One principal person, no text or lettering, no watermark, no UI or border."
+    },
+    {
+      "file": "files/otherworld/companions/elines/noble-lady-3.png",
+      "faction": "elines",
+      "gender": "lady",
+      "appearance": 3,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-462d6cba-5298-48e9-a1af-3ce99abca180.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait, additional distinct appearance. Subject: A beautiful adult desert noblewoman about forty, generously curvy build, warm brown skin, dark brown curls pinned up, aquiline face and amber eyes. Emerald-and-copper embroidered royal dress, sheer green cape over shoulders, broad gold collar, carrying a jewel-studded astrolabe. Sandstone oasis palace and bright hanging gardens amid vast dunes. Realistic detailed painted fantasy army hero illustration, cinematic natural lighting, rich textured fabrics and carefully rendered face. Three-quarter portrait from knees up, head fully inside image with space above, central principal character, face readable at small size, environment visible around. Landscape 3:2. A few distant guards allowed. Fully clothed adult, dignified courtly allure. One principal person, no text or lettering, no watermark, no UI or border."
+    },
+    {
+      "file": "files/otherworld/companions/elines/noble-lord-3.png",
+      "faction": "elines",
+      "gender": "lord",
+      "appearance": 3,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-b05a1fcc-fc31-4ab2-9714-6ce5ad755543.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait, additional distinct appearance. Subject: An adult desert nobleman about sixty, bronze skin, long swept-back silver hair and close-cropped grey beard, strong lined angular face and dark eyes. Emerald silk robes with bronze and gold embroidery, embroidered shoulder mantle, gilded staff capped with a sun disk. Sandstone oasis palace and bright hanging gardens amid vast dunes. Realistic detailed painted fantasy army hero illustration, cinematic natural lighting, rich textured fabrics and carefully rendered face. Three-quarter portrait from knees up, head fully inside image with space above, central principal character, face readable at small size, environment visible around. Landscape 3:2. A few distant guards allowed. Fully clothed adult, dignified courtly allure. One principal person, no text or lettering, no watermark, no UI or border."
+    },
+    {
+      "file": "files/otherworld/companions/adepts/noble-lady-3.png",
+      "faction": "adepts",
+      "gender": "lady",
+      "appearance": 3,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-f0457c4b-570f-4317-b31f-60c9a222f92c.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait, additional distinct appearance. Subject: A beautiful adult crusader noblewoman about forty, generously curvy build, jet-black hair in a braided bun, strong oval face, pale skin and green eyes. Ivory and moss-green brocade court gown with long sleeves, a gold cross and jewel circlet, embroidered crimson cloak, holding a heraldic scroll. Crusader abbey cloister in orange autumn woodland. Realistic detailed painted fantasy army hero illustration, cinematic natural lighting, rich textured fabrics and carefully rendered face. Three-quarter portrait from knees up, head fully inside image with space above, central principal character, face readable at small size, environment visible around. Landscape 3:2. A few distant guards allowed. Fully clothed adult, dignified courtly allure. One principal person, no text or lettering, no watermark, no UI or border."
+    },
+    {
+      "file": "files/otherworld/companions/adepts/noble-lord-3.png",
+      "faction": "adepts",
+      "gender": "lord",
+      "appearance": 3,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-02156a6c-f952-4aab-8ae9-30c47c35c535.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait, additional distinct appearance. Subject: An adult crusader nobleman about thirty, short copper-red hair, clean-shaven square face, pale freckled skin and blue eyes. Burnished gold and ivory plate under dark green embroidered court mantle, ruby clasp, red-cross seal, carrying a closed prayer book. Crusader abbey cloister in orange autumn woodland. Realistic detailed painted fantasy army hero illustration, cinematic natural lighting, rich textured fabrics and carefully rendered face. Three-quarter portrait from knees up, head fully inside image with space above, central principal character, face readable at small size, environment visible around. Landscape 3:2. A few distant guards allowed. Fully clothed adult, dignified courtly allure. One principal person, no text or lettering, no watermark, no UI or border."
+    },
+    {
+      "file": "files/otherworld/companions/elves/noble-lady-3.png",
+      "faction": "elves",
+      "gender": "lady",
+      "appearance": 3,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-b7f23fb2-96b0-415c-a52f-22206d6c36c6.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait, additional distinct appearance. Subject: A beautiful adult elven noblewoman, generously curvy build, deep copper-red hair in an elaborate updo, pointed ears, warm tawny skin, angular face and golden eyes. Ivory and gold silk gown, amber leaf circlet, green embroidered cloak, holding a small crystalline harp. Sunlit forest palace terraces above cascading waterfalls. Realistic detailed painted fantasy army hero illustration, cinematic natural lighting, rich textured fabrics and carefully rendered face. Three-quarter portrait from knees up, head fully inside image with space above, central principal character, face readable at small size, environment visible around. Landscape 3:2. A few distant guards allowed. Fully clothed adult, dignified courtly allure. One principal person, no text or lettering, no watermark, no UI or border."
+    },
+    {
+      "file": "files/otherworld/companions/elves/noble-lord-3.png",
+      "faction": "elves",
+      "gender": "lord",
+      "appearance": 3,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-2eb07eac-b188-48a4-8489-06e8d900db12.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait, additional distinct appearance. Subject: An adult elven nobleman with deep brown skin, long silver-white braids, clean-shaven dignified oval face, pointed ears and violet eyes. Deep teal and silver brocade robes, moonstone circlet and feathered mantle, holding a slim crescent staff. Sunlit forest palace terraces above cascading waterfalls. Realistic detailed painted fantasy army hero illustration, cinematic natural lighting, rich textured fabrics and carefully rendered face. Three-quarter portrait from knees up, head fully inside image with space above, central principal character, face readable at small size, environment visible around. Landscape 3:2. A few distant guards allowed. Fully clothed adult, dignified courtly allure. One principal person, no text or lettering, no watermark, no UI or border."
+    },
+    {
+      "file": "files/otherworld/companions/vampires/noble-lady-3.png",
+      "faction": "vampires",
+      "gender": "lady",
+      "appearance": 3,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-e3efa6bb-4e61-4043-bad3-3f5d33dd12e2.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait, additional distinct appearance. Subject: A beautiful adult vampire countess, generously curvy build, rich auburn hair in loose waves, porcelain skin, angular cheekbones and amber eyes. Deep emerald velvet court gown with long sleeves, black lace shoulder mantle, gold garnet circlet, holding an antique red rose. Misty gothic palace balcony under a violet full moon and crimson trees. Realistic detailed painted fantasy army hero illustration, cinematic natural lighting, rich textured fabrics and carefully rendered face. Three-quarter portrait from knees up, head fully inside image with space above, central principal character, face readable at small size, environment visible around. Landscape 3:2. A few distant guards allowed. Fully clothed adult, dignified courtly allure. One principal person, no text or lettering, no watermark, no UI or border."
+    },
+    {
+      "file": "files/otherworld/companions/vampires/noble-lord-3.png",
+      "faction": "vampires",
+      "gender": "lord",
+      "appearance": 3,
+      "source": "C:\\Users\\lerdo\\.codex\\generated_images\\01a1aa1b-a30d-7893-95e2-a3a01d828c5e\\exec-470c03d5-15f3-4a58-a448-bc4209ccfeb2.png",
+      "prompt": "Use case: stylized-concept. Asset type: single landscape fantasy strategy game noble portrait, additional distinct appearance. Subject: An adult vampire nobleman about fifty, short black hair at temples, neat pointed dark beard with silver streaks, pale skin and sharp aquiline features, icy blue eyes. Burgundy and black brocade court coat, gold filigree chains, a ruby signet and long black cloak, carrying a silver cane. Misty gothic palace balcony under a violet full moon and crimson trees. Realistic detailed painted fantasy army hero illustration, cinematic natural lighting, rich textured fabrics and carefully rendered face. Three-quarter portrait from knees up, head fully inside image with space above, central principal character, face readable at small size, environment visible around. Landscape 3:2. A few distant guards allowed. Fully clothed adult, dignified courtly allure. One principal person, no text or lettering, no watermark, no UI or border."
+    }
+  ]
+}

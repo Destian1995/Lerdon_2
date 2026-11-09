@@ -199,7 +199,11 @@ def current_effect_rows(conn, faction, season):
         rows.append(('Фабрики', totals['Фабрика'],
                      f"{totals['Фабрика'] * FACTORY_YIELD * factory_mult:g} кристаллов/ход до потребления; −{totals['Фабрика'] * 20} рабочих/ход"))
     if totals['Рынок']:
-        rows.append(('Рынки', totals['Рынок'], f"+{totals['Рынок'] * 10}% доход крон; +{totals['Рынок'] * 10}% к множителю торговли"))
+        from utils.market_income import market_policy,market_profile
+        resource,percent=market_policy(conn,faction)
+        count,_,_=market_profile(conn,faction)
+        effect='доход крон (Смирение)' if resource=='Кроны' else 'добыча кристаллов (Борьба)'
+        rows.append(('Рынки',count,f"+{count*percent}% {effect}; +{totals['Рынок']*10}% к множителю торговли"))
     if totals['Цитадель']:
         rows.append(('Цитадели', totals['Цитадель'], f"+{totals['Цитадель'] * 500} к лимиту армии"))
     for city, walls, smithies in conn.execute('''

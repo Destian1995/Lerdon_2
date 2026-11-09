@@ -128,12 +128,18 @@ class MonsterCaseTests(unittest.TestCase):
 
     def test_victory_awards_exactly_one_ordinary_companion_to_winning_party(self):
         self.reveal();case=hunt.state(self.db,'Север')
+        columns={r[1] for r in self.db.execute('PRAGMA table_info(units)')}
+        for field in ('initiative','morale','crit_chance'):
+            if field not in columns:self.db.execute('ALTER TABLE units ADD COLUMN '+field+' REAL')
         before=list(self.db.execute('SELECT * FROM resources'))
         result=hunt.fight(self.db,'Север','Hero',self.win)
         self.assertTrue(result['won']);prize=result['companion']
-        self.assertEqual(prize['attack'],100_000_000*(1000+case['attack_bonus'])//1000)
-        self.assertEqual(prize['defense'],100_000_000*(1000+case['defense_bonus'])//1000)
-        for key in ('attack','defense'):self.assertTrue(114_200_000<=prize[key]<=127_100_000)
+        self.assertEqual(prize['attack'],hunt.monster(case)['attack']*60//100)
+        self.assertEqual(prize['defense'],hunt.monster(case)['defense']*60//100)
+        self.assertEqual(self.db.execute('SELECT initiative,morale,crit_chance FROM units WHERE unit_name=?',
+                                        (prize['name'],)).fetchone(),(30,60,3))
+        self.assertIsNone(hunt.pact(self.db,'Север'))
+        self.assertEqual(list(self.db.execute('SELECT * FROM portal_heart_contracts')),[])
         self.assertEqual(self.db.execute('SELECT city_name,unit_count FROM garrisons WHERE unit_name=?',(prize['name'],)).fetchone(),(self.party['camp'],1))
         self.assertEqual(self.db.execute('SELECT unit_class,unit_type FROM units WHERE unit_name=?',(prize['name'],)).fetchone(),('1','archer'))
         self.assertEqual(hunt.state(self.db,'Север')['hero'],'Hero')
@@ -149,6 +155,13 @@ class MonsterCaseTests(unittest.TestCase):
         worlds.return_home(self.db,'Север')
         self.assertEqual(self.db.execute('SELECT city_name,unit_count FROM garrisons WHERE unit_name=?',(prize['name'],)).fetchone(),('Home',1))
         self.assertEqual(self.db.execute('SELECT attack,defense FROM units WHERE unit_name=?',(prize['name'],)).fetchone(),(prize['attack'],prize['defense']))
+        self.db.execute('UPDATE turn SET turn_count=200')
+        self.assertFalse(hunt.soul_loss_reason(self.db,'Север'))
+        from heart_contract import expire,multiplier
+        self.assertFalse(expire(self.db,'Север'));self.assertEqual(multiplier(self.db,'Север'),1)
+        self.db.commit();saved=sqlite3.connect(':memory:');self.addCleanup(saved.close);self.db.backup(saved)
+        self.assertEqual(saved.execute('SELECT unit_count FROM garrisons WHERE unit_name=?',(prize['name'],)).fetchone()[0],1)
+        self.assertEqual(saved.execute('SELECT attack,defense FROM units WHERE unit_name=?',(prize['name'],)).fetchone(),(prize['attack'],prize['defense']))
 
     def test_loss_does_not_issue_reward_or_complete_case(self):
         self.reveal()

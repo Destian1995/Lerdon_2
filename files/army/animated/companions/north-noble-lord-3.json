@@ -1,0 +1,532 @@
+{
+  "version": 1,
+  "image": "north-noble-lord-3.png",
+  "character": "companions/north-noble-lord-3",
+  "reference": "files/otherworld/companions/north/noble-lord-3.png",
+  "facing": "right",
+  "grid": [
+    6,
+    6
+  ],
+  "frame_size": [
+    209,
+    209
+  ],
+  "rect_origin": "top-left",
+  "offset_origin": "bottom-left",
+  "ground_anchor": [
+    0.5,
+    0.1
+  ],
+  "animations": {
+    "idle": {
+      "fps": 6,
+      "loop": true,
+      "hold_last": false,
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            2
+          ]
+        },
+        {
+          "rect": [
+            209,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            -2,
+            3
+          ]
+        },
+        {
+          "rect": [
+            418,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            -6,
+            3
+          ]
+        },
+        {
+          "rect": [
+            627,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            -9,
+            3
+          ]
+        },
+        {
+          "rect": [
+            836,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            -12,
+            3
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            -15,
+            3
+          ]
+        }
+      ]
+    },
+    "walk": {
+      "fps": 10,
+      "loop": true,
+      "hold_last": false,
+      "frames": [
+        {
+          "rect": [
+            0,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            4
+          ]
+        },
+        {
+          "rect": [
+            209,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            4
+          ]
+        },
+        {
+          "rect": [
+            418,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            4
+          ]
+        },
+        {
+          "rect": [
+            627,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            5
+          ]
+        },
+        {
+          "rect": [
+            836,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            5
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            5
+          ]
+        }
+      ]
+    },
+    "attack": {
+      "fps": 12,
+      "loop": false,
+      "hold_last": true,
+      "frames": [
+        {
+          "rect": [
+            0,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            0
+          ]
+        },
+        {
+          "rect": [
+            209,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -1
+          ]
+        },
+        {
+          "rect": [
+            418,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -1
+          ]
+        },
+        {
+          "rect": [
+            627,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -1
+          ]
+        },
+        {
+          "rect": [
+            836,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -2
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    "hit": {
+      "fps": 10,
+      "loop": false,
+      "hold_last": true,
+      "frames": [
+        {
+          "rect": [
+            0,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -6
+          ]
+        },
+        {
+          "rect": [
+            209,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -6
+          ]
+        },
+        {
+          "rect": [
+            418,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -7
+          ]
+        },
+        {
+          "rect": [
+            627,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -6
+          ]
+        },
+        {
+          "rect": [
+            836,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -6
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -6
+          ]
+        }
+      ]
+    },
+    "death": {
+      "fps": 9,
+      "loop": false,
+      "hold_last": true,
+      "frames": [
+        {
+          "rect": [
+            0,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -11
+          ]
+        },
+        {
+          "rect": [
+            209,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -12
+          ]
+        },
+        {
+          "rect": [
+            418,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -13
+          ]
+        },
+        {
+          "rect": [
+            627,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -12
+          ]
+        },
+        {
+          "rect": [
+            836,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -12
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -12
+          ]
+        }
+      ]
+    },
+    "melee": {
+      "fps": 12,
+      "loop": false,
+      "hold_last": true,
+      "frames": [
+        {
+          "rect": [
+            0,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -13
+          ]
+        },
+        {
+          "rect": [
+            209,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -13
+          ]
+        },
+        {
+          "rect": [
+            418,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -13
+          ]
+        },
+        {
+          "rect": [
+            627,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -14
+          ]
+        },
+        {
+          "rect": [
+            836,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -14
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            -13
+          ]
+        }
+      ]
+    }
+  },
+  "sha256": "0ca77425053360cb33d0191c96dfb0984e81b629a06fd2df653198e616972941",
+  "aliases": [
+    "atlas://companions/north-noble-lord-3"
+  ],
+  "idle_registration": {
+    "version": 1,
+    "reference_frame": 0,
+    "method": "silhouette translation relative to first idle frame",
+    "shifts": [
+      [
+        0,
+        0
+      ],
+      [
+        -2,
+        1
+      ],
+      [
+        -6,
+        1
+      ],
+      [
+        -9,
+        1
+      ],
+      [
+        -12,
+        1
+      ],
+      [
+        -15,
+        1
+      ]
+    ]
+  }
+}

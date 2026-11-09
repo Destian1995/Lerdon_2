@@ -27,6 +27,9 @@ class MorganaOfferUITests(unittest.TestCase):
             popup.dismiss(animation=False);settle()
             self.assertIsNone(show_offer(seed.db,'Север'))
             popup=show_offer(seed.db,'Север',force=True);settle()
+            self.assertEqual(covenant.state(seed.db,'Север')['status'],'deferred')
+            seed.db.execute("UPDATE resources SET amount=2000000 WHERE faction='Север' AND resource_type='Кроны'")
+            seed.db.commit()
             popup.accept();settle()
             self.assertTrue(covenant.serving(seed.db,'Север'))
             from town_scene import TownScene

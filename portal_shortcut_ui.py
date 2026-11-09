@@ -56,6 +56,12 @@ class PortalShortcut:
             present=bool(conn and conn.execute('SELECT 1 FROM portal_parties WHERE faction=?',
                                               (self.screen.selected_faction,)).fetchone())
         except sqlite3.Error:present=False
+        from morgana_covenant import state
+        row=state(conn,self.screen.selected_faction) if conn else None
+        self._morgana_only=not present and bool(row and row['status'] in ('offered','deferred'))
+        present=present or self._morgana_only
+        self.button.caption.text='Моргана' if self._morgana_only else 'Зазеркалье'
+        self.button.icon.source='files/army/death/morgana.png' if self._morgana_only else 'files/portals/portal_'+theme(self.screen.selected_faction)['key']+'.png'
         self.visible=present
         if present:
             from otherworld_ui import _busy
@@ -107,6 +113,11 @@ class PortalShortcut:
         self.refresh()
         if not self.visible or self.button.disabled:return
         if self.popup and self.popup.parent:return
+        if getattr(self,'_morgana_only',False):
+            from morgana_covenant_ui import show_offer
+            self.popup=show_offer(self.screen.conn,self.screen.selected_faction,force=True)
+            if self.popup:self.popup.bind(on_dismiss=self._dismissed)
+            return
         from otherworld_ui import OtherworldMap
         self.popup=OtherworldMap(self.screen.conn,self.screen.selected_faction)
         self.popup.bind(on_dismiss=self._dismissed)

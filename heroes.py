@@ -250,7 +250,9 @@ def load_hero_stats_from_db(faction):
                 stats['defense'] = stats_row[1] if stats_row[1] is not None else 0
                 # Предполагая, что в БД поле называется 'durability', а не 'health'
                 stats['durability'] = stats_row[2] if stats_row[2] is not None else 0
-                # Добавьте обработку других столбцов, если добавили их в SELECT
+                from heart_contract import multiplier
+                factor=multiplier(faction.conn,faction.faction)
+                for key in ('attack','defense','durability'):stats[key]*=factor
                 print(f"Характеристики загружены: {stats}")
             else:
                 print(f"Характеристики для героя {hero_unit_name} не найдены в units.")

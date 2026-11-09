@@ -1168,9 +1168,9 @@ class Faction:
         # Выполняем расчеты
         self.free_peoples += self.clear_up_peoples
         base_income = int(self.calculate_tax_income() - (self.hospitals * coeffs['money_loss']))
-        # Бонус от Рынков: +10% дохода крон за каждый рынок
-        market_bonus = 1.0 + self.markets * 0.10
-        boosted_income = int(base_income * market_bonus)
+        from utils.market_income import market_profile,additional_income
+        _markets,_market_crowns,_market_crystals=market_profile(self.conn,self.faction)
+        boosted_income=base_income+additional_income(base_income,_markets,_market_crowns)
         from utils.city_terrain import economic_bonuses
         _terrain_bonus = economic_bonuses(self.conn,self.faction,boosted_income,FACTORY_YIELD*_season_factory_mult)
         boosted_income += _terrain_bonus['crowns']
@@ -1213,14 +1213,18 @@ class Faction:
         # (армия уже списывает кристаллы напрямую; двойное наказание нарушает баланс).
         # max(0, ...) гарантирует, что фракция с отрицательным базовым производством
         # просто не получает бонус, вместо отрицательного значения.
-        self.food_info = max(0, int(base_raw_material_production + total_city_bonus_kf + _terrain_bonus['crystals']))
+        _gross_crystals=max(0,self.factories*FACTORY_YIELD*_season_factory_mult*(1+city_raw_material_bonus)+_terrain_bonus['crystals'])
+        _market_crystal_income=additional_income(_gross_crystals,_markets,_market_crystals)
+        self.food_info = max(0, int(base_raw_material_production + total_city_bonus_kf + _terrain_bonus['crystals'] + _market_crystal_income))
 
-        # Итоговый прирост Кристаллов = базовый + бонус от kf_crystal - потребление армии
-        # self.raw_material увеличивается на этот итоговый прирост
-        self.raw_material += int(base_raw_material_production + total_city_bonus_kf + _terrain_bonus['crystals'] - self.current_consumption)
+        # Production first; the authoritative garrison bill below deducts upkeep once.
+        self.raw_material += int(base_raw_material_production + total_city_bonus_kf + _terrain_bonus['crystals'] + _market_crystal_income)
 
         # self.food_peoples не изменяется, так как зависит от coeffs['food_loss'] и населения
         self.food_peoples = int(self.population * coeffs['food_loss'])
+
+        # Bill actual garrisons once, before population checks, caps and net profit.
+        self.calculate_and_deduct_consumption()
 
         # --- ПРИМЕНЕНИЕ ЭФФЕКТА НАЛОГОВ К НАСЕЛЕНИЮ ---
         # Получаем текущую ставку налога (предполагается, что она хранится как строка, например, "15%")
@@ -1282,7 +1286,6 @@ class Faction:
 
         # Обновляем средние значения чистой прибыли в таблице results
         self.update_average_net_profit(net_profit_coins, net_profit_raw)
-        self.calculate_and_deduct_consumption()
         # Потери гарнизонов в отрезанных от снабжения городах
         self._apply_supply_line_losses()
         # Синхронизируем и сохраняем
@@ -1493,10 +1496,10 @@ class Faction:
             from portal_home import loss_reason
             portal_loss=loss_reason(self.conn,self.faction)
             if portal_loss:return False,portal_loss
-            from mirror_monster_quest import soul_loss_reason,pact
+            from mirror_monster_quest import soul_loss_reason,soul_pact
             from city_war import current_turn
             soul_loss=soul_loss_reason(self.conn,self.faction)
-            deal=pact(self.conn,self.faction)
+            deal=soul_pact(self.conn,self.faction)
             if soul_loss and current_turn(self.conn)>deal['deadline']:return False,soul_loss
             # Условия завершения игры
             if self.population <= 0:
@@ -1534,6 +1537,8 @@ class Faction:
                     print(message)
                     return False, message
 
+            from heart_contract import expire as expire_heart_contract
+            expire_heart_contract(self.conn,self.faction)
             if soul_loss:return False,soul_loss
             # Если ни одно из условий не выполнено, игра продолжается
             return True, "Игра продолжается."

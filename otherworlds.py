@@ -538,6 +538,8 @@ def fight_guards(conn,faction,skirmish=None,encounter=None,tactical=False):
             portraits.append(dict(unit_class=rest[-1],unit_image=image))
         attacker_image=pick_battle_image(portraits,faction)
         profiles=expedition_profiles(conn,faction,p['camp'])
+        from heart_contract import multiplier as curse_multiplier
+        curse=curse_multiplier(conn,faction)
         army=[]
         for name,count,image,exp,attack,defense,durability,cls in _camp_units(conn,p['camp']):
             if str(cls).split()[0]!='1':
@@ -550,7 +552,8 @@ def fight_guards(conn,faction,skirmish=None,encounter=None,tactical=False):
                              attack=profile['attack'],defense=profile['defense'],durability=0,
                              units_stats={'Урон':profile['attack'],'Защита':profile['defense'],
                                           'Живучесть':0,'Класс юнита':'1','Тип':kind,
-                                          'Инициатива':template.get('initiative',50),'Крит':template.get('crit_chance',5)},
+                                          'Инициатива':(template.get('initiative') if template.get('initiative') is not None else 50)*curse,'Крит':(template.get('crit_chance') if template.get('crit_chance') is not None else 5)*curse,
+                                          'Мораль':(template.get('morale') if template.get('morale') is not None else 100)*curse},
                              unit_type=kind,initiative=50,morale=100,crit_chance=5))
         if not army:
             raise ValueError('Для боя нужны обычные войска в отряде.')
@@ -573,11 +576,14 @@ def fight_guards(conn,faction,skirmish=None,encounter=None,tactical=False):
                     _encounter_attack_multiplier=1.03 if not regular and guard_bonus_left(conn,faction) else 1,
                     units_stats={'Урон':attack,'Защита':defense,'Живучесть':durability,'Класс юнита':cls,
                                  'Тип':template.get('unit_type') or 'infantry',
-                                 'Инициатива':template.get('initiative') or 50,'Крит':template.get('crit_chance') or 5}))
+                                 'Инициатива':template.get('initiative') or 50,'Крит':template.get('crit_chance') or 5,
+                                 'Мораль':template.get('morale') or 100}))
                 if regular:
                     # The quick Mirror fight receives these completed profiles
                     # rather than raw soldiers. Preserve that exact rounding.
                     tactical_army[-1]['_quick_combat_power']=(int(profiles[name]['attack']),int(profiles[name]['defense']))
+            from heart_contract import apply_to_army
+            apply_to_army(conn,tactical_army)
             context=battle_context(conn,city['name'],faction)
             context['season_multipliers']={faction:_get_season_mult(faction,conn)}
             context['morale_rules']=False

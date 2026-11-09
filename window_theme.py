@@ -272,7 +272,7 @@ def theme_popup(popup):
             _remove_native_header(popup)
             wrapper = BoxLayout(orientation='vertical', padding=dp(12), spacing=dp(10))
             wrapper._window_theme_wrapper = True
-            can_close = has_actions or popup.auto_dismiss and bool(caption)
+            can_close = not getattr(popup, '_strategy_no_close', False) and (has_actions or popup.auto_dismiss and bool(caption))
             if caption or can_close and not existing_close:
                 header = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(10))
                 title = Label(text=caption, color=GOLD, font_size=sp(17), bold=True,

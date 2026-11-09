@@ -31,6 +31,8 @@ def garrison_profiles(conn, city, faction=None):
                 capital_bonus = True
     except sqlite3.OperationalError:
         pass
+    from heart_contract import multiplier
+    curse=multiplier(conn,faction)
     prepared=[]
     raw_stats={r[6]:(int(r[1] or 0),int(r[2] or 0),int(r[3] or 0)) for r in rows}
     for cls,attack,defense,durability,count,exp,name in rows:
@@ -64,7 +66,7 @@ def garrison_profiles(conn, city, faction=None):
                     attack = int(attack*combat_multiplier(faction, conn))
                 elif name == 'Оплот':
                     base_defense = int(base_defense*combat_multiplier(faction, conn))
-        profiles[unit_name]=dict(attack=round(attack*exp_mult*spirit,8),defense=round(base_defense*exp_mult*relief,8),
+        profiles[unit_name]=dict(attack=round(attack*exp_mult*spirit*curse,8),defense=round(base_defense*exp_mult*relief*curse,8),
                                  count=count,bonus_name=bonus_name,bonus_active=active)
     return profiles
 

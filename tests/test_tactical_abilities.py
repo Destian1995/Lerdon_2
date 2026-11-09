@@ -15,13 +15,14 @@ def arena(name):
 
 
 class HeroAbilityTests(unittest.TestCase):
-    def test_every_requested_hero_and_all_fifteen_abilities_are_available(self):
+    def test_every_requested_hero_and_all_abilities_are_available(self):
         expected={'Владислав':3,'Ольга':2,'Арн-гот':2,'Кристол':1,'Сестра Милосердия':2,
-                  'Агилар':1,'Валерия':1,'Изабэлл':2,'Дитрих Фрост':1}
+                  'Агилар':2,'Валерия':1,'Изабэлл':2,'Дитрих Фрост':1}
         keys=set()
         for name,count in expected.items():
             m,*_=arena(name);self.assertEqual(len(m.skills()),count);keys.update(m.skills())
-        self.assertEqual(keys,set(ABILITIES))
+        from tactical_abilities import TROOPS
+        self.assertEqual(keys,set(ABILITIES)-set(TROOPS))
 
     def test_bodyguards_protect_heroes_from_shots_counters_area_and_dot(self):
         m,a,g,b,h=arena('Владислав')

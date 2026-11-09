@@ -20,10 +20,13 @@ FADED=(.40,.32,.23,1)
 READY=(.16,.37,.22,1)
 AMBER=(.60,.25,.09,1)
 ICONS={
+    'paladin_shield':'bronya_svutogo.png','auto_burst':'mushket_markova.png',
+    'blood_vortex':'posoh_diadara.png','twin_arrow':'luk_luny.png',
+    'priest_shield':'amulet_vechnoy_vesny.png','vampire_raise':'koltso_dushi.png',
     'snipe':'vintovka_greynjger.png','burst':'mushket_markova.png','grenade':'artefakt_voiny.png',
     'blizzard':'amulet_zimy.png','freeze':'amulet_hlad.png','flight':'sapogi_strannika.png',
     'flame':'koltso_plameni.png','fire_shield':'bronya_aresa.png','heal':'amulet_vechnoy_vesny.png',
-    'inspire':'korona_solnca.png','whirlwind':'mech_paladina.png','drain':'posoh_diadara.png',
+    'sword_throw':'mech_paladina.png','inspire':'korona_solnca.png','whirlwind':'mech_paladina.png','drain':'posoh_diadara.png',
     'vampirism':'koltso_dushi.png','dominate':'shlem_haosa.png','blood':'klinok_zabveniya.png'}
 TARGETS={'enemy':'Вражеский отряд','ally':'Союзный отряд','soldier':'Союзные солдаты',
          'cell':'Клетка поля','flight':'Свободная клетка','direction':'Направление от героя',
@@ -178,9 +181,9 @@ class AbilityBook(Popup):
         self.target_info.text=TARGETS[spec.target]+(f' · дальность {spec.reach}' if spec.reach else '')+(
             f'\nРадиус: {spec.radius} кл.' if spec.radius else '')+f'\nПерезарядка: {spec.cooldown} р.'
         battle=self.owner.battle
-        offensive=key in ('snipe','burst','grenade','blizzard','flame','whirlwind','drain')
+        offensive=key in ('snipe','burst','grenade','blizzard','flame','whirlwind','sword_throw','drain','auto_burst','blood_vortex','twin_arrow','vampire_raise')
         if offensive:
-            self.power.text='Сила: '+format_number(battle.skill_power(self.actor,True))+'\nДо учёта защиты цели'
+            self.power.text='Сила: '+format_number(battle.ability_power(key,self.actor))+'\nДо учёта защиты цели'
         elif key=='heal':
             self.power.text='Лечение: '+format_number(battle.skill_power(self.actor,False)*.25)+'\nДо учёта стойкости цели'
         elif key=='fire_shield':

@@ -12,6 +12,7 @@ from strategy_ui import StrategyButton, surface, text_label, GOLD, MUTED, FACTIO
 
 def show_campaign_results(owner, title, message, results, text_color):
     root = BoxLayout(orientation='vertical', spacing=dp(10))
+    root._responsive_keep_geometry = True
     ending=epilogue(getattr(owner,'conn',None),getattr(owner,'current_faction','Север'),
                     getattr(owner,'game_status','win'),getattr(owner,'reason',message))
     body=BoxLayout(orientation='vertical',spacing=dp(8))
@@ -50,13 +51,16 @@ def show_campaign_results(owner, title, message, results, text_color):
         root.add_widget(widget,index=2)
     summary.bind(on_release=lambda *_:select(body));statistics.bind(on_release=lambda *_:select(scroll))
     exit_button = StrategyButton(text='Вернуться в меню', primary=True, size_hint_y=None, height=dp(48))
-    exit_button.bind(on_release=owner.exit_to_main_menu)
+    # Kivy weakly stores bound methods; ResultsGame is otherwise temporary.
+    exit_button.bind(on_release=lambda button: owner.exit_to_main_menu(button))
     root.add_widget(exit_button)
     popup = Popup(title=title, content=root, size_hint=(0.95, 0.94), auto_dismiss=False)
+    popup._strategy_no_close = True
     owner.popup = popup
     popup.ending=ending;popup.epilogue_body=body;popup.ending_art=art
     popup.story_scroll=story_scroll;popup.statistics_scroll=scroll
     popup.summary_button=summary;popup.statistics_button=statistics
+    popup.exit_button=exit_button
     def fit(*_):
         tabs.height=dp(44);exit_button.height=dp(48)
         root.spacing=dp(8);body.spacing=dp(8)

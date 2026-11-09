@@ -26,7 +26,7 @@ class CompanionForms(WorldPopup):
         self.root.add_widget(genders)
         from morgana_covenant import offer
         row=offer(conn,faction)
-        if row and row['status']=='offered':
+        if row and row['status'] in ('offered','deferred'):
             from morgana_covenant_ui import show_offer
             self.root.add_widget(_button('Предложение Морганы',lambda *_:show_offer(conn,faction,force=True),size_hint_y=None,height=dp(44)))
 
@@ -35,6 +35,9 @@ class CompanionForms(WorldPopup):
         if not data:return
         row=self.conn.execute('SELECT attack,defense,image_path FROM units WHERE unit_name=?',(data['unit_name'],)).fetchone()
         self.art.source=row[2]
+        from heart_contract import multiplier
+        factor=multiplier(self.conn,self.faction)
+        row=(row[0]*factor,row[1]*factor,row[2])
         self.stats.text=('Дворянин: АТК +50%, ЗАЩ −50%' if data['form']=='noble' else 'Монстр: АТК −50%, ЗАЩ +50%')
         self.stats.text+='\nАТК '+format_number(row[0])+' · ЗАЩ '+format_number(row[1])+'\n'+hunt.deadline_caption(self.conn,self.faction)
 

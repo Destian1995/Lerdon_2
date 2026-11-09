@@ -9,13 +9,14 @@ from kivy.core.text import Label as CoreLabel
 from kivy.graphics import Color, Rectangle, Line, Ellipse
 from kivy.metrics import dp
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.popup import Popup
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.widget import Widget
 
 from strategy_ui import StrategyButton, text_label, surface, GOLD, TEXT, MUTED, SURFACE
-from tactical_combat import TERRAINS, RANGE, WIDTH, HEIGHT
+from tactical_combat import TERRAINS, RANGE, WIDTH, HEIGHT, unit_class
 from tactical_abilities import ABILITIES
 from tactical_terrain_art import TerrainArt, landmark_rect
 from window_theme import prepare_custom_popup
@@ -213,6 +214,13 @@ class Battlefield(Widget):
                 visible_alive=s.alive or pending is not None
                 px,py = self.cell_center(p)
                 accent = BLUE if s.side=='attacker' else RED
+                if s.alive and ('paladin_shield' in s.effects or 'priest_shield' in s.effects):
+                    hue=(1,.79,.34) if 'paladin_shield' in s.effects else (.46,.85,1)
+                    Color(*hue,.13)
+                    Ellipse(pos=(px-c*.42,py-c*.42),size=(c*.84,c*.94))
+                    Color(*hue,.85)
+                    Line(points=(px-c*.38,py+c*.28,px,py+c*.48,px+c*.38,py+c*.28,
+                                 px+c*.30,py-c*.19,px,py-c*.43,px-c*.30,py-c*.19),close=True,width=dp(1.3))
                 if visible_alive:
                     Color(*accent[:3],.32)
                     Ellipse(pos=(px-c*.37,py-c*.38),size=(c*.74,c*.26))
@@ -261,7 +269,19 @@ class Battlefield(Widget):
                     actor,target=battle.stacks[strike['actor']],battle.stacks[strike['target']]
                     ax,ay=self.cell_center(actor.pos)
                     tx,ty=self.cell_center(target.pos)
-                    if max(abs(actor.pos[0]-target.pos[0]),abs(actor.pos[1]-target.pos[1]))>1:
+                    if strike.get('ability')=='sword_throw':
+                        px=ax+(tx-ax)*t;py=ay+(ty-ay)*t
+                        angle=math.atan2(ty-ay,tx-ax)+t*math.tau*1.5
+                        vx,vy=math.cos(angle),math.sin(angle)
+                        nx,ny=-vy,vx
+                        Color(.78,.91,1,1)
+                        Line(points=(px-vx*c*.22,py-vy*c*.22,px+vx*c*.23,py+vy*c*.23),width=max(1,c*.045))
+                        Color(1,.79,.32,1)
+                        gx,gy=px-vx*c*.14,py-vy*c*.14
+                        Line(points=(gx-nx*c*.10,gy-ny*c*.10,gx+nx*c*.10,gy+ny*c*.10),width=max(1,c*.035))
+                        Color(.29,.15,.07,1)
+                        Line(points=(px-vx*c*.23,py-vy*c*.23,px-vx*c*.34,py-vy*c*.34),width=max(1,c*.045))
+                    elif max(abs(actor.pos[0]-target.pos[0]),abs(actor.pos[1]-target.pos[1]))>1:
                         Color(.70,.88,1,.9)
                         tail=max(0,t-.2)
                         Line(points=(ax+(tx-ax)*tail,ay+(ty-ay)*tail,
@@ -272,12 +292,28 @@ class Battlefield(Widget):
             for cells,start,key in self.owner.ability_fx:
                 age=self.owner.age-start
                 if 0<=age<.8 and key!='grenade':
-                    hue=(.45,.83,1) if key in ('freeze','blizzard') else (.4,1,.6) if key in ('heal','inspire','vampirism') else (1,.35,.17)
+                    hue=(.45,.83,1) if key in ('freeze','blizzard','priest_shield') else (1,.82,.34) if key=='paladin_shield' else (.4,1,.6) if key in ('heal','inspire','vampirism','vampire_raise') else (1,.35,.17)
                     Color(*hue,(1-age/.8)*.7)
                     for pos in cells:
                         px,py=self.cell_center(pos)
                         radius=c*(.18+age*.65)
                         Line(ellipse=(px-radius,py-radius,radius*2,radius*2),width=2)
+            for vortex in battle.vortices:
+                pos=vortex['pos']
+                motion=self.owner.vortex_motion.get(vortex['id'])
+                if motion:
+                    path,start=motion;t=max(0,min(1,(self.owner.age-start)/.6))*(len(path)-1)
+                    index=min(len(path)-2,int(t));fraction=min(1,t-index)
+                    pos=(path[index][0]+(path[index+1][0]-path[index][0])*fraction,
+                         path[index][1]+(path[index+1][1]-path[index][1])*fraction)
+                px,py=self.cell_center(pos)
+                for ring in range(3):
+                    points=[]
+                    for j in range(32):
+                        angle=j*.28+self.owner.age*8+ring*2
+                        radius=c*(.08+j*.009)
+                        points.extend((px+math.cos(angle)*radius,py+math.sin(angle)*radius*.65+(ring-1)*c*.12))
+                    Color(.75,.53,1,.78-ring*.12);Line(points=points,width=dp(1.4))
             for origin,impact,start in self.owner.grenades:
                 age=self.owner.age-start
                 ax,ay=self.cell_center(origin);tx,ty=self.cell_center(impact)
@@ -346,16 +382,21 @@ class TacticalBattlePopup(Popup):
         self.projectiles=[]
         self.ability_fx=[]
         self.grenades=[]
+        self.vortex_motion={}
         self.seen_events=0
         self.help_open=False
         self.notified = False
+        self._closed=False
+        self.result_elapsed=0
+        self.result_banner=None
+        self.child_popups=[]
         self.clock_event=None
         self.root_box = BoxLayout(orientation='vertical',padding=dp(2),spacing=dp(2))
         self.root_box._strategy_fixed_layout=True
         surface(self.root_box)
         header = BoxLayout(size_hint_y=None,height=dp(40))
         self.heading = text_label(city,13,GOLD,bold=True)
-        help_button = StrategyButton(text='?',size_hint_x=None,width=dp(44))
+        help_button = self.help_button = StrategyButton(text='?',size_hint_x=None,width=dp(44))
         help_button.bind(on_release=self.show_rules)
         header.add_widget(help_button)
         self.root_box.add_widget(header)
@@ -398,7 +439,10 @@ class TacticalBattlePopup(Popup):
         self.info_button.bind(on_release=self.show_info)
         header.add_widget(self.info_button,index=1)
         self.root_box.add_widget(self.body)
-        self.content = self.root_box
+        self.layers=FloatLayout()
+        self.layers._strategy_fixed_layout=True
+        self.layers.add_widget(self.root_box)
+        self.content=self.layers
         self.bind(size=self.layout_battle,on_open=self.begin,on_dismiss=self.cleanup)
         self.layout_battle()
         self.refresh()
@@ -428,6 +472,7 @@ class TacticalBattlePopup(Popup):
         self.body.add_widget(self.panel)
 
     def show_info(self,*args):
+        if self.battle.winner:return
         self.help_open=True
         box=BoxLayout(orientation='vertical',spacing=dp(6),padding=dp(8))
         box._strategy_fixed_layout=True
@@ -446,6 +491,7 @@ class TacticalBattlePopup(Popup):
         prepare_custom_popup(popup)
         close.bind(on_release=popup.dismiss)
         popup.bind(on_dismiss=lambda *_:setattr(self,'help_open',False))
+        self.child_popups.append(popup)
         popup.open()
 
     def begin(self,*args):
@@ -455,6 +501,9 @@ class TacticalBattlePopup(Popup):
             self.clock_event = Clock.schedule_interval(self.tick,1/30)
 
     def cleanup(self,*args):
+        self._closed=True
+        for popup in self.child_popups:popup.dismiss(force=True,animation=False)
+        self.child_popups.clear()
         self.sound_queue.clear()
         self.audio.stop_owner(self)
         if getattr(self,'clock_event',None):
@@ -467,6 +516,7 @@ class TacticalBattlePopup(Popup):
         self.board.backdrop=None
 
     def show_rules(self,*args):
+        if self.battle.winner:return
         self.help_open=True
         box = BoxLayout(orientation='vertical',padding=dp(12),spacing=dp(6))
         box._strategy_fixed_layout=True
@@ -497,6 +547,7 @@ class TacticalBattlePopup(Popup):
         prepare_custom_popup(popup)
         close.bind(on_release=popup.dismiss)
         popup.bind(on_dismiss=lambda *_:setattr(self,'help_open',False))
+        self.child_popups.append(popup)
         popup.open()
 
     def select(self,pos):
@@ -511,6 +562,7 @@ class TacticalBattlePopup(Popup):
         if not self.can_control or self.help_open:return
         from tactical_spellbook_ui import AbilityBook
         popup=AbilityBook(self)
+        self.child_popups.append(popup)
         popup.open()
         return popup
 
@@ -519,13 +571,11 @@ class TacticalBattlePopup(Popup):
         actor=self.battle.stacks.get(self.deployment_actor) if self.deploying else s
         self.compact_info.text=(actor.name+'\n'+format_number(actor.count)) if actor else ''
         if self.battle.winner:
-            if self.busy<=0 and not self.result_sound_played:
-                self.audio.play('victory' if self.battle.winner==self.player_side else 'defeat',owner=self)
-                self.result_sound_played=True
             self.turn_label.text = 'ПОБЕДА' if self.battle.winner==self.player_side else 'ПОРАЖЕНИЕ'
             self.info.text = self.battle.reason
-            self.action.text = 'Завершить бой'
-            self.action.disabled = self.busy>0
+            self.action.text = 'Бой завершён'
+            self.action.disabled = True
+            self.show_result()
         elif self.deploying:
             self.turn_label.text='Расстановка · ваша армия'
             actor=self.battle.stacks.get(self.deployment_actor)
@@ -574,19 +624,49 @@ class TacticalBattlePopup(Popup):
         if self.selected_skill and self.can_control:
             spec=ABILITIES[self.selected_skill]
             self.info.text+='\n\n'+spec.name+': '+spec.description+'\nВыберите цель на поле.'
-            self.info.text+='\nУрон: 15% текущей атаки живого гарнизона. '
-            self.info.text+=f'Сила · АТК {format_number(self.battle.skill_power(s,True))} · ЗАЩ {format_number(self.battle.skill_power(s,False))}'
+            self.info.text+='\n'+('Урон рассчитывается от атаки этого отряда. ' if unit_class(s.unit)==1 else 'Урон: 15% текущей атаки живого гарнизона. ')
+            self.info.text+=f'Сила · АТК {format_number(self.battle.ability_power(self.selected_skill,s))} · ЗАЩ {format_number(self.battle.skill_power(s,False))}'
             self.action.text='Применить: '+spec.name
             self.action.disabled=not self.battle.ability_valid(self.selected_skill,self.selection)
         self.board.draw()
 
+    def show_result(self):
+        if self.result_banner is not None:return
+        self.help_open=False
+        for popup in self.child_popups:popup.dismiss(force=True,animation=False)
+        self.child_popups.clear()
+        self.selected_skill=None;self.selection=None
+        self.help_button.disabled=self.info_button.disabled=self.speed_button.disabled=True
+        won=self.battle.winner==self.player_side
+        if not self.result_sound_played:
+            self.audio.play('victory' if won else 'defeat',owner=self)
+            self.result_sound_played=True
+        overlay=FloatLayout()
+        with overlay.canvas.before:
+            Color(.01,.02,.04,.32)
+            shade=Rectangle(pos=overlay.pos,size=overlay.size)
+        overlay.bind(pos=lambda obj,value:setattr(shade,'pos',value),size=lambda obj,value:setattr(shade,'size',value))
+        banner=surface(BoxLayout(orientation='vertical',padding=dp(14),spacing=dp(4),size_hint=(None,None),height=dp(116),
+                                 pos_hint={'center_x':.5,'center_y':.5}),accent=GOLD if won else RED)
+        self.result_title=text_label('ПОБЕДА' if won else 'ПОРАЖЕНИЕ',30,GOLD if won else RED,bold=True)
+        self.result_title.halign='center'
+        self.result_caption=text_label('Все враги повержены' if won else 'Ваш отряд потерпел поражение',14,TEXT)
+        self.result_caption.halign='center'
+        banner.add_widget(self.result_title);banner.add_widget(self.result_caption)
+        overlay.add_widget(banner);self.layers.add_widget(overlay)
+        self.result_banner=banner
+        def fit(*_):banner.width=min(max(dp(180),self.layers.width-dp(24)),dp(540))
+        self.layers.bind(size=fit);fit()
+
+    def finish_result(self):
+        if self.notified or self._closed:return
+        self.notified=True
+        self.dismiss(animation=False)
+        if not self._closed:self.cleanup()
+        self.callback(self.battle)
+
     def confirm(self,*args):
-        if self.battle.winner:
-            if self.busy<=0 and not self.notified:
-                self.notified = True
-                self.dismiss()
-                self.callback(self.battle)
-            return
+        if self.battle.winner:return
         if self.deploying:
             actor=self.battle.stacks.get(self.deployment_actor)
             if self.action.text=='Поставить отряд' and actor:
@@ -629,11 +709,16 @@ class TacticalBattlePopup(Popup):
         grenade=action=='ability' and event['ability']=='grenade'
         if action=='ability':
             key=event['ability']
-            sound=('throw' if grenade else 'rifle' if key=='snipe' else None if key=='burst'
+            sound=('throw' if grenade else 'rifle' if key=='snipe' else None if key in ('burst','sword_throw','auto_burst','twin_arrow')
                    else 'frost' if key in ('freeze','blizzard') else 'heal' if key in ('heal','inspire','vampirism')
-                   else 'sword' if key=='whirlwind' else 'magic')
+                   else 'sword' if key in ('whirlwind','paladin_shield') else 'heal' if key in ('priest_shield','vampire_raise') else 'magic')
             if sound:self.audio.play(sound,owner=self)
         if action=='ability':self.ability_fx.append((event['cells'],self.age+(.65 if grenade else 0),event['ability']))
+        for revived in event.get('restored',[]):
+            target=self.battle.stacks[revived['target']]
+            self.animations.pop(target.id,None)
+            self.ability_fx.append(([target.pos],self.age,'heal'))
+        if event.get('restored'):self.sound_queue.append((self.age+.25,'heal'))
         if grenade:
             self.grenades.append((event['origin'],event['impact'],self.age))
             self.sound_queue.append((self.age+.65,'explosion'))
@@ -653,9 +738,13 @@ class TacticalBattlePopup(Popup):
             self.busy=max(.3,(len(event['path'])-1)*.13)
             self.animations[actor.id]=('walk',self.age,self.age+self.busy)
         elif action in ('attack','ability') and event.get('strikes'):
-            self.busy = .72*len(event['strikes'])+.65
+            volley=event.get('ability') in ('burst','sword_throw','auto_burst','twin_arrow')
+            interval=.16 if event.get('ability') in ('burst','auto_burst') else .28 if volley else .72
+            last=max((hit.get('shot',i) if volley else i) for i,hit in enumerate(event['strikes']))
+            self.busy=interval*last+.75
             for i,strike in enumerate(event['strikes']):
-                self.pending_strikes.append((self.age+i*.72,dict(strike,ability=event.get('ability'))))
+                step=strike.get('shot',i) if volley else i
+                self.pending_strikes.append((self.age+step*interval,dict(strike,ability=event.get('ability'))))
             self.log_label.text = actor.name+' · '+(ABILITIES[event['ability']].name if action=='ability' else 'Атака')
         else:
             self.busy = .65 if action=='ability' else .25
@@ -665,6 +754,9 @@ class TacticalBattlePopup(Popup):
             if extra['action']=='status':
                 when=self.age+self.busy
                 for hit in extra['strikes']:self.pending_strikes.append((when,hit))
+                if extra.get('vortex'):
+                    self.vortex_motion[extra['vortex']]=(extra['path'],when)
+                    self.ability_fx.append((extra['cells'],when,'blood_vortex'))
                 self.busy+=.7
             elif extra['action']=='skip':
                 self.ability_fx.append(([self.battle.stacks[extra['actor']].pos],self.age,'freeze'))
@@ -694,7 +786,11 @@ class TacticalBattlePopup(Popup):
         return state,age,p
 
     def tick(self,dt):
-        if self.help_open:return
+        if self.notified or self._closed:return
+        if self.battle.winner:
+            self.show_result()
+            self.result_elapsed+=min(max(0,dt),.1)
+        elif self.help_open:return
         dt = min(dt,.1)*self.speed
         self.age += dt
         old_busy = self.busy
@@ -708,7 +804,8 @@ class TacticalBattlePopup(Popup):
                     target=self.battle.stacks[strike['target']]
                     if target.pos[0]!=actor.pos[0]:
                         self.facings[actor.id]=target.pos[0]<actor.pos[0]
-                    if strike.get('ability')=='burst':self.audio.play('rifle',owner=self)
+                    if strike.get('ability') in ('burst','sword_throw','auto_burst','twin_arrow'):
+                        if strike.get('volley_lead',True):self.audio.play('rifle' if strike['ability'] in ('burst','auto_burst') else 'bow' if strike['ability']=='twin_arrow' else 'throw',owner=self)
                     elif not strike.get('ability'):
                         ranged=max(abs(actor.pos[0]-target.pos[0]),abs(actor.pos[1]-target.pos[1]))>1
                         self.audio.play(attack_sound(actor.unit,actor.role,ranged),owner=self)
@@ -740,6 +837,9 @@ class TacticalBattlePopup(Popup):
                 self.animate(self.battle.ai_step())
                 self.refresh()
         self.board.draw()
+        last_animation=max((end for _,_,end in self.animations.values()),default=0)
+        if self.battle.winner and self.result_elapsed>=1.4 and self.busy<=0 and not self.pending_strikes and self.age>=last_animation:
+            self.finish_result()
 
     def toggle_auto(self,*args):
         self.deploying=False

@@ -26,7 +26,7 @@ class SoulPactTests(unittest.TestCase):
         before=list(self.db.execute('SELECT * FROM garrisons'))
         prize=hunt.sell_soul(self.db,'Север','Hero')
         self.assertEqual((prize['attack'],prize['defense']),(487_500_000,193_750_000))
-        self.assertEqual(hunt.pact(self.db,'Север')['deadline'],30)
+        self.assertEqual(hunt.pact(self.db,'Север')['deadline'],20)
         self.assertEqual(hunt.state(self.db,'Север')['stage'],3)
         for row in before:self.assertIn(row,list(self.db.execute('SELECT * FROM garrisons')))
         self.assertFalse(list(self.db.execute('SELECT * FROM portal_battles')))
@@ -38,7 +38,7 @@ class SoulPactTests(unittest.TestCase):
         hunt.investigate(self.db,'Север');hunt.investigate(self.db,'Север')
         story=json.loads(hunt.state(self.db,'Север')['scenario']);hunt.accuse(self.db,'Север',story['nobles'][story['culprit']]['name'])
         with self.assertRaises(ValueError):hunt.sell_soul(self.db,'Север','Hero')
-        self.assertEqual(hunt.pact(self.db,'Север')['deadline'],30)
+        self.assertEqual(hunt.pact(self.db,'Север')['deadline'],20)
 
     def test_deadline_survives_home_return_monster_loss_and_save_load(self):
         prize=hunt.sell_soul(self.db,'Север','Hero')
@@ -46,9 +46,11 @@ class SoulPactTests(unittest.TestCase):
         worlds.return_home(self.db,'Север')
         self.db.execute('DELETE FROM garrisons WHERE unit_name=?',(prize['name'],))
         self.db.commit();copy=sqlite3.connect(':memory:');self.addCleanup(copy.close);self.db.backup(copy)
-        self.assertEqual(hunt.pact(copy,'Север')['deadline'],30)
-        copy.execute('UPDATE turn SET turn_count=29');self.assertFalse(hunt.soul_loss_reason(copy,'Север'))
-        copy.execute('UPDATE turn SET turn_count=30');self.assertIn('Поражение',hunt.soul_loss_reason(copy,'Север'))
+        self.assertEqual(hunt.pact(copy,'Север')['deadline'],20)
+        copy.execute('UPDATE turn SET turn_count=19');self.assertFalse(hunt.soul_loss_reason(copy,'Север'))
+        copy.execute('UPDATE turn SET turn_count=20');self.assertFalse(hunt.soul_loss_reason(copy,'Север'))
+        from heart_contract import expire,multiplier
+        expire(copy,'Север');self.assertEqual(multiplier(copy,'Север'),.5)
         self.assertFalse(hunt.soul_loss_reason(copy,'Эльфы'))
 
     def test_invalid_deal_does_not_issue_unit_or_deadline(self):
@@ -64,7 +66,7 @@ class SoulPactTests(unittest.TestCase):
         with self.assertRaises(sqlite3.IntegrityError):hunt.sell_soul(self.db,'Север','Hero')
         self.assertEqual(list(self.db.iterdump()),before)
 
-    def test_campaign_deadline_defeat_and_last_turn_victory(self):
+    def test_heart_expiry_curses_army_but_campaign_and_victory_remain_available(self):
         hunt.sell_soul(self.db,'Север','Hero')
         tree=ast.parse(Path('economic.py').read_text(encoding='utf-8'))
         method=next(n for n in ast.walk(tree) if isinstance(n,ast.FunctionDef) and n.name=='end_game')
@@ -73,15 +75,17 @@ class SoulPactTests(unittest.TestCase):
         model=SimpleNamespace(conn=self.db,faction='Север',population=200,get_city_count=lambda:1,
                               check_all_relations_high=lambda:win,check_remaining_factions=lambda:True)
         with patch('undead_invasion.is_invasion_active',return_value=False):
-            self.db.execute('UPDATE turn SET turn_count=29')
+            self.db.execute('UPDATE turn SET turn_count=19')
             self.assertTrue(ns['end_game'](model)[0])
-            self.db.execute('UPDATE turn SET turn_count=30')
+            self.db.execute('UPDATE turn SET turn_count=20')
             running,reason=ns['end_game'](model)
-            self.assertFalse(running);self.assertIn('душу',reason)
+            self.assertTrue(running)
+            from heart_contract import multiplier
+            self.assertEqual(multiplier(self.db,'Север'),.5)
             win=True
             self.assertEqual(ns['end_game'](model),(False,'Мир во всем мире'))
-            self.db.execute('UPDATE turn SET turn_count=31')
-            self.assertIn('душу',ns['end_game'](model)[1])
+            self.db.execute('UPDATE turn SET turn_count=21')
+            self.assertEqual(ns['end_game'](model),(False,'Мир во всем мире'))
 
     def test_new_campaign_clears_pact(self):
         hunt.sell_soul(self.db,'Север','Hero')
@@ -118,7 +122,7 @@ class SoulPactTests(unittest.TestCase):
             self.assertEqual((monster['attack'],monster['defense']),(162_500_000,581_250_000))
             noble=hunt.set_form(self.db,'Север','noble')
             self.assertEqual((noble['attack'],noble['defense']),(487_500_000,193_750_000))
-        self.assertEqual(hunt.pact(self.db,'Север')['deadline'],30)
+        self.assertEqual(hunt.pact(self.db,'Север')['deadline'],20)
         self.db.execute('UPDATE portal_parties SET city_id=1');worlds.return_home(self.db,'Север')
         shape=hunt.set_form(self.db,'Север','monster')
         self.assertEqual(self.db.execute('SELECT unit_image FROM garrisons WHERE unit_name=?',(prize['name'],)).fetchone()[0],shape['image'])
@@ -127,7 +131,7 @@ class SoulPactTests(unittest.TestCase):
         self.assertEqual(hunt.companion_form(saved,'Север')['base_attack'],325_000_000)
         self.db.execute('DELETE FROM garrisons WHERE unit_name=?',(prize['name'],))
         with self.assertRaises(ValueError):hunt.set_form(self.db,'Север','noble')
-        self.assertEqual(hunt.pact(self.db,'Север')['deadline'],30)
+        self.assertEqual(hunt.pact(self.db,'Север')['deadline'],20)
 
     def test_old_pact_gains_shapes_once_without_moving_deadline(self):
         prize=hunt.sell_soul(self.db,'Север','Hero')
@@ -137,7 +141,7 @@ class SoulPactTests(unittest.TestCase):
         self.assertEqual(data['base_attack'],325_000_000)
         before=list(self.db.iterdump());hunt.companion_form(self.db,'Север')
         self.assertEqual(list(self.db.iterdump()),before)
-        self.assertEqual(hunt.pact(self.db,'Север')['deadline'],30)
+        self.assertEqual(hunt.pact(self.db,'Север')['deadline'],20)
 
     def test_each_faction_has_distinct_lord_and_lady_army_portraits(self):
         from PIL import Image

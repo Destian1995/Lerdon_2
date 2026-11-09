@@ -130,19 +130,11 @@ class WorldMapCanvas(StencilView):
         from kivy.core.image import Image as CoreImage
         self.texture=CoreImage(worlds.world(owner.conn,owner.faction)['background']).texture
         self.city_textures={c['id']:CoreImage(city_art(c['id'],owner.faction),mipmap=True).texture for c in self.nodes}
-        from map_roads import build_transport_network
-        from map_terrain import load_terrain,TerrainView
-        terrain=load_terrain(worlds.world(owner.conn,owner.faction)['background'])
-        self.terrain=terrain
-        self.network=build_transport_network(
-            {c['id']:(c['x']-38.5,c['y']-30) for c in self.nodes},
-            list(owner.conn.execute('SELECT city1,city2 FROM portal_roads')),{},(30,30,1170,770),
-            terrain=TerrainView(terrain) if terrain else None,movement_limit=None)
-        from otherworld_themes import theme
-        if theme(owner.faction)['key']=='north':
-            # Island links are sea lanes, never highways drawn over open water.
-            self.network.sea.extend(self.network.land)
-            self.network.land=[]
+        from map_roads import TransportNetwork
+        from map_terrain import load_terrain
+        self.terrain=load_terrain(worlds.world(owner.conn,owner.faction)['background'])
+        # Legacy road rows stay in saves; travel and rendering no longer use them.
+        self.network=TransportNetwork()
         self.bind(pos=self.draw,size=self.draw)
         self.draw()
         from otherworld_effects import MirrorEffects
@@ -155,7 +147,6 @@ class WorldMapCanvas(StencilView):
 
     def draw(self,*_):
         from kivy.core.text import Label as CoreLabel
-        from map_roads import TransportNetwork,draw_transport_layer
         self._base.clear();self.hits=[];self.city_bounds=[]
         self.camera.configure(self.size,(0,0,*self.size))
         zoom=self.camera.zoom
@@ -163,27 +154,6 @@ class WorldMapCanvas(StencilView):
         with self._base:
             Color(1,1,1,1)
             Rectangle(texture=self.texture,pos=self.point(0,0),size=(self.width*zoom,self.height*zoom))
-        convert=lambda paths:[(a,b,[self.point(*p) for p in path]) for a,b,path in paths]
-        network=TransportNetwork(land=convert(self.network.land),sea=convert(self.network.sea),
-                                 bridges=convert(self.network.bridges),
-                                 docks=[(self.point(*p),self.point(*direction)) for p,direction in self.network.docks])
-        # Thin travel trails leave the painted terrain visible. Sea links retain
-        # dashed navigation lanes; the graph still drives movement and beams.
-        from kivy.graphics import InstructionGroup
-        trails=InstructionGroup()
-        width=max(.65,min(s,1.35))
-        from otherworld_themes import theme
-        key=theme(self.owner.faction)['key']
-        tint={'elves':(.65,.86,.52),'vampires':(.68,.49,.64),
-              'elines':(.91,.73,.39),'adepts':(.88,.72,.46)}.get(key,(.7,.85,.95))
-        for color,thickness in (((.03,.03,.04,.5),2.0),((*tint,.65),.9)):
-            trails.add(Color(*color))
-            for _,_,points in network.land:
-                trails.add(Line(points=[v for point in points for v in point],
-                                width=thickness*width,cap='round',joint='round'))
-        self._base.add(trails)
-        network.land=[]
-        self._base.add(draw_transport_layer(network,s))
         p=worlds.party(self.owner.conn,self.owner.faction)
         self._current_city=p['city_id'] if p and not worlds.beam(self.owner.conn,self.owner.faction) else None
         from otherworld_quests import objectives
@@ -479,11 +449,9 @@ class OtherworldMap(WorldPopup):
             QuestJournal(self).open()
 
     def play_beam(self,source,destination):
-        from troop_movement import rendered_route
         from otherworld_beam import BeamTravel
         centers={c['id']:(c['x'],c['y']) for c in self.map.nodes}
-        route=rendered_route(self.map.network,[source,destination],centers)
-        points=route.points if route else [centers[source],centers[destination]]
+        points=[centers[source],centers[destination]]
         screen=_screen(self.conn)
         if screen:
             screen._troop_movement_busy=True
@@ -571,7 +539,7 @@ class ForeignCityPopup(WorldPopup):
         self.feedback.bind(text=self._layout_event)
         self.root.add_widget(self.feedback)
         self.action_bar=BoxLayout(size_hint_y=None,height=dp(48))
-        self.travel_button=_button('Прийти сюда',self.go)
+        self.travel_button=_button('Телепортироваться',self.go)
         self.battle_button=_button('Напасть · +3% / 9 х.',self.battle)
         self.action_bar.add_widget(self.battle_button)
         left.add_widget(self.action_bar)
@@ -671,7 +639,6 @@ class ForeignCityPopup(WorldPopup):
         self.guard_label.text=('Стража '+compact_number(guard['unit_count'])+' · ЗАЩ '+compact_number(guard['defense']*guard['unit_count'])+
                                ' · Победа: +3% урона на 9 ходов')
         party=worlds.party(self.conn,self.faction)
-        edge=tuple(sorted((party['city_id'],self.city['id']))) if party else (0,0)
         connected=bool(party and party['city_id']!=self.city['id'])
         self.travel_button.disabled=bool(p) or not connected
         cooldown=worlds.battle_ready(self.conn,self.faction) if p else 0

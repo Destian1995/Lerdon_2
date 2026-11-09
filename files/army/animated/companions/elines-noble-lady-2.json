@@ -1,0 +1,532 @@
+{
+  "version": 1,
+  "image": "elines-noble-lady-2.png",
+  "character": "companions/elines-noble-lady-2",
+  "reference": "files/otherworld/companions/elines/noble-lady-2.png",
+  "facing": "right",
+  "grid": [
+    6,
+    6
+  ],
+  "frame_size": [
+    209,
+    209
+  ],
+  "rect_origin": "top-left",
+  "offset_origin": "bottom-left",
+  "ground_anchor": [
+    0.5,
+    0.1
+  ],
+  "animations": {
+    "idle": {
+      "fps": 6,
+      "loop": true,
+      "hold_last": false,
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            12
+          ]
+        },
+        {
+          "rect": [
+            209,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            12
+          ]
+        },
+        {
+          "rect": [
+            418,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            1,
+            12
+          ]
+        },
+        {
+          "rect": [
+            627,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            2,
+            12
+          ]
+        },
+        {
+          "rect": [
+            836,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            2,
+            12
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            0,
+            209,
+            209
+          ],
+          "offset": [
+            1,
+            12
+          ]
+        }
+      ]
+    },
+    "walk": {
+      "fps": 10,
+      "loop": true,
+      "hold_last": false,
+      "frames": [
+        {
+          "rect": [
+            0,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            13
+          ]
+        },
+        {
+          "rect": [
+            209,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            12
+          ]
+        },
+        {
+          "rect": [
+            418,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            12
+          ]
+        },
+        {
+          "rect": [
+            627,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            12
+          ]
+        },
+        {
+          "rect": [
+            836,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            11
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            209,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            11
+          ]
+        }
+      ]
+    },
+    "attack": {
+      "fps": 12,
+      "loop": false,
+      "hold_last": true,
+      "frames": [
+        {
+          "rect": [
+            0,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            12
+          ]
+        },
+        {
+          "rect": [
+            209,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            11
+          ]
+        },
+        {
+          "rect": [
+            418,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            12
+          ]
+        },
+        {
+          "rect": [
+            627,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            11
+          ]
+        },
+        {
+          "rect": [
+            836,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            12
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            418,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            12
+          ]
+        }
+      ]
+    },
+    "hit": {
+      "fps": 10,
+      "loop": false,
+      "hold_last": true,
+      "frames": [
+        {
+          "rect": [
+            0,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            12
+          ]
+        },
+        {
+          "rect": [
+            209,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            12
+          ]
+        },
+        {
+          "rect": [
+            418,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            9
+          ]
+        },
+        {
+          "rect": [
+            627,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            10
+          ]
+        },
+        {
+          "rect": [
+            836,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            12
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            627,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            13
+          ]
+        }
+      ]
+    },
+    "death": {
+      "fps": 9,
+      "loop": false,
+      "hold_last": true,
+      "frames": [
+        {
+          "rect": [
+            0,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            12
+          ]
+        },
+        {
+          "rect": [
+            209,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            11
+          ]
+        },
+        {
+          "rect": [
+            418,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            11
+          ]
+        },
+        {
+          "rect": [
+            627,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            9
+          ]
+        },
+        {
+          "rect": [
+            836,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            9
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            836,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            6
+          ]
+        }
+      ]
+    },
+    "melee": {
+      "fps": 12,
+      "loop": false,
+      "hold_last": true,
+      "frames": [
+        {
+          "rect": [
+            0,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            12
+          ]
+        },
+        {
+          "rect": [
+            209,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            11
+          ]
+        },
+        {
+          "rect": [
+            418,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            10
+          ]
+        },
+        {
+          "rect": [
+            627,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            11
+          ]
+        },
+        {
+          "rect": [
+            836,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            9
+          ]
+        },
+        {
+          "rect": [
+            1045,
+            1045,
+            209,
+            209
+          ],
+          "offset": [
+            0,
+            11
+          ]
+        }
+      ]
+    }
+  },
+  "sha256": "cd70cb6d183b18bd9ff1fce4bb3c873f8ea0224c580bd561a02641fd6d6c3d84",
+  "aliases": [
+    "atlas://companions/elines-noble-lady-2"
+  ],
+  "idle_registration": {
+    "version": 1,
+    "reference_frame": 0,
+    "method": "silhouette translation relative to first idle frame",
+    "shifts": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        1,
+        0
+      ]
+    ]
+  }
+}

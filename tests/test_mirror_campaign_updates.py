@@ -48,17 +48,20 @@ class MirrorCampaignUpdateTests(unittest.TestCase):
         self.assertEqual(male['name'],prize['name'])
         self.assertEqual((male['attack'],male['defense']),(prize['attack'],prize['defense']))
 
-    def test_return_unlocks_direct_morgana_soul_sale_with_new_deadline(self):
+    def test_completed_quest_unlocks_direct_morgana_soul_sale_with_new_deadline(self):
         seed=morgana_cases.MorganaCovenantTests();seed.setUp();self.addCleanup(seed.doCleanups);db=seed.db
-        db.execute('DELETE FROM portal_soul_pacts');db.execute('DELETE FROM portal_companion_forms')
+        db.execute('DELETE FROM portal_soul_pacts');db.execute('DELETE FROM portal_heart_contracts');db.execute('DELETE FROM portal_companion_forms')
+        db.execute('UPDATE portal_monster_cases SET stage=2')
         self.assertIsNone(morgana.offer(db,'Север'))
         db.execute('UPDATE portal_parties SET city_id=1');worlds.return_home(db,'Север')
+        self.assertIsNone(morgana.offer(db,'Север'))
+        db.execute('UPDATE portal_monster_cases SET stage=3')
         db.execute('UPDATE turn SET turn_count=9')
         self.assertEqual(morgana.offer(db,'Север')['status'],'offered')
         morgana.accept(db,'Север')
-        self.assertEqual(hunt.pact(db,'Север'),dict(case_id=0,signed_turn=9,deadline=39))
+        self.assertEqual(hunt.pact(db,'Север'),dict(case_id=0,signed_turn=9,deadline=24))
         self.assertTrue(morgana.serving(db,'Север'))
-        db.execute('UPDATE turn SET turn_count=39')
+        db.execute('UPDATE turn SET turn_count=24')
         self.assertIn('Моргана',hunt.soul_loss_reason(db,'Север'))
 
     def test_failed_return_does_not_unlock_soul_sale(self):

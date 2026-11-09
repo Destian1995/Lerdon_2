@@ -52,6 +52,18 @@ class TownTests(unittest.TestCase):
 
     def money(self):return self.db.execute('SELECT amount FROM resources').fetchone()[0]
 
+    def test_market_description_changes_with_current_policy(self):
+        self.db.execute('CREATE TABLE IF NOT EXISTS political_systems(faction,system)')
+        town=self.owner._open_build_menu();settle();town.choose('Рынок');settle()
+        self.assertIn('+10%',town.effect_summary.text)
+        self.db.execute('INSERT INTO political_systems VALUES(?,?)',(town.faction,'Борьба'))
+        town.choose('Рынок');settle()
+        self.assertIn('+65%',town.effect_summary.text)
+        self.assertIn('кристаллов',town.effect_summary.text)
+        self.assertEqual(town.selectors['Рынок'].effect.text,town.effect_summary.text)
+        self.assertEqual(tuple(town.effect_summary.color),(.35,.78,1,1))
+        town.export_to_png('.release/market-struggle-town.png')
+
     def test_entire_building_catalogue_is_listed_and_purchase_turns_row_grey(self):
         town=self.owner._open_build_menu();settle()
         self.assertEqual(set(town.selectors),set(CATALOG))
@@ -143,7 +155,8 @@ class TownTests(unittest.TestCase):
         town.purchase();settle()
         self.assertNotIn(name,town.scene.plots)
         self.assertIn(name,town.scene.outlines)
-        self.assertIn(CATALOG[name]['desc'],town.selectors[name].effect.text)
+        from city_construction import building_description
+        self.assertEqual(building_description(self.db,town.faction,name),town.selectors[name].effect.text)
         self.assertNotIn('Цена:',town.selectors[name].effect.text)
         self.assertTrue(town.build.disabled)
         sprite=town.scene.sprites[name]
@@ -160,7 +173,8 @@ class TownTests(unittest.TestCase):
         touch=Touch(*point);town.scene.on_touch_down(touch);town.scene.on_touch_up(touch)
         self.assertEqual(town.selected,name)
         self.assertEqual(town.selectors[name].status.text,'Построено')
-        self.assertIn(CATALOG[name]['desc'],town.selectors[name].effect.text)
+        from city_construction import building_description
+        self.assertEqual(building_description(self.db,town.faction,name),town.selectors[name].effect.text)
         # Finished buildings have neither plot overlays nor contour unless selected.
         town.choose('Больница')
         self.assertNotIn(name,town.scene.outlines)
@@ -215,6 +229,9 @@ class TownTests(unittest.TestCase):
                 for name,(text,color) in BUILDING_SUMMARIES.items():
                     town.choose(name);settle()
                     summary=town.effect_summary
+                    if name=='Рынок':
+                        from city_construction import building_description
+                        text=building_description(self.db,town.faction,name)
                     self.assertEqual(summary.text,text)
                     self.assertEqual(tuple(summary.color),tuple(color))
                     self.assertEqual(summary.opacity,1)

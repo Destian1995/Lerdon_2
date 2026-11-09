@@ -24,13 +24,12 @@ class MirrorCampaignUITests(unittest.TestCase):
             if isinstance(popup,Popup):popup.dismiss(animation=False)
         settle();Window.size=self.size;settle()
 
-    def test_northern_island_links_render_as_sea_routes(self):
+    def test_mirror_map_has_no_land_roads_or_sea_routes(self):
         from otherworld_themes import city_position
         self.assertFalse(self.map.map.network.land)
-        self.assertTrue(self.map.map.network.sea)
-        links={tuple(sorted((a,b))) for a,b,_ in self.map.map.network.sea}
-        saved={tuple(sorted(row)) for row in self.db.execute('SELECT city1,city2 FROM portal_roads')}
-        self.assertEqual(links,saved)
+        self.assertFalse(self.map.map.network.sea)
+        self.assertFalse(self.map.map.network.bridges)
+        self.assertFalse(self.map.map.network.docks)
         for city in self.map.map.nodes:
             self.assertEqual((city['x'],city['y']),city_position('Север',city['id']))
 
@@ -45,7 +44,10 @@ class MirrorCampaignUITests(unittest.TestCase):
         self.assertEqual(q.state(self.db,'Север')['detective'],1)
         token=q.details(q.state(self.db,'Север'))['detective']['tokens'][q.state(self.db,'Север')['culprit']]
         self.assertNotIn(token,journal.feedback.text)
-        self.assertTrue(any(token in card.copy.text for card in journal.cards.pages))
+        self.assertFalse(any(token in card.copy.text for card in journal.cards.pages))
+        board=journal.open_board();settle()
+        self.assertIn(token," ".join(c.note.text for c in board.board.notes))
+        board.dismiss(animation=False);settle()
         Window.size=(640,360);settle();journal.fit();settle()
         self.assertGreater(journal.cards.parent.height,80)
         self.assertGreaterEqual(journal.root.children[0].y,journal.y)
@@ -88,19 +90,23 @@ class MirrorCampaignUITests(unittest.TestCase):
             journal.refresh();settle()
         def copy():return journal.feedback.text+'\n'+'\n'.join(label.text for c in journal.cards.pages for label in c.sections)
         at(d['cities'][0]);journal.step('witness');settle()
-        self.assertIn('Улика свидетеля:',copy());self.assertNotIn('Записи:',copy())
+        self.assertNotIn('Улика свидетеля:',copy());self.assertNotIn(d['premise'],copy())
         at(d['cities'][1])
         self.assertFalse(journal.feedback.text)
         self.assertNotIn('Улика свидетеля:',copy())
         journal.step('ledger',d['search_sites'][d['search_answer']]);settle()
-        self.assertIn('Записи:',copy());self.assertNotIn('Улика свидетеля:',copy())
+        self.assertNotIn('Записи:',copy());self.assertNotIn('Улика свидетеля:',copy())
         at(d['cities'][2])
         self.assertFalse(journal.feedback.text)
-        for token in d['tokens']:self.assertIn(token,copy())
+        board=journal.open_board();settle()
+        board_copy=' '.join(c.note.text for c in board.board.notes+board.board.suspects)
+        for token in d['tokens']:self.assertIn(token,board_copy)
+        board.dismiss(animation=False);settle()
         for clue in q.evidence(self.db,'Север')[0]:journal.step('arrange',clue)
         settle()
-        buttons=[b for c in journal.cards.pages for b in c.buttons.children if b.text.startswith('Обвинить:')]
-        self.assertEqual(len(buttons),3);self.assertTrue(all(not b.disabled for b in buttons))
+        board=journal.open_board();settle()
+        self.assertEqual(len(board.board.suspects),3)
+        self.assertTrue(board.ready);board.dismiss(animation=False);settle()
         journal.step('accuse',d['suspects'][run['culprit']]);settle()
         for token in d['tokens']:self.assertNotIn(token,copy())
 

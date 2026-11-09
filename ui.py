@@ -994,6 +994,11 @@ class FortressInfoPopup(Popup):
                                hero_bonus_atk=0, hero_bonus_def=0, hero_bonus_dur=0, unit_exp=0,
                                morale=100, unit_type='infantry', battle_spirit=False):
         """Попап с изображением юнита справа и характеристиками слева."""
+        from heart_contract import multiplier
+        curse=multiplier(self.conn,self.ai_fraction)
+        attack,defense,durability=(value*curse for value in (attack,defense,durability))
+        hero_bonus_atk,hero_bonus_def,hero_bonus_dur=(value*curse for value in (hero_bonus_atk,hero_bonus_def,hero_bonus_dur))
+        morale*=curse
         _is_mobile = platform in ('android', 'ios')
         class_labels = {'1': '', '2': 'Герой', '3': 'Чемпион', '4': 'Легенда'}
         cls_text = class_labels.get(unit_class, '')

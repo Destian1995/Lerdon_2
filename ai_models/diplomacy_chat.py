@@ -3510,6 +3510,8 @@ class EnhancedDiplomacyChat():
 
     def save_negotiation_message(self, target_faction, message, is_player=True):
         """Сохраняет сообщение переговоров в БД"""
+        from morgana_covenant import blocked_peace_message
+        if not is_player and blocked_peace_message(self.db_connection,self.faction,target_faction,message):return False
         try:
             cursor = self.db_connection.cursor()
             cursor.execute('''
@@ -6509,92 +6511,14 @@ class EnhancedDiplomacyChat():
                 player_resources = self._get_faction_resources(player_faction)
                 player_has = player_resources.get(need_resource, 0)
 
-                # Контент popup — стильный дизайн
-                from kivy.graphics import Color as _GCol, RoundedRectangle as _GRR
-                _is_m = kivy_platform in ('android', 'ios')
-                _fs = sp(14) if _is_m else sp(13)
-                can_afford = player_has >= cost
-                _new_rel = min(100, relation_level + bonus)
-
-                content = BoxLayout(orientation='vertical', spacing=dp(10),
-                                    padding=[dp(16), dp(12), dp(16), dp(12)])
-
-                # Заголовок фракции
-                _hdr = _IRLbl(text=f"[b]{faction}[/b]", markup=True,
-                              font_size=sp(17) if _is_m else sp(15),
-                              halign='center', valign='middle', color=(0.95, 0.85, 0.4, 1),
-                              size_hint_y=None, height=dp(32))
-                _hdr.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
-                content.add_widget(_hdr)
-
-                # Описание потребности
-                _desc = _IRLbl(
-                    text=f"Фракция нуждается в [b]{need_label}[/b]",
-                    markup=True, font_size=_fs, halign='center', valign='middle',
-                    color=(0.75, 0.8, 0.9, 1), size_hint_y=None, height=dp(28))
-                _desc.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
-                content.add_widget(_desc)
-
-                # Блок с деталями
-                _details_box = BoxLayout(orientation='vertical', spacing=dp(4),
-                                         size_hint_y=None, height=dp(100),
-                                         padding=[dp(12), dp(8), dp(12), dp(8)])
-                with _details_box.canvas.before:
-                    _GCol(0.12, 0.14, 0.22, 0.9)
-                    _details_box._bg = _GRR(pos=_details_box.pos, size=_details_box.size, radius=[dp(8)])
-                _details_box.bind(pos=lambda w, v: setattr(w._bg, 'pos', v),
-                                  size=lambda w, v: setattr(w._bg, 'size', v))
-
-                _rel_lbl = _IRLbl(
-                    text=f"Отношения:  [b]{relation_level}%[/b]  =>  [b]{_new_rel}%[/b]",
-                    markup=True, font_size=_fs, halign='center', valign='middle',
-                    color=(0.6, 0.9, 0.6, 1), size_hint_y=None, height=dp(24))
-                _rel_lbl.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
-
-                _cost_lbl = _IRLbl(
-                    text=f"Стоимость:  [b]{cost:,}[/b] {need_label}",
-                    markup=True, font_size=_fs, halign='center', valign='middle',
-                    color=(1, 0.85, 0.4, 1), size_hint_y=None, height=dp(24))
-                _cost_lbl.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
-
-                _bonus_lbl = _IRLbl(
-                    text=f"Бонус:  [b]+{bonus}%[/b] к отношениям",
-                    markup=True, font_size=_fs, halign='center', valign='middle',
-                    color=(0.4, 0.85, 1, 1), size_hint_y=None, height=dp(24))
-                _bonus_lbl.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
-
-                _have_color = (0.6, 0.9, 0.6, 1) if can_afford else (1, 0.4, 0.4, 1)
-                _have_lbl = _IRLbl(
-                    text=f"У вас:  [b]{player_has:,}[/b] {need_label}",
-                    markup=True, font_size=_fs, halign='center', valign='middle',
-                    color=_have_color, size_hint_y=None, height=dp(24))
-                _have_lbl.bind(size=lambda w, v: setattr(w, 'text_size', (w.width, None)))
-
-                _details_box.add_widget(_rel_lbl)
-                _details_box.add_widget(_cost_lbl)
-                _details_box.add_widget(_bonus_lbl)
-                _details_box.add_widget(_have_lbl)
-                content.add_widget(_details_box)
-
-                # Кнопки
-                btn_row = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(10))
-                ok_btn = Button(
-                    text="Передать" if can_afford else "Не хватает",
-                    background_normal='', font_size=_fs, bold=True,
-                    background_color=(0.15, 0.55, 0.25, 1) if can_afford else (0.35, 0.35, 0.35, 1),
-                    disabled=not can_afford
-                )
-                no_btn = Button(text="Отмена", background_normal='',
-                                background_color=(0.5, 0.15, 0.15, 1), font_size=_fs, bold=True)
-                btn_row.add_widget(ok_btn)
-                btn_row.add_widget(no_btn)
-                content.add_widget(btn_row)
-
-                popup = _IRPop(title='', content=content,
-                               size_hint=(0.95 if _is_m else 0.5, 0.75 if _is_m else 0.6),
-                               auto_dismiss=False, separator_height=0,
-                               background='',
-                               background_color=(0.04, 0.05, 0.09, 0.98))
+                from diplomatic_gift_ui import DiplomaticGiftPopup
+                from diplomatic_gifts import quote_gift
+                from utils.resource_text import resource_amount
+                quote=quote_gift(self.db_connection,faction,cost,getattr(self,'_calculate_army_strength',lambda _:0))
+                cost=quote.total
+                popup=DiplomaticGiftPopup(faction,need_resource,cost,player_has,relation_level,bonus,quote=quote)
+                ok_btn=popup.confirm_button
+                popup.bind(on_dismiss=lambda *_:_show_main_buttons())
 
                 def _do_improve(i2):
                     try:
@@ -6621,12 +6545,12 @@ class EnhancedDiplomacyChat():
                         from datetime import datetime
                         _t = datetime.now().strftime("%d.%m %H:%M")
                         self.add_chat_message(
-                            f"Передаю {cost:,} {need_label} в знак дружбы.",
+                            f"Передаю {resource_amount(cost,need_resource)} в знак дружбы.",
                             player_faction, _t, is_player=True)
                         resp = random.choice([
                             f"Щедрый дар! Отношения улучшились до {new_rel}%. Мы ценим вашу поддержку!",
                             f"Великолепно! +{bonus}% к отношениям. Теперь {new_rel}%. Вы — надёжный партнёр!",
-                            f"Это укрепляет наши связи! Отношения: {new_rel}%. Благодарим за {need_label}!",
+                            f"Это укрепляет наши связи! Отношения: {new_rel}%. Благодарим за поддержку!",
                         ])
                         self.add_chat_message(resp, faction, _t, is_player=False)
                         self.update_relation_info_android(faction)
@@ -6644,10 +6568,8 @@ class EnhancedDiplomacyChat():
                     except Exception as e:
                         print(f"[IMPROVE REL] Ошибка: {e}")
                     popup.dismiss()
-                    _show_main_buttons()
 
-                ok_btn.bind(on_press=_do_improve)
-                no_btn.bind(on_press=lambda i2: (popup.dismiss(), _show_main_buttons()))
+                ok_btn.bind(on_release=_do_improve)
                 popup.open()
             except Exception as e:
                 print(f"[IMPROVE REL] Ошибка: {e}")

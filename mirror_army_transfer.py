@@ -10,9 +10,8 @@ import otherworlds as worlds
 
 def send_from_map(owner, source, destination):
     if _busy(owner.conn):return
-    edge=tuple(sorted((source,destination)))
-    if not owner.conn.execute('SELECT 1 FROM portal_roads WHERE city1=? AND city2=?',edge).fetchone():
-        owner.message.text='Выберите соседний город, соединённый дорогой.'
+    if source==destination or not owner.conn.execute('SELECT 1 FROM portal_cities WHERE id=?',(destination,)).fetchone():
+        owner.message.text='Выберите другой город Зазеркалья.'
         return
     units=worlds._camp_units(owner.conn,worlds.city_camp(owner.conn,owner.faction,source))
     if not units:return

@@ -90,3 +90,14 @@ class PortalShortcutTests(unittest.TestCase):
         self.assertIsNotNone(self.shortcut._poll)
         Window.remove_widget(self.host);settle()
         self.assertIsNone(self.shortcut._poll)
+
+    def test_deferred_morgana_can_be_reopened_from_main_map_without_expedition(self):
+        import morgana_covenant as covenant
+        covenant.ensure_schema(self.db)
+        self.db.execute("INSERT INTO morgana_covenants VALUES('Север','deferred',0,NULL,1)")
+        self.shortcut.refresh();settle()
+        self.assertTrue(self.shortcut.visible)
+        self.assertEqual(self.shortcut.button.caption.text,'Моргана')
+        with patch('morgana_covenant_ui.show_offer',return_value=None) as show:
+            self.shortcut.open()
+            show.assert_called_once_with(self.db,'Север',force=True)

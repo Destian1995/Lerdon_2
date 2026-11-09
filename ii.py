@@ -1478,6 +1478,9 @@ class AIController:
             self.free_peoples += self.clear_up_peoples
             from utils.city_terrain import economic_bonuses
             _base_money = int(self.calculate_tax_income() - (self.hospitals * coeffs['money_loss']))
+            from utils.market_income import market_profile,additional_income
+            _markets,_market_crowns,_market_crystals=market_profile(self.db_connection,self.faction)
+            _base_money+=additional_income(_base_money,_markets,_market_crowns)
             _terrain_bonus = economic_bonuses(self.db_connection,self.faction,_base_money,AI_FACTORY_YIELD)
             self.money += _base_money + _terrain_bonus['crowns']
             self.money_info = int(self.hospitals * coeffs['money_loss'])
@@ -1486,11 +1489,12 @@ class AIController:
 
 
             # Учитываем, что одна фабрика может прокормить 100 людей
-            self.raw_material += int((self.factories * AI_FACTORY_YIELD) - (self.population * coeffs['food_loss'])) + _terrain_bonus['crystals']
+            _market_crystal_income=additional_income(self.factories*AI_FACTORY_YIELD+_terrain_bonus['crystals'],_markets,_market_crystals)
+            self.raw_material += int((self.factories * AI_FACTORY_YIELD) - (self.population * coeffs['food_loss'])) + _terrain_bonus['crystals'] + _market_crystal_income
             # food_info — база для бонуса «Борьба»: не вычитаем потребление армии,
             # так как армия уже списывает кристаллы напрямую.
             # max(0, ...) — фракция с отрицательным производством просто не получает бонус.
-            self.food_info = max(0, int((self.factories * AI_FACTORY_YIELD) - (self.population * coeffs['food_loss'])) + _terrain_bonus['crystals'])
+            self.food_info = max(0, int((self.factories * AI_FACTORY_YIELD) - (self.population * coeffs['food_loss'])) + _terrain_bonus['crystals'] + _market_crystal_income)
             self.food_peoples = int(self.population * coeffs['food_loss'])
 
 
@@ -3646,6 +3650,8 @@ class AIController:
         if self.faction == "Нежить":
             return
         try:
+            from morgana_covenant import peace_offer_blocked
+            if peace_offer_blocked(self.db_connection,self.faction,self._get_player_faction_name()):return
             if self.get_city_count_for_faction() == 0:
                 return  # Мёртвая фракция не отправляет сообщений
             traits = self.FACTION_TRAITS.get(self.faction, {})
@@ -3991,6 +3997,8 @@ class AIController:
         player = self._get_player_faction_name()
         if not player:
             return False
+        from morgana_covenant import blocked_peace_message
+        if blocked_peace_message(self.db_connection,self.faction,player,'['+message_type+'] '+message_text):return False
         self._create_message_in_negotiation_history(
             faction1=self.faction,
             faction2=player,
@@ -4591,6 +4599,8 @@ class AIController:
         """
         Создает сообщение в таблице negotiation_history
         """
+        from morgana_covenant import blocked_peace_message
+        if not is_player and blocked_peace_message(self.db_connection,faction1,faction2,message):return False
         try:
             cursor = self.db_connection.cursor()
 

@@ -65,6 +65,7 @@ def clear_tables(conn):
         "player_allies",
         "negotiation_history",
         "portal_soul_pacts",
+        "portal_heart_contracts",
         "portal_companion_forms",
         "portal_monster_cases",
     ]
@@ -393,29 +394,15 @@ class ResultsGame:
         from results_ui import show_campaign_results
         return show_campaign_results(self, title, message, results, text_color)
 
-    def exit_to_main_menu(self, instance):
+    def exit_to_main_menu(self, instance=None):
+        """Leave all campaign overlays and let the app reset the campaign once."""
         app = App.get_running_app()
-
-        # Закрываем попап результатов
-        if hasattr(self, 'popup') and self.popup:
-            self.popup.dismiss()
-
-        # === КРИТИЧЕСКИ ВАЖНЫЙ БЛОК: очистка и восстановление БД ===
-        try:
-            # 1. Очищаем игровые таблицы (сохраняя статистику в dossier)
-            clear_tables(self.conn)
-
-            # 2. Восстанавливаем дефолтные данные для новых игр
-            restore_from_backup(self.conn)
-
-            print("[DB] Игровые данные успешно сброшены. Готово к новой кампании.")
-        except Exception as e:
-            print(f"[DB ERROR] Ошибка при сбросе данных: {e}")
-            import traceback
-            traceback.print_exc()
-            # Даже при ошибке БД продолжаем перезапуск приложения
-        # =========================================================
-
-        # Полная перезагрузка приложения для корректной инициализации
+        if app is None or getattr(self, '_returning_to_menu', False):
+            return
+        self._returning_to_menu = True
+        from kivy.uix.modalview import ModalView
+        for overlay in list(Window.children):
+            if isinstance(overlay, ModalView):
+                overlay.dismiss(force=True, animation=False)
+        self.popup = None
         app.restart_app()
-

@@ -40,7 +40,7 @@ class LegacyCovenantTests(unittest.TestCase):
         hunt.ensure_schema(self.db)
         self.db.execute("INSERT INTO portal_soul_pacts VALUES('Север',7,3,33)")
         covenant.ensure_schema(self.db);covenant.ensure_schema(self.db)
-        self.assertEqual(hunt.pact(self.db,'Север'),dict(case_id=7,signed_turn=3,deadline=33))
+        self.assertEqual(hunt.pact(self.db,'Север'),dict(case_id=7,signed_turn=3,deadline=23))
 
 
 class MorganaCovenantTests(unittest.TestCase):
@@ -65,13 +65,13 @@ class MorganaCovenantTests(unittest.TestCase):
         self.assertEqual(covenant.offer(self.db,'Север')['status'],'offered')
         self.assertIsNone(covenant.offer(self.db,'Элины'))
 
-    def test_accept_preserves_hero_companion_deadline_and_ai_heroes(self):
+    def test_accept_preserves_armies_and_starts_new_fifteen_turn_deadline(self):
         self.db.execute('UPDATE turn SET turn_count=7')
         hero=self.db.execute("SELECT * FROM garrisons WHERE unit_name='Hero'").fetchone()
         prize=self.db.execute('SELECT * FROM garrisons WHERE unit_name=?',(self.prize['name'],)).fetchone()
         transferred=covenant.accept(self.db,'Север')
         self.assertGreater(transferred,0)
-        self.assertEqual(hunt.pact(self.db,'Север')['deadline'],30)
+        self.assertEqual(hunt.pact(self.db,'Север')['deadline'],22)
         self.assertEqual(hero,self.db.execute("SELECT * FROM garrisons WHERE unit_name='Hero'").fetchone())
         self.assertEqual(prize,self.db.execute('SELECT * FROM garrisons WHERE unit_name=?',(self.prize['name'],)).fetchone())
         self.assertEqual(self.db.execute("SELECT unit_count FROM garrisons WHERE unit_name='Низар'").fetchone()[0],1)
@@ -126,15 +126,16 @@ class MorganaCovenantTests(unittest.TestCase):
         self.assertFalse(covenant.serving(self.db,'Север'))
         self.assertEqual(caps(self.db,'Север'),before)
         self.assertEqual(covenant.offer(self.db,'Север')['status'],'declined')
-        self.assertEqual(hunt.pact(self.db,'Север')['deadline'],30)
+        self.assertEqual(hunt.pact(self.db,'Север')['deadline'],20)
 
     def test_gender_choice_after_pact_changes_portrait_only(self):
         before=self.db.execute('SELECT attack,defense FROM units WHERE unit_name=?',(self.prize['name'],)).fetchone()
         for gender in ('lord','lady'):
             result=hunt.choose_gender(self.db,'Север',gender)
-            self.assertTrue(result['image'].endswith('noble-'+gender+'.jpg'))
+            case=hunt.state(self.db,'Север')
+            self.assertEqual(result['image'],hunt.noble_portrait(case,hunt.noble_name(case),gender=gender))
             self.assertEqual((result['attack'],result['defense']),before)
-            self.assertEqual(hunt.pact(self.db,'Север')['deadline'],30)
+            self.assertEqual(hunt.pact(self.db,'Север')['deadline'],20)
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM units WHERE unit_name LIKE 'Спутник:%'").fetchone()[0],1)
 
     def test_nizar_and_morgana_attack_separately_and_do_not_target_player(self):
@@ -173,9 +174,9 @@ class MorganaCovenantTests(unittest.TestCase):
         tree=ast.parse(Path('economic.py').read_text(encoding='utf-8'));method=next(n for n in ast.walk(tree) if isinstance(n,ast.FunctionDef) and n.name=='end_game')
         ns={};exec(compile(ast.Module(body=[method],type_ignores=[]),'economic.py','exec'),ns)
         obj=SimpleNamespace(conn=self.db,faction='Север',population=100,get_city_count=lambda:2)
-        self.db.execute('UPDATE turn SET turn_count=30')
+        self.db.execute('UPDATE turn SET turn_count=15')
         self.assertIn('Все фракции были уничтожены',ns['end_game'](obj)[1])
-        self.db.execute('UPDATE turn SET turn_count=31')
+        self.db.execute('UPDATE turn SET turn_count=16')
         self.assertIn('Поражение',ns['end_game'](obj)[1])
 
 

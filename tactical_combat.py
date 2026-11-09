@@ -9,7 +9,7 @@ from heapq import heappop, heappush
 import copy
 import math
 import random
-from tactical_abilities import ABILITIES,hero_abilities
+from tactical_abilities import ABILITIES,hero_abilities,troop_abilities
 
 
 WIDTH, HEIGHT = 10, 6
@@ -165,6 +165,8 @@ class TacticalBattle:
         self.queue = []
         self.delayed = []
         self.events = []
+        self.vortices=[]
+        self.vortex_serial=0
         self.bonus_activations=set()
         self.frames = []
         self.winner = None
@@ -261,6 +263,7 @@ class TacticalBattle:
                 hit=self._hurt(s,effect.get('damage',0),effect['source'])
                 hit['periodic']=True
                 self.events.append(dict(action='status',actor=effect['source'],strikes=[hit]))
+        self.advance_vortices()
         if self._check_end():return
         self.queue = [s.id for s in sorted(self.stacks.values(),
                       key=lambda s: (-s.initiative, (self.round + (s.side == 'attacker')) % 2, s.id)) if s.alive]
@@ -291,6 +294,7 @@ class TacticalBattle:
                 self.queue.pop(0)
                 self._activate()
                 return
+            s.effects.pop('paladin_shield',None);s.effects.pop('priest_shield',None)
             s.mp, s.moved, s.guarding = s.speed*(5 if 'slow' in s.effects else 10), 0, False
 
     def _snapshot(self):
@@ -425,6 +429,7 @@ class TacticalBattle:
             if 'inspire' in s.effects:value*=1.15
         if not attack and 'fire_shield' in s.effects:
             value+=s.effects['fire_shield'].get('armor',0)
+        if not attack and 'paladin_shield' in s.effects:value*=1.90
         return value*s.unit.get('_encounter_attack_multiplier' if attack else '_encounter_defense_multiplier',1)
 
     def army_skill_multiplier(self,source):
@@ -442,6 +447,64 @@ class TacticalBattle:
             return .15*sum(self._power(s,True)*s.count for s in self.stacks.values()
                            if s.alive and s.side==source.side)
         return self._power(source,attack)*source.count*self.army_skill_multiplier(source)
+
+    def ability_power(self,key,source=None):
+        s=source or self.active
+        if key in ('auto_burst','blood_vortex','twin_arrow','vampire_raise'):
+            return self._power(s,True)*s.count*{'auto_burst':1.15,'blood_vortex':1.05,'twin_arrow':1.45,'vampire_raise':1}[key]
+        return self.skill_power(s,True)
+
+    def _troop_hit(self,source,target,multiplier):
+        hit=self._hurt(target,self._damage(source,target)*multiplier,source.id)
+        self._leech(source,hit['damage'])
+        reflection=self._reflection(source,target,hit['damage'])
+        if reflection:hit['reflected']=reflection
+        return hit
+
+    def _vampire_dead(self,source):
+        return [s for s in self.stacks.values() if s.side==source.side and unit_class(s.unit)==1
+                and s.kind=='beast' and s.count<s.initial]
+
+    def _raise_vampires(self,source):
+        restored=[]
+        for target in self._vampire_dead(source):
+            occupant=self.at(target.pos)
+            if not target.alive and occupant and occupant is not target:continue
+            amount=(target.initial-target.count)//4
+            if not amount:continue
+            target.hp=min(target.max_hp,target.hp+amount*target.health_per_unit)
+            target.count=min(target.initial,math.ceil(target.hp/target.health_per_unit-1e-10))
+            restored.append(dict(target=target.id,count=amount))
+        return restored
+
+    def _vortex_hits(self,vortex):
+        source=self.stacks[vortex['source']]
+        victims=[s for s in self.stacks.values() if s.alive and s.side!=vortex['side']
+                 and distance(s.pos,vortex['pos'])<=1 and not self.protected(s)]
+        hits=[self._ability_damage(source,target,1,vortex['power']) for target in victims]
+        for hit in hits:hit['periodic']=True
+        return hits
+
+    def advance_vortices(self):
+        for vortex in list(self.vortices):
+            if vortex['round']>=self.round:continue
+            path=[vortex['pos']]
+            enemies=[s for s in self.stacks.values() if s.alive and s.side!=vortex['side'] and not self.protected(s)]
+            for _ in range(2):
+                pos=path[-1]
+                choices=[p for p,kind in self.terrain.items() if kind!='rock' and distance(p,pos)==1 and p not in path]
+                if not choices:break
+                if enemies:
+                    best=min(min(distance(p,s.pos) for s in enemies) for p in choices)
+                    choices=[p for p in choices if min(distance(p,s.pos) for s in enemies)==best]
+                path.append(self.rng.choice(sorted(choices)))
+            vortex['pos']=path[-1];vortex['round']=self.round;vortex['remaining']-=1
+            hits=self._vortex_hits(vortex)
+            strikes=[part for hit in hits for part in ([hit,hit['reflected']] if hit.get('reflected') else [hit])]
+            for hit in strikes:hit['periodic']=True
+            self.events.append(dict(action='status',actor=vortex['source'],ability='blood_vortex',
+                vortex=vortex['id'],path=path,cells=[p for p in self.terrain if distance(p,vortex['pos'])<=1],strikes=strikes))
+            if vortex['remaining']<=0:self.vortices.remove(vortex)
 
     def _resistance(self,target):
         return max(.01,self._power(target,False)/(target.health_per_unit/6))
@@ -483,7 +546,7 @@ class TacticalBattle:
         s = stack or self.active
         if not self.can_attack(s,target):
             return None
-        damage = self._damage(s,target)
+        damage = self._damage(s,target)*(.55 if 'priest_shield' in target.effects else 1)
         def lost(amount):
             remaining = max(0, math.ceil(max(0,target.hp-amount)/target.health_per_unit-1e-10))
             return target.count-remaining
@@ -503,6 +566,7 @@ class TacticalBattle:
 
     def _hurt(self,target,damage,source,critical=False,counter=False):
         before=target.count
+        if 'priest_shield' in target.effects:damage*=.55
         actual=0 if self.protected(target) else min(target.hp,max(0,damage))
         target.hp=max(0,target.hp-actual)
         target.count=max(0,math.ceil(target.hp/target.health_per_unit-1e-10))
@@ -557,12 +621,28 @@ class TacticalBattle:
 
     def skills(self,stack=None):
         s=stack or self.active
-        return hero_abilities(s.name) if s and unit_class(s.unit)>=2 else ()
+        if not s:return ()
+        return hero_abilities(s.name) if unit_class(s.unit)>=2 else troop_abilities(s.unit)
 
     def ability_cells(self,key,pos,stack=None):
         s=stack or self.active
         if not s or pos not in self.terrain:return []
         spec=ABILITIES[key]
+        if key=='burst':
+            # Extend the actual aim vector, rather than snapping every shot to
+            # a horizontal/45-degree ray. Half steps round symmetrically.
+            dx,dy=pos[0]-s.pos[0],pos[1]-s.pos[1]
+            length=max(abs(dx),abs(dy))
+            result=[pos]
+            if not length:return result
+            for extra in (1,2):
+                ox=(1 if dx>0 else -1 if dx<0 else 0)*math.floor(abs(dx)*extra/length+.5)
+                oy=(1 if dy>0 else -1 if dy<0 else 0)*math.floor(abs(dy)*extra/length+.5)
+                p=(pos[0]+ox,pos[1]+oy)
+                if p not in self.terrain or self.terrain[p]=='rock' or not self.line_of_sight(pos,p):break
+                result.append(p)
+                if self.tile(p).opaque:break
+            return result
         if spec.target=='army':return [t.pos for t in self.stacks.values() if t.alive and t.side==s.side and unit_class(t.unit)==1]
         if spec.target=='direction':
             dx=(pos[0]>s.pos[0])-(pos[0]<s.pos[0]);dy=(pos[1]>s.pos[1])-(pos[1]<s.pos[1])
@@ -587,6 +667,8 @@ class TacticalBattle:
         if distance(s.pos,pos)>spec.reach:return False
         if spec.target=='direction':return distance(s.pos,pos)==1 and bool(self.ability_cells(key,pos,s))
         if not self.line_of_sight(s.pos,pos):return False
+        if key in ('auto_burst','twin_arrow','blood_vortex') and self.engaged(s):return False
+        if key=='blood_vortex' and self.terrain[pos]=='rock':return False
         if spec.target=='cell':return True
         if not target or not target.alive:return False
         if spec.target in ('ally','soldier'):
@@ -612,9 +694,31 @@ class TacticalBattle:
         spec=ABILITIES[key];target=self.at(pos)
         cells=self.ability_cells(key,pos,s)
         affected=[t for t in self.stacks.values() if t.alive and t.pos in cells]
-        strikes=[];old=s.pos
+        strikes=[];old=s.pos;restored=[]
         if key=='flight':
             s.pos=pos;s.mp=0;s.moved+=distance(old,pos)
+        elif key in ('paladin_shield','priest_shield'):
+            self._effect(s,key,2,s)
+        elif key in ('auto_burst','twin_arrow'):
+            victims=([t for t in affected if t.side!=s.side and not self.protected(t)] if key=='auto_burst' else [target])
+            count=3 if key=='auto_burst' else 2
+            multiplier=(1.15 if key=='auto_burst' else 1.45)/count
+            for shot in range(count):
+                if not s.alive:break
+                lead=True
+                for victim in victims:
+                    if not victim.alive:continue
+                    hit=self._troop_hit(s,victim,multiplier);hit.update(shot=shot,volley_lead=lead)
+                    if hit.get('reflected'):hit['reflected']['shot']=shot
+                    strikes.append(hit);lead=False
+        elif key=='vampire_raise':
+            hit=self._troop_hit(s,target,1);strikes.append(hit)
+            if hit['damage']>0 and s.alive:restored=self._raise_vampires(s)
+        elif key=='blood_vortex':
+            self.vortex_serial+=1
+            vortex=dict(id=self.vortex_serial,source=s.id,side=s.side,pos=pos,remaining=4,round=self.round,
+                        power=self.ability_power(key,s))
+            self.vortices.append(vortex);strikes=self._vortex_hits(vortex)
         elif key=='heal':self._heal(target,self.skill_power(s,False)*.25/self._resistance(target))
         elif key=='inspire':
             for t in self.stacks.values():
@@ -633,11 +737,23 @@ class TacticalBattle:
             power=self.skill_power(s,True)
             strikes.append(self._ability_damage(s,target,.5,power))
             if target.alive:self._effect(target,key,3,s,damage=power/6/self._resistance(target))
-        elif key in ('snipe','burst'):
+        elif key=='snipe':
+            strikes.append(self._ability_damage(s,target,1))
+        elif key in ('burst','sword_throw'):
             power=self.skill_power(s,True)
-            for _ in range(3 if key=='burst' else 1):
-                if not target.alive or not s.alive:break
-                strikes.append(self._ability_damage(s,target,1/3 if key=='burst' else 1,power))
+            # Capture protection before the volley: collateral shots cannot
+            # expose a hero by killing its bodyguards in the same ability.
+            victims=([self.at(p) for p in cells] if key=='burst' else [target])
+            victims=[t for t in victims if t and t.alive and t.side!=s.side and not self.protected(t)]
+            for shot in range(3):
+                if not s.alive:break
+                lead=True
+                for victim in victims:
+                    if not victim.alive:continue
+                    hit=self._ability_damage(s,victim,1/3,power)
+                    hit.update(shot=shot,volley_lead=lead)
+                    if hit.get('reflected'):hit['reflected']['shot']=shot
+                    strikes.append(hit);lead=False
         else:
             # An area hit never bypasses the hero's bodyguards by killing them
             # earlier in the same simultaneous blast.
@@ -649,7 +765,7 @@ class TacticalBattle:
         s.cooldowns[key]=self.round+spec.cooldown
         strikes=[part for hit in strikes for part in ([hit,hit['reflected']] if hit.get('reflected') else [hit])]
         event=dict(action='ability',ability=key,actor=s.id,target=target.id if target else None,
-                   cells=cells,strikes=strikes,origin=old,impact=pos)
+                   cells=cells,strikes=strikes,origin=old,impact=pos,restored=restored)
         if key=='flight':
             n=max(1,distance(old,pos))
             event['path']=[(old[0]+(pos[0]-old[0])*i/n,old[1]+(pos[1]-old[1])*i/n) for i in range(n+1)]
@@ -673,6 +789,10 @@ class TacticalBattle:
             elif key=='flight':
                 if enemies and min(distance(s.pos,t.pos) for t in enemies)>2:
                     candidates=[p for p in self.terrain if not self.at(p) and any(distance(p,t.pos)==1 for t in enemies)]
+            elif key in ('paladin_shield','priest_shield'):
+                if key not in s.effects and enemies and min(distance(s.pos,t.pos) for t in enemies)<=7:candidates=[s.pos]
+            elif key=='vampire_raise':
+                if self._vampire_dead(s):candidates=[t.pos for t in enemies]
             elif key=='whirlwind':
                 if any(distance(s.pos,t.pos)==1 for t in enemies):candidates=[s.pos]
             elif key=='flame':
@@ -682,7 +802,8 @@ class TacticalBattle:
                 if not self.ability_valid(key,pos,s):continue
                 if spec.target in ('cell','direction'):
                     cells=self.ability_cells(key,pos,s)
-                    if not any(t.pos in cells for t in enemies) or any(t.pos in cells and not self.protected(t) for t in allies):continue
+                    if not any(t.pos in cells for t in enemies):continue
+                    if key in ('grenade','blizzard','flame') and any(t.pos in cells and not self.protected(t) for t in allies):continue
                 return key,pos
         return None
 

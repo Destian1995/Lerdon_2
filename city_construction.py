@@ -16,10 +16,18 @@ CATALOG={
     'Больница':dict(key='hospital',cost=20,max=1,desc=f'+{HOSPITAL_GROWTH} населения и рабочих/ход',color=(.80,.22,.35,1)),
     'Фабрика':dict(key='factory',cost=30,max=1,desc=f'+{FACTORY_YIELD} кристаллов/ход',color=(.50,.50,.12,1)),
     'Стена':dict(key='wall',cost=40000,max=1,desc=f'+{DEFENSE_BONUS*100:g}% защита гарнизона',color=(.45,.45,.55,1)),
-    'Рынок':dict(key='market',cost=30000,max=1,desc='+10% доход крон',color=(.85,.65,.10,1)),
+    'Рынок':dict(key='market',cost=30000,max=1,desc='Смирение: +10% доход крон. Борьба: +65% добыча кристаллов (Элины: +5%).',color=(.85,.65,.10,1)),
     'Кузница':dict(key='forge',cost=30000,max=1,desc='−5% потребление кристаллов гарнизоном города',color=(.60,.38,.12,1)),
     'Цитадель':dict(key='citadel',cost=50000,max=1,desc='+500 лимит армии',color=(.20,.55,.75,1)),
 }
+
+
+def building_description(conn,faction,building):
+    if building=='Рынок':
+        from utils.market_income import market_policy
+        resource,percent=market_policy(conn,faction)
+        return f'+{percent}% '+('дохода крон (Смирение)' if resource=='Кроны' else 'добычи кристаллов (Борьба)')
+    return CATALOG[building]['desc']
 
 
 def ensure_unique_buildings(conn):

@@ -290,6 +290,7 @@ def clear_tables(conn):
         "portal_quest_history",
         "portal_monster_cases",
         "portal_soul_pacts",
+        "portal_heart_contracts",
         "portal_companion_forms",
     ]
 

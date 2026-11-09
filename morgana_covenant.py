@@ -4,6 +4,8 @@ import sqlite3
 from city_war import current_turn
 
 LEGION_PREFIX='Легион: '
+LATE_FEE=1_500_000
+SOUL_TURNS=15
 FACTIONS=('Север','Эльфы','Вампиры','Адепты','Элины','Мятежники')
 
 
@@ -39,11 +41,27 @@ def undead_present(conn):
 
 
 def offer(conn,faction):
-    from mirror_monster_quest import pact
     ensure_schema(conn)
-    if not state(conn,faction) and (pact(conn,faction) or returned_from_mirror(conn,faction)) and undead_present(conn):
+    if not state(conn,faction) and completed_mirror_quest(conn,faction) and undead_present(conn):
         conn.execute('INSERT INTO morgana_covenants VALUES(?,?,?,NULL,0)',(faction,'offered',current_turn(conn)))
     return state(conn,faction)
+
+
+def completed_mirror_quest(conn,faction):
+    from heart_contract import exists
+    if exists(conn,'portal_quest_runs') and conn.execute('SELECT 1 FROM portal_quest_runs WHERE faction=? AND (detective>=3 OR war>=3)',(faction,)).fetchone():return True
+    if exists(conn,'portal_quest_rewards') and conn.execute('SELECT 1 FROM portal_quest_rewards WHERE faction=?',(faction,)).fetchone():return True
+    return bool(exists(conn,'portal_monster_cases') and conn.execute('SELECT 1 FROM portal_monster_cases WHERE faction=? AND stage>=3',(faction,)).fetchone())
+
+
+def joining_fee(row):
+    return LATE_FEE if row and row['status']=='deferred' else 0
+
+
+def defer(conn,faction):
+    row=offer(conn,faction)
+    if not row or row['status'] not in ('offered','deferred'):raise ValueError('Предложения нет.')
+    conn.execute("UPDATE morgana_covenants SET status='deferred',notified=1 WHERE faction=?",(faction,))
 
 
 def returned_from_mirror(conn,faction):
@@ -143,22 +161,26 @@ def _legion_units(conn,faction):
 
 def accept(conn,faction):
     import otherworlds as worlds
-    from mirror_monster_quest import pact
     from terrain_journeys import _credit
     from city_construction import faction_garrison_consumption
     ensure_schema(conn)
     with worlds.atomic(conn):
-        row=offer(conn,faction);deal=pact(conn,faction)
-        if not row or row['status']!='offered' or not undead_present(conn):
+        row=offer(conn,faction)
+        if not row or row['status'] not in ('offered','deferred') or not undead_present(conn):
             raise ValueError('Предложение Морганы сейчас недоступно.')
-        if not deal:
-            if not returned_from_mirror(conn,faction):raise ValueError('Сначала вернитесь из Зазеркалья.')
-            now=current_turn(conn)
-            conn.execute('INSERT INTO portal_soul_pacts VALUES(?,?,?,?)',(faction,0,now,now+30))
-            deal=pact(conn,faction)
-        if current_turn(conn)>=deal['deadline']:raise ValueError('Срок сделки за душу уже истёк.')
         homes=[r[0] for r in conn.execute('SELECT name FROM cities WHERE faction=? ORDER BY id',(faction,))]
         if not homes:raise ValueError('Для принятия легиона нужен собственный город.')
+        fee=joining_fee(row)
+        if fee:
+            from utils.resource_payments import ensure_resource_schema
+            ensure_resource_schema(conn)
+            paid=conn.execute("UPDATE resources SET amount=amount-? WHERE faction=? AND resource_type='Кроны' AND amount>=?",(fee,faction,fee))
+            if paid.rowcount!=1:raise ValueError('Для возвращения к Моргане нужно 1,5 млн крон.')
+        from heart_contract import expire
+        expire(conn,faction)
+        conn.execute('UPDATE portal_heart_contracts SET released=1 WHERE faction=?',(faction,))
+        now=current_turn(conn)
+        conn.execute('INSERT INTO portal_soul_pacts VALUES(?,?,?,?) ON CONFLICT(faction) DO UPDATE SET case_id=0,signed_turn=excluded.signed_turn,deadline=excluded.deadline',(faction,0,now,now+SOUL_TURNS))
         conn.execute("UPDATE morgana_covenants SET status='accepted',accepted_turn=? WHERE faction=?",(current_turn(conn),faction))
         install_wars(conn);enforce_wars(conn,faction);restore_cities(conn,faction)
         templates=_legion_units(conn,faction)
@@ -239,3 +261,16 @@ def resolve_royal_attack(ai,source,target,defender,detachment):
     # The ordinary battle resolver accounts for survivors and ownership itself.
     fight(attacking_city=source,defending_city=target,defending_army=defenders,attacking_army=army,
           attacking_fraction='Нежить',defending_fraction=defender,conn=conn)
+
+
+def peace_offer_blocked(conn,a,b):
+    return a=='Нежить' or b=='Нежить' or bool(conn and peace_locked(conn,a,b))
+
+
+def blocked_peace_message(conn,a,b,message):
+    text=str(message).casefold()
+    if any(token in text for token in ('мир невозможен','мир исключён','не заключим мир','не может быть мира')):return False
+    proposal=any(token in text for token in ('[пощада]','[мир]','[перемирие]','заключить мир',
+        'предлагаем мир','предлагаю мир','предложить мир','мирный договор','договор о мире',
+        'перемирие','закончить войну','прекратить войну','прекратить боевые действия'))
+    return proposal and peace_offer_blocked(conn,a,b)
