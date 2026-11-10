@@ -216,19 +216,41 @@ def begin_hunt(conn,site_id,faction):
     return eid
 
 
-def resolve_hunt(conn,eid):
+def resolve_hunt(conn,eid,allow_tactical=False):
     """One clash against the authored defense. Retreated armies earn nothing."""
     ensure_schema(conn)
+    tactical_state=None;survivors=[];snapshot=None
+    row=expedition(conn,eid)
+    if row and row['stage']=='fighting':raise ValueError('Бой этой экспедиции уже запущен.')
+    if row and row['stage']=='outbound' and allow_tactical:
+        site=next(s for s in sites(conn) if s['id']==row['site_id'])
+        snapshot=dict(conn.execute('SELECT unit_name,unit_count FROM garrisons WHERE city_name=? AND unit_count>0',(row['camp'],)))
+        conn.execute("UPDATE monster_expeditions SET stage='fighting' WHERE id=?",(eid,))
+        # No campaign transaction is held while the worker waits for the UI.
+        conn.commit()
+        from monster_tactical import choose_battle
+        tactical_state,survivors=choose_battle(conn,row,site)
     with conn:
         row=expedition(conn,eid)
         if row is None:
             return None
-        if row['stage']!='outbound':
+        if row['stage']!='outbound' and not (snapshot is not None and row['stage']=='fighting'):
             return json.loads(row['result'])
         site=next(s for s in sites(conn) if s['id']==row['site_id'])
         prize=encounter_reward(site)
-        won=row['attack']>=prize['defense']
+        won=row['attack']>=prize['defense'] if tactical_state is None else tactical_state.winner=='attacker'
+        if tactical_state is not None:
+            live=dict(conn.execute('SELECT unit_name,unit_count FROM garrisons WHERE city_name=? AND unit_count>0',(row['camp'],)))
+            if live!=snapshot:raise ValueError('Состав экспедиции изменился во время боя. Результат не записан.')
+            for unit in survivors:
+                conn.execute('UPDATE garrisons SET unit_count=? WHERE city_name=? AND unit_name=?',
+                             (unit['unit_count'],row['camp'],unit['unit_name']))
+            conn.execute('DELETE FROM garrisons WHERE city_name=? AND unit_count<=0',(row['camp'],))
         result=dict(won=won,name=monster_name(site),attack=row['attack'],**prize)
+        result['mode']='tactical' if tactical_state is not None else 'quick'
+        if tactical_state is not None:
+            result['losses']=sum(u.get('killed_count',0) for u in survivors)
+            result['survivors']=sum(u['unit_count'] for u in survivors)
         result['new_relic']=False
         result['experience']=1 if won else 0
         if won:
@@ -261,13 +283,13 @@ def resolve_hunt(conn,eid):
     return result
 
 
-def finish_hunt(conn,eid):
+def finish_hunt(conn,eid,resolve_outbound=True):
     """Return real camp troops, preserving natural XP; never enter a foreign city."""
     from terrain_journeys import _credit,_experience
     row=expedition(conn,eid)
     if row is None:
         return True
-    if row['stage']=='outbound':
+    if row['stage']=='outbound' and resolve_outbound:
         resolve_hunt(conn,eid)
     candidates=conn.execute('SELECT name FROM cities WHERE faction=? ORDER BY name',(row['faction'],)).fetchall()
     names={r[0] for r in candidates}

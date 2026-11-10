@@ -6,7 +6,7 @@ from pathlib import Path
 from kivy.clock import Clock
 from kivy.core.image import Image as CoreImage
 from kivy.core.text import Label as CoreLabel
-from kivy.graphics import Color, Rectangle, Line, Ellipse
+from kivy.graphics import Color, Rectangle, Line, Ellipse, StencilPush, StencilUse, StencilUnUse, StencilPop
 from kivy.metrics import dp
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
@@ -24,6 +24,8 @@ from utils.helpers import format_number
 from game_audio import get_audio, attack_sound
 from unit_combat_presentation import movement_sound
 from tactical_unit_outline import UnitOutline
+from tactical_spell_art import SpellArt,effect_duration,vortex_positions
+from combat_text import CRITICAL_COLOR,critical_markup
 
 ROOT = Path(__file__).resolve().parent
 ASSETS = ROOT/'files/army/animated'
@@ -132,6 +134,7 @@ class Battlefield(Widget):
         self.library = SpriteLibrary()
         self.terrain_art = TerrainArt()
         self.active_outline = UnitOutline()
+        self.spell_art=SpellArt()
         backdrop=ROOT/'files/battlefields'/(owner.battle.biome+'.png')
         self.backdrop=CoreImage(str(backdrop),nocache=True).texture if backdrop.is_file() else None
         self.bind(pos=self.draw,size=self.draw)
@@ -262,7 +265,7 @@ class Battlefield(Widget):
                     target = battle.stacks[strike['target']]
                     px,py = self.cell_center(target.pos)
                     text = ('КРИТ ' if strike['critical'] else '')+'−'+format_number(strike['killed'] or strike['damage'])
-                    self.label(text,px,py+c*(.55+age*.25),max(11,c*.28),(1,.86,.38,1))
+                    self.label(text,px,py+c*(.55+age*.25),max(11,c*.28),CRITICAL_COLOR if strike['critical'] else (1,.86,.38,1))
             for strike,start in self.owner.projectiles:
                 t=(self.owner.age-start)/.22
                 if 0<=t<=1:
@@ -289,8 +292,12 @@ class Battlefield(Widget):
                     else:
                         Color(1,.86,.47,1-t)
                         Line(points=(tx-c*.2,ty-c*.1,tx+c*.2,ty+c*.35),width=2)
+            StencilPush()
+            Rectangle(pos=self.origin,size=(WIDTH*c,HEIGHT*c))
+            StencilUse()
             for cells,start,key in self.owner.ability_fx:
                 age=self.owner.age-start
+                if self.spell_art.cast(key,cells,age,self.cell_center,c,self.owner.spell_origins.get((start,key))):continue
                 if 0<=age<.8 and key!='grenade':
                     hue=(.45,.83,1) if key in ('freeze','blizzard','priest_shield') else (1,.82,.34) if key=='paladin_shield' else (.4,1,.6) if key in ('heal','inspire','vampirism','vampire_raise') else (1,.35,.17)
                     Color(*hue,(1-age/.8)*.7)
@@ -298,22 +305,9 @@ class Battlefield(Widget):
                         px,py=self.cell_center(pos)
                         radius=c*(.18+age*.65)
                         Line(ellipse=(px-radius,py-radius,radius*2,radius*2),width=2)
-            for vortex in battle.vortices:
-                pos=vortex['pos']
-                motion=self.owner.vortex_motion.get(vortex['id'])
-                if motion:
-                    path,start=motion;t=max(0,min(1,(self.owner.age-start)/.6))*(len(path)-1)
-                    index=min(len(path)-2,int(t));fraction=min(1,t-index)
-                    pos=(path[index][0]+(path[index+1][0]-path[index][0])*fraction,
-                         path[index][1]+(path[index+1][1]-path[index][1])*fraction)
+            for key,pos,alpha in vortex_positions(battle.vortices,self.owner.vortex_motion,self.owner.age):
                 px,py=self.cell_center(pos)
-                for ring in range(3):
-                    points=[]
-                    for j in range(32):
-                        angle=j*.28+self.owner.age*8+ring*2
-                        radius=c*(.08+j*.009)
-                        points.extend((px+math.cos(angle)*radius,py+math.sin(angle)*radius*.65+(ring-1)*c*.12))
-                    Color(.75,.53,1,.78-ring*.12);Line(points=points,width=dp(1.4))
+                self.spell_art.draw('blood_vortex',self.owner.age,(px,py+c*.28),c*2.4,alpha,loop=True)
             for origin,impact,start in self.owner.grenades:
                 age=self.owner.age-start
                 ax,ay=self.cell_center(origin);tx,ty=self.cell_center(impact)
@@ -348,6 +342,10 @@ class Battlefield(Widget):
                         Color(*color,max(0,1-t*2))
                         Ellipse(pos=(tx-r,ty-r),size=(r*2,r*2))
 
+            StencilUnUse()
+            Rectangle(pos=self.origin,size=(WIDTH*c,HEIGHT*c))
+            StencilPop()
+
     def on_touch_down(self,touch):
         if not self.collide_point(*touch.pos):
             return super().on_touch_down(touch)
@@ -381,6 +379,7 @@ class TacticalBattlePopup(Popup):
         self.damage_labels = []
         self.projectiles=[]
         self.ability_fx=[]
+        self.spell_origins={}
         self.grenades=[]
         self.vortex_motion={}
         self.seen_events=0
@@ -409,6 +408,7 @@ class TacticalBattlePopup(Popup):
         header.add_widget(self.turn_label,index=len(header.children))
         scroller = self.info_scroll = ScrollView(do_scroll_x=False)
         self.info = flowing_label()
+        self.info.markup=True
         scroller.add_widget(self.info)
         self.panel.add_widget(scroller)
         self.action = StrategyButton(text='Выберите клетку',primary=True,size_hint_y=None,height=dp(48))
@@ -477,7 +477,8 @@ class TacticalBattlePopup(Popup):
         box=BoxLayout(orientation='vertical',spacing=dp(6),padding=dp(8))
         box._strategy_fixed_layout=True
         scroll=ScrollView(do_scroll_x=False)
-        scroll.add_widget(flowing_label(self.info.text+'\n\n'+self.log_label.text,14))
+        detail=flowing_label(self.info.text+'\n\n'+critical_markup(self.log_label.text),14)
+        detail.markup=True;scroll.add_widget(detail)
         box.add_widget(scroll)
         close=StrategyButton(text='К бою',size_hint_y=None,height=dp(44))
         sound=StrategyButton(text='Настройки звука',size_hint_y=None,height=dp(44))
@@ -510,6 +511,7 @@ class TacticalBattlePopup(Popup):
             self.clock_event.cancel()
             self.clock_event = None
         self.board.library.clear()
+        self.board.spell_art.clear()
         self.board.terrain_art.clear()
         self.board.active_outline.rectangle.texture=None
         self.board.canvas.clear()
@@ -628,6 +630,7 @@ class TacticalBattlePopup(Popup):
             self.info.text+=f'Сила · АТК {format_number(self.battle.ability_power(self.selected_skill,s))} · ЗАЩ {format_number(self.battle.skill_power(s,False))}'
             self.action.text='Применить: '+spec.name
             self.action.disabled=not self.battle.ability_valid(self.selected_skill,self.selection)
+        self.info.text=critical_markup(self.info.text)
         self.board.draw()
 
     def show_result(self):
@@ -702,6 +705,7 @@ class TacticalBattlePopup(Popup):
     def animate(self,event):
         if not event:
             return
+        self.log_label.color=MUTED
         self.selection = None
         self.selected_skill=None
         actor = self.battle.stacks[event['actor']]
@@ -713,7 +717,10 @@ class TacticalBattlePopup(Popup):
                    else 'frost' if key in ('freeze','blizzard') else 'heal' if key in ('heal','inspire','vampirism')
                    else 'sword' if key in ('whirlwind','paladin_shield') else 'heal' if key in ('priest_shield','vampire_raise') else 'magic')
             if sound:self.audio.play(sound,owner=self)
-        if action=='ability':self.ability_fx.append((event['cells'],self.age+(.65 if grenade else 0),event['ability']))
+        if action=='ability':
+            start=self.age+(.65 if grenade else 0)
+            self.ability_fx.append((event['cells'],start,event['ability']))
+            self.spell_origins[(start,event['ability'])]=event.get('impact',actor.pos)
         for revived in event.get('restored',[]):
             target=self.battle.stacks[revived['target']]
             self.animations.pop(target.id,None)
@@ -821,13 +828,18 @@ class TacticalBattlePopup(Popup):
                 self.damage_labels.append((strike,0))
                 if not strike.get('periodic') and not strike.get('grenade'):self.projectiles.append((strike,when))
                 self.pending_strikes.remove((when,strike))
-                self.log_label.text = ('Ответный удар. ' if strike['counter'] else '')+'Урон: '+format_number(strike['damage'])+' · Потери: '+format_number(strike['killed'])
+                self.log_label.color=CRITICAL_COLOR if strike['critical'] else MUTED
+                self.log_label.text = ('КРИТ · ' if strike['critical'] else '')+('Ответный удар. ' if strike['counter'] else '')+'Урон: '+format_number(strike['damage'])+' · Потери: '+format_number(strike['killed'])
         for when,key in list(self.sound_queue):
             if self.age>=when:
                 self.audio.play(key,owner=self)
                 self.sound_queue.remove((when,key))
         self.projectiles=[(strike,start) for strike,start in self.projectiles if self.age-start<.3]
-        self.ability_fx=[item for item in self.ability_fx if self.age-item[1]<.8]
+        self.ability_fx=[item for item in self.ability_fx if self.age-item[1]<effect_duration(item[2])]
+        active_fx={(start,key) for _,start,key in self.ability_fx}
+        self.spell_origins={key:pos for key,pos in self.spell_origins.items() if key in active_fx}
+        live_vortices={v['id'] for v in self.battle.vortices}
+        self.vortex_motion={key:motion for key,motion in self.vortex_motion.items() if key in live_vortices or self.age<motion[1]+.8}
         self.grenades=[item for item in self.grenades if self.age-item[2]<1.6]
         self.damage_labels = [(strike,age+dt) for strike,age in self.damage_labels if age<1.4]
         if self.busy<=0:

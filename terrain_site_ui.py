@@ -190,8 +190,8 @@ class TerrainSitePopup(Popup):
         card=surface(BoxLayout(size_hint_y=None,height=dp(64 if self._compact else 82),padding=dp(6),spacing=dp(8)),SURFACE,accent)
         card.add_widget(Image(source=image,size_hint_x=None,width=dp(46 if self._compact else 62),mipmap=True))
         labels=BoxLayout(orientation='vertical',spacing=dp(2))
-        rank={'2':' · Герой','3':' · Чемпион'}.get(unit_class,'')
-        labels.add_widget(text_label(unit['name']+rank,12 if self._compact else 14,bold=True,size_hint_y=.5))
+        from utils.unit_names import unit_display_name
+        labels.add_widget(text_label(unit_display_name(unit['name']),12 if self._compact else 14,bold=True,size_hint_y=.5))
         labels.add_widget(text_label(f'Бойцов: {unit["count"]:,}'.replace(',',' '),12 if self._compact else 14,GOLD,size_hint_y=.3))
         labels.add_widget(text_label(f'Опыт: {unit["experience"]}',10 if self._compact else 11,MUTED,size_hint_y=.2))
         card.add_widget(labels)

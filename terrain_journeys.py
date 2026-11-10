@@ -408,7 +408,7 @@ def _finish(conn, row):
                 _credit(conn,target,name,count,image,exp,training_source=camp)
             conn.execute('UPDATE cities SET faction=? WHERE name=?',(faction,target))
             conn.execute('UPDATE buildings SET faction=? WHERE city_name=?',(faction,target))
-            record_capture(conn,target,faction)
+            record_capture(conn,target,faction,'battle_capture',old_owner=owner)
     conn.execute('DELETE FROM garrisons WHERE city_name=?',(camp,))
     return True
 

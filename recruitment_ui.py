@@ -142,7 +142,8 @@ class RecruitmentSession(Widget):
                        self.accent if unit_class == 1 else GOLD)
         card.quantity_slider = None
         title = BoxLayout(size_hint_y=None, height=dp(30), spacing=dp(8))
-        title.add_widget(text_label(name, 21, bold=True))
+        from utils.unit_names import unit_display_name
+        title.add_widget(text_label(unit_display_name(name), 21, bold=True))
         rank = text_label(info.get('role_label') or {1: 'Рекрут', 2: 'Герой', 3: 'Чемпион', 4: 'Легенда'}.get(unit_class, 'Воин'),
                           11, GOLD, size_hint_x=None, width=dp(100 if info.get('role_label') else 84))
         rank.halign = 'right'

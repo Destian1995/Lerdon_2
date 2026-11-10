@@ -352,6 +352,8 @@ class AIController:
 
 
     def sell_resources(self):
+        from utils.crystal_trade import ai_sell_price
+        unit_price=ai_sell_price(self)
         # Элины и Адепты — торговые фракции, накапливают кристаллы для обмена
         # Они продают лишь небольшой процент, сохраняя резерв для дипломатических сделок
         if self.faction in ('Элины', 'Адепты'):
@@ -359,7 +361,7 @@ class AIController:
             available_to_sell = max(0, int(self.resources['Кристаллы']) - crystal_reserve)
             if available_to_sell > 50:
                 amount_to_sell = int(available_to_sell * 0.5)  # Продают только 50% от излишка
-                earned_crowns = int(amount_to_sell * self.raw_material_price)
+                earned_crowns = int(amount_to_sell * unit_price)
                 self.resources['Кристаллы'] -= amount_to_sell
                 self.resources['Кроны'] += earned_crowns
                 price_per_lot = self.raw_material_price / 100
@@ -372,7 +374,7 @@ class AIController:
         else:
             if self.resources['Кристаллы'] > 100:
                 amount_to_sell = int(self.resources['Кристаллы'] * 0.95)
-                earned_crowns = int(amount_to_sell * self.raw_material_price)
+                earned_crowns = int(amount_to_sell * unit_price)
                 self.resources['Кристаллы'] -= amount_to_sell
                 self.resources['Кроны'] += earned_crowns
                 price_per_lot = self.raw_material_price / 100
@@ -1340,7 +1342,7 @@ class AIController:
         Генерирует новую цену на Кристаллы.
         """
         # Простая реализация: случайная цена в диапазоне
-        self.raw_material_price = round(random.uniform(150, 200), 8)
+        self.raw_material_price = round(random.uniform(76.3, 148.7), 2)
         print(f"Новая цена на Кристаллы: {self.raw_material_price}")
 
     def update_trade_resources_from_db(self):
@@ -3324,7 +3326,7 @@ class AIController:
             self.resources['Кристаллы'] = int(self.resources.get('Кристаллы', 0)) + raw_material_bonus
             print(f"Бонус от борьбы: +{raw_material_bonus} Кристаллы")
 
-        # Элины: усиленный бонус к кристаллам (+35%, в Лето x2.75)
+        # Элины: усиленный бонус к кристаллам (+5%, в Лето x2.75)
         if self.faction == 'Элины' and self.food_info > 0:
             try:
                 self.cursor.execute("SELECT season_index FROM season LIMIT 1")
@@ -3332,7 +3334,7 @@ class AIController:
                 _peak = (_s[0] == 2) if _s else False
             except Exception:
                 _peak = False
-            eliny_mult = 0.35 * 2.75 if _peak else 0.35
+            eliny_mult = 0.05 * 2.75 if _peak else 0.05
             eliny_bonus = int(self.food_info * eliny_mult)
             if eliny_bonus > 0:
                 self.resources['Кристаллы'] = int(self.resources.get('Кристаллы', 0)) + eliny_bonus

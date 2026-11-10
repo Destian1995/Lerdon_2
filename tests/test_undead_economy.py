@@ -63,10 +63,10 @@ class UndeadEconomyTests(unittest.TestCase):
         self.assertEqual(self.ai.turn,1)
         self.assertGreater(self.db.execute("SELECT unit_count FROM garrisons WHERE unit_name='Ghost'").fetchone()[0],100000)
 
-    def test_starting_resources_are_1000_crowns_and_200_population_once(self):
+    def test_starting_resources_are_100000_crowns_and_200_population_once(self):
         initialize_resources(self.db)
         balances=dict(self.db.execute("SELECT resource_type,amount FROM resources WHERE faction='Нежить'"))
-        self.assertEqual(balances['Кроны'],1000)
+        self.assertEqual(balances['Кроны'],100000)
         self.assertEqual(balances['Население'],200)
         self.db.execute("UPDATE resources SET amount=0 WHERE faction='Нежить'")
         initialize_resources(self.db)
@@ -91,7 +91,7 @@ class UndeadEconomyTests(unittest.TestCase):
             self.assertEqual(building_counts(self.db,city,'Нежить'),dict.fromkeys(CATALOG,1))
         self.assertTrue(any(amount>0 for amount in hired))
         cash=self.db.execute("SELECT amount FROM resources WHERE faction='Нежить' AND resource_type='Кроны'").fetchone()[0]
-        self.assertEqual(1000+15000,sum(hired)+cash)
+        self.assertEqual(100000+15000,sum(hired)+cash)
 
     def test_zero_balances_restore_full_catalogue_without_spending_or_duplicates(self):
         initialize_resources(self.db)

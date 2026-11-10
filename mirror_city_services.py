@@ -39,7 +39,8 @@ class ExpeditionUnitRow(BoxLayout):
         from frontend_ui import NaturalList
         from mirror_readable_ui import ReadableText,compact_number
         copy=NaturalList(spacing=dp(1),pos_hint={'center_y':.5})
-        label=name.removeprefix('Странник: ').split(' / ')[0]
+        from utils.unit_names import unit_display_name
+        label=unit_display_name(name)
         self.title=ReadableText(label+(' · '+format_number(count) if cls=='1' else ''),size=15,bold=True,color=GOLD)
         self.stats=ReadableText('АТК '+compact_number(profile.get('attack',0)*count)+' · ЗАЩ '+compact_number(profile.get('defense',0)*count),size=14)
         self.summary=self.stats

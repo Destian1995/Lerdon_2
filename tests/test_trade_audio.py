@@ -23,7 +23,7 @@ class TradeAudioTests(unittest.TestCase):
         for trade in ('buy','sell'):
             for success in (True,False):
                 with self.subTest(trade=trade,success=success),patch('game_audio.play_effect') as sound:
-                    market=SimpleNamespace(current_raw_material_price=100,resources={'Кроны':10000},
+                    market=SimpleNamespace(current_raw_material_price=100,_get_trade_bonus=lambda:1,resources={'Кроны':10000},
                         get_available_raw_material_lots=lambda:100,
                         trade_raw_material=Mock(return_value=success),update_economic_efficiency=Mock())
                     handle(market,trade,1,Mock())

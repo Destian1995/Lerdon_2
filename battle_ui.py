@@ -19,6 +19,7 @@ from kivy.uix.widget import Widget
 from battle_presentation import replay_frames, result_caption, player_side, army_summary, report_result
 from strategy_ui import GOLD, INK, SURFACE, TEXT, MUTED, FACTIONS, StrategyButton, surface, text_label
 from utils.helpers import format_number
+from combat_text import CRITICAL_COLOR,critical_markup
 from window_theme import prepare_custom_popup, center_after_resize
 
 RED = (1, 0.38, 0.27, 1)
@@ -285,14 +286,16 @@ class BattleViewer(Popup):
         for side, loss, crits, faction in ((self.attacker_panel, record['atk_loss'], record['def_crits'], self.defending),
                                            (self.defender_panel, record['def_loss'], record['atk_crits'], self.attacking)):
             if loss > 0:
-                self.fx.burst(side.holder.center_x, side.holder.center_y, GOLD if crits else side.accent,
+                self.fx.burst(side.holder.center_x, side.holder.center_y, CRITICAL_COLOR if crits else side.accent,
                               20 if crits else 12)
             if crits:
                 events.append(f'{faction}: критические удары ×{crits}')
         for hero in record['heroes']:
-            events.append(f'Вступает в бой: {hero["unit_name"]}')
-        self.event_label.text = ' · '.join(events) if events else (
-            f'Потери: атака −{format_number(record["atk_loss"])}  ·  оборона −{format_number(record["def_loss"])}')
+            from utils.unit_names import unit_display_name
+            events.append(f'Вступает в бой: {unit_display_name(hero["unit_name"])}')
+        self.event_label.markup=True
+        self.event_label.text = critical_markup(' · '.join(events) if events else (
+            f'Потери: атака −{format_number(record["atk_loss"])}  ·  оборона −{format_number(record["def_loss"])}'))
 
     def reveal_result(self):
         self.finished = True
@@ -396,8 +399,8 @@ class BattleReport(Popup):
             if rounds and any('atk_crits' in record for record in rounds):
                 key = 'atk_crits' if side == 'attacking' else 'def_crits'
                 section_title += f'  ·  Критов: {sum(record.get(key, 0) for record in rounds)}'
-            content.add_widget(text_label(section_title, 15, GOLD, bold=True,
-                                          size_hint_y=None, height=dp(28)))
+            section=text_label(critical_markup(section_title),15,GOLD,bold=True,size_hint_y=None,height=dp(28))
+            section.markup=True;content.add_widget(section)
             units = [row for row in rows if row.get('side') == side]
             for row in units:
                 card = surface(BoxLayout(size_hint_y=None, height=dp(60), padding=dp(7), spacing=dp(8)), SURFACE,
@@ -406,7 +409,8 @@ class BattleReport(Popup):
                 card.add_widget(Image(source=image if image and asset_exists(image) else 'files/pict/hire/class.png',
                                       size_hint_x=None, width=dp(40), mipmap=True))
                 detail = BoxLayout(orientation='vertical')
-                detail.add_widget(text_label(row.get('unit_name', '—'), 13, bold=True))
+                from utils.unit_names import unit_display_name
+                detail.add_widget(text_label(unit_display_name(row.get('unit_name', '—')), 13, bold=True))
                 status = f'Было {exact_count(row.get("initial_count", 0))} · Осталось {exact_count(row.get("final_count", 0))}'
                 if row.get('initial_count') == 1:
                     status = 'Погиб в бою' if not row.get('final_count') else 'Вернулся после исцеления' if row.get('healed') else 'Выжил'

@@ -3,6 +3,7 @@ from kivy.uix.image import AsyncImage
 
 from fight import fight
 from utils.helpers import format_number
+from utils.unit_names import unit_display_name
 
 
 def _show_dark_error_popup(title, message):
@@ -376,7 +377,7 @@ class FortressInfoPopup(Popup):
         # Создаем всплывающее окно
         _is_mobile = platform in ('android', 'ios')
         popup = Popup(
-            title=f"Добавление {unit_name} в группу",
+            title=f"Добавление {unit_display_name(unit_name)} в группу",
             size_hint=(0.95 if _is_mobile else 0.8, 0.82 if _is_mobile else 0.7),
             background_color=(0.07, 0.08, 0.13, 1),
             separator_color=(0.25, 0.52, 0.92, 0.5),
@@ -625,7 +626,7 @@ class FortressInfoPopup(Popup):
         # Повторно строим таблицу
         for city_name, unit_name, unit_count, unit_image in all_troops:
             city_label = Label(text=city_name, font_size='18sp', size_hint_y=None, height=90)
-            unit_label = Label(text=unit_name, font_size='18sp', size_hint_y=None, height=90)
+            unit_label = Label(text=unit_display_name(unit_name), font_size='18sp', size_hint_y=None, height=90)
             count_label = Label(text=str(unit_count), font_size='18sp', size_hint_y=None, height=90)
 
             image_container = BoxLayout(size_hint_y=None, height=60)
@@ -862,10 +863,8 @@ class FortressInfoPopup(Popup):
                 info = BoxLayout(orientation='vertical', spacing=dp(2))
 
                 # Название
-                class_labels = {'1': '', '2': '  [Герой]', '3': '  [Чемпион]', '4': '  [Легенда]'}
-                cls_tag = class_labels.get(unit_class, '')
                 name_lbl = Label(
-                    text=f'[b]{unit_name}[/b][color=#AAAAAA]{cls_tag}[/color]',
+                    text=f'[b]{unit_display_name(unit_name)}[/b]',
                     markup=True, font_size=sp(12), color=(0.95, 0.95, 0.95, 1),
                     halign='left', valign='middle', size_hint_y=None, height=dp(22)
                 )
@@ -1000,9 +999,7 @@ class FortressInfoPopup(Popup):
         hero_bonus_atk,hero_bonus_def,hero_bonus_dur=(value*curse for value in (hero_bonus_atk,hero_bonus_def,hero_bonus_dur))
         morale*=curse
         _is_mobile = platform in ('android', 'ios')
-        class_labels = {'1': '', '2': 'Герой', '3': 'Чемпион', '4': 'Легенда'}
-        cls_text = class_labels.get(unit_class, '')
-        title = f"{name}  {cls_text}" if cls_text else name
+        title = unit_display_name(name)
 
         # Главный контейнер (вертикальный: верх — контент, низ — кнопка)
         content = BoxLayout(
@@ -2008,6 +2005,8 @@ class FortressInfoPopup(Popup):
         try:
             with self.conn:
                 cursor = self.conn.cursor()
+                previous=cursor.execute('SELECT faction FROM cities WHERE name=?',(city_name,)).fetchone()
+                old_owner=previous[0] if previous else None
 
                 # 1. Обновляем владельца города
                 cursor.execute("""
@@ -2049,7 +2048,10 @@ class FortressInfoPopup(Popup):
                 """, (new_owner, city_name))
 
                 from city_war import record_capture
-                record_capture(self.conn, city_name, new_owner)
+                record_capture(self.conn, city_name, new_owner,'battle_capture',old_owner=old_owner)
+
+            from city_capture_ui import present_capture
+            present_capture(self.conn,new_owner,city_name)
 
             self.update_garrison()
             # Обновляем количество городов и лимит армии

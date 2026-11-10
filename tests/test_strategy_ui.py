@@ -51,7 +51,7 @@ class StrategyUITests(unittest.TestCase):
         popup = self.popup(populated=True)
         self.assertTrue(popup.city_columns._wide)
         self.assertEqual(len(popup.city_columns.body.children), 2)
-        self.assertEqual(set(popup.city_action_buttons), {'move', 'army', 'build', 'portal'})
+        self.assertEqual(set(popup.city_action_buttons), {'move', 'army', 'build', 'portal', 'intrigues'})
         self.assertEqual(len(popup.attacking_units_box.children), 1)
         self.assertFalse(hasattr(popup, 'city_building_count'))
         for button in popup.city_action_buttons.values():
@@ -80,10 +80,10 @@ class StrategyUITests(unittest.TestCase):
     def test_foreign_and_undead_city_do_not_offer_owned_city_actions(self):
         self.viewport((800, 480))
         foreign = self.popup(owner='Эльфы')
-        self.assertEqual(set(foreign.city_action_buttons), {'move'})
+        self.assertEqual(set(foreign.city_action_buttons), {'move','intrigues'})
         foreign.dismiss(animation=False)
         undead = self.popup(owner='Нежить', undead=True)
-        self.assertEqual(set(undead.city_action_buttons), {'move'})
+        self.assertEqual(set(undead.city_action_buttons), {'move','intrigues'})
         self.assertTrue(undead._is_undead_city)
         self.assertTrue(json.loads((ROOT / 'files/city/death/lore.json').read_text(encoding='utf-8'))['Некрополь'])
 
@@ -93,6 +93,8 @@ class StrategyUITests(unittest.TestCase):
         for size in ((1280, 576), (640, 360), (360, 640), (1000, 600)):
             with self.subTest(size=size):
                 self.viewport(size)
+                popup.city_columns.select(1)
+                self.settle()
                 scene = popup.city_preview
                 panel = popup.city_columns.panels[1]
                 self.assertEqual(scene.pos, panel.pos)
@@ -115,9 +117,9 @@ class StrategyUITests(unittest.TestCase):
         try:
             town.choose('Кузница');town.purchase();self.settle()
             self.assertEqual(town.scene.counts['Кузница'],1)
-            self.assertEqual(db.execute('SELECT amount FROM resources').fetchone()[0],470000)
+            self.assertEqual(db.execute('SELECT amount FROM resources').fetchone()[0],497000)
             self.assertEqual(town.selector.text,'Кузница')
-            self.assertEqual([button.text for button in town.selectors.values()],list(popup.BUILDING_CATALOG))
+            self.assertEqual([button.title.text for button in town.selectors.values()],list(popup.BUILDING_CATALOG))
         finally:
             town.dismiss(animation=False)
 

@@ -313,6 +313,14 @@ def build_city_window(popup):
             from otherworld_ui import open_portal
             open_portal(popup)
         action('portal', 'Портал', portal)
+    def intrigues(*_):
+        from main_intrigue_ui import MainIntriguesPopup
+        journal=MainIntriguesPopup(popup.conn,popup.player_fraction,popup.city_name)
+        def refresh_city(*_):
+            popup.load_buildings();popup.get_garrison()
+        journal.bind(on_dismiss=refresh_city)
+        journal.open()
+    action('intrigues','Таверна',intrigues)
     root.add_widget(actions)
     popup.content = root
     popup.garrison_widgets = {}

@@ -82,7 +82,7 @@ class RebelTests(unittest.TestCase):
 
     def test_starting_purse_is_not_refilled_on_controller_recreation(self):
         rebels.initialize_resources(self.db, new_uprising=True)
-        self.assertEqual(dict(self.db.execute("SELECT resource_type,amount FROM resources WHERE faction='Мятежники'"))['Кроны'],1000)
+        self.assertEqual(dict(self.db.execute("SELECT resource_type,amount FROM resources WHERE faction='Мятежники'"))['Кроны'],100000)
         for amount in (0,42,100000):
             self.db.execute("UPDATE resources SET amount=? WHERE faction='Мятежники' AND resource_type='Кроны'",(amount,))
             rebels.initialize_resources(self.db)
@@ -97,7 +97,7 @@ class RebelTests(unittest.TestCase):
         ns = {'random':random,'show_result_popup':lambda *a:None}
         exec(compile(ast.Module(body=[node],type_ignores=[]),'diversion.py','exec'),ns)
         with patch.dict(sys.modules,{'game_process':SimpleNamespace(refresh_map=lambda:None)}):
-            for city, expected in [('Home',1000),('Safe',47)]:
+            for city, expected in [('Home',100000),('Safe',47)]:
                 ns['execute_diversion_operation'](self.db,'Эльфы','Мятеж',{},'Север',
                     {'Север':{'cities_without_garrison':[city]}},rebels_count=10)
                 self.assertEqual(self.db.execute("SELECT amount FROM resources WHERE faction='Мятежники' AND resource_type='Кроны'").fetchone()[0],expected)

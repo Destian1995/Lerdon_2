@@ -198,6 +198,9 @@ def restore_from_backup(conn):
             cursor.execute(f"DELETE FROM {working_table}")
             cursor.execute(f"INSERT INTO {working_table} SELECT * FROM {default_table}")
 
+        from starting_economy import reset_starting_crowns
+        reset_starting_crowns(conn)
+
         # Сброс инвазии нежити для новой игры (случайный ход 18-26)
         import random as _rnd
         _inv_turn = _rnd.randint(18, 26)
@@ -291,6 +294,12 @@ def clear_tables(conn):
         "portal_monster_cases",
         "portal_soul_pacts",
         "portal_heart_contracts",
+        "map_intrigue_offers",
+        "map_intrigue_captures",
+        "map_city_secrets",
+        "map_companion_temper",
+        "map_intrigue_log",
+        "map_intrigue_turns",
         "portal_companion_forms",
     ]
 

@@ -60,6 +60,28 @@ def production(filename,faction,policy,markets=1,population=100,consumption=50,s
 
 
 class AdaptiveMarketTests(unittest.TestCase):
+    def test_elines_base_bonus_for_player_and_ai_in_each_season(self):
+        for source,method_name in (('economic.py','apply_player_bonuses'),
+                                   ('ii.py','apply_political_system_bonus')):
+            tree=ast.parse(Path(source).read_text(encoding='utf-8'))
+            method=next(n for n in ast.walk(tree) if isinstance(n,ast.FunctionDef) and n.name==method_name)
+            namespace={}
+            exec(compile(ast.Module(body=[method],type_ignores=[]),source,'exec'),namespace)
+            for season in range(4):
+                with self.subTest(source=source,season=season):
+                    db=sqlite3.connect(':memory:')
+                    try:
+                        db.execute('CREATE TABLE season(season_index)')
+                        db.execute('INSERT INTO season VALUES(?)',(season,))
+                        host=SimpleNamespace(faction='Элины',cursor=db.cursor(),food_info=10000,
+                            money_up=0,money=0,raw_material=0,resources={'Кристаллы':0},turn=1,
+                            load_political_system=lambda:'',_get_council_bonuses=lambda:(0,0),
+                            _apply_council_relation_bonuses=lambda:None,_sync_resources=lambda:None)
+                        with contextlib.redirect_stdout(io.StringIO()):namespace[method_name](host)
+                        actual=host.raw_material if source=='economic.py' else host.resources['Кристаллы']
+                        self.assertEqual(actual,1375 if season==2 else 500)
+                    finally:db.close()
+
     def test_real_player_and_ai_get_only_the_income_selected_by_policy(self):
         for source,yield_ in (('economic.py',FACTORY_YIELD),('ii.py',AI_FACTORY_YIELD)):
             for faction in ('Север','Адепты','Вампиры','Эльфы','Элины'):
@@ -67,8 +89,8 @@ class AdaptiveMarketTests(unittest.TestCase):
                     with self.subTest(source=source,faction=faction,policy=policy):
                         base=production(source,faction,policy,markets=0)
                         actual=production(source,faction,policy)
-                        expected=int(yield_*(5 if faction=='Элины' else 65)/100) if policy=='Борьба' else 0
-                        self.assertEqual(actual[0]-base[0],100 if policy=='Смирение' else 0)
+                        expected=int(yield_*(110 if faction=='Элины' else 65)/100) if policy=='Борьба' else 0
+                        self.assertEqual(actual[0]-base[0],(150 if faction=='Север' else 100) if policy=='Смирение' else 0)
                         self.assertEqual(actual[1]-base[1],expected)
                         self.assertEqual(actual[2]-base[2],expected)
 
@@ -99,14 +121,14 @@ class AdaptiveMarketTests(unittest.TestCase):
             INSERT INTO buildings VALUES('Capital','Север','Рынок',1),('Capital','Север','Рынок',5),
                 ('Island','Север','Рынок',1),('Foreign','Север','Рынок',1);
             INSERT INTO political_systems VALUES('Север','Смирение');''')
-        self.assertEqual(market_profile(db,'Север'),(1,10,0))
-        self.assertIn('+10%',building_description(db,'Север','Рынок'))
+        self.assertEqual(market_profile(db,'Север'),(1,15,0))
+        self.assertIn('+15%',building_description(db,'Север','Рынок'))
         db.execute("UPDATE political_systems SET system='Борьба'")
         self.assertEqual(market_profile(db,'Север'),(1,0,65))
         self.assertIn('+65%',building_description(db,'Север','Рынок'))
         self.assertIn('кристаллов',building_description(db,'Север','Рынок'))
         db.execute("INSERT INTO political_systems VALUES('Элины','Борьба')")
-        self.assertEqual(market_policy(db,'Элины'),('Кристаллы',5))
+        self.assertEqual(market_policy(db,'Элины'),('Кристаллы',110))
         db.execute("DELETE FROM buildings WHERE city_name='Capital'")
         self.assertEqual(market_profile(db,'Север'),(0,0,65))
 

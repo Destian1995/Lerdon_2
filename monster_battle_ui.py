@@ -20,6 +20,10 @@ def strike_frames(result,count,steps=6):
 
 
 def reward_rows(result):
+    if result.get('mode')=='tactical':
+        base=dict(result,mode='quick')
+        return [('Потери войск',exact_count(result.get('losses',0)),'files/pict/hire/class.png'),
+                ('Выжившие',exact_count(result.get('survivors',0)),'files/pict/hire/class.png')]+reward_rows(base)
     if not result['won']:
         return [('Награды','0','files/pict/hire/class.png')]
     return [('Кроны',('+' if result['resources'] else '')+exact_count(result['resources']),
@@ -44,7 +48,7 @@ class MonsterRewardReport(Popup):
         header=BoxLayout(size_hint_y=None,height=dp(56),spacing=dp(8))
         heading=BoxLayout(orientation='vertical')
         heading.add_widget(text_label('ИТОГИ ОХОТЫ  /  '+result['name'],10,MUTED))
-        heading.add_widget(text_label('ПОЛУЧЕННЫЕ НАГРАДЫ' if result['won'] else 'ОТСТУПЛЕНИЕ',22,
+        heading.add_widget(text_label('ПОЛУЧЕННЫЕ НАГРАДЫ' if result['won'] else 'ПОРАЖЕНИЕ' if result.get('mode')=='tactical' else 'ОТСТУПЛЕНИЕ',22,
                                       GOLD if result['won'] else RED,bold=True))
         header.add_widget(heading)
         close=StrategyButton(text='×',size_hint_x=None,width=dp(48))

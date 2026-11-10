@@ -28,6 +28,7 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.slider import Slider
 from kivy.uix.widget import Widget
 from utils.helpers import format_number, parse_formatted_number
+from utils.unit_names import unit_display_name
 
 ROOT = Path(__file__).resolve().parents[1]
 

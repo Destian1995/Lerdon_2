@@ -1,5 +1,6 @@
 """Free undead infrastructure and paid recruitment alongside invasion waves."""
-STARTING_RESOURCES={'Кроны':1000,'Рабочие':0,'Кристаллы':500,'Население':200,
+from starting_economy import SPECIAL_STARTING_CROWNS
+STARTING_RESOURCES={'Кроны':SPECIAL_STARTING_CROWNS,'Рабочие':0,'Кристаллы':500,'Население':200,
                     'Текущее потребление':0,'Лимит армии':0}
 
 

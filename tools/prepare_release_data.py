@@ -42,6 +42,9 @@ def prepare(source, destination):
                             clean.execute('UPDATE units_default SET id=? WHERE rowid=?', (next_id, rowid))
                             next_id += 1
                 clean.execute(f'INSERT INTO "{name}" SELECT * FROM "{default}"')
+        from starting_economy import reset_starting_crowns
+        for table in ('resources_default','resources'):
+            if table in tables:reset_starting_crowns(clean,table)
         clean.commit()
         migrate_morgana(clean)
         migrate_capital_archers(clean)

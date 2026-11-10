@@ -96,7 +96,10 @@ class MonsterBattleTests(unittest.TestCase):
                                _map_atmosphere=SimpleNamespace(marches=layer),update_cities=lambda:None)
         chosen=sites(self.db)[-1];eid=begin_hunt(self.db,7,'Север')
         play_hunt(widget,chosen,eid,completed.append)
-        batches[0][1]();settle()
+        from unittest.mock import patch
+        def run(conn,operation,complete,on_error=None):complete(operation(conn))
+        with patch('tactical_battle_bridge.launch_operation',side_effect=run):
+            batches[0][1]();settle()
         view=next(w for w in Window.children if isinstance(w,MonsterClashPopup))
         view.close_to_report();view.close_to_report();settle()
         self.assertEqual(len(batches),1)
@@ -107,6 +110,36 @@ class MonsterBattleTests(unittest.TestCase):
         self.assertEqual(len(completed),1)
         self.assertIsNone(expedition(self.db,eid))
         self.assertEqual(self.db.execute("SELECT amount FROM resources WHERE resource_type='Кроны'").fetchone()[0],850100)
+
+    def test_tactical_hunt_shows_rewards_without_replaying_quick_clash(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from monster_ui import play_hunt
+        from monster_sites import expedition
+        from tactical_combat import TacticalBattle
+        batches=[];completed=[]
+        layer=SimpleNamespace(play_batch=lambda specs,arrive,cancel:batches.append((specs,arrive,cancel)))
+        widget=SimpleNamespace(conn=self.db,current_player_kingdom='Север',map_pos=(0,0),map_scale=1,
+                               _map_atmosphere=SimpleNamespace(marches=layer),update_cities=lambda:None)
+        site=sites(self.db)[4];eid=begin_hunt(self.db,site['id'],'Север')
+        def run(conn,operation,complete,on_error=None):complete(operation(conn))
+        def manual(attackers,defenders,*args,**kwargs):
+            model=TacticalBattle(attackers,defenders)
+            for s in model.stacks.values():
+                if s.side=='defender':s.hp=0;s.count=0
+            model._check_end();return model
+        play_hunt(widget,site,eid,completed.append)
+        with patch('tactical_battle_bridge.launch_operation',side_effect=run),patch('tactical_battle_bridge.request_battle',side_effect=manual):
+            batches[0][1]();settle()
+        self.assertFalse(any(isinstance(w,MonsterClashPopup) for w in Window.children))
+        report=next(w for w in Window.children if isinstance(w,MonsterRewardReport))
+        self.assertEqual(report.result['mode'],'tactical')
+        self.assertTrue(any(row[0]=='Выжившие' for row in report.rows))
+        report.dismiss(animation=False);settle();report.closed();settle()
+        self.assertEqual(len(batches),2)
+        batches[1][1]()
+        self.assertIsNone(expedition(self.db,eid));self.assertEqual(len(completed),1)
+        self.assertEqual(self.db.execute("SELECT amount FROM resources WHERE resource_type='Кроны'").fetchone()[0],650100)
 
 
 if __name__=='__main__':unittest.main()

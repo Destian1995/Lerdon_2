@@ -10,6 +10,7 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.slider import Slider
 from strategy_ui import StrategyButton, surface, text_label, GOLD, MUTED
 from utils.helpers import format_number
+from utils.unit_names import unit_display_name
 
 
 def wrapped(text, size=14, color=MUTED, **kwargs):
@@ -36,7 +37,7 @@ class ReserveCard(BoxLayout):
                               pos_hint={'center_y': .5})
         info = BoxLayout(orientation='vertical', spacing=dp(4), size_hint_y=None)
         info.bind(minimum_height=info.setter('height'))
-        self.name_label = wrapped(name, 16, GOLD, bold=True)
+        self.name_label = wrapped(unit_display_name(name), 16, GOLD, bold=True)
         self.stats_label = wrapped(
             f'Атака: {format_number(attack)} · Защита: {format_number(defense)}\n'
             f'Живучесть: {format_number(durability)} · Класс: {unit_class}', 13)

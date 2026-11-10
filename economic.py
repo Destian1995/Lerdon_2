@@ -767,7 +767,7 @@ class Faction:
                 self.raw_material += council_crystals
                 bonuses["Кристаллы"] = bonuses.get("Кристаллы", 0) + council_crystals
 
-            # Элины: усиленный бонус к кристаллам (+35% от добычи, в Лето x2.75)
+            # Элины: усиленный бонус к кристаллам (+5% от добычи, в Лето x2.75)
             if self.faction == 'Элины' and self.food_info > 0:
                 try:
                     self.cursor.execute("SELECT season_index FROM season LIMIT 1")
@@ -775,7 +775,7 @@ class Faction:
                     _peak = (_s[0] == 2) if _s else False
                 except Exception:
                     _peak = False
-                eliny_crystal_mult = 0.35 * 2.75 if _peak else 0.35
+                eliny_crystal_mult = 0.05 * 2.75 if _peak else 0.05
                 eliny_crystal_bonus = int(self.food_info * eliny_crystal_mult)
                 if eliny_crystal_bonus > 0:
                     self.raw_material += eliny_crystal_bonus
@@ -1159,6 +1159,8 @@ class Faction:
         # Обновление ресурсов с учетом коэффициентов и сезона
         from city_construction import HOSPITAL_GROWTH,FACTORY_YIELD
         self.born_peoples = int(self.hospitals * HOSPITAL_GROWTH * _season_pop_mult)
+        from main_map_intrigues import economy_adjustments
+        self.born_peoples+=economy_adjustments(self.conn,self.faction,growth=self.born_peoples)['population']
         self.work_peoples = int(self.factories * 20)
         self.clear_up_peoples = self.born_peoples - self.work_peoples
 
@@ -1174,6 +1176,7 @@ class Faction:
         from utils.city_terrain import economic_bonuses
         _terrain_bonus = economic_bonuses(self.conn,self.faction,boosted_income,FACTORY_YIELD*_season_factory_mult)
         boosted_income += _terrain_bonus['crowns']
+        boosted_income+=economy_adjustments(self.conn,self.faction,crowns=boosted_income)['crowns']
         self.money += boosted_income
         self.money_info = int(self.hospitals * coeffs['money_loss'])
         self.money_up = boosted_income
@@ -1214,7 +1217,8 @@ class Faction:
         # max(0, ...) гарантирует, что фракция с отрицательным базовым производством
         # просто не получает бонус, вместо отрицательного значения.
         _gross_crystals=max(0,self.factories*FACTORY_YIELD*_season_factory_mult*(1+city_raw_material_bonus)+_terrain_bonus['crystals'])
-        _market_crystal_income=additional_income(_gross_crystals,_markets,_market_crystals)
+        _city_crystal_policy=economy_adjustments(self.conn,self.faction,crystals=_gross_crystals)['crystals']
+        _market_crystal_income=additional_income(_gross_crystals+_city_crystal_policy,_markets,_market_crystals)+_city_crystal_policy
         self.food_info = max(0, int(base_raw_material_production + total_city_bonus_kf + _terrain_bonus['crystals'] + _market_crystal_income))
 
         # Production first; the authoritative garrison bill below deducts upkeep once.
@@ -1250,6 +1254,7 @@ class Faction:
             # 1. Прирост населения от больниц (рождение)
             # 2. Изменение населения от эффекта налогов (как абсолютное значение, рассчитанное от текущего населения)
             net_growth_from_hospitals_and_tax = self.born_peoples + tax_population_change
+            net_growth_from_hospitals_and_tax+=economy_adjustments(self.conn,self.faction,tax_growth=tax_population_change)['population']
             self.population += net_growth_from_hospitals_and_tax
         else:
             # Логика убыли населения при недостатке Кристаллов (как было)
@@ -1676,41 +1681,38 @@ class Faction:
 
     def _get_trade_bonus(self):
         """Возвращает множитель торговли: бонус от Рынков + фракционный + советники."""
-        bonus = 1.0 + self.markets * 0.10  # +10% за каждый Рынок
-        if self.faction == 'Элины':
-            try:
-                self.cursor.execute("SELECT season_index FROM season LIMIT 1")
-                _s = self.cursor.fetchone()
-                _is_peak = (_s[0] == 2) if _s else False
-            except Exception:
-                _is_peak = False
-            bonus += 0.25 * 2.75 if _is_peak else 0.25  # Элины: +25% (лето +68.75%)
+        from utils.crystal_trade import trade_efficiency
+        try:
+            self.cursor.execute('SELECT season_index FROM season LIMIT 1')
+            row=self.cursor.fetchone();season=row[0] if row else -1
+        except sqlite3.Error:season=-1
         # Бонус от советников (усредняем кроны и кристаллы)
         try:
             council_crowns, council_crystals = self._get_council_bonuses()
             council_trade = (council_crowns + council_crystals) / 2.0
-            bonus += council_trade / 100.0  # Процент → множитель
         except Exception:
-            pass
-        return bonus
+            council_trade=0
+        return trade_efficiency(self.faction,self.markets,season,council_trade)
 
     def trade_raw_material(self, action, quantity):
         """
         Торговля Кристаллами через таблицу resources.
         Бонусы от Рынков и фракции применяются к сделкам.
         """
-        total_quantity = quantity * 100
-        base_cost = round(self.current_raw_material_price * quantity, 2)
-        trade_bonus = self._get_trade_bonus()
+        from utils.crystal_trade import crystal_quotes,total_price
+        buy,sell=crystal_quotes(self.current_raw_material_price,self._get_trade_bonus())
+        try:
+            cost=total_price(buy,quantity);income=total_price(sell,quantity)
+        except ValueError:return False
+        total_quantity = int(quantity) * 100
 
         if action == 'buy':
             # При покупке бонус уменьшает цену
-            discounted_cost = round(base_cost / trade_bonus, 2)
+            discounted_cost = cost
             if self.money >= discounted_cost:
                 self.money -= discounted_cost
-                # Элины получают бонус кристаллов при покупке (+20%)
-                crystal_bonus = 1.20 if self.faction == 'Элины' else 1.0
-                self.raw_material += int(total_quantity * crystal_bonus)
+                # The former +20% free crystals now improve quote efficiency.
+                self.raw_material += total_quantity
                 self._sync_resources()
                 self.save_resources_to_db()
                 return True
@@ -1721,7 +1723,7 @@ class Faction:
         elif action == 'sell':
             if self.raw_material >= total_quantity:
                 # При продаже бонус увеличивает доход
-                boosted_cost = round(base_cost * trade_bonus, 2)
+                boosted_cost = income
                 self.money += boosted_cost
                 self.raw_material -= total_quantity
                 self._sync_resources()
@@ -1969,13 +1971,12 @@ def open_trade_popup(game_instance):
     # === РАСЧЕТ ЛИМИТОВ ДЛЯ СЛАЙДЕРА ===
     current_price = game_instance.current_raw_material_price
     trade_bonus = game_instance._get_trade_bonus()
-    # Для покупки: цена со скидкой; для продажи: доход с бонусом
-    buy_price = current_price / trade_bonus  # Элины покупают дешевле
-    sell_price = current_price * trade_bonus  # Элины продают дороже
+    from utils.crystal_trade import crystal_quotes,total_price,affordable_lots
+    buy_price,sell_price = crystal_quotes(current_price,trade_bonus)
     crowns = game_instance.resources.get("Кроны", 0)
 
     # Максимум покупки: сколько лотов влезает в кроны (с учётом бонуса)
-    max_buy_lots = int(crowns // buy_price) if buy_price > 0 else 0
+    max_buy_lots = affordable_lots(crowns,buy_price)
 
     # Максимум продажи: сколько лотов есть в наличии
     max_sell_lots = game_instance.get_available_raw_material_lots()
@@ -2148,18 +2149,18 @@ def open_trade_popup(game_instance):
         val = int(value)
         if val > 0:
             crystals_gain = val * 100
-            cost = int(val * buy_price)
-            base_cost = int(val * current_price)
-            saving = base_cost - cost
+            cost = total_price(buy_price,val)
+            base_cost = total_price(crystal_quotes(current_price,1)[0],val)
+            saving = round(base_cost - cost,2)
             saving_txt = f" (выгода {format_number(saving)})" if saving > 0 else ""
             trade_info_label.text = f"Купить {format_number(crystals_gain)} кристаллов за {format_number(cost)} крон{saving_txt}"
             trade_info_label.color = (0, 1, 0, 1)
         elif val < 0:
             lots = abs(val)
             crystals_spent = lots * 100
-            income = int(lots * sell_price)
-            base_income = int(lots * current_price)
-            extra = income - base_income
+            income = total_price(sell_price,lots)
+            base_income = total_price(crystal_quotes(current_price,1)[1],lots)
+            extra = round(income - base_income,2)
             extra_txt = f" (выгода +{format_number(extra)})" if extra > 0 else ""
             trade_info_label.text = f"Продать {format_number(crystals_spent)} кристаллов за {format_number(income)} крон{extra_txt}"
             trade_info_label.color = (1, 0, 0, 1)
@@ -2269,10 +2270,12 @@ def handle_trade(game_instance, action, quantity, trade_popup):
         if quantity <= 0:
             raise ValueError("Выберите количество лотов на слайдере.")
 
-        price_per_lot = game_instance.current_raw_material_price
+        from utils.crystal_trade import crystal_quotes,total_price
+        buy,sell=crystal_quotes(game_instance.current_raw_material_price,game_instance._get_trade_bonus())
+        price_per_lot = buy if action=='buy' else sell
+        total_cost = total_price(price_per_lot,quantity)
 
         if action == 'buy':
-            total_cost = price_per_lot * quantity
             crowns = game_instance.resources.get("Кроны", 0)
             if total_cost > crowns:
                 raise ValueError("Недостаточно крон для покупки.")
@@ -2296,7 +2299,7 @@ def handle_trade(game_instance, action, quantity, trade_popup):
                              f"Получено {format_number(total_crystals)} Кристаллов\n"
                              f"(Соотношение: {economic_efficiency} крон/ед. Кристалла)")
             elif action == 'sell':
-                profit = price_per_lot * quantity
+                profit = total_cost
                 show_message("Успех",
                              f"Получено: {format_number(profit)} крон\n(Соотношение: {economic_efficiency} крон/ед. Кристалла)")
         else:

@@ -137,7 +137,7 @@ class GameStateManager:
         with self.conn:
             ensure_neutral_buildings(self.conn)
         self.faction = Faction(selected_faction, self.conn)  # Создаем объект фракции
-        # PRAGMA настройки устанавливаются в DBManager при создании соединения
+        # PRAGMA настройки основного соединения задаются при запуске в main.py.
 
         self.cursor = self.conn.cursor()
         self.turn_counter = self.load_turn(selected_faction)  # Загружаем счетчик ходов
@@ -1693,6 +1693,8 @@ class GameScreen(Screen):
                     try_hunt(self.conn,faction_name,ai_controller)
 
                 self.enforce_garrison_hero_limits()
+                from main_map_intrigues import advance as advance_intrigues
+                advance_intrigues(self.conn,self.selected_faction)
                 self.update_destroyed_factions()
                 self.reset_check_attack_flags()
                 process_nobles_turn(self.conn, self.turn_counter)
@@ -1791,6 +1793,10 @@ class GameScreen(Screen):
             if hasattr(self, '_turn_overlay') and self._turn_overlay:
                 self._turn_overlay.dismiss()
                 self._turn_overlay = None
+            if not self.end_turn_button.disabled:
+                from city_capture_ui import present_next_capture
+                Clock.schedule_once(lambda dt: present_next_capture(self.conn,self.selected_faction)
+                                    if not getattr(self,'_game_ended',False) else None, .1)
             from troop_movement import play_ai_marches
             if not getattr(self,'_turn_failed',False) and not getattr(self,'_game_ended',False):
                 Clock.schedule_once(lambda dt: play_ai_marches(self), 0.3)
@@ -3004,6 +3010,11 @@ class GameScreen(Screen):
 
     def update_cash(self, dt):
         """Обновление текущего капитала фракции через каждые 1 секунду."""
+        # The timer shares the worker's connection. Saving here would commit
+        # its open savepoints and overwrite resources with a partial snapshot.
+        if (getattr(self, '_turn_overlay', None) is not None or getattr(self, '_turn_failed', False)
+                or getattr(self, '_troop_movement_busy', False)):
+            return
         self.faction.update_cash()
         self.resource_box.update_resources()
 
@@ -3048,7 +3059,8 @@ class GameScreen(Screen):
         self.clear_game_area()
         advisor_view = AdvisorView(self.selected_faction, self.conn, game_screen_instance=self,
                                    preselect_faction=preselect_faction)
-        self.game_area.add_widget(advisor_view)
+        from main_intrigue_ui import advisor_panel
+        self.game_area.add_widget(advisor_panel(self,advisor_view))
         self.mark_messages_as_read()
         from tutorial import notify_event
         notify_event('advisor_opened')

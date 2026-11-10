@@ -1,13 +1,14 @@
 """Rebel treasury, legal offensive routes and the complete rebel turn."""
 from collections import deque
 import sqlite3
+from starting_economy import SPECIAL_STARTING_CROWNS
 
 FACTION = 'Мятежники'
 
 
 def initialize_resources(conn, new_uprising=False):
     """Seed a new uprising once; controller recreation never refills its purse."""
-    defaults = {'Кроны': 1000, 'Рабочие': 0, 'Кристаллы': 0,
+    defaults = {'Кроны': SPECIAL_STARTING_CROWNS, 'Рабочие': 0, 'Кристаллы': 0,
                 'Население': 100, 'Текущее потребление': 0, 'Лимит армии': 0}
     for kind, amount in defaults.items():
         row = conn.execute('SELECT 1 FROM resources WHERE faction=? AND resource_type=?',

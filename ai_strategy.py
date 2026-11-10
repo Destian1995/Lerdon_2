@@ -67,7 +67,7 @@ WAR_RATIO_MID = 1.20
 WAR_RATIO_LATE = 1.40
 
 # === Продажа кристаллов ===
-CRYSTAL_PRICE_GOOD = 150             # понижено со 200 — продаём чаще
+CRYSTAL_PRICE_GOOD = 120             # Quote per 100 crystals, same range as the player.
 CRYSTAL_HOARD_LIMIT = 3000           # понижено с 5000
 CRYSTAL_EMERGENCY_THRESHOLD = 100    # если кристаллов больше — можно продать в крайнем случае
 
@@ -202,9 +202,9 @@ def apply_leader_pressure(self, situation):
 # ============================================================
 
 def manage_buildings_v2(self):
-    """Use the shared six-building catalogue in the active strategy as well."""
-    from city_development import ai_build
-    return ai_build(self)
+    """Invest by marginal return, rather than catalogue order."""
+    from ai_economy import develop
+    return develop(self)
 
 
 # ============================================================
@@ -275,16 +275,13 @@ def hire_units_v2(self, new_garrison, crowns, works, available_consumption):
 # ============================================================
 
 def crystal_reserve(self):
-    """Leave a turn of army/population supply instead of selling the last stock."""
-    return max(100, math.ceil(max(0, getattr(self, 'total_consumption', 0))
-                              + max(0, getattr(self, 'food_peoples', 0))))
+    from ai_economy import supply_reserve
+    return supply_reserve(self)
 
 
 def recovery_cash_target(self):
-    costs = [data.get('cost', {}).get('money', 0) for data in getattr(self, 'army', {}).values()
-             if str(data.get('stats', {}).get('Класс', '')).split()[0:1] == ['1']
-             and data.get('cost', {}).get('money', 0) > 0]
-    return max(30, min(costs, default=20) + 30)
+    from ai_economy import cash_target
+    return cash_target(self)
 
 
 def emergency_sell_crystals(self):
@@ -307,6 +304,8 @@ def emergency_sell_crystals(self):
         price = getattr(self, 'raw_material_price', 0) or 0
         if price <= 0:
             return False
+        from utils.crystal_trade import ai_sell_price
+        price=ai_sell_price(self)
 
         # Sell only the amount needed to cover the shortfall.
         amount_to_sell = min(available, max(1, math.ceil((target - crowns) / price)))
@@ -763,10 +762,13 @@ def sell_resources_v2(self):
             print(f"[AI] {self.faction}: цена кристаллов низкая ({price:.1f}), копим.")
             return False
 
+        from utils.crystal_trade import ai_sell_price
+        unit_price=ai_sell_price(self)
+
         amount_to_sell = min(int(crystals * 0.95), max(0, int(crystals - crystal_reserve(self))))
         if amount_to_sell <= 0:
             return False
-        earned_crowns = int(amount_to_sell * price)
+        earned_crowns = int(amount_to_sell * unit_price)
         self.resources['Кристаллы'] -= amount_to_sell
         self.resources['Кроны'] += earned_crowns
 
@@ -1118,6 +1120,8 @@ def make_turn_v2(self):
             self.apply_political_system_bonus()
             self.update_relations_based_on_political_system()
             self.update_buildings_from_db()
+            from ai_economy import secure_supply
+            secure_supply(self)
             emergency_sell_crystals(self)
             self.sell_resources()
 
@@ -1176,6 +1180,9 @@ def make_turn_v2(self):
                 else:
                     # БОЕВАЯ ФАЗА: стандартное расписание
 
+                    # Keep damaged/new towns productive before spending on war.
+                    self.manage_buildings()
+
                     # Шаг 1: гарантированный найм 1 разведчика
                     _diag(self, "шаг 1: ensure_scout_unit")
                     ensure_scout_unit(self)
@@ -1221,6 +1228,9 @@ def make_turn_v2(self):
                 # Keep freshly hired and surviving troops at the current border.
                 rally_units_to_frontier(self)
 
+        if self.faction not in ('Нежить', 'Мятежники'):
+            from ai_economy import secure_supply
+            secure_supply(self)
         self.save_all_data()
         self.turn += 1
         print(f'-----------КОНЕЦ {self.turn} ХОДА----------------  ФРАКЦИИ', self.faction)
@@ -1240,11 +1250,13 @@ def apply_ai_improvements(AIControllerCls):
         if not hasattr(AIControllerCls, backup) and hasattr(AIControllerCls, name):
             setattr(AIControllerCls, backup, getattr(AIControllerCls, name))
 
-    for n in ('manage_buildings', 'hire_units', 'find_nearest_city',
+    for n in ('manage_buildings', 'hire_army', 'hire_units', 'find_nearest_city',
               'attack_city', 'sell_resources', 'make_turn'):
         _save_orig(n)
 
     AIControllerCls.manage_buildings = manage_buildings_v2
+    from ai_economy import hire_with_budget
+    AIControllerCls.hire_army = hire_with_budget
     AIControllerCls.hire_units = hire_units_v2
     AIControllerCls.find_nearest_city = find_best_attack_target
     AIControllerCls.attack_city = attack_city_v2
@@ -1266,7 +1278,7 @@ def apply_ai_improvements(AIControllerCls):
 
 
 def revert_ai_improvements(AIControllerCls):
-    for n in ('manage_buildings', 'hire_units', 'find_nearest_city',
+    for n in ('manage_buildings', 'hire_army', 'hire_units', 'find_nearest_city',
               'attack_city', 'sell_resources', 'make_turn'):
         backup = '_orig_' + n
         if hasattr(AIControllerCls, backup):

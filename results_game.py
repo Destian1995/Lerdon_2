@@ -23,6 +23,8 @@ def restore_from_backup(conn):
             cursor.execute(f"DELETE FROM {working_table}")
             cursor.execute(f"INSERT INTO {working_table} SELECT * FROM {default_table}")
 
+        from starting_economy import reset_starting_crowns
+        reset_starting_crowns(conn)
         conn.commit()
         print("Данные успешно восстановлены из бэкапа.")
     except sqlite3.Error as e:

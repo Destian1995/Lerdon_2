@@ -136,7 +136,8 @@ class MonsterUITests(unittest.TestCase):
             def __init__(self,widget,site,result,done):self.done=done
             def open(self):self.done()
         site=sites(self.db)[-1];eid=begin_hunt(self.db,site['id'],'Север')
-        with patch('monster_ui.MonsterClashPopup',Clash),patch('monster_ui.open_relic_choice') as gift:
+        def run(conn,operation,complete,on_error=None):complete(operation(conn))
+        with patch('tactical_battle_bridge.launch_operation',side_effect=run),patch('monster_ui.MonsterClashPopup',Clash),patch('monster_ui.open_relic_choice') as gift:
             play_hunt(widget,site,eid,completed.append)
             self.assertEqual(len(batches),1)
             self.assertTrue(batches[0][0][0][-1])

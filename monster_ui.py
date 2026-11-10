@@ -97,14 +97,25 @@ def play_hunt(widget,site,eid,completed):
         else:
             home()
     def arrived():
-        result=resolve_hunt(widget.conn,eid)
-        _sync(widget)
-        if layer:
-            MonsterClashPopup(widget,site,result,lambda:return_home(result)).open()
-        else:
-            return_home(result)
+        from tactical_battle_bridge import launch_operation
+        def resolved(result):
+            if result is None:return
+            _sync(widget)
+            if result.get('mode')=='tactical':
+                from monster_battle_ui import MonsterRewardReport
+                MonsterRewardReport(result,lambda:return_home(result)).open()
+            elif layer:
+                MonsterClashPopup(widget,site,result,lambda:return_home(result)).open()
+            else:return_home(result)
+        def failed(error):
+            finish_hunt(widget.conn,eid,resolve_outbound=False)
+            release()
+            from ui import show_popup_message
+            show_popup_message('Бой не завершён',str(error)+'\nЭкспедиция возвращена без награды.')
+        try:launch_operation(widget.conn,lambda db:resolve_hunt(db,eid,allow_tactical=True),resolved,failed)
+        except Exception as error:failed(error)
     def cancelled():
-        finish_hunt(widget.conn,eid)
+        finish_hunt(widget.conn,eid,resolve_outbound=False)
         release()
     if screen:
         screen._troop_movement_busy=True

@@ -75,7 +75,7 @@ def read_city_war_states(conn):
     return {row[0]: CityWarState(*row) for row in rows}
 
 
-def record_capture(conn, city, owner, kind='peace'):
+def record_capture(conn, city, owner, kind='peace', old_owner=None):
     """Caller owns the transaction. A peaceful takeover never heals existing ruins."""
     ensure_city_war_schema(conn)
     turn = current_turn(conn)
@@ -84,6 +84,10 @@ def record_capture(conn, city, owner, kind='peace'):
         ON CONFLICT(city_name) DO UPDATE SET revision=revision+1,
         event_kind=excluded.event_kind, event_turn=excluded.event_turn,
         owner=excluded.owner''', (city, kind, turn, owner))
+    if kind == 'battle_capture' and old_owner != 'Нейтрал':
+        from main_map_intrigues import captured
+        revision=conn.execute('SELECT revision FROM city_war_state WHERE city_name=?',(city,)).fetchone()[0]
+        captured(conn,city,owner,revision)
 
 
 def damage_defended_city(conn,city):
@@ -108,7 +112,7 @@ def record_battle(conn, city, attacker_strength, defender_strength, old_owner,de
         # A city can be devastated even when the defending army holds it.
         conn.execute('DELETE FROM buildings WHERE city_name=?', (city,))
     kind = 'battle_capture' if owner != old_owner else 'battle'
-    record_capture(conn, city, owner, kind)
+    record_capture(conn, city, owner, kind, old_owner=old_owner)
     conn.execute('''UPDATE city_war_state SET ruined=MAX(ruined, ?),
         smoke_until=?, ready_turn=CASE WHEN ? THEN NULL ELSE ready_turn END,
         attacker_strength=?, defender_strength=? WHERE city_name=?''',

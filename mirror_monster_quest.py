@@ -341,6 +341,9 @@ def set_form(conn,faction,form):
         case=dict(zip((c[0] for c in cursor.description),cursor.fetchone()))
         attack=data['base_attack']*(3 if form=='noble' else 1)//2
         defense=data['base_defense']*(1 if form=='noble' else 3)//2
+        from main_map_intrigues import companion_multiplier
+        temperament=companion_multiplier(conn,faction,data['unit_name'],form)
+        attack,defense=int(attack*temperament),int(defense*temperament)
         image=noble_image(case) if form=='noble' else monster(case)['unit_image']
         conn.execute('UPDATE units SET attack=?,defense=?,image_path=? WHERE unit_name=? AND faction=?',
                      (attack,defense,image,data['unit_name'],faction))

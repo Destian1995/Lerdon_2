@@ -639,6 +639,9 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
         except Exception:
             pass
 
+    from main_map_intrigues import apply_gate
+    apply_gate(conn,attacking_fraction,defending_city,def_army)
+
     # Данные для анимации
     battle_rounds = []
 
@@ -1108,6 +1111,9 @@ def fight(attacking_city, defending_city, defending_army, attacking_army,
                                            defending_fraction=_defending_fraction,
                                            bonus_messages=_bonus_msgs,
                                            battle_rounds=_battle_rounds_copy)
+                        if winner == 'attacker' and _user_faction == _attacking_fraction:
+                            from city_capture_ui import present_capture
+                            present_capture(_conn,_user_faction,_defending_city)
 
                     if tactical_state is not None:
                         show_report()

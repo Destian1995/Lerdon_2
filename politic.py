@@ -1166,10 +1166,10 @@ def show_faction_bonuses_popup(conn, faction):
         bonus_rows = [('Воскрешение врагов сейчас', f'{VAMPIRE_RATE * multiplier * 100:g}%',
                        'Погибшие враги 1 класса; ' + season_note)]
     else:
-        trade_pct = 25 * multiplier + markets * 10 + council['trade']
-        bonus_rows = [('Добыча кристаллов сейчас', f'+{35 * multiplier:g}%', season_note),
-                      ('Торговля: суммарный бонус', f'+{trade_pct:g}%',
-                       f"Фракция {25 * multiplier:g}% + рынки {markets * 10}% + советники {council['trade']:g}%"),
+        trade_pct = 25 * multiplier + 20 + markets * 10 + council['trade']
+        bonus_rows = [('Добыча кристаллов сейчас', f'+{5 * multiplier:g}%', season_note),
+                      ('Торговая эффективность', f'+{trade_pct:g}%',
+                       f"Фракция {25 * multiplier:g}% + торговое мастерство 20% + рынки {markets * 10}% + советники {council['trade']:g}%; улучшает курс обмена"),
                       ('Перемещения / атаки', '2', 'За ход')]
 
     if faction in ('Север', 'Адепты'):

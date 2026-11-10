@@ -83,7 +83,7 @@ class TownTests(unittest.TestCase):
         self.assertFalse(row.disabled)  # Built buildings remain inspectable.
         self.assertFalse(town.selectors['Стена'].is_built)
         self.assertNotEqual(tuple(row.title.color),tuple(town.selectors['Стена'].title.color))
-        self.assertEqual(self.money(),470000)
+        self.assertEqual(self.money(),497000)
         town.choose('Стена');settle()
         self.assertEqual(tuple(row.title.color),(.48,.50,.53,1))
         self.assertNotIn('[color=',row.compact_label.text)
@@ -91,7 +91,7 @@ class TownTests(unittest.TestCase):
     def test_purchased_building_appears_in_both_scenes_and_survives_reopening(self):
         town=self.owner._open_build_menu();settle()
         town.choose('Рынок');town.build.dispatch('on_release');settle()
-        self.assertEqual(self.money(),470000)
+        self.assertEqual(self.money(),497000)
         self.assertEqual(town.scene.counts['Рынок'],1)
         self.assertEqual(self.owner.city_preview.counts['Рынок'],1)
         self.assertIn('Рынок',town.scene.sprites)
@@ -114,7 +114,7 @@ class TownTests(unittest.TestCase):
 
     def test_live_owner_balance_and_unique_buildings_are_enforced(self):
         self.assertTrue(self.owner._build_building('Стена',0))
-        self.assertEqual(self.money(),460000)
+        self.assertEqual(self.money(),496000)
         self.db.execute('UPDATE buildings SET count=3');self.db.commit()
         before=self.money()
         with self.assertRaises(ValueError):buy_building(self.db,self.owner.city_name,'Адепты','Стена')

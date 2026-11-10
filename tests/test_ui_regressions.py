@@ -192,7 +192,7 @@ class UIRegressionTests(unittest.TestCase):
                     self.assertTrue(any('+6% доход крон; +5% добыча кристаллов; +5.5%' in text for text in texts))
                     self.assertFalse(any('Лояльные (>50%)' in text or '27.5%' in text for text in texts))
                     if faction == 'Вампиры':
-                        self.assertTrue(any('+20% доход крон' in text for text in texts))
+                        self.assertTrue(any('+10% доход крон' in text for text in texts))
                     popup.dismiss(animation=False)
 
     def test_real_market_shows_unit_price_history_and_preserves_trading_controls(self):
@@ -217,7 +217,8 @@ class UIRegressionTests(unittest.TestCase):
         self.assertTrue(hasattr(slider, '_strategy_slider_art'))
         slider.value = 5
         info = next(w for w in labels if 'Купить 500' in w.text)
-        self.assertIn(format_number(1000), info.text)
+        from utils.crystal_trade import crystal_quotes,total_price
+        self.assertIn(format_number(total_price(crystal_quotes(200,1)[0],5)), info.text)
         sell_all = next(w for w in popup.content.walk() if isinstance(w, Button) and w.text == 'Продать всё')
         self.assertFalse(sell_all.disabled)
         self.assertFalse(any(isinstance(w, CheckBox) for w in popup.content.walk()))

@@ -140,7 +140,8 @@ class Stack:
 
     @property
     def name(self):
-        return self.unit['unit_name']
+        from utils.unit_names import unit_display_name
+        return unit_display_name(self.unit['unit_name'])
 
 
 class TacticalBattle:
@@ -622,7 +623,7 @@ class TacticalBattle:
     def skills(self,stack=None):
         s=stack or self.active
         if not s:return ()
-        return hero_abilities(s.name) if unit_class(s.unit)>=2 else troop_abilities(s.unit)
+        return hero_abilities(s.unit['unit_name']) if unit_class(s.unit)>=2 else troop_abilities(s.unit)
 
     def ability_cells(self,key,pos,stack=None):
         s=stack or self.active
