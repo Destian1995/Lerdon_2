@@ -23,7 +23,7 @@ ICONS={
     'paladin_shield':'bronya_svutogo.png','auto_burst':'mushket_markova.png',
     'blood_vortex':'posoh_diadara.png','twin_arrow':'luk_luny.png',
     'priest_shield':'amulet_vechnoy_vesny.png','vampire_raise':'koltso_dushi.png',
-    'snipe':'vintovka_greynjger.png','burst':'mushket_markova.png','grenade':'artefakt_voiny.png',
+    'snipe':'vintovka_greynjger.png','smoke':'artefakt_voiny.png','grenade':'artefakt_voiny.png',
     'blizzard':'amulet_zimy.png','freeze':'amulet_hlad.png','flight':'sapogi_strannika.png',
     'flame':'koltso_plameni.png','fire_shield':'bronya_aresa.png','heal':'amulet_vechnoy_vesny.png',
     'sword_throw':'mech_paladina.png','inspire':'korona_solnca.png','whirlwind':'mech_paladina.png','drain':'posoh_diadara.png',
@@ -181,7 +181,7 @@ class AbilityBook(Popup):
         self.target_info.text=TARGETS[spec.target]+(f' · дальность {spec.reach}' if spec.reach else '')+(
             f'\nРадиус: {spec.radius} кл.' if spec.radius else '')+f'\nПерезарядка: {spec.cooldown} р.'
         battle=self.owner.battle
-        offensive=key in ('snipe','burst','grenade','blizzard','flame','whirlwind','sword_throw','drain','auto_burst','blood_vortex','twin_arrow','vampire_raise')
+        offensive=key in ('snipe','grenade','blizzard','flame','whirlwind','sword_throw','drain','auto_burst','blood_vortex','twin_arrow','vampire_raise')
         if offensive:
             self.power.text='Сила: '+format_number(battle.ability_power(key,self.actor))+'\nДо учёта защиты цели'
         elif key=='heal':

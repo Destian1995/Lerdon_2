@@ -3,7 +3,7 @@ import math
 
 from kivy.clock import Clock
 from kivy.core.window import Window
-from kivy.graphics import Color, Ellipse, Line, Rectangle,Canvas
+from kivy.graphics import Color, Ellipse, Line, Rectangle,Canvas,InstructionGroup
 from kivy.metrics import dp,sp
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
@@ -31,6 +31,8 @@ def _screen(conn):
 
 
 def _busy(conn):
+    from tactical_battle_bridge import operation_busy
+    if operation_busy(conn):return True
     screen=_screen(conn)
     overlay=getattr(screen,'_turn_overlay',None)
     import sqlite3
@@ -95,7 +97,9 @@ def open_portal(city_popup):
     conn,faction=city_popup.conn,city_popup.player_fraction
     if _busy(conn):
         return
+    from premium_access import allowed,require,return_from_mirror
     if worlds.party(conn,faction):
+        if not allowed('mirror'):return return_from_mirror(conn,faction)
         city_popup.dismiss()
         OtherworldMap(conn,faction).open()
         return
@@ -107,6 +111,8 @@ def open_portal(city_popup):
 
 def _refresh_main(conn,faction):
     sync_resources(conn,faction)
+    from otherworld_quest_ui import refresh_open_journals
+    refresh_open_journals(conn,faction)
     # Military badges are event-driven, unlike the map's hero-flag polling.
     if _screen(conn):
         from game_process import refresh_map
@@ -127,9 +133,14 @@ class WorldMapCanvas(StencilView):
         self.army_drag=CityArmyDrag(self,self.city_at,self.army_at,self.send_army,
                                    faction=lambda:self.owner.faction)
         self._base=Canvas();self.canvas.add(self._base)
+        self._water_layer=InstructionGroup()
         from kivy.core.image import Image as CoreImage
         self.texture=CoreImage(worlds.world(owner.conn,owner.faction)['background']).texture
         self.city_textures={c['id']:CoreImage(city_art(c['id'],owner.faction),mipmap=True).texture for c in self.nodes}
+        from mirror_city_visuals import soft_shadow_texture,aerial_texture
+        self._city_shadow=soft_shadow_texture()
+        self._aerial=aerial_texture()
+        self._city_labels={}
         from map_roads import TransportNetwork
         from map_terrain import load_terrain
         self.terrain=load_terrain(worlds.world(owner.conn,owner.faction)['background'])
@@ -147,29 +158,45 @@ class WorldMapCanvas(StencilView):
 
     def draw(self,*_):
         from kivy.core.text import Label as CoreLabel
+        from mirror_city_visuals import city_scale,depth_order
         self._base.clear();self.hits=[];self.city_bounds=[]
         self.camera.configure(self.size,(0,0,*self.size))
         zoom=self.camera.zoom
+        if len(self._city_labels)>64:self._city_labels.clear()
         s=min(self.width/1200,self.height/800)*zoom
         with self._base:
             Color(1,1,1,1)
             Rectangle(texture=self.texture,pos=self.point(0,0),size=(self.width*zoom,self.height*zoom))
+            Color(.65,.76,.90,1)
+            Rectangle(texture=self._aerial,pos=self.point(0,0),size=(self.width*zoom,self.height*zoom))
+        self._base.add(self._water_layer)
         p=worlds.party(self.owner.conn,self.owner.faction)
         self._current_city=p['city_id'] if p and not worlds.beam(self.owner.conn,self.owner.faction) else None
         from otherworld_quests import objectives
         targets=objectives(self.owner.conn,self.owner.faction)
+        ordered=depth_order(self.nodes)
+        # Paint every ground shadow first, then buildings from back to front.
+        # These are cached textures; no extra per-city clocks or shaders.
+        self.city_draw_order=[city['id'] for city in ordered]
         with self._base:
-            for city in self.nodes:
-                x,y=self.point(city['x'],city['y']);size=max(32,132*s)
-                Color(.055,.035,.10,.35)
-                Ellipse(pos=(x-size*.34,y-size*.22),size=(size*.68,size*.29))
+            for city in ordered:
+                x,y=self.point(city['x'],city['y']);size=max(36,156*s*city_scale(city['id'],city['y']))
+                Color(.025,.035,.055,.48)
+                Rectangle(texture=self._city_shadow,pos=(x-size*.42,y-size*.25),size=(size*1.04,size*.43))
+                Color(.015,.025,.04,.38)
+                Rectangle(texture=self._city_shadow,pos=(x-size*.37,y-size*.23),size=(size*.74,size*.23))
+            for city in ordered:
+                x,y=self.point(city['x'],city['y']);size=max(36,156*s*city_scale(city['id'],city['y']))
                 Color(1,1,1,1)
                 texture=self.city_textures[city['id']]
                 icon_height=size*texture.height/texture.width
                 Rectangle(texture=texture,pos=(x-size/2,y-icon_height*.3),size=(size,icon_height))
                 self.city_bounds.append((x-size/2,y-icon_height*.3,size,icon_height,city['id']))
-                label=CoreLabel(text=city['name'],font_size=min(sp(19),max(sp(15),self.width*.020))*(1+(zoom-1)*.6),bold=True,color=TEXT)
-                label.refresh();w,h=label.texture.size
+                label_key=(city['name'],min(sp(19),max(sp(15),self.width*.020))*(1+(zoom-1)*.6))
+                if label_key not in self._city_labels:
+                    label=CoreLabel(text=label_key[0],font_size=label_key[1],bold=True,color=TEXT)
+                    label.refresh();self._city_labels[label_key]=label
+                label=self._city_labels[label_key];w,h=label.texture.size
                 for dx,dy in ((-1,-1),(1,-1),(-1,1),(1,1),(0,-2),(0,2),(-2,0),(2,0)):
                     Color(.025,.018,.05,.95)
                     Rectangle(texture=label.texture,pos=(x-w/2+dx,y-icon_height*.34-h+dy),size=(w,h))
@@ -317,6 +344,10 @@ class OtherworldMap(WorldPopup):
         self.next_turn_button=_button('Завершить ход',self.next_turn)
         bar.add_widget(self.next_turn_button)
         bar.add_widget(_button('Основная карта',self.dismiss))
+        from developer_access import unlimited_actions
+        if unlimited_actions(self.conn,self.faction):
+            from developer_tools_ui import show_tools
+            bar.add_widget(_button('DEV · Ресурсы',lambda *_:show_tools(self.conn,self.faction,self.refresh)))
         self.stage.add_widget(bar)
         from mirror_turn_ui import MirrorTurnProgress
         self.turn_progress=MirrorTurnProgress(self.accent,size_hint=(None,None),opacity=0)
@@ -343,18 +374,22 @@ class OtherworldMap(WorldPopup):
         x,y=self.stage.pos;w,h=self.stage.size
         portrait=w<h
         margin=dp(6)
-        resource_width=dp(150) if not portrait else min(dp(170),w*.46)
-        self.resource_panel.size=(resource_width,dp(110))
+        self._compact_hud=not portrait and w<dp(800)
+        resource_width=dp(112 if self._compact_hud else 150) if not portrait else min(dp(170),w*.46)
+        self.resource_panel.size=(resource_width,dp(82 if self._compact_hud else 110))
         self.resource_panel.pos=(x+margin,y+h-self.resource_panel.height-margin)
         for label in self.resource_labels.values():
             label.maximum=sp(14);label.minimum=sp(13)
-        self.header.size=(max(dp(100),min(dp(380),w-resource_width-dp(66))),dp(38))
+        self.header.size=(max(dp(100),min(dp(380),w-resource_width-dp(66))),dp(44 if self._compact_hud else 38))
         self.header.pos=(self.resource_panel.right+dp(6),y+h-self.header.height-margin)
-        self.heading.font_size=sp(18)
+        self.heading.font_size=sp(14 if self._compact_hud else 18)
+        self.heading.text=theme(self.faction)['name']+(
+            '\n'+getattr(self,'_realm_city_name','') if self._compact_hud else '')
         self.map_close.size=(dp(40),dp(40))
         self.map_close.pos=(x+w-dp(40)-margin,y+h-dp(40)-margin)
         self.map_close.font_size=sp(24)
-        self.status.size=(resource_width,dp(38))
+        self.status.size=(0,0) if self._compact_hud else (resource_width,dp(38))
+        self.status.opacity=0 if self._compact_hud else 1
         self.status.pos=(self.resource_panel.x,self.resource_panel.y-dp(42))
         self.status.maximum=sp(14);self.status.minimum=sp(13)
         if portrait:
@@ -363,7 +398,7 @@ class OtherworldMap(WorldPopup):
             self.resource_panel.pos=(x+margin,self.header.y-dp(116))
             self.status.size=(max(1,w-resource_width-dp(18)),dp(110))
             self.status.pos=(self.resource_panel.right+dp(6),self.resource_panel.y)
-        self.action_bar.cols=2 if portrait else 4
+        self.action_bar.cols=(3 if len(self.action_bar.children)>4 else 2) if portrait else len(self.action_bar.children)
         self.action_bar.size=(w-2*margin,dp(94 if portrait else 44))
         self.action_bar.pos=(x+margin,y+margin);self.action_bar.spacing=dp(6)
         self.return_button.text='Портал'
@@ -394,6 +429,10 @@ class OtherworldMap(WorldPopup):
             self.refresh()
 
     def refresh(self,*_):
+        # The battle worker owns a separate SQLite transaction while waiting
+        # for tactical input. Expiry/schema writes here can otherwise block
+        # the UI and throw "database is locked" behind the battle popup.
+        if _busy(self.conn):return
         from portal_items import expire
         from campaign_guard import finish_portal_campaign
         screen=_screen(self.conn)
@@ -406,19 +445,28 @@ class OtherworldMap(WorldPopup):
         if not p:
             self.dismiss();return
         c=next(c for c in self.map.nodes if c['id']==p['city_id'])
+        self._realm_city_name=c['name']
+        if getattr(self,'_compact_hud',False):
+            self.heading.text=theme(self.faction)['name']+'\n'+c['name']
         resources=dict(self.conn.execute('SELECT resource_type,amount FROM resources WHERE faction=?',(self.faction,)))
         row=self.conn.execute('SELECT moves_left FROM turn_check_move WHERE faction=?',(self.faction,)).fetchone()
         for resource,label in self.resource_labels.items():
             label.text=resource+'\n'+format_number(resources.get(resource,0))
-        self.status.text=f'{c["name"]} · Действий: {row[0] if row else 0}'
+        from developer_access import unlimited_actions
+        actions='∞' if unlimited_actions(self.conn,self.faction) else str(row[0] if row else 0)
+        self.status.text=f'{c["name"]} · Действий: {actions}'
         self.return_button.disabled=p['city_id']!=1 or _busy(self.conn)
         self.next_turn_button.disabled=_busy(self.conn)
         if self.map._current_city!=p['city_id']:self.map.draw()
-        from otherworld_quests import state,cap_turns
+        from otherworld_quests import state,cap_turns,pending
         run=state(self.conn,self.faction)
         self.quest_button.text='Задания '+str(int(run['detective']==3)+int(run['war']==3))+'/2' if run else 'Задания'
         left=cap_turns(self.conn,self.faction)
         if left:self.message.text=f'Награда Зазеркалья: лимиты ресурсов +35%, ещё {left} х.'
+        else:
+            rewards=pending(self.conn,self.faction)
+            if rewards:self.message.text='Доступны награды: '+str(len(rewards))+'. Откройте задания, чтобы забрать.'
+            elif self.message.text.startswith(('Доступны награды:','Награда Зазеркалья:')):self.message.text=''
 
     def home(self,*_):
         if _busy(self.conn):
@@ -717,7 +765,9 @@ class ForeignCityPopup(WorldPopup):
             self.battle_result,lambda error:setattr(self.feedback,'text',error))
 
     def battle_result(self,result):
-        _refresh_main(self.conn,self.faction);self.refresh();self.owner.refresh()
+        _refresh_main(self.conn,self.faction);self.refresh();self.owner.map.draw();self.owner.refresh()
+        if result.get('quest_win'):
+            self.feedback.text='Квест выполнен. Награда доступна в заданиях.'
         from battle_ui import BattleViewer,BattleReport
         from fight import generate_battle_report
         faction=self.faction

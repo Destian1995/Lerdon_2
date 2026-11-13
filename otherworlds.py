@@ -194,6 +194,8 @@ def _party_city(conn,faction):
 
 
 def _move(conn,faction):
+    from developer_access import unlimited_actions
+    if unlimited_actions(conn,faction):return
     row=conn.execute('SELECT moves_left FROM turn_check_move WHERE faction=?',(faction,)).fetchone()
     if not row or row[0]<1:
         raise ValueError('Нет ходов для похода. Завершите текущий ход.')

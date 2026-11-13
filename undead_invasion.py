@@ -5,7 +5,7 @@ undead_invasion.py — Система нашествия Нежити (Царь 
 
 Механика вдохновлена Белыми Ходоками из "Игры Престолов":
   - 3 скрытых города нежити на карте (выглядят как нейтральные до инвазии)
-  - На случайном ходу 22-26 начинается нашествие
+  - На случайном ходу 22-30 начинается нашествие
   - Армия 30 000 призраков появляется в ОДНОМ случайном городе из 3
   - Остальные 2 города остаются нейтральными
   - Царь Мёртвых агрессивно атакует ближайшие города каждый ход
@@ -17,9 +17,9 @@ import random
 import sqlite3
 
 
-# Ход начала инвазии (рандом 18-26)
-INVASION_TURN_MIN = 18
-INVASION_TURN_MAX = 26
+# То же девятиходовое окно, сдвинутое на четыре хода позже.
+INVASION_TURN_MIN = 22
+INVASION_TURN_MAX = 30
 
 # Начальная армия нежити — 12.5к (половина от оригинала, подкрепления компенсируют)
 UNDEAD_INITIAL_ARMY = 12500
@@ -67,6 +67,14 @@ UNDEAD_REINFORCEMENTS_CONSTANT = 3000
 UNDEAD_FACTION_NAME = "Нежить"
 
 
+def _upgrade_invasion_timing(cursor):
+    """Delay a saved, unstarted invasion once; leave active invasions alone."""
+    if 'timing_version' in {row[1] for row in cursor.execute('PRAGMA table_info(undead_invasion)')}:
+        return
+    cursor.execute('ALTER TABLE undead_invasion ADD COLUMN timing_version INTEGER NOT NULL DEFAULT 1')
+    cursor.execute('UPDATE undead_invasion SET invasion_turn=invasion_turn+4 WHERE invasion_started=0')
+
+
 def initialize_undead_invasion(conn):
     """
     Инициализирует систему инвазии нежити при старте игры.
@@ -85,6 +93,7 @@ def initialize_undead_invasion(conn):
             army_limit INTEGER DEFAULT 30000
         )
     """)
+    _upgrade_invasion_timing(cursor)
 
     # Проверяем, есть ли уже запись
     cursor.execute("SELECT COUNT(*) FROM undead_invasion")

@@ -25,6 +25,12 @@ from undead_invasion import (
 # Глобальная ссылка на активный GameScreen для обновления карты из других модулей
 _active_game_screen = None
 
+def cleanup_active_screen():
+    global _active_game_screen
+    previous=_active_game_screen
+    _active_game_screen=None
+    if previous is not None:previous.cleanup()
+
 def refresh_map():
     """Принудительное обновление карты и индикаторов. Вызывать после боя/перемещения."""
     import threading
@@ -33,6 +39,10 @@ def refresh_map():
         return
     gs = _active_game_screen
     if gs:
+        from turn_ui_guard import database_busy
+        # Worker capture notifications can arrive before the turn completes.
+        # _finish_turn reloads army/resources; the map timer resumes afterwards.
+        if database_busy(screen=gs):return
         from campaign_guard import finish_portal_campaign
         if finish_portal_campaign(getattr(gs,'conn',None),getattr(gs,'selected_faction',None),gs):return
         gs._prev_star_levels = None
@@ -280,6 +290,8 @@ class ResourceBox(BoxLayout):
             pending_delta = dict(delta) if delta is not None else None
             Clock.schedule_once(lambda dt: self.update_resources(delta=pending_delta))
             return
+        from turn_ui_guard import database_busy
+        if database_busy():return
         if delta is None:
             delta = {}
         else:
@@ -812,6 +824,7 @@ class GameScreen(Screen):
                  player_allies=None, tutorial_enabled=False, **kwargs):
         super(GameScreen, self).__init__(**kwargs)
         global _active_game_screen
+        cleanup_active_screen()
         _active_game_screen = self
         self.selected_faction = selected_faction
         from game_audio import set_background_music
@@ -1075,6 +1088,8 @@ class GameScreen(Screen):
                         WHERE (faction1=? AND faction2=?) OR (faction1=? AND faction2=?)
                     """, (faction_name, self.selected_faction, self.selected_faction, faction_name))
                     result_msg = f"Союз с {faction_name} заключён! Статус: союз. Отношения +15%."
+                    from alliance_rules import support_player
+                    support_player(self.conn,self.selected_faction)
 
                 # === ПОЩАДА: заключаем мир + передаём ресурсы победителю ===
                 elif is_mercy:
@@ -1552,6 +1567,25 @@ class GameScreen(Screen):
                      end_turn=end_turn_container, resources=self.resource_box)
         from portal_shortcut_ui import PortalShortcut
         self.portal_shortcut=PortalShortcut(self)
+        from developer_access import unlimited_actions
+        if unlimited_actions(self.conn,self.selected_faction):
+            from developer_tools_ui import show_tools
+            from strategy_ui import StrategyButton
+            dev=StrategyButton(text='DEV · Ресурсы',size_hint=(None,None),height=dp(44))
+            dev.bind(on_release=lambda *_:show_tools(self.conn,self.selected_faction))
+            def position_dev(*_):
+                dev.width=end_turn_container.width
+                bottom=end_turn_container.y
+                shortcut=self.portal_shortcut
+                if shortcut.visible and shortcut.button.parent is self.root_overlay:
+                    bottom=min(bottom,shortcut.button.y)
+                y=bottom-dev.height-dp(6)
+                dev.pos=((end_turn_container.x,y) if y>=dp(8) else
+                         (end_turn_container.right+dp(6),end_turn_container.y))
+            end_turn_container.bind(pos=position_dev,size=position_dev)
+            self.portal_shortcut.button.bind(pos=position_dev,size=position_dev,opacity=position_dev,parent=position_dev)
+            self.root_overlay.add_widget(dev)
+            position_dev()
         from window_theme import watch_game_area
         watch_game_area(self.game_area)
         # Active initial tab
@@ -1651,10 +1685,12 @@ class GameScreen(Screen):
         self._turn_overlay.show(len(self.ai_controllers))
 
         # === Фаза 2: Тяжёлые операции в фоновом потоке ===
+        from background_tasks import tasks,raise_if_stopping,WorkerCancelled
         def _background_work():
             _new_season = None
             _error = None
             try:
+                raise_if_stopping()
                 self.ensure_rebellion_ai_controller()
                 from terrain_journeys import advance_journeys
                 advance_journeys(self.conn,self.turn_counter)
@@ -1681,8 +1717,11 @@ class GameScreen(Screen):
                 self.conn.commit()
 
                 # Ход ИИ — самая тяжёлая часть
+                from alliance_rules import support_player
+                support_player(self.conn,self.selected_faction)
                 faction_items = list(self.ai_controllers.items())
                 for idx, (faction_name, ai_controller) in enumerate(faction_items):
+                    raise_if_stopping()
                     overlay = self._turn_overlay
                     if overlay:
                         Clock.schedule_once(
@@ -1704,6 +1743,8 @@ class GameScreen(Screen):
                 self.season_manager.update(self.current_idx, self.conn)
                 self.season_manager.reset_absent_third_class_units(self.conn)
 
+            except WorkerCancelled:
+                return
             except Exception as e:
                 _error=e
                 # stderr may itself point to a log on the full disk.
@@ -1714,16 +1755,19 @@ class GameScreen(Screen):
                 except (OSError,ValueError):
                     pass
             finally:
-                if _error is not None:
-                    Clock.schedule_once(lambda dt, error=_error: self._abort_turn(error))
-                else:
-                    Clock.schedule_once(lambda dt: self._finish_turn(_new_season))
+                if not tasks.stopping.is_set():
+                    def deliver(_dt,error=_error,season=_new_season):
+                        if tasks.stopping.is_set():return
+                        if error is not None:self._abort_turn(error)
+                        else:self._finish_turn(season)
+                    Clock.schedule_once(deliver)
 
-        thread = threading.Thread(target=_background_work, daemon=True)
-        thread.start()
+        self._turn_thread=tasks.start(_background_work,'campaign-turn')
 
     def _abort_turn(self,error):
         """Stop after a partial turn; committed AI actions cannot be rolled back."""
+        from runtime_diagnostics import record_exception
+        record_exception('Campaign turn failed',error)
         self._turn_failed=True
         self.end_turn_button.disabled=True
         try:
@@ -2255,6 +2299,8 @@ class GameScreen(Screen):
 
     def cleanup(self):
         """Очистка ресурсов: таймеры, привязки, анимации."""
+        if getattr(self,'_cleaned_up',False):return
+        self._cleaned_up=True
         print("Очистка GameScreen...")
         if getattr(self, '_tutorial_start_event', None):
             self._tutorial_start_event.cancel()
@@ -3010,6 +3056,9 @@ class GameScreen(Screen):
 
     def update_cash(self, dt):
         """Обновление текущего капитала фракции через каждые 1 секунду."""
+        from turn_ui_guard import database_busy
+        if getattr(self,'_cleaned_up',False) or database_busy(getattr(self,'conn',None)):
+            return
         # The timer shares the worker's connection. Saving here would commit
         # its open savepoints and overwrite resources with a partial snapshot.
         if (getattr(self, '_turn_overlay', None) is not None or getattr(self, '_turn_failed', False)
@@ -3421,6 +3470,9 @@ class GameScreen(Screen):
                 # Доля текущего потребления гарнизона в потреблении армии фракции.
                 city_consumption = _city_consumption.get(city_name, 0)
                 star_level = self.calculate_star_level(total_consumption, city_consumption)
+                from army_intelligence import visible
+                if not visible(self.conn,self.selected_faction,faction):
+                    star_level=0;has_hero=False
 
                 # --- Определение иконки идеологии (из кеша дипломатии) ---
                 ideology_icon_path = None

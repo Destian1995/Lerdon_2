@@ -223,7 +223,14 @@ def build_city_window(popup):
     owned = popup.city_faction == popup.player_fraction
     status = ('Руины · идёт восстановление' if state.ready_turn is not None else 'Руины · восстановите все постройки') if state and state.ruined else (
         'Ваш город' if owned else 'Чужие владения' if popup.city_faction != 'Нейтрал' else 'Нейтральный город')
-    heading.add_widget(text_label(status, 12, MUTED))
+    from undead_atmosphere import fortified_capital,FORTRESS_WARNING
+    fortified=fortified_capital(popup.conn,popup.city_name)
+    caption=FORTRESS_WARNING if fortified else status
+    if not owned and popup.city_faction and popup.city_faction!='Нейтрал':
+        from army_intelligence import relation
+        caption+=' · Отношения: '+str(relation(popup.conn,popup.player_fraction,popup.city_faction))+'%'
+    popup.city_relation_status=text_label(caption, 12, GOLD if fortified else MUTED)
+    heading.add_widget(popup.city_relation_status)
     from utils.city_terrain import city_terrain
     relief = popup.city_relief = city_terrain(popup.conn,popup.city_name)
     if relief.badges:
@@ -265,6 +272,10 @@ def build_city_window(popup):
         if not widget.collide_point(*touch.pos):
             return False
         from ui_components import show_message
+        from army_intelligence import city_visible,UNKNOWN
+        if not city_visible(popup.conn,popup.player_fraction,popup.city_name):
+            show_message(UNKNOWN,'Получите сведения в таверне. Они открывают силу армии и гарнизоны фракции на 2 хода.')
+            return True
         snapshot = getattr(popup,'garrison_totals_snapshot',dict(attack=0,defense=0,count=0))
         number = lambda value: f'{value:,}'.replace(',',' ')
         show_message('Характеристики гарнизона',

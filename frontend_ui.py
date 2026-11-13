@@ -19,7 +19,7 @@ from strategy_ui import INK, SURFACE, GOLD, TEXT, MUTED, FACTIONS, StrategyButto
 from responsive_ui import WindowFlow
 from ui_motion import enter
 
-VERSION = '9.5.9'
+VERSION = '9.5.10'
 FACTION_ART = {'Север': 'people', 'Эльфы': 'elfs', 'Вампиры': 'vampire', 'Адепты': 'adepts', 'Элины': 'elins'}
 
 
@@ -213,6 +213,7 @@ def build_main_menu(owner):
     from game_audio import set_menu_music
     set_menu_music()
     from audio_settings_ui import show_audio_settings
+    from premium_options_ui import show_full_access
     page = FrontPage(owner, 'Лэрдон', 'Создайте королевство. Измените судьбу мира.')
     layout = GridLayout(cols=2, size_hint_y=None, spacing=dp(10))
     layout.bind(minimum_height=layout.setter('height'))
@@ -221,6 +222,7 @@ def build_main_menu(owner):
     actions = [('Начать игру', 'start', owner.start_game), ('Обучение', 'tutorial', owner.open_tutorial),
                ('Рейтинг', 'rating', owner.open_dossier), ('История Лэрдона', 'help', owner.open_how_to_play),
                ('Звук', 'help', show_audio_settings),
+               ('Полная версия', 'help', show_full_access),
                ('Об авторе', 'author', owner.open_author), ('Выход', 'exit', owner.exit_game)]
     for title, kind, callback in actions:
         button = MenuButton(text=title, button_type=kind, size_hint_y=None, height=dp(64), font_size=sp(17))
@@ -237,6 +239,10 @@ def build_main_menu(owner):
     page.column.add_widget(text_label('СТРАТЕГИЯ  ·  КОРОЛЕВСТВА  ·  ГЕРОИ', 11, MUTED,
                                       size_hint_y=None, height=dp(28)))
     page.column.add_widget(text_label('v' + VERSION, 11, GOLD, size_hint_y=None, height=dp(24)))
+    from developer_access import available,create_toggle
+    if available():
+        owner.developer_access_button=create_toggle()
+        page.column.add_widget(owner.developer_access_button)
     owner.select_button(owner.buttons[0])
 
 
@@ -258,6 +264,8 @@ def build_campaign_setup(owner):
     owner.kingdom_buttons = GridLayout(cols=1, size_hint_y=None, spacing=dp(6))
     owner.kingdom_buttons.bind(minimum_height=owner.kingdom_buttons.setter('height'))
     owner.faction_data = owner.load_factions_from_db()
+    factions.add_widget(text_label('Бесплатно: Эльфы, Вампиры, Адепты. Остальные — полная версия.',11,MUTED,
+                                   size_hint_y=None,height=dp(34)))
     owner.kingdom_button_widgets = {}
     for data in owner.faction_data:
         name = data['name']
@@ -346,7 +354,21 @@ def switch_faction_art(owner, name):
     path = owner._faction_bg_images.get(name)
     if path:
         owner._front_page.art.source = path
-    owner.start_game_button.disabled = False
+    update_faction_access(owner,name,owner.settings_panel_container,owner.start_game_button)
+
+
+def update_faction_access(owner,name,container,start_button):
+    from premium_access import allowed
+    from premium_options_ui import FullVersionNotice
+    locked=not allowed('faction',name)
+    start_button.disabled=locked
+    previous=getattr(owner,'full_version_notice',None)
+    if previous and previous.parent:previous.parent.remove_widget(previous)
+    owner.full_version_notice=None
+    if locked:
+        notice=FullVersionNotice(on_change=lambda:update_faction_access(owner,name,container,start_button))
+        owner.full_version_notice=notice
+        container.add_widget(notice)
 
 
 def build_tutorial_picker(owner):
@@ -384,6 +406,7 @@ def build_tutorial_picker(owner):
     detail_scroll = ScrollView(do_scroll_x=False, bar_width=dp(3), bar_color=GOLD)
     detail_scroll.add_widget(details)
     owner.tutorial_detail_scroll = detail_scroll
+    owner.tutorial_details = details
     page.column.add_widget(detail_scroll)
     actions = BoxLayout(size_hint_y=None, height=dp(52), spacing=dp(10))
     back = StrategyButton(text='В меню')
@@ -402,6 +425,7 @@ def update_tutorial_faction(owner, faction):
     owner.tutorial_ability_label.text = FACTION_ABILITIES.get(faction, '')
     owner.tutorial_ideology_label.text = owner.FACTION_HINT.get(faction, '')
     owner.tutorial_detail_scroll.scroll_y = 1
+    update_faction_access(owner,faction,owner.tutorial_details,owner.start_btn)
     art = FACTION_ART.get(faction)
     if art:
         owner._front_page.art.source = f'files/menu/choise/{art}.jpg'

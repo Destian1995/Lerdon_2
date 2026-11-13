@@ -61,6 +61,9 @@ class AIEconomyTests(unittest.TestCase):
             setattr(ai, name, lambda *args: None)
         ai.load_political_system = lambda: 'Смирение'
         ai.get_factions_at_war = lambda: []
+        for name in ('hire_army','generate_and_buy_artifacts_for_ai_hero','send_proactive_diplomacy',
+                     'send_help_request_if_needed','send_mercy_request_if_needed'):
+            setattr(ai,name,lambda:None)
 
     def tearDown(self):
         self.db.close()
@@ -68,7 +71,9 @@ class AIEconomyTests(unittest.TestCase):
 
     def test_resuming_first_turn_preserves_existing_buildings_and_improvements(self):
         with patch.object(strategy, 'assess_situation', return_value=self.ai._situation), \
-                patch.object(strategy, 'apply_leader_pressure'):
+                patch.object(strategy, 'apply_leader_pressure'), \
+                patch.object(strategy, 'ensure_scout_unit'), patch.object(strategy,'early_expansion'), \
+                patch.object(strategy,'rally_units_to_frontier'):
             strategy.make_turn_v2(self.ai)
         rows = dict(self.db.execute('SELECT building_type,count FROM buildings'))
         self.assertEqual(self.ai.turn, 1, self.output.getvalue())
@@ -114,12 +119,13 @@ class AIEconomyTests(unittest.TestCase):
         ai.resources['Кроны'] = 0
         ai.resources['Кристаллы'] = 2000
         self.assertTrue(strategy.emergency_sell_crystals(ai))
-        self.assertGreaterEqual(ai.resources['Кристаллы'], 1000)
+        reserve=strategy.crystal_reserve(ai)
+        self.assertGreaterEqual(ai.resources['Кристаллы'], reserve)
         self.assertLessEqual(ai.resources['Кроны'], strategy.recovery_cash_target(ai) + 200)
         strategy.sell_resources_v2(ai)
-        self.assertEqual(ai.resources['Кристаллы'], 1000)
+        self.assertEqual(ai.resources['Кристаллы'], reserve)
         from utils.crystal_trade import ai_sell_price
-        self.assertLessEqual(ai.resources['Кроны'],int(1000*ai_sell_price(ai)))
+        self.assertLessEqual(ai.resources['Кроны'],int((2000-reserve)*ai_sell_price(ai)))
         self.assertGreater(ai.resources['Кроны'],0)
 
     def test_negative_income_is_not_charged_again_as_ideology_bonus(self):

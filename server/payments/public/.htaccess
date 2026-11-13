@@ -1,0 +1,9 @@
+Options -Indexes
+DirectoryIndex index.php
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+<FilesMatch "(?i)\.(sql|log|ini|bak|env|zip)$">
+Require all denied
+</FilesMatch>

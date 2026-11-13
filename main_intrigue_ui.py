@@ -17,7 +17,7 @@ import main_map_intrigues as plots
 GREEN=(.43,.88,.60,1)
 CYAN=(.40,.81,1,1)
 RED=(1,.48,.42,1)
-CATEGORIES=(('rumors','У стойки'),('messenger','Тихий стол'),('citizens','Горожане'),('companion','Спутник'),('history','Записки'))
+CATEGORIES=(('rumors','У стойки'),('messenger','Тихий стол'),('citizens','Горожане'),('companion','Спутник'),('intel','Разведка'),('history','Записки'))
 
 
 class TavernDock(ActionDock):
@@ -47,7 +47,7 @@ class MainIntriguesPopup(WorldPopup):
                                  background_normal='',background_color=(.19,.13,.08,1),color=GOLD)
         self.header.add_widget(self.city_picker,index=1);self.city_picker.bind(text=self.select_city)
         self.notice=ReadableText('',size=13,color=GREEN,height=0);self.root.add_widget(self.notice)
-        self.navigation=GridLayout(cols=5,size_hint_y=None,height=dp(40),spacing=dp(4))
+        self.navigation=GridLayout(cols=6,size_hint_y=None,height=dp(40),spacing=dp(4))
         self.tabs={}
         for key,caption in CATEGORIES:
             button=_button(caption,lambda *_,k=key:self.select_category(k),font_size=sp(12),height=dp(40),size_hint_y=None,accent=GOLD)
@@ -69,9 +69,14 @@ class MainIntriguesPopup(WorldPopup):
         self.root.padding=dp(8);self.root.spacing=dp(6)
         if not hasattr(self,'columns'):return
         narrow=self.width<dp(420)
-        self.navigation.cols=3 if narrow else 5
+        self.navigation.cols=3 if narrow else 6
         self.navigation.height=dp(84 if narrow else 40)
         for button in self.navigation.children:button.height=dp(40)
+        if self.category=='intel':
+            self.columns.orientation='vertical';self.columns.spacing=0
+            self.room.size_hint=(1,None);self.room.height=0;self.room.opacity=0
+            self.scroll.size_hint=(1,1);self.dock.refresh();return
+        self.room.opacity=1;self.columns.spacing=dp(10)
         wide=self.width>=dp(550) and self.width>self.height
         self.columns.orientation='horizontal' if wide else 'vertical'
         self.room.size_hint=(.48,1) if wide else (1,None)
@@ -103,9 +108,13 @@ class MainIntriguesPopup(WorldPopup):
         self.dock.refresh()
 
     def choose(self,call):
+        from premium_access import allowed
+        if self.category in ('rumors','messenger') and not allowed('tavern_quests'):
+            self.notice.color=GOLD;self.notice.text='Доступно в полной версии.'
+            return
         before={r[0] for r in self.conn.execute('SELECT unit_name FROM map_companion_temper WHERE departed=1')}
         try:
-            call();self.conn.commit()
+            result=call();self.conn.commit()
         except ValueError as error:
             self.notice.color=RED;self.notice.text=str(error);return
         from utils.resource_payments import sync_resources
@@ -113,12 +122,24 @@ class MainIntriguesPopup(WorldPopup):
         left={r[0] for r in self.conn.execute('SELECT unit_name FROM map_companion_temper WHERE departed=1')}-before
         self.notice.color=RED if left else GREEN
         self.notice.text='Спутник покинул ваш отряд: доверие упало до нуля.' if left else 'Ваше решение принято.'
+        if isinstance(result,dict) and 'detected' in result:
+            from intelligence_cards import money
+            self.notice.color=RED if result['detected'] else GREEN
+            self.notice.text=money(result['cost'])+' крон списано. '+(
+                f"Разведка обнаружена: отношения −35 → {result['relation']}%."
+                if result['detected'] else 'Сведения на 2 хода. Разведчики не обнаружены.')
+        refresh=getattr(self,'_relations_changed',None)
+        if refresh:refresh()
         self.reload()
         from game_process import refresh_map
         refresh_map()
 
     def reload(self):
         self.body.clear_widgets();self.choices()
+        from premium_access import allowed
+        if self.category in ('rumors','messenger') and not allowed('tavern_quests'):
+            from premium_options_ui import FullVersionNotice
+            self.body.add_widget(FullVersionNotice(on_change=self.reload))
         self.art.source=city_tavern(self.conn,self.city,self.faction)
         state=plots.journal(self.conn,self.faction,self.city)
         for key,button in self.tabs.items():button.opacity=1 if key==self.category else .65
@@ -126,10 +147,50 @@ class MainIntriguesPopup(WorldPopup):
         elif self.category=='messenger':self.messenger(state)
         elif self.category=='citizens':self.citizens(state)
         elif self.category=='companion':self.companion(state)
+        elif self.category=='intel':self.intelligence()
         else:
             self.say('Хозяин таверны','Бумага помнит слова лучше, чем посетители после третьей кружки. Вот ваши последние известия.')
             for row in state['log']:self.detail('Ход '+str(row['event_turn'])+' · '+row['message'])
         self.layout_content()
+
+    def select_intelligence(self,target):
+        self.intel_target=target;self.reload();self.scroll.scroll_y=0
+
+    def intelligence(self):
+        from army_intelligence import remaining,gather,quote
+        from intelligence_cards import ScoutCards,scout_card,money
+        self.detail('РАЗВЕДСЕТЬ · СВЕДЕНИЯ НА 2 ХОДА',GOLD)
+        if plots.owner(self.conn,self.city) not in (self.faction,'Нейтрал'):
+            self.detail('Разведчики работают в тавернах своих и нейтральных городов.');return
+        targets=[r[0] for r in self.conn.execute(
+            'SELECT DISTINCT faction FROM cities WHERE faction NOT IN (?,?,?) ORDER BY faction',
+            (self.faction,'Нейтрал','Мятежники'))]
+        from alliance_rules import allies
+        friendly=allies(self.conn,self.faction)
+        targets=[target for target in targets if target not in friendly]
+        selected=getattr(self,'intel_target',None)
+        grid=ScoutCards();self.body.add_widget(grid)
+        for target in targets:
+            price=quote(self.conn,self.faction,target)
+            card,button=scout_card(target,price.total,remaining(self.conn,self.faction,target),selected==target,self.select_intelligence)
+            grid.add_widget(card);self.controls[('intel',target,'select')]=button
+        if selected not in targets:
+            return
+        price=quote(self.conn,self.faction,selected);left=remaining(self.conn,self.faction,selected)
+        self.say('Донесение · '+selected,'Сила армии и гарнизоны откроются на текущий и следующий ход.')
+        self.detail('База: 76 000 крон',GOLD)
+        self.detail(f'Отношения {price.relation}%: {100-price.relation} × {money(price.rate)} = {money(price.relation_cost)}',GOLD)
+        self.detail(f'Империя: {price.cities} × 25 000 = {money(price.cities*25000)}',GOLD)
+        self.detail(('Следующее донесение: ' if left==2 else 'ИТОГО: ')+money(price.total)+' крон',GOLD)
+        self.detail(f'Обнаружение: 40% · отношения −35: {price.relation}% → {max(0,price.relation-35)}%',RED)
+        balance=self.conn.execute("SELECT amount FROM resources WHERE faction=? AND resource_type='Кроны'",(self.faction,)).fetchone()
+        affordable=bool(balance and balance[0]>=price.total)
+        key=('intel',selected,'gather')
+        self.choices([(key,'Оплатить разведку',lambda:gather(self.conn,self.faction,selected,self.city,expected_cost=price.total))])
+        self.controls[key].disabled=not affordable or left==2
+        if left==2:self.controls[key].text='Сведения актуальны'
+        elif not affordable:self.controls[key].text='Недостаточно крон'
+
 
     def rumor(self,state):
         if plots.owner(self.conn,self.city) not in (self.faction,'Нейтрал'):
@@ -209,8 +270,48 @@ class MainIntriguesPopup(WorldPopup):
 
 
 def advisor_panel(screen,advisor):
-    root=BoxLayout(orientation='vertical',spacing=dp(6));root.add_widget(advisor)
+    root=BoxLayout(orientation='vertical',spacing=dp(6))
+    # This is a transient owner for a modal chat, not a separate opaque screen.
+    root._strategy_no_theme=True
+    root.add_widget(advisor)
     button=StrategyButton(text='Таверна · разговоры и тайные сделки',size_hint_y=None,height=dp(48),accent=GOLD)
-    button.bind(on_release=lambda *_:MainIntriguesPopup(screen.conn,screen.selected_faction).open())
-    root.add_widget(button)
+    def refresh_chat(*_):
+        chat=getattr(advisor,'diplomacy_chat',None)
+        target=getattr(chat,'selected_faction',None)
+        if target and not getattr(chat,'_disposed',False):chat.update_relation_info_android(target)
+    def open_tavern(*_):
+        popup=MainIntriguesPopup(screen.conn,screen.selected_faction)
+        popup._relations_changed=refresh_chat
+        popup.bind(on_dismiss=refresh_chat);popup.open()
+    button.bind(on_release=open_tavern)
+    # Keep tavern access inside the modal, where it can actually be pressed.
+    # It must not survive as an opaque footer after the chat has closed.
+    footer_host=getattr(advisor,'chat_content',None) or root
+    footer_host.add_widget(button)
+
+    def remove_panel():
+        parent=root.parent
+        if parent is None:return
+        parent.remove_widget(root)
+        # A delayed dismissal must not reset a different tab opened meanwhile.
+        if parent is getattr(screen,'game_area',None) and not parent.children:
+            deactivate=getattr(screen,'deactivate_all_tabs',None)
+            if deactivate:deactivate()
+
+    def advisor_parent_changed(widget,parent):
+        if parent is None:remove_panel()
+
+    def panel_parent_changed(widget,parent):
+        if parent is not None:
+            # Popup dismissal can finish before game_area receives the owner.
+            # Kivy sets parent before inserting into parent.children.
+            if getattr(advisor,'_closed',False):
+                from kivy.clock import Clock
+                Clock.schedule_once(lambda dt:remove_panel(),0)
+        elif not getattr(advisor,'_closed',False):
+            close=getattr(advisor,'close_window',None)
+            if close:close(None)
+
+    advisor.bind(parent=advisor_parent_changed)
+    root.bind(parent=panel_parent_changed)
     return root

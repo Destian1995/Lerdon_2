@@ -51,9 +51,14 @@ class PortalShortcut:
             self._poll=Clock.schedule_interval(self.refresh,.5)
 
     def refresh(self,*_):
+        from turn_ui_guard import database_busy
+        if self._closed or database_busy(screen=self.screen):
+            self.button.disabled=True
+            return
         conn=getattr(self.screen,'conn',None)
         try:
-            present=bool(conn and conn.execute('SELECT 1 FROM portal_parties WHERE faction=?',
+            has_parties=bool(conn and conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='portal_parties'").fetchone())
+            present=bool(has_parties and conn.execute('SELECT 1 FROM portal_parties WHERE faction=?',
                                               (self.screen.selected_faction,)).fetchone())
         except sqlite3.Error:present=False
         from morgana_covenant import state
@@ -63,6 +68,7 @@ class PortalShortcut:
         self.button.caption.text='Моргана' if self._morgana_only else 'Зазеркалье'
         self.button.icon.source='files/army/death/morgana.png' if self._morgana_only else 'files/portals/portal_'+theme(self.screen.selected_faction)['key']+'.png'
         self.visible=present
+        self.button.disabled=False
         if present:
             from otherworld_ui import _busy
             self.button.disabled=_busy(conn)
@@ -113,6 +119,14 @@ class PortalShortcut:
         self.refresh()
         if not self.visible or self.button.disabled:return
         if self.popup and self.popup.parent:return
+        from premium_access import allowed,require,return_from_mirror
+        if not allowed('mirror'):
+            import otherworlds as worlds
+            if worlds.party(self.screen.conn,self.screen.selected_faction):
+                self.popup=return_from_mirror(self.screen.conn,self.screen.selected_faction)
+                self.popup.bind(on_dismiss=self._dismissed)
+            else:require('mirror')
+            return
         if getattr(self,'_morgana_only',False):
             from morgana_covenant_ui import show_offer
             self.popup=show_offer(self.screen.conn,self.screen.selected_faction,force=True)

@@ -177,7 +177,8 @@ def hunt_status(conn,site,faction):
         cols={r[1] for r in conn.execute('PRAGMA table_info(turn_check_move)')}
         if 'moves_left' in cols:
             row=conn.execute('SELECT moves_left FROM turn_check_move WHERE faction=?',(faction,)).fetchone()
-            if row and row[0]<=0:
+            from developer_access import unlimited_actions
+            if row and row[0]<=0 and not unlimited_actions(conn,faction):
                 return False,'На этом ходу не осталось перемещений.'
     return True,city[0]
 
@@ -212,7 +213,8 @@ def begin_hunt(conn,site_id,faction):
         conn.execute('''INSERT INTO monster_progress(faction,last_hunt) VALUES(?,?)
             ON CONFLICT(faction) DO UPDATE SET last_hunt=excluded.last_hunt''',(faction,current_turn(conn)))
         if conn.execute("SELECT 1 FROM pragma_table_info('turn_check_move') WHERE name='moves_left'").fetchone():
-            conn.execute('UPDATE turn_check_move SET moves_left=MAX(0,moves_left-1) WHERE faction=?',(faction,))
+            from developer_access import consume_action
+            consume_action(conn,faction)
     return eid
 
 

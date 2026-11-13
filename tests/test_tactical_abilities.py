@@ -41,11 +41,11 @@ class HeroAbilityTests(unittest.TestCase):
         self.assertFalse(m.protected(a))
 
     def test_snipe_and_burst_damage_and_cooldowns(self):
-        for key in ('snipe','burst'):
-            m,a,g,b,h=arena('Владислав');old=b.hp
+        for key in ('snipe','sword_throw'):
+            m,a,g,b,h=arena('Агилар' if key=='sword_throw' else 'Владислав');old=b.hp
             event=m.use_ability(key,b.pos)
             self.assertLess(b.hp,old)
-            self.assertEqual(len(event['strikes']),3 if key=='burst' else 1)
+            self.assertEqual(len(event['strikes']),3 if key=='sword_throw' else 1)
             self.assertEqual(a.cooldowns[key],1+ABILITIES[key].cooldown)
             m.queue.insert(0,a.id)
             with self.assertRaises(ValueError):m.use_ability(key,b.pos)

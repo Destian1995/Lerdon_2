@@ -6,6 +6,12 @@ the campaign worker. No campaign tables are written by the battlefield.
 import hashlib
 import threading
 
+_operation_connections=set()
+
+
+def operation_busy(conn):
+    return id(conn) in _operation_connections
+
 
 def battle_context(conn, city, faction):
     try:
@@ -27,6 +33,8 @@ def request_battle(attackers,defenders,player_side,city='',context=None,type_mod
     if threading.current_thread() is threading.main_thread():
         return None
     from kivy.app import App
+    from background_tasks import raise_if_stopping,tasks
+    raise_if_stopping()
     app = App.get_running_app()
     if app is None:
         return None
@@ -35,6 +43,7 @@ def request_battle(attackers,defenders,player_side,city='',context=None,type_mod
     answer = {}
 
     def display(_dt):
+        if tasks.stopping.is_set():return
         try:
             from kivy.metrics import dp
             from kivy.uix.boxlayout import BoxLayout
@@ -69,6 +78,8 @@ def request_battle(attackers,defenders,player_side,city='',context=None,type_mod
                 finish()
 
             def choose_tactical(*_):
+                from premium_access import require
+                if not require('tactical'):return
                 try:
                     model = TacticalBattle(attackers,defenders,**(context or {}),
                         type_modifiers=type_modifiers,factions=factions)
@@ -81,12 +92,24 @@ def request_battle(attackers,defenders,player_side,city='',context=None,type_mod
                     tactical.text = 'Ошибка: '+str(error)
             quick.bind(on_release=choose_quick)
             tactical.bind(on_release=choose_tactical)
+            from premium_access import allowed
+            if not allowed('tactical'):
+                from premium_options_ui import FullVersionNotice
+                can_tactical=not tactical.disabled
+                tactical.disabled=True
+                def refresh_access():
+                    if allowed('tactical'):
+                        tactical.disabled=not can_tactical
+                        if notice.parent:notice.parent.remove_widget(notice)
+                notice=FullVersionNotice(compact=True,on_change=refresh_access)
+                box.add_widget(notice,index=1)
             chooser.open()
         except Exception as error:
             answer['error'] = error
             done.set()
     Clock.schedule_once(display,0)
     while not done.wait(.25):
+        raise_if_stopping()
         if App.get_running_app() is not app:
             raise RuntimeError('Игра закрыта до завершения боя; результат не записан.')
     if 'error' in answer:
@@ -108,12 +131,16 @@ def launch_operation(conn,operation,on_complete,on_error=None):
     from kivy.uix.popup import Popup
     from strategy_ui import text_label
     import sqlite3
+    from background_tasks import tasks,raise_if_stopping,WorkerCancelled
+    raise_if_stopping()
+    if operation_busy(conn):raise ValueError('Сражение уже выполняется.')
     path = next((r[2] for r in conn.execute('PRAGMA database_list') if r[1]=='main'),None)
     if not path:
         raise ValueError('Для боя нужна сохранённая база кампании.')
     conn.commit()
     blocker = Popup(title='Сражение',content=text_label('Подготовка армий…'),size_hint=(.7,.35),auto_dismiss=False)
     blocker.open()
+    _operation_connections.add(id(conn))
 
     def work():
         result,error = None,None
@@ -122,11 +149,15 @@ def launch_operation(conn,operation,on_complete,on_error=None):
             db = sqlite3.connect(path,timeout=30)
             result = operation(db)
         except Exception as exc:
+            if isinstance(exc,WorkerCancelled):return
             error = str(exc)
         finally:
             if db is not None:
                 db.close()
+            if tasks.stopping.is_set():_operation_connections.discard(id(conn))
         def finish(_dt):
+            _operation_connections.discard(id(conn))
+            if tasks.stopping.is_set():return
             blocker.dismiss()
             if error:
                 if on_error:
@@ -141,6 +172,9 @@ def launch_operation(conn,operation,on_complete,on_error=None):
                 popup = Popup(title='Бой не завершён',content=box,size_hint=(.9,.65))
                 close.bind(on_release=popup.dismiss)
                 popup.open()
+                return
             on_complete(result)
-        Clock.schedule_once(finish,0)
-    threading.Thread(target=work,daemon=True,name='player-battle').start()
+        if not tasks.stopping.is_set():Clock.schedule_once(finish,0)
+    try:return tasks.start(work,'player-battle')
+    except BaseException:
+        _operation_connections.discard(id(conn));blocker.dismiss();raise

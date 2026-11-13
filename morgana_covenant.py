@@ -10,9 +10,10 @@ FACTIONS=('Север','Эльфы','Вампиры','Адепты','Элины'
 
 
 def state(conn,faction):
-    try:
-        cursor=conn.execute('SELECT * FROM morgana_covenants WHERE faction=?',(faction,));row=cursor.fetchone()
-    except sqlite3.OperationalError:return None
+    # Android's SQLite wrapper can report a missing table as DatabaseError,
+    # rather than OperationalError. Check existence without issuing invalid SQL.
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='morgana_covenants'").fetchone():return None
+    cursor=conn.execute('SELECT * FROM morgana_covenants WHERE faction=?',(faction,));row=cursor.fetchone()
     return dict(zip((c[0] for c in cursor.description),row)) if row else None
 
 
@@ -211,6 +212,7 @@ def decline(conn,faction):
 
 
 def turn(conn,faction):
+    ensure_schema(conn)
     row=state(conn,faction)
     if row and row['status']=='accepted':
         enforce_wars(conn,faction);restore_cities(conn,faction)
@@ -223,6 +225,7 @@ def won(conn,faction):
 
 def ally_attacks(ai):
     """Morgana and Nizar each march with their own hero and troop detachment."""
+    ensure_schema(ai.db_connection)
     allies={r[0] for r in ai.db_connection.execute("SELECT faction FROM morgana_covenants WHERE status='accepted'")}
     for hero in ('Низар','Моргана'):
         source=ai.cursor.execute('''SELECT c.name,c.coordinates FROM garrisons g JOIN cities c ON c.name=g.city_name

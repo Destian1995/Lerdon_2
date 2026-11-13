@@ -371,6 +371,23 @@ class CityWarEffectsTests(CityWarFixture):
         x, y, w, h = standard_layout((300, 740), 1., bounds=(26, 26, 1148, 748))
         self.assertLessEqual(y + h + 4, 774)
 
+    def test_unknown_standard_moves_to_badge_then_returns_after_recon(self):
+        from map_city_effects import standard_layout
+        pair=('Town','Север')
+        self.fx.sync(self.cities,{},5,[pair],unknown=[pair])
+        self.layer.update(.1)
+        flag=self.fx.flags[0]
+        low=tuple(flag['pole'].points)
+        self.fx.sync(self.cities,{},5,[pair])
+        self.layer.update(.1)
+        high=tuple(flag['pole'].points)
+        self.assertAlmostEqual(high[1]-low[1],33)
+        for scale in (.45,1.,1.5):
+            a=standard_layout((300,300),scale,unknown=True)
+            b=standard_layout((300,300),scale)
+            self.assertEqual(a[2:],b[2:])
+            self.assertAlmostEqual(b[1]-a[1],33)
+
     def test_real_military_overlay_keeps_shield_and_removes_helmet(self):
         from types import SimpleNamespace
         from strategy_ui_fixture import __dict__ as fixture_globals

@@ -197,13 +197,14 @@ class InvestigationBoard(WorldPopup):
         notes=quests.evidence_notes(run)
         self.evidence_order=arranged
         cards=[]
-        order=list(arranged)+[key for key in reversed(quests.EVIDENCE_ORDER) if key not in arranged]
+        order=list(arranged)+[key for key in quests.EVIDENCE_ORDER if key not in arranged]
         for key in order:
             i=quests.EVIDENCE_ORDER.index(key);known=key in collected
             stamp=('СВЯЗЬ '+str(arranged.index(key)+1)+' · ПРИКРЕПЛЕНО') if key in arranged else 'НАЖМИТЕ, ЧТОБЫ ПРИКРЕПИТЬ' if known and self.here and stage==2 else 'ПОДШИТО К ДЕЛУ' if known else 'УЛИКА ПОКА НЕ НАЙДЕНА'
             body=notes[i] if known else 'Отправляйтесь к месту расследования. Здесь появятся найденные сведения.'
             if i==0 and known and detective.get('search_sites'):
-                body+='\nМесто поиска: '+detective['search_sites'][detective['search_answer']]+'.'
+                from otherworld_quest_pool import search_hint
+                body+='\n'+search_hint(detective)
             callback=self.place if known and key not in arranged and self.here and stage==2 else None
             cards.append(PinnedCard(key,key,body,stamp,callback,angle=(-1.2,.9,-.7)[i]))
         self.suspect_names=detective['suspects'];suspects=[]
@@ -214,9 +215,8 @@ class InvestigationBoard(WorldPopup):
                             portrait=image_path(self.faction,'units',('sentinel','weaver','rider')[i]),angle=(.7,-1,.8)[i])
             card.chosen=name==self.selected or solved;suspects.append(card)
         names=theme(self.faction)['cities'];places=detective['cities']
-        route=('Опросите свидетеля: '+names[places[0]-1], 'Найдите улику: '+names[places[1]-1],
-               'Сопоставьте материалы и предъявите обвинение: '+names[places[2]-1],detective['solved'])[stage]
-        copy=detective['premise']+'\n'+route+'.\nНаграда: Венец истины · 25 ходов. Ошибка при поиске или обвинении обнуляет все кроны.'
+        route=quests.detective_hint(run,self.faction)
+        copy=detective['premise']+'\n'+route+'\nНаграда: Венец истины · 25 ходов. Ошибка при поиске или обвинении обнуляет все кроны.'
         choices=[]
         if stage==0:choices=[('Опросить свидетеля',lambda *_:self.journal.step('witness'),here==places[0])]
         if stage==1:
@@ -229,10 +229,10 @@ class InvestigationBoard(WorldPopup):
         self.accuse_button.text='Дело раскрыто' if self.finished else 'Обвинить: '+self.selected if self.selected else 'Выберите подозреваемого'
         if stage<2:self.configure_primary(choices)
         city=theme(self.faction)['cities'][detective['cities'][2]-1]
-        self.status.text=('Цепочка: показание → находка → запись. Нажимайте на улики в нужном порядке.\n' if stage==2 else '')+(
+        self.status.text=('Прикрепите все улики к делу и сверьте приметы подозреваемых. Порядок не важен.\n' if stage==2 else '')+(
             'Дело раскрыто. Материалы сохранены.' if self.finished else 'Обвинение доступно в городе «'+city+'».\nОшибка при обвинении обнулит все ваши кроны.' if not self.here else 'Выберите подозреваемого после размещения улик. Ошибка при обвинении обнулит все кроны.')
 
-        if stage<2:self.status.text='Изучайте материалы дела и выполняйте действия на карточках доски.'
+        if stage<2:self.status.text=route
 
     def refresh_noble(self):
         import mirror_monster_quest as hunt
@@ -269,7 +269,10 @@ class InvestigationBoard(WorldPopup):
         self.accuse_button.disabled=not (self.here and self.ready and self.selected)
         self.accuse_button.text='Дворянин разоблачён' if self.finished else 'Обвинить: '+self.selected if self.selected else 'Выберите подозреваемого'
         self.status.text='Совпасть должны обе улики: герб и печать. Ошибочно обвинённые дворяне будут оправданы.' if not self.finished else 'Личность установлена. Выслушайте дворянина и выберите действие на доске.'
-        if not self.here:self.status.text+='\nДля обвинения вернитесь в город расследования.'
+        city=names[case['city_id']-1]
+        if case['stage']<2:
+            self.status.text=('Опросите свидетеля: ' if case['stage']==0 else 'Проверьте следы исчезновений: ')+city+'.'
+        elif not self.here:self.status.text+='\nГород расследования: '+city+'.'
         if case['stage']<2 or self.finished:self.configure_primary(choices)
 
     def make_materials(self,copy,choices,details='',image=''):

@@ -14,11 +14,39 @@ from kivy.uix.popup import Popup
 
 class PortalEntryUITests(unittest.TestCase):
     def setUp(self):
+        license=patch('premium_access.full_access',return_value=True)
+        license.start();self.addCleanup(license.stop)
         self.db=fixture();self.addCleanup(self.db.close)
         self.size=Window.size
         self.metrics=Metrics.density,Metrics.fontscale
         install_window_theme()
         self.source=SimpleNamespace(conn=self.db,player_fraction='Север',city_name='Home',dismiss=Mock())
+
+    def test_unpaid_portal_shows_preview_but_never_transfers_army(self):
+        from premium_options_ui import LockedContentPopup,FullVersionNotice
+        with patch('premium_access.full_access',return_value=False),patch('portal_entry_ui.worlds.enter') as enter:
+            popup=PortalEntryPopup(self.source);popup.open(animation=False);settle()
+            self.assertTrue(popup.art.texture)
+            self.assertFalse(any(isinstance(w,FullVersionNotice) for w in popup.walk()))
+            panels=(popup.art_panel,popup.details,popup.readiness,popup.enter_button)
+            geometry=[(tuple(w.pos),tuple(w.size)) for w in panels]
+            children=tuple(popup.root.children)
+            popup.enter_button.dispatch('on_release');settle()
+            enter.assert_not_called()
+            notice=next(w for w in Window.children if isinstance(w,LockedContentPopup))
+            self.assertIn('полной версии',notice.message.text)
+            self.assertEqual(popup.status.text,'')
+            self.assertEqual(children,tuple(popup.root.children))
+            self.assertEqual(geometry,[(tuple(w.pos),tuple(w.size)) for w in panels])
+            notice.dismiss(animation=False)
+            self.assertIsNotNone(popup.parent)
+            self.source.dismiss.assert_not_called()
+            for size,density in (((640,360),1),((1280,576),2),((390,844),1)):
+                Window.size=size;Metrics.density=density;settle();popup.fit();settle()
+                for widget in (popup.enter_button,popup.status):
+                    self.assertGreaterEqual(widget.y,popup.y-1)
+                    self.assertLessEqual(widget.top,popup.top+1)
+                self.assertGreater(popup.art.height,40)
 
     def tearDown(self):
         for popup in list(Window.children):

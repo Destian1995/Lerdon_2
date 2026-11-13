@@ -22,12 +22,15 @@ class PortalShortcutTests(unittest.TestCase):
         self.shortcut=self.host.portal_shortcut
         self.screen_patch=patch.dict(sys.modules,game_process=SimpleNamespace(_active_game_screen=self.host))
         self.screen_patch.start()
+        self.access_patch=patch('premium_access.allowed',return_value=True)
+        self.access_patch.start()
         Window.add_widget(self.host);settle()
 
     def tearDown(self):
         cleanup_hud(self.host)
         if self.host.parent:Window.remove_widget(self.host)
         self.screen_patch.stop();self.db.close()
+        self.access_patch.stop()
         Metrics.density=self.density;Window.size=self.size;settle()
 
     def enter(self):
@@ -90,6 +93,24 @@ class PortalShortcutTests(unittest.TestCase):
         self.assertIsNotNone(self.shortcut._poll)
         Window.remove_widget(self.host);settle()
         self.assertIsNone(self.shortcut._poll)
+
+    def test_turn_poll_never_touches_worker_connection_and_resumes(self):
+        self.enter()
+        original=self.host.conn
+        from unittest.mock import Mock
+        forbidden=Mock()
+        forbidden.execute.side_effect=AssertionError('UI queried worker connection')
+        self.host.conn=forbidden
+        self.host._turn_overlay=object()
+        self.shortcut.refresh()
+        self.shortcut.open()
+        forbidden.execute.assert_not_called()
+        self.assertTrue(self.shortcut.button.disabled)
+        self.host._turn_overlay=None
+        self.host.conn=original
+        self.shortcut.refresh()
+        self.assertTrue(self.shortcut.visible)
+        self.assertFalse(self.shortcut.button.disabled)
 
     def test_deferred_morgana_can_be_reopened_from_main_map_without_expedition(self):
         import morgana_covenant as covenant

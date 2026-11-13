@@ -14,6 +14,7 @@ from otherworld_quest_ui import QuestJournal
 import otherworld_quests as quests
 import otherworlds as worlds
 import mirror_monster_quest as hunt
+from otherworld_quest_pool import search_hint
 from window_theme import install_window_theme
 
 class InvestigationBoardTests(unittest.TestCase):
@@ -86,7 +87,7 @@ class InvestigationBoardTests(unittest.TestCase):
   board.accuse_button.dispatch('on_release');settle()
   self.assertEqual(quests.state(self.db,'Север')['detective'],1)
   site=d['search_sites'][d['search_answer']]
-  self.assertIn(site,' '.join(c.note.text for c in board.board.notes))
+  self.assertIn(search_hint(d),' '.join(c.note.text for c in board.board.notes))
   self.assertFalse(journal.feedback.text)
   board.dismiss(animation=False);settle()
   self.db.execute('UPDATE portal_parties SET city_id=?',(d['cities'][1],))
@@ -109,6 +110,51 @@ class InvestigationBoardTests(unittest.TestCase):
   self.db.execute('UPDATE portal_parties SET city_id=1');board.refresh();settle()
   board.select_suspect(d['suspects'][0]);self.assertTrue(board.accuse_button.disabled)
   self.assertTrue(all(c.callback is None for c in board.board.notes))
+
+ def test_next_city_and_earned_search_site_remain_visible_after_reopening(self):
+  quests.begin(self.db,'Север',random.Random(42));run=quests.state(self.db,'Север');d=quests.details(run)['detective']
+  from otherworld_themes import theme
+  names=theme('Север')['cities']
+  self.db.execute('UPDATE portal_parties SET city_id=?',(d['cities'][0],))
+  journal=self.journal();board=journal.open_board();settle()
+  self.assertIn(names[d['cities'][0]-1],board.status.text)
+  site=d['search_sites'][d['search_answer']]
+  self.assertNotIn(' · '+site,board.status.text)
+  board.accuse_button.dispatch('on_release');settle()
+  self.assertIn(names[d['cities'][1]-1],board.status.text)
+  self.assertIn(search_hint(d),board.status.text)
+  board.dismiss(animation=False)
+  # Legacy progress survives even if the evidence table was absent/empty.
+  self.db.execute('DELETE FROM portal_evidence')
+  board=journal.open_board();settle()
+  self.assertIn(search_hint(d),board.status.text)
+  self.assertIn(search_hint(d),next(c.note.text for c in board.board.notes if c.key==quests.EVIDENCE_ORDER[0]))
+  self.assertEqual(quests.evidence(self.db,'Север')[0],[quests.EVIDENCE_ORDER[0]])
+  Window.size=(640,360);settle();board.fit();settle()
+  self.assertLessEqual(board.status.texture_size[1],board.status.height)
+  self.assertGreater(board.scroll.height,dp(45))
+  board.export_to_png('.release/investigation-search-hint-phone.png')
+
+ def test_legacy_completed_search_restores_all_earned_evidence(self):
+  run,d=self.collect()
+  self.db.execute('DELETE FROM portal_evidence')
+  board=self.journal().open_board();settle()
+  self.assertEqual(quests.evidence(self.db,'Север')[0],list(quests.EVIDENCE_ORDER))
+  for key in quests.EVIDENCE_ORDER:board.place(key)
+  self.assertEqual(quests.evidence(self.db,'Север')[1],list(quests.EVIDENCE_ORDER))
+
+ def test_noble_investigation_always_names_the_search_city(self):
+  self.db.executescript('CREATE TABLE season(id,season_index); INSERT INTO season VALUES(1,0);')
+  hunt.begin(self.db,'Север',random.Random(3));case=hunt.state(self.db,'Север')
+  from otherworld_themes import theme
+  city=theme('Север')['cities'][case['city_id']-1]
+  board=self.journal().open_board(noble=True);settle()
+  self.assertIn(city,board.status.text)
+  self.assertIn('Опросите',board.status.text)
+  self.db.execute('UPDATE portal_parties SET city_id=?',(case['city_id'],))
+  hunt.investigate(self.db,'Север');board.refresh();settle()
+  self.assertIn(city,board.status.text)
+  self.assertIn('Проверьте следы',board.status.text)
 
  def test_legacy_three_ladies_have_distinct_loaded_faces_on_the_board(self):
   self.db.executescript('CREATE TABLE season(id,season_index); INSERT INTO season VALUES(1,0);')

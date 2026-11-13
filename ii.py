@@ -41,7 +41,7 @@ class AIController:
         self.average_deal_ratio = 0
         self.hero_used_in_turn = False
         # Инициализация ресурсов по умолчанию
-        self.money = 2000
+        self.money = 2500
         self.free_peoples = 0
         self.raw_material = 0
         self.population = 100
@@ -53,6 +53,12 @@ class AIController:
             'Текущее потребление': self.total_consumption,
             'Лимит армии': self.army_limit
         }
+        if self.faction not in ('Нежить','Мятежники'):
+            try:
+                row=self.cursor.execute('SELECT MAX(turn_count) FROM turn').fetchone()
+                self.turn=max(0,int(row[0] or 1)-1)
+            except sqlite3.OperationalError:
+                pass
 
     # Методы загрузки данных из БД
     def load_resources(self):
@@ -982,7 +988,7 @@ class AIController:
         AI_COST_DISCOUNT = 0.75
         AI_ATK_COST_PER_1 = 2400 * AI_COST_DISCOUNT   # 1800 за 1% атаки
         AI_DEF_COST_PER_1 = 3200 * AI_COST_DISCOUNT   # 2400 за 1% защиты
-        MIN_CROWNS_FOR_ARTIFACT = 500_000
+        MIN_CROWNS_FOR_ARTIFACT = 100_000
 
         crowns = self.resources.get('Кроны', 0)
         if crowns < MIN_CROWNS_FOR_ARTIFACT:
@@ -1016,9 +1022,16 @@ class AIController:
                         ["Весна", "Лето"], ["Лето", "Осень"], ["Осень", "Зима"], ["Зима", "Весна"]]
 
         artifacts_bought = 0
+        equipped_count=self.db_connection.execute('''SELECT COUNT(*) FROM ai_hero_equipment
+            WHERE faction_name=? AND artifact_id IS NOT NULL''',(self.faction,)).fetchone()[0]
         for hero_name, slot_type in free_slots:
             crowns = self.resources.get('Кроны', 0)
-            if crowns < MIN_CROWNS_FOR_ARTIFACT:
+            # A modest first item breaks the poor-AI equipment deadlock.
+            # Further items retain the normal price, and starter stats scale
+            # down with their price instead of granting a full-price bonus.
+            minimum=500_000 if crowns>=500_000 or equipped_count+artifacts_bought else MIN_CROWNS_FOR_ARTIFACT
+            floor_scale=minimum/500_000
+            if crowns < minimum:
                 break
 
             # Генерируем характеристики пропорционально доступным кронам
@@ -1040,13 +1053,13 @@ class AIController:
                 base_attack = int(atk_budget / AI_ATK_COST_PER_1)
                 base_defense = int(def_budget / AI_DEF_COST_PER_1)
                 cost = int(base_attack * AI_ATK_COST_PER_1 + base_defense * AI_DEF_COST_PER_1)
-                attack = max(2900, min(int(base_attack * _AI_POWER), 20300))
-                defense = max(2900, min(int(base_defense * _AI_POWER), 20300))
+                attack = max(int(2900*floor_scale), min(int(base_attack * _AI_POWER), 20300))
+                defense = max(int(2900*floor_scale), min(int(base_defense * _AI_POWER), 20300))
             elif param_choice == "defense":
                 attack = 0
                 base_defense = int(budget / AI_DEF_COST_PER_1)
                 cost = int(base_defense * AI_DEF_COST_PER_1)
-                defense = max(4350, min(int(base_defense * _AI_POWER), 26100))
+                defense = max(int(4350*floor_scale), min(int(base_defense * _AI_POWER), 26100))
             else:
                 # Только атака — редкий случай, но добавляем немного защиты
                 atk_budget = budget * 0.7
@@ -1054,16 +1067,17 @@ class AIController:
                 base_attack = int(atk_budget / AI_ATK_COST_PER_1)
                 base_defense = int(def_budget / AI_DEF_COST_PER_1)
                 cost = int(base_attack * AI_ATK_COST_PER_1 + base_defense * AI_DEF_COST_PER_1)
-                attack = max(4350, min(int(base_attack * _AI_POWER), 26100))
-                defense = max(1450, min(int(base_defense * _AI_POWER), 11600))
+                attack = max(int(4350*floor_scale), min(int(base_attack * _AI_POWER), 26100))
+                defense = max(int(1450*floor_scale), min(int(base_defense * _AI_POWER), 11600))
 
-            cost = max(MIN_CROWNS_FOR_ARTIFACT, cost)
+            cost = max(minimum, cost)
             if crowns < cost:
                 continue
 
             artifact_type = int(slot_type)
             name = f"{random.choice(prefixes)} {random.choice(suffixes)}"
-            season_name = ', '.join(random.choice(seasons_list))
+            # A permanent investment must not turn off on the next season.
+            season_name = ''
 
             try:
                 cursor = self.db_connection.cursor()
@@ -1312,8 +1326,10 @@ class AIController:
         """
         Рассчитывает налоговый доход на основе населения.
         """
-        tax_rate = 0.34  # Базовая налоговая ставка (34%)
-        return int(self.resources['Население'] * tax_rate)
+        if self.faction in ('Нежить','Мятежники'):
+            return int(self.resources['Население']*.34)
+        from ai_economy import tax_policy, TAX_BASE
+        return int(self.resources['Население'] * TAX_BASE[self.faction] * tax_policy(self))
 
     def update_buildings_from_db(self):
         """
@@ -1447,16 +1463,17 @@ class AIController:
             self.update_trade_resources_from_db()
 
             self.process_trade_agreements()
+            self.load_resources_from_db()
 
             # Коэффициенты для каждой фракции
             faction_coefficients = {
                 'Нежить': {'money_loss': 15, 'food_loss': 0.04},
                 'Мятежники': {'money_loss': 15, 'food_loss': 0.1},
-                'Север': {'money_loss': 15, 'food_loss': 0.4},
-                'Эльфы': {'money_loss': 18, 'food_loss': 0.1},
-                'Вампиры': {'money_loss': 21, 'food_loss': 0.09},
-                'Адепты': {'money_loss': 24, 'food_loss': 0.05},
-                'Элины': {'money_loss': 27, 'food_loss': 0.04},
+                'Север': {'money_loss': 5, 'food_loss': 0.3},
+                'Эльфы': {'money_loss': 6, 'food_loss': 0.15},
+                'Вампиры': {'money_loss': 7, 'food_loss': 0.08},
+                'Адепты': {'money_loss': 8, 'food_loss': 0.02},
+                'Элины': {'money_loss': 9, 'food_loss': 0.005},
             }
 
             # Получение коэффициентов для текущей фракции
@@ -1468,13 +1485,15 @@ class AIController:
 
             # Обновление ресурсов с учетом коэффициентов
             from city_construction import HOSPITAL_GROWTH,AI_FACTORY_YIELD
+            if faction not in ('Нежить','Мятежники'):
+                from ai_economy import tax_policy
+                self.tax_effects=int(self.population*.57) if tax_policy(self)==0 else 0
             self.born_peoples = int(self.hospitals * HOSPITAL_GROWTH)
             self.work_peoples = int(self.factories * 20)
             self.clear_up_peoples = (self.born_peoples - self.work_peoples + self.tax_effects) + int(
                 self.city_count * (self.population / 100))
 
-            # Загружаем текущие значения ресурсов из базы данных
-            self.load_resources_from_db()
+            # Balances were loaded before calculating growth, not after crediting workers.
 
             # Выполняем расчеты
             self.free_peoples += self.clear_up_peoples
@@ -1784,76 +1803,10 @@ class AIController:
             print(f"Ошибка при уведомлении игрока: {e}")
 
     def _trigger_ideology_coalition(self, aggressor, victim):
-        """
-        Если война объявлена до 9 хода — фракции с той же идеологией что у жертвы
-        вступают в союз с жертвой и объявляют войну агрессору.
-        """
-        if self.turn >= 9:
-            return  # Коалиция только в ранней игре
-
-        try:
-            # Идеология жертвы
-            victim_system = self.load_political_system_for_faction(victim)
-
-            # Все живые фракции
-            self.cursor.execute("""
-                SELECT DISTINCT faction FROM cities
-                WHERE faction != 'Нейтрал' AND faction != 'Нежить'
-                  AND faction != ? AND faction != ?
-            """, (aggressor, victim))
-            other_factions = [r[0] for r in self.cursor.fetchall()]
-
-            for ally_faction in other_factions:
-                ally_system = self.load_political_system_for_faction(ally_faction)
-                if ally_system.strip() != victim_system.strip():
-                    continue  # Другая идеология — не вступает
-
-                # Проверяем отношения с агрессором (оба направления)
-                self.cursor.execute("""
-                    SELECT relationship FROM diplomacies
-                    WHERE (faction1 = ? AND faction2 = ?) OR (faction1 = ? AND faction2 = ?)
-                """, (ally_faction, aggressor, aggressor, ally_faction))
-                dip_row = self.cursor.fetchone()
-                _existing_rel = dip_row[0] if dip_row else None
-                if _existing_rel == 'война':
-                    continue  # Уже воюют
-                if _existing_rel == 'союз':
-                    continue  # Союзник агрессора — не вступает в коалицию против него
-
-                # Союз с жертвой (только если ещё нет союза)
-                self.cursor.execute("""
-                    INSERT INTO diplomacies (faction1, faction2, relationship)
-                    VALUES (?, ?, 'союз')
-                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship =
-                        CASE WHEN relationship = 'союз' THEN 'союз' ELSE 'союз' END
-                """, (ally_faction, victim))
-                self.cursor.execute("""
-                    INSERT INTO diplomacies (faction1, faction2, relationship)
-                    VALUES (?, ?, 'союз')
-                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship =
-                        CASE WHEN relationship = 'союз' THEN 'союз' ELSE 'союз' END
-                """, (victim, ally_faction))
-
-                # Война с агрессором (только если нет союза с ним)
-                self.cursor.execute("""
-                    INSERT INTO diplomacies (faction1, faction2, relationship)
-                    VALUES (?, ?, 'война')
-                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship =
-                        CASE WHEN relationship = 'союз' THEN 'союз' ELSE 'война' END
-                """, (ally_faction, aggressor))
-                self.cursor.execute("""
-                    INSERT INTO diplomacies (faction1, faction2, relationship)
-                    VALUES (?, ?, 'война')
-                    ON CONFLICT(faction1, faction2) DO UPDATE SET relationship =
-                        CASE WHEN relationship = 'союз' THEN 'союз' ELSE 'война' END
-                """, (aggressor, ally_faction))
-
-                self.db_connection.commit()
-                print(f"[КОАЛИЦИЯ] {ally_faction} (идеология: {ally_system}) вступает в союз "
-                      f"с {victim} и объявляет войну {aggressor}!")
-
-        except Exception as e:
-            print(f"[КОАЛИЦИЯ] Ошибка: {e}")
+        """Only explicitly agreed alliances provide military support."""
+        from alliance_rules import support_player
+        from army_intelligence import player_faction
+        support_player(self.db_connection, player_faction(self.db_connection))
 
     def update_diplomacy_status(self, faction, status):
         """
@@ -1878,6 +1831,10 @@ class AIController:
             """
             self.cursor.execute(query, (status, faction, self.faction))
 
+            if status == 'война':
+                from alliance_rules import support_player
+                from army_intelligence import player_faction
+                support_player(self.db_connection, player_faction(self.db_connection))
             self.db_connection.commit()
             print(f"Статус дипломатии между {self.faction} и {faction} обновлен на '{status}'.")
         except sqlite3.Error as e:
@@ -3318,11 +3275,11 @@ class AIController:
         """
         system = self.load_political_system()
         if system == "Смирение":
-            crowns_bonus = max(0, int(self.money_up * 1.85))
+            crowns_bonus = max(0, int(self.money_up * 7.00))
             self.resources['Кроны'] = int(self.resources.get('Кроны', 0)) + crowns_bonus
             print(f"Бонус от смирения: +{crowns_bonus} Крон")
         elif system == "Борьба":
-            raw_material_bonus = int(self.food_info * 0.25)
+            raw_material_bonus = int(self.food_info * 5.50)
             self.resources['Кристаллы'] = int(self.resources.get('Кристаллы', 0)) + raw_material_bonus
             print(f"Бонус от борьбы: +{raw_material_bonus} Кристаллы")
 
@@ -3342,11 +3299,8 @@ class AIController:
 
     def update_relations_based_on_political_system(self):
         """
-        Изменяет отношения на основе политической системы каждые 3 хода.
+        Одинаковая идеология: +2 каждый ход; разная: −7 каждые 3 хода.
         """
-        if self.turn % 3 != 0:
-            return
-
         current_system = self.load_political_system()
         all_factions = self.load_relations()
 
@@ -3360,10 +3314,12 @@ class AIController:
             relation_level = int(relation_level)
 
             if current_system.strip() == other_system.strip():
-                # Одинаковая идеология: отношения портятся в 5 раз слабее
-                new_relation = max(relation_level - 1, 0)
-            else:
+                # Улучшение отношений не создаёт дипломатический союз.
+                new_relation = min(relation_level + 2, 100)
+            elif self.turn % 3 == 0:
                 new_relation = max(relation_level - 7, 0)
+            else:
+                continue
 
             self.update_relation_in_db(faction, new_relation)
 

@@ -6,6 +6,16 @@ from strategy_ui import GOLD
 from city_war import current_turn
 import otherworlds as worlds
 import otherworld_quests as quests
+from weakref import WeakSet
+
+_open_journals=WeakSet()
+
+
+def refresh_open_journals(conn,faction):
+    """Called on the UI thread after an expedition transaction commits."""
+    for journal in tuple(_open_journals):
+        if journal.conn is conn and journal.faction==faction and journal.parent is not None:
+            journal.refresh()
 
 
 class QuestJournal(WorldPopup):
@@ -24,6 +34,7 @@ class QuestJournal(WorldPopup):
         self.cards.bind(size=self._layout_event)
         self.feedback.bind(text=self._layout_event)
         self.refresh()
+        _open_journals.add(self)
 
     def layout_content(self):
         if not hasattr(self,'close_button'):return
@@ -41,6 +52,7 @@ class QuestJournal(WorldPopup):
 
     def refresh(self):
         selected=self.cards.page_index
+        selected_title=self.cards.pages[selected].title if self.cards.pages and selected<len(self.cards.pages) else None
         self.cards.clear_cards()
         run=quests.state(self.conn,self.faction)
         p=worlds.party(self.conn,self.faction)
@@ -53,7 +65,7 @@ class QuestJournal(WorldPopup):
             cooldown=max(0,run['repeat_turn']-now) if run else 0
             copy=('Каждый поход — новое расследование и новый конфликт сказочных сил. Сюжеты, участники, улики и маршруты меняются.\n'
                   'За каждое — мощный предмет на 25 ходов. За оба — Сердце Зазеркалья и лимиты ресурсов +35% на 25 ходов.')
-            copy+='\nРиск: неверное место поиска, порядок улик или обвинение обнуляют все ваши кроны.'
+            copy+='\nРиск: неверное место поиска или обвинение обнуляют все ваши кроны.'
             if run:copy+=f'\nЦепочка завершена. Повтор через {cooldown} х.' if cooldown else '\nМожно начать новую цепочку.'
             self.card('Приключения Зазеркалья',copy,[('Принять задания' if self.tavern_city else 'Принять задания у Врат',lambda *_:self.perform(lambda:quests.begin(self.conn,self.faction,tavern_city=self.tavern_city)),ready and (here==1 or here==self.tavern_city) and not quests.pending(self.conn,self.faction))])
         else:
@@ -88,14 +100,22 @@ class QuestJournal(WorldPopup):
         elif morgana and morgana['status']=='accepted':
             self.card('Служение Моргане','Ваши города — некрополи. Лимиты армии и ресурсов +45% навсегда. С живыми фракциями — вечная война. На победу отведено 15 ходов с принятия предложения Морганы.')
         pending=quests.pending(self.conn,self.faction)
+        new_rewards=bool(set(pending)-set(getattr(self,'_pending_rewards',())))
+        self._pending_rewards=tuple(pending)
         if pending:
-            from portal_items import champions
+            from portal_items import champions,reward
+            from utils.helpers import format_number
             eligible=champions(self.conn,self.faction,p['camp']) if p else []
             summary='Неполученных предметов: '+str(len(pending))+'. Срок каждого начнётся при получении и составит 25 ходов.'
+            for key in pending:
+                item=reward(self.conn,self.faction,key)
+                summary+='\n'+item['name']+' · АТК +'+format_number(item['attack'])+' · ЗАЩ +'+format_number(item['defense'])
             summary+='\nПолучатель: '+eligible[0]+' [3 класс].' if eligible else '\nПриведите героя 3 класса в отряд.'
             self.card('Ваши награды',summary,[('Забрать награды',lambda *_:self.perform(lambda:quests.claim(self.conn,self.faction)),bool(eligible))])
         left=quests.cap_turns(self.conn,self.faction)
         if left:self.card('Благословение Зазеркалья',f'Лимиты крон, кристаллов, рабочих и населения увеличены на 35%.\nОсталось {left} ходов. Бонус не складывается сам с собой.')
+        if new_rewards:selected_title='Ваши награды'
+        selected=next((i for i,page in enumerate(self.cards.pages) if page.title==selected_title),selected)
         self.cards.select(selected)
 
     def monster_card(self,party,here,names):

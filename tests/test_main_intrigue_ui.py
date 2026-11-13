@@ -12,8 +12,21 @@ import main_map_intrigues as plots
 
 class MainIntrigueUITests(unittest.TestCase):
     def setUp(self):
+        license=patch('premium_access.full_access',return_value=True)
+        license.start();self.addCleanup(license.stop)
         self.db=fixture();self.size=Window.size;self.metrics=Metrics.density,Metrics.fontscale
         Metrics.density=Metrics.fontscale=1;Window.size=(1000,700)
+
+    def test_unpaid_player_sees_secret_preview_but_cannot_apply_choice(self):
+        from premium_options_ui import FullVersionNotice
+        self.db.execute("INSERT INTO map_city_secrets(faction,city,kind,stage) VALUES('Север','Дом','factory',2)")
+        with patch('premium_access.full_access',return_value=False):
+            popup=MainIntriguesPopup(self.db,'Север','Дом');popup.open(animation=False);settle()
+            self.assertTrue(any(isinstance(w,FullVersionNotice) for w in popup.body.children))
+            before=list(self.db.iterdump())
+            popup.controls[('secret','Дом','expose')].dispatch('on_release');settle()
+            self.assertEqual(before,list(self.db.iterdump()))
+            self.assertIn('полной версии',popup.notice.text)
 
     def tearDown(self):
         for p in list(Window.children):

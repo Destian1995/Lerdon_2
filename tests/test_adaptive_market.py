@@ -28,6 +28,7 @@ def production(filename,faction,policy,markets=1,population=100,consumption=50,s
     host=SimpleNamespace(conn=db,db_connection=db,cursor=db.cursor(),faction=faction,turn=0,
         money=0,raw_material=0,free_peoples=0,population=population,hospitals=0,factories=1,markets=markets,
         current_consumption=consumption,tax_effects=0,city_count=max(1,markets))
+    host.resources={'Население':population}
     for name in ('load_buildings','auto_build','load_resources_from_db','generate_raw_material_price',
                  'update_trade_resources_from_db','process_trade_agreements','update_buildings_from_db'):
         setattr(host,name,lambda:None)
@@ -89,7 +90,8 @@ class AdaptiveMarketTests(unittest.TestCase):
                     with self.subTest(source=source,faction=faction,policy=policy):
                         base=production(source,faction,policy,markets=0)
                         actual=production(source,faction,policy)
-                        expected=int(yield_*(110 if faction=='Элины' else 65)/100) if policy=='Борьба' else 0
+                        percent={'Север':65,'Адепты':80,'Вампиры':130,'Эльфы':130,'Элины':110}[faction]
+                        expected=int(yield_*percent/100) if policy=='Борьба' else 0
                         self.assertEqual(actual[0]-base[0],(150 if faction=='Север' else 100) if policy=='Смирение' else 0)
                         self.assertEqual(actual[1]-base[1],expected)
                         self.assertEqual(actual[2]-base[2],expected)

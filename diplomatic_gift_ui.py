@@ -54,16 +54,6 @@ class DiplomaticGiftPopup(WorldPopup):
                                         'Не хватает: '+resource_amount(cost-balance,resource),color=MUTED if self.can_afford else RED)
         self.body.add_widget(self.remaining_label)
         self.quote=quote
-        self.breakdown=ReadableText('',size=13,color=MUTED)
-        if quote:
-            from utils.helpers import plural
-            cities=f'{quote.cities} '+plural(quote.cities,'город','города','городов')
-            self.breakdown.text=('РАСЧЁТ ДАРА\nОснова — 25% прежней цены: '+resource_amount(quote.base,resource)+
-                '\n'+cities+' · уровни I / II / III: '+' / '.join(str(n) for n in quote.tiers)+
-                '\nГорода × среднее качество: '+str(quote.quality)+' · надбавка '+resource_amount(quote.city_bonus,resource)+
-                '\n'+('Армия №'+str(quote.army_rank)+' · +'+str(quote.army_percent)+'%: '+resource_amount(quote.army_bonus,resource)
-                        if quote.army_percent else 'Армия вне первой двойки — без надбавки.'))
-        self.body.add_widget(self.breakdown)
         row=BoxLayout(spacing=dp(8))
         self.confirm_button=_button('Передать дар' if self.can_afford else 'Недостаточно ресурсов',lambda *_:None,accent=GREEN,disabled=not self.can_afford)
         self.cancel_button=_button('Отмена',self.dismiss,accent=GOLD)

@@ -8,3 +8,6 @@ diplo_debug.log
 /debug.log
 .release/
 image-cache-version.json
+server/payments/private/config.php
+server/payments/private/*.key
+/developer_access.local.json*

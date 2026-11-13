@@ -26,6 +26,17 @@ class LegacyCovenantTests(unittest.TestCase):
         self.assertEqual(hunt.deadline_caption(self.db,'Север'),'')
         self.assertEqual(list(self.db.iterdump()),before)
 
+    def test_missing_covenant_table_never_issues_invalid_query_on_android(self):
+        database=self.db
+        class AndroidConnection:
+            def execute(self, sql, *args):
+                if sql.startswith('SELECT * FROM morgana_covenants'):
+                    raise sqlite3.DatabaseError('no such table: morgana_covenants')
+                return database.execute(sql, *args)
+        before=list(self.db.iterdump())
+        self.assertIsNone(covenant.state(AndroidConnection(),'Север'))
+        self.assertEqual(list(self.db.iterdump()),before)
+
     def test_turn_initializes_dependencies_without_resetting_legacy_campaign(self):
         before_cities=list(self.db.execute('SELECT * FROM cities'))
         before_resources=list(self.db.execute('SELECT * FROM resources'))

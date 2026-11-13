@@ -33,7 +33,7 @@ def faction_emblem(faction):
     return CoreImage(source, mipmap=True).texture
 
 
-def standard_layout(center, scale, slot=0, bounds=None):
+def standard_layout(center, scale, slot=0, bounds=None, unknown=False):
     """Screen geometry above the existing 68×28 garrison badge, at every zoom."""
     from map_terrain import city_sprite_size
     ui_scale = min(1.15, max(.85, scale))
@@ -42,6 +42,7 @@ def standard_layout(center, scale, slot=0, bounds=None):
     cx = center[0] + (77 - city_sprite_size(scale)) / 2
     badge_top = center[1] + 77 - city_sprite_size(scale) / 2 + 30
     x, y = cx - width / 2 + slot * (width + 6), badge_top + 5
+    if unknown:y=badge_top-28
     if bounds:
         left, bottom, map_width, map_height = bounds
         ceiling = bottom + map_height - 6
@@ -151,7 +152,8 @@ class CityEffects:
             for mask in (self._standard_mask, self._standard_unmask):
                 mask.pos, mask.size = (x, y), (width, height)
 
-    def sync(self, cities, states, turn, heroes=(), deferred=(), portals=()):
+    def sync(self, cities, states, turn, heroes=(), deferred=(), portals=(), unknown=()):
+        self._unknown_flags=set(unknown)
         """Baseline saved events on first view; redraws never replay celebrations."""
         self._cities = {name: (x, y, faction) for name, x, y, faction in cities}
         revisions = {name: state.revision for name, state in states.items()}
@@ -265,7 +267,8 @@ class CityEffects:
         self._fit_standard_mask()
         for flag in self.flags:
             center = self.atmosphere.project(self._cities[flag['city']][:2])
-            x, y, width, height = standard_layout(center, scale, flag['slot'], self.atmosphere._bounds)
+            x, y, width, height = standard_layout(center, scale, flag['slot'], self.atmosphere._bounds,
+                unknown=(flag['city'],flag['faction']) in getattr(self,'_unknown_flags',set()))
             top = y + height
 
             def cloth_point(u, v):

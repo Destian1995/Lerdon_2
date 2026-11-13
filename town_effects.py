@@ -75,7 +75,7 @@ class TownEffects:
             self._popup=popup
             if popup is not None:
                 popup.bind(on_open=self.sync_visibility,on_dismiss=self.stop)
-        active=self.key in ('north','elves','vampires','adepts') or self.chimneys or self.flashes
+        active=self.key in ('north','elves','vampires','adepts','omen') or self.chimneys or self.flashes
         if self.scene.get_root_window() is not None and active:
             if self._event is None:self._event=Clock.schedule_interval(self.update,1/30)
         else:self.stop()
@@ -95,6 +95,7 @@ class TownEffects:
         self.bounds=(x,y,max(0,min(scene.right,left+width)-x),max(0,min(scene.top,bottom+height)-y))
         for mask in (self.mask,self.unmask):mask.pos=self.bounds[:2];mask.size=self.bounds[2:]
         key=theme_key(getattr(scene,'art_faction',scene.faction))
+        if getattr(scene,'ominous_weather',False):key='omen'
         if key!=self.key:self.configure(key)
         self.chimneys=[]
         for name,anchors in CHIMNEYS.get(key,{}).items():
@@ -109,15 +110,23 @@ class TownEffects:
     def configure(self,key):
         self.key=key;self.weather_layer.clear()
         self.particles=[];self.rain=[];self.bolt=None;self.glow=None
+        self.clouds=[]
+        if key=='omen':
+            from map_atmosphere import MapAtmosphere
+            self.weather_layer.add(Color(.035,.055,.09,.24))
+            self.shroud=Rectangle();self.weather_layer.add(self.shroud)
+            for i in range(5):
+                color=Color(.08,.11,.16,.36);rect=Rectangle(texture=MapAtmosphere.mist_texture())
+                self.weather_layer.add(color);self.weather_layer.add(rect);self.clouds.append(rect)
         count={'north':30,'elves':18,'vampires':6}.get(key,0)
         if self.scene.preview:count=max(0,int(count*.65))
         for _ in range(count):self.particles.append(PaintedSprite(self.weather_layer))
-        if key=='adepts':
-            for _ in range(26 if self.scene.preview else 42):
+        if key in ('adepts','omen'):
+            for _ in range((40 if self.scene.preview else 64) if key=='omen' else (26 if self.scene.preview else 42)):
                 color=Color(.68,.79,.88,.32);line=Line(width=.7)
                 self.weather_layer.add(color);self.weather_layer.add(line)
                 self.rain.append(line)
-        if key=='elves':
+        if key in ('elves','omen'):
             self.glow=Color(.72,.83,1,0);self.weather_layer.add(self.glow)
             self.sky_glow=Rectangle();self.weather_layer.add(self.sky_glow)
             self.bolt=PaintedSprite(self.weather_layer)
@@ -133,6 +142,11 @@ class TownEffects:
         x,y,w,h=self.bounds
         if w<=0 or h<=0:return
         scale=max(.5,min(1.3,w/800));t=self.age
+        if self.key=='omen':
+            self.shroud.pos=(x,y);self.shroud.size=(w,h)
+            for i,rect in enumerate(self.clouds):
+                rect.pos=(x+((i*.27+t*.045)%1)*w-w*.4,y+h*(.35+i*.09))
+                rect.size=(w*.95,h*.5)
         for i,(color,rect) in enumerate(self.smoke):
             source=i//6
             if source>=len(self.chimneys):color.a=0;continue
@@ -163,15 +177,16 @@ class TownEffects:
         for i,line in enumerate(self.rain):
             u=(i*.618-t*.10)%1;v=1-(i*.271+t*(.8+i%3*.09))%1
             px,py=x+u*w,y+v*h
-            line.points=(px,py,px-3*scale,py-11*scale)
+            line.points=(px,py,px-(9 if self.key=='omen' else 3)*scale,py-(19 if self.key=='omen' else 11)*scale)
         if self.bolt is not None:
-            phase=(t+9)%13
+            period=6 if self.key=='omen' else 13
+            phase=(t+9)%period
             strength=max(0,math.sin(phase/.7*math.pi)) if phase<.7 else 0
             strength*=.65+.35*math.cos(phase*36)**2
-            self.glow.a=strength*.055
+            self.glow.a=strength*(.12 if self.key=='omen' else .055)
             self.sky_glow.pos=(x,y+h*.48);self.sky_glow.size=(w,h*.52)
             cx=x+w*(.24 if int((t+9)//13)%2 else .76)
             self.bolt.draw('lightning-core',0,(cx,y+h*.78),(w*.11,h*.43),phase,
                            strength*.7,fps=5,loop=False)
-        if not (self.flashes or self.chimneys or self.key in ('north','elves','vampires','adepts')):
+        if not (self.flashes or self.chimneys or self.key in ('north','elves','vampires','adepts','omen')):
             self.stop()

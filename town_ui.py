@@ -122,6 +122,9 @@ class TownPopup(WorldPopup):
         self.root._responsive_keep_geometry=True
         self.body=BoxLayout(spacing=dp(8));self.root.add_widget(self.body)
         self.scene_panel=BoxLayout(orientation='vertical',spacing=dp(4))
+        from undead_atmosphere import fortified_capital,FORTRESS_WARNING
+        if fortified_capital(self.conn,self.city):
+            self.scene_panel.add_widget(ReadableText(FORTRESS_WARNING,size=13,color=GOLD,bold=True))
         self.scene=TownScene(self.conn,self.city,self.faction,self.choose)
         self.scene_panel.add_widget(self.scene);self.body.add_widget(self.scene_panel)
         self.controls=BoxLayout(orientation='vertical',spacing=dp(6))

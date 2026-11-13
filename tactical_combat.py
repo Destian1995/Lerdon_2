@@ -167,6 +167,7 @@ class TacticalBattle:
         self.delayed = []
         self.events = []
         self.vortices=[]
+        self.smoke_clouds=[]
         self.vortex_serial=0
         self.bonus_activations=set()
         self.frames = []
@@ -241,6 +242,7 @@ class TacticalBattle:
 
     def _new_round(self):
         self.round += 1
+        self.smoke_clouds=[cloud for cloud in self.smoke_clouds if cloud['expires']>self.round]
         if self.round > 80:
             self.winner, self.reason = 'defender', 'Защитники удержали поле за 80 раундов.'
             return
@@ -378,8 +380,26 @@ class TacticalBattle:
         self.events.append(event)
         return event
 
-    def line_of_sight(self, a, b):
+    def smoke_blocks(self, a, b, side):
+        """Smoke is transparent to its owner's army, opaque to the opponent."""
+        if distance(a,b)<=1:return False  # point-blank combat remains possible
+        cells={p for cloud in self.smoke_clouds if cloud['side']!=side
+               for p in cloud['cells']}
+        if not cells:return False
+        steps=max(abs(b[0]-a[0]),abs(b[1]-a[1]))*8
+        for i in range(steps+1):
+            x=a[0]+(b[0]-a[0])*i/steps;y=a[1]+(b[1]-a[1])*i/steps
+            for ox,oy in ((-.00001,-.00001),(.00001,.00001),(-.00001,.00001),(.00001,-.00001)):
+                if (math.floor(x+.5+ox),math.floor(y+.5+oy)) in cells:return True
+        return False
+
+    def visible_to(self, side, target):
+        return target.side==side or any(s.alive and s.side==side
+            and not self.smoke_blocks(s.pos,target.pos,side) for s in self.stacks.values())
+
+    def line_of_sight(self, a, b, side=None):
         """Supercover sampling: diagonal rays cannot cut an opaque corner."""
+        if side is not None and self.smoke_blocks(a,b,side):return False
         dx, dy = b[0]-a[0], b[1]-a[1]
         steps = max(abs(dx), abs(dy))*8
         height = max(self.tile(a).elevation, self.tile(b).elevation)
@@ -410,7 +430,8 @@ class TacticalBattle:
         if s.role not in RANGE:return 'Этот отряд атакует только соседнюю клетку.'
         if d>reach:return f'До цели {d} клеток. Дальность стрельбы: {reach}.'
         if self.engaged(s,p):return 'Стрельбу связывает соседний вражеский отряд: атакуйте его или смените позицию.'
-        if not self.line_of_sight(p,target.pos):return 'Линию выстрела перекрывает лес, скала или высота.'
+        if self.smoke_blocks(p,target.pos,s.side):return 'Дым закрывает цель: обойдите облако или подойдите вплотную.'
+        if not self.line_of_sight(p,target.pos,s.side):return 'Линию выстрела перекрывает лес, скала или высота.'
         return None
 
     def _power(self, s, attack):
@@ -451,6 +472,8 @@ class TacticalBattle:
 
     def ability_power(self,key,source=None):
         s=source or self.active
+        if key=='smoke':return 0
+        if key=='whirlwind':return self.skill_power(s,True)*1.45
         if key in ('auto_burst','blood_vortex','twin_arrow','vampire_raise'):
             return self._power(s,True)*s.count*{'auto_burst':1.15,'blood_vortex':1.05,'twin_arrow':1.45,'vampire_raise':1}[key]
         return self.skill_power(s,True)
@@ -629,21 +652,6 @@ class TacticalBattle:
         s=stack or self.active
         if not s or pos not in self.terrain:return []
         spec=ABILITIES[key]
-        if key=='burst':
-            # Extend the actual aim vector, rather than snapping every shot to
-            # a horizontal/45-degree ray. Half steps round symmetrically.
-            dx,dy=pos[0]-s.pos[0],pos[1]-s.pos[1]
-            length=max(abs(dx),abs(dy))
-            result=[pos]
-            if not length:return result
-            for extra in (1,2):
-                ox=(1 if dx>0 else -1 if dx<0 else 0)*math.floor(abs(dx)*extra/length+.5)
-                oy=(1 if dy>0 else -1 if dy<0 else 0)*math.floor(abs(dy)*extra/length+.5)
-                p=(pos[0]+ox,pos[1]+oy)
-                if p not in self.terrain or self.terrain[p]=='rock' or not self.line_of_sight(pos,p):break
-                result.append(p)
-                if self.tile(p).opaque:break
-            return result
         if spec.target=='army':return [t.pos for t in self.stacks.values() if t.alive and t.side==s.side and unit_class(t.unit)==1]
         if spec.target=='direction':
             dx=(pos[0]>s.pos[0])-(pos[0]<s.pos[0]);dy=(pos[1]>s.pos[1])-(pos[1]<s.pos[1])
@@ -667,7 +675,7 @@ class TacticalBattle:
         if spec.target=='flight':return target is None
         if distance(s.pos,pos)>spec.reach:return False
         if spec.target=='direction':return distance(s.pos,pos)==1 and bool(self.ability_cells(key,pos,s))
-        if not self.line_of_sight(s.pos,pos):return False
+        if not self.line_of_sight(s.pos,pos,s.side):return False
         if key in ('auto_burst','twin_arrow','blood_vortex') and self.engaged(s):return False
         if key=='blood_vortex' and self.terrain[pos]=='rock':return False
         if spec.target=='cell':return True
@@ -698,6 +706,8 @@ class TacticalBattle:
         strikes=[];old=s.pos;restored=[]
         if key=='flight':
             s.pos=pos;s.mp=0;s.moved+=distance(old,pos)
+        elif key=='smoke':
+            self.smoke_clouds.append(dict(side=s.side,cells=cells,expires=self.round+3,source=s.id))
         elif key in ('paladin_shield','priest_shield'):
             self._effect(s,key,2,s)
         elif key in ('auto_burst','twin_arrow'):
@@ -740,11 +750,11 @@ class TacticalBattle:
             if target.alive:self._effect(target,key,3,s,damage=power/6/self._resistance(target))
         elif key=='snipe':
             strikes.append(self._ability_damage(s,target,1))
-        elif key in ('burst','sword_throw'):
+        elif key=='sword_throw':
             power=self.skill_power(s,True)
             # Capture protection before the volley: collateral shots cannot
             # expose a hero by killing its bodyguards in the same ability.
-            victims=([self.at(p) for p in cells] if key=='burst' else [target])
+            victims=[target]
             victims=[t for t in victims if t and t.alive and t.side!=s.side and not self.protected(t)]
             for shot in range(3):
                 if not s.alive:break
@@ -759,7 +769,7 @@ class TacticalBattle:
             # An area hit never bypasses the hero's bodyguards by killing them
             # earlier in the same simultaneous blast.
             affected=[t for t in affected if not self.protected(t) and (key!='whirlwind' or t.side!=s.side)]
-            cast_power=self.skill_power(s,True)
+            cast_power=self.ability_power(key,s)
             for t in affected:
                 strikes.append(self._ability_damage(s,t,1,cast_power))
                 if key=='blizzard' and t.alive:self._effect(t,'slow',2,s)
@@ -776,13 +786,22 @@ class TacticalBattle:
         return event
 
     def _ai_ability(self,s):
-        enemies=[t for t in self.enemies(s) if not self.protected(t)]
+        enemies=[t for t in self.enemies(s) if not self.protected(t)
+                 and not self.smoke_blocks(s.pos,t.pos,s.side)]
         allies=[t for t in self.stacks.values() if t.alive and t.side==s.side]
         for key in self.skills(s):
             spec=ABILITIES[key]
             if s.cooldowns.get(key,0)>self.round:continue
             candidates=[]
             if key=='heal':candidates=[t.pos for t in sorted(allies,key=lambda t:t.hp/t.max_hp) if t.hp<t.max_hp*.8]
+            elif key=='smoke':
+                # Screen the army against shooters; never waste turns refreshing it.
+                shooters=[t for t in enemies if t.role in RANGE and distance(s.pos,t.pos)>1]
+                if shooters and not any(c['side']==s.side for c in self.smoke_clouds):
+                    nearest=min(shooters,key=lambda t:distance(s.pos,t.pos))
+                    candidates=[p for p in self.terrain if distance(s.pos,p)<=3
+                                and distance(p,nearest.pos)<distance(s.pos,nearest.pos)]
+                    candidates.sort(key=lambda p:distance(p,s.pos))
             elif key in ('fire_shield','inspire'):
                 candidates=[t.pos for t in allies if unit_class(t.unit)==1 and key not in t.effects]
             elif spec.target=='army':
@@ -803,7 +822,7 @@ class TacticalBattle:
                 if not self.ability_valid(key,pos,s):continue
                 if spec.target in ('cell','direction'):
                     cells=self.ability_cells(key,pos,s)
-                    if not any(t.pos in cells for t in enemies):continue
+                    if key!='smoke' and not any(t.pos in cells for t in enemies):continue
                     if key in ('grenade','blizzard','flame') and any(t.pos in cells and not self.protected(t) for t in allies):continue
                 return key,pos
         return None

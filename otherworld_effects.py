@@ -101,6 +101,10 @@ class MirrorEffects(Widget):
         self.sky=PaintedSprite(self.canvas,scale=AMBIENT_ICON_SCALE)
         self.sky_effects=[self.sky]+[PaintedSprite(self.canvas,scale=AMBIENT_ICON_SCALE) for _ in SKY_EFFECT_SPOTS[1:]]
         self.lightning=[PaintedSprite(self.canvas) for _ in SKY_EFFECT_SPOTS] if self.weather=='vampires' else []
+        from mirror_landscape_motion import LandscapeMotion
+        water_layer=getattr(map_widget,'_water_layer',None)
+        self.landscape=LandscapeMotion(map_widget,self.canvas,
+            water_layer if water_layer is not None else self.canvas.before,self.weather)
 
     def start(self,*_):
         if self._event is None:self._event=Clock.schedule_interval(self.update,1/30)
@@ -111,7 +115,9 @@ class MirrorEffects(Widget):
     def update(self,dt):
         self.age+=min(dt,.1)
         w=self.map_widget
-        if self.age-self._quest_refresh>=.5 and getattr(w.owner,'conn',None) is not None:
+        from turn_ui_guard import database_busy
+        conn=getattr(w.owner,'conn',None)
+        if self.age-self._quest_refresh>=.5 and conn is not None and not database_busy(conn):
             from otherworld_quests import objectives
             self.quest_targets=set(objectives(w.owner.conn,w.owner.faction))
             self._quest_refresh=self.age
@@ -182,6 +188,7 @@ class MirrorEffects(Widget):
                             .6+.15*math.sin(self.age*2),fps=3)
         else:self.party.hide()
         self.update_life(w,scale)
+        self.landscape.update(self.age,scale)
 
     def update_life(self,w,scale):
         t=self.age

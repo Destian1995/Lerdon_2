@@ -96,6 +96,7 @@ class AdvisorView(FloatLayout):
             spacing=0,
             padding=0
         )
+        self.chat_content=main_container
 
         # Создаем интерфейс чата через EnhancedDiplomacyChat
         chat_interface = self.create_chat_interface()

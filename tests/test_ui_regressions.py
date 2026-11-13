@@ -3,7 +3,7 @@ import ast
 import time
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch,Mock
 from contextlib import closing
 
 from strategy_ui_fixture import *
@@ -79,6 +79,45 @@ class UIRegressionTests(unittest.TestCase):
             self.assertFalse(self.host.children)
             self.assertTrue(advisor.diplomacy_chat._disposed)
             self.assertTrue(advisor.diplomacy_chat.keyboard_helper._disposed)
+
+    def test_closing_wrapped_chat_removes_tavern_and_restores_map_area(self):
+        from main_intrigue_ui import advisor_panel
+        for size,density in (((640,360),1),((1280,576),2),((320,568),1)):
+            Window.size=size;Metrics.density=density;settle(5)
+            screen=SimpleNamespace(conn=self.db,selected_faction='Север',
+                game_area=self.host,deactivate_all_tabs=Mock())
+            advisor=AdvisorView('Север',self.db,game_screen_instance=screen)
+            panel=advisor_panel(screen,advisor);self.host.add_widget(panel);settle(5)
+            self.assertTrue(any('Таверна' in getattr(child,'text','') for child in advisor.chat_content.children))
+            advisor.close_window(None);advisor.close_window(None);settle()
+            self.assertIsNone(advisor.popup.parent)
+            self.assertIsNone(advisor.parent)
+            self.assertIsNone(panel.parent)
+            self.assertFalse(self.host.children)
+            screen.deactivate_all_tabs.assert_called_once_with()
+
+    def test_late_chat_cleanup_does_not_remove_new_screen(self):
+        from main_intrigue_ui import advisor_panel
+        screen=SimpleNamespace(conn=self.db,selected_faction='Север',
+            game_area=self.host,deactivate_all_tabs=Mock())
+        advisor=AdvisorView('Север',self.db,game_screen_instance=screen)
+        panel=advisor_panel(screen,advisor);self.host.add_widget(panel);settle(5)
+        self.host.clear_widgets()
+        replacement=FloatLayout();self.host.add_widget(replacement)
+        settle()
+        self.assertIsNone(advisor.popup.parent)
+        self.assertTrue(advisor.diplomacy_chat._disposed)
+        self.assertEqual(self.host.children,[replacement])
+        screen.deactivate_all_tabs.assert_not_called()
+
+    def test_closing_wrapped_chat_before_attachment_leaves_no_panel(self):
+        from main_intrigue_ui import advisor_panel
+        advisor=AdvisorView('Север',self.db)
+        advisor.popup.dismiss(animation=False);settle(5)
+        screen=SimpleNamespace(conn=self.db,selected_faction='Север',
+            game_area=self.host,deactivate_all_tabs=Mock())
+        panel=advisor_panel(screen,advisor);self.host.add_widget(panel);settle(5)
+        self.assertFalse(self.host.children)
 
     def test_campaign_has_one_faction_strip_and_fixed_footer_at_android_density(self):
         Metrics.density, Metrics.fontscale = 2, 1.2

@@ -7,6 +7,34 @@ from town_effects import construction_opacity,FLASH_DURATION
 
 
 class TownEffectsTests(unittest.TestCase):
+    def test_undead_omens_only_before_invasion_and_stop_after_close(self):
+        self.db.execute('UPDATE cities SET is_undead=1')
+        self.db.executescript('CREATE TABLE undead_invasion(id,invasion_started,capital_city); INSERT INTO undead_invasion VALUES(1,0,NULL);')
+        town=self.owner._open_build_menu();settle();scene=town.scene
+        self.assertEqual(scene.effects.key,'omen')
+        self.assertTrue(scene.effects.rain)
+        self.assertEqual(len(scene.effects.clouds),5)
+        self.assertIsNotNone(scene.effects.bolt)
+        scene.effects.age=3.3;scene.effects.update(0)
+        self.assertGreater(scene.effects.glow.a,0)
+        self.db.execute('UPDATE undead_invasion SET invasion_started=1')
+        scene.refresh();settle()
+        self.assertNotEqual(scene.effects.key,'omen')
+        self.db.execute('UPDATE undead_invasion SET invasion_started=0')
+        scene.refresh();settle();town.dismiss(animation=False);settle()
+        self.assertIsNone(scene.effects._event)
+
+    def test_capital_warning_requires_current_undead_ownership(self):
+        from undead_atmosphere import fortified_capital
+        self.db.executescript('CREATE TABLE undead_invasion(id,invasion_started,capital_city);')
+        city=self.owner.city_name
+        self.db.execute('INSERT INTO undead_invasion VALUES(1,1,?)',(city,))
+        self.assertFalse(fortified_capital(self.db,city))
+        self.db.execute("UPDATE cities SET faction='Нежить'")
+        self.assertTrue(fortified_capital(self.db,city))
+        self.db.execute('UPDATE undead_invasion SET invasion_started=2')
+        self.assertFalse(fortified_capital(self.db,city))
+
     def setUp(self):
         self.size=Window.size;Window.size=(900,600);settle()
         self.owner,self.db=city_fixture()
@@ -64,11 +92,12 @@ class TownEffectsTests(unittest.TestCase):
             self.assertAlmostEqual(actual,expected,places=4)
 
     def test_temporary_blink_stops_its_clock_in_an_otherwise_quiet_city(self):
-        self.db.execute("UPDATE cities SET faction='Нейтрал'");self.db.commit()
+        self.db.execute("UPDATE cities SET faction='Элины',is_undead=0");self.db.commit()
         self.owner.load_buildings();settle()
         scene=self.owner.city_preview;effects=scene.effects
-        self.assertIsNone(effects._event)
-        self.db.execute("INSERT INTO buildings VALUES(?,?,?,1)",(scene.city,'Нейтрал','Стена'))
+        effects.sync_visibility()
+        self.assertIsNone(effects._event,(effects.key,effects.chimneys,effects.flashes))
+        self.db.execute("INSERT INTO buildings VALUES(?,?,?,1)",(scene.city,'Элины','Стена'))
         self.db.commit();scene.refresh();effects._sync.cancel()
         self.assertIn('Стена',effects.flashes)
         self.assertIsNotNone(effects._event)

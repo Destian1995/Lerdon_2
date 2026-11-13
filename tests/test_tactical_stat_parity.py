@@ -67,8 +67,8 @@ class TacticalStatParityTests(unittest.TestCase):
 
     def test_snipe_and_burst_have_same_total_damage_budget(self):
         damage=[]
-        for key in ('snipe','burst'):
-            m,a,g,b,h=arena('Владислав')
+        for key in ('snipe','sword_throw'):
+            m,a,g,b,h=arena('Агилар' if key=='sword_throw' else 'Владислав')
             expected=m.skill_power(a,True)/m._resistance(b)
             event=m.use_ability(key,b.pos)
             damage.append(sum(hit['damage'] for hit in event['strikes']))

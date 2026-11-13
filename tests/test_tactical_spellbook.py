@@ -34,7 +34,7 @@ class SpellbookTests(unittest.TestCase):
         for size,density in (((640,360),1),((568,320),1),((360,640),1),((800,480),1.5)):
             Metrics.density=density;ui_fixture.Window.size=size;ui_fixture.settle()
             view,book=self.book()
-            self.assertEqual(set(book.tiles),{'snipe','burst','grenade'})
+            self.assertEqual(set(book.tiles),{'snipe','smoke','grenade'})
             for button in (book.cast,book.cancel):
                 self.assertGreaterEqual(button.height,44*density)
                 self.assertGreaterEqual(button.x,0)

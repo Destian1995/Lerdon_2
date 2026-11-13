@@ -2,7 +2,7 @@
 import sqlite3
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch,Mock
 
 from ai_economy import investment_plan, develop, secure_supply, hire_with_budget, supply_reserve
 from city_construction import building_counts
@@ -53,22 +53,33 @@ class InvestmentTests(unittest.TestCase):
         self.ai.resources['Кристаллы']=0
         bought=secure_supply(self.ai)
         self.assertEqual(bought,supply_reserve(self.ai))
-        self.assertAlmostEqual(self.ai.resources['Кроны'],2500-160*1.05)
+        self.assertAlmostEqual(self.ai.resources['Кроны'],2500-bought*1.05)
         self.assertEqual(secure_supply(self.ai),0)
 
-    def test_entire_recruitment_including_heroes_has_an_investment_budget(self):
+    def prepare_recruitment(self):
+        self.ai.cities={1:'Home'};self.ai.buildings={'Home':{}}
+        self.ai.has_hero_of_class=lambda rank:True
+        self.ai._find_hero_city=lambda:'Home'
+        self.ai.update_buildings_for_current_cities=Mock()
+        self.ai.calculate_current_consumption=Mock()
+        self.ai.generate_and_buy_artifacts_for_ai_hero=Mock()
+        self.ai.save_garrison=Mock();self.ai.load_garrison=lambda:{}
+
+    def test_recruitment_keeps_real_cap_instead_of_zero_food_quota(self):
+        self.prepare_recruitment()
         old_limit=self.ai.army_limit
-        def hire():
-            self.assertEqual(self.ai.resources['Кроны'],1000)
-            self.assertLess(self.ai.army_limit,old_limit)
-            self.ai.resources['Кроны']=0
-        self.ai._orig_hire_army=hire
+        def hire(pending,money,workers,available):
+            self.assertEqual(money,2000)
+            self.assertEqual(available,old_limit)
+            self.ai.resources['Кроны']-=money
+        self.ai.hire_units=hire
         hire_with_budget(self.ai)
-        self.assertEqual(self.ai.resources['Кроны'],1500)
+        self.assertEqual(self.ai.resources['Кроны'],500)
         self.assertEqual(self.ai.army_limit,old_limit)
 
     def test_failed_recruitment_restores_reserved_cash_and_cap(self):
-        self.ai._orig_hire_army=lambda: (_ for _ in ()).throw(RuntimeError('failure'))
+        self.prepare_recruitment()
+        self.ai.hire_units=lambda *args: (_ for _ in ()).throw(RuntimeError('failure'))
         with self.assertRaises(RuntimeError):hire_with_budget(self.ai)
         self.assertEqual(self.ai.resources['Кроны'],2500)
         self.assertEqual(self.ai.army_limit,10000)

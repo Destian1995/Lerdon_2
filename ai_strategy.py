@@ -7,7 +7,7 @@ ai_strategy.py — улучшения ИИ v6 (патч-модуль)
   • [FIX-1] Нумерация ходов: в ii.py ход начинается с turn=0.
     То есть turn=0 — это 1-й игровой ход. Убрана путаница.
     Теперь:
-      turn == 0 → 1-й ход (только стройка)
+      turn == 0 → 1-й ход: стройка, торговля, найм и доступный захват
       turn >= 1 → 2-й и далее (найм + захват + стройка)
   • [FIX-2] Аварийная продажа кристаллов:
     Если у ИИ 0 крон, нет юнитов 1 класса и есть кристаллы — ПРОДАЁМ
@@ -38,10 +38,9 @@ MID_GAME_END = 30
 # === Расписание ходов (turn в ИИ начинается с 0) ===
 # turn = 0 → 1-й игровой ход → ТОЛЬКО стройка
 # turn >= 1 → 2-й и далее → найм + захват + стройка
-TURN_BUILD_ONLY = 0                  # 1-й игровой ход (turn=0): только стройка
 
 # === Гарантированный найм 1 юнита ===
-ENSURE_SCOUT_FROM_TURN = 1           # с turn=1 (2-й ход) ИИ нанимает разведчика
+ENSURE_SCOUT_FROM_TURN = 0           # Начиная с первого хода
 
 # === Атака — коэффициент уверенности ===
 ATTACK_CONFIDENCE = 1.5
@@ -55,7 +54,7 @@ LEADER_DOMINANCE_THRESHOLD = 1.5
 LEADER_RELATIONS_PENALTY = 30
 
 # === Захват нейтралов ===
-EXPANSION_START_TURN = 1             # с turn=1 (2-й ход) можно захватывать
+EXPANSION_START_TURN = 0             # Начиная с первого хода
 EXPANSION_END_TURN = 25
 from utils.movement_rules import MAX_MOVE_DISTANCE
 NEUTRAL_SEARCH_RADIUS = MAX_MOVE_DISTANCE
@@ -793,8 +792,6 @@ def early_expansion(self):
     if self.turn < EXPANSION_START_TURN:
         _diag(self, f"early_expansion: пропуск (turn < {EXPANSION_START_TURN})")
         return
-    if self.turn > EXPANSION_END_TURN:
-        return
 
     if getattr(self, '_action_taken_this_turn', False):
         _diag(self, "early_expansion: уже было действие")
@@ -846,47 +843,32 @@ def early_expansion(self):
         _diag(self, "early_expansion: нет юнитов 1 класса в гарнизонах")
         return
 
-    cheapest_unit = _find_cheapest_unit(self, class_1_units)
-    if not cheapest_unit:
-        return
-
-    chosen = cheapest_unit
-    _diag(self, f"early_expansion: выбран '{chosen['unit_name']}' из '{chosen['city_name']}'")
-
-    if chosen["city_name"] != allied_city:
-        try:
-            self.relocate_units(
-                from_city_name=chosen["city_name"], to_city_name=allied_city,
-                unit_name=chosen["unit_name"], unit_count=NEUTRAL_ATTACKER_COUNT,
-                unit_image=chosen["unit_image"]
-            )
-        except Exception as e:
-            print(f"[AI] early_expansion relocate: {e}")
-            return
-
-    try:
-        self.cursor.execute(
-            "SELECT attack, defense, durability, unit_class FROM units WHERE unit_name = ?",
-            (chosen["unit_name"],))
-        stats = self.cursor.fetchone()
-    except Exception as e:
-        return
-
-    if not stats:
-        return
-
-    a, d, dur, uc = stats
+    # Bring the mobile army, not a lone soldier against an occupied garrison.
     from terrain_journeys import available_attack_units
-    if not available_attack_units(self.db_connection,allied_city,
-                                  [dict(unit_name=chosen['unit_name'],unit_count=NEUTRAL_ATTACKER_COUNT)]):
-        return
-    attacking_army = [{
-        "unit_name": chosen["unit_name"], "unit_count": NEUTRAL_ATTACKER_COUNT,
-        "unit_image": chosen["unit_image"],
-        "units_stats": {"Урон": a, "Защита": d, "Живучесть": dur, "Класс юнита": str(uc)}
-    }]
-
-    print(f"[AI] {self.faction} (ход {self.turn+1}): отправляет 1 '{chosen['unit_name']}' на нейтрала {target_city}.")
+    attacking_army=[]
+    for unit in all_units:
+        if self.get_unit_class(unit['unit_name']) not in (1,2,3):continue
+        if unit['city_name']!=allied_city:
+            self.relocate_units(from_city_name=unit['city_name'],to_city_name=allied_city,
+                unit_name=unit['unit_name'],unit_count=unit['unit_count'],unit_image=unit['unit_image'])
+        row=self.cursor.execute('SELECT attack,defense,durability,unit_class FROM units WHERE unit_name=?',
+                                (unit['unit_name'],)).fetchone()
+        if not row:continue
+        a,d,hp,rank=row
+        attacking_army.append(dict(unit_name=unit['unit_name'],unit_count=unit['unit_count'],unit_image=unit['unit_image'],
+            units_stats={'Урон':a,'Защита':d,'Живучесть':hp,'Класс юнита':str(rank)}))
+    attacking_army=available_attack_units(self.db_connection,allied_city,attacking_army)
+    if not any(int(u['units_stats']['Класс юнита'])==1 for u in attacking_army):return
+    defenders=self.get_defending_army(target_city)
+    if defenders:
+        from combat_stats import base_power
+        aura=tuple(sum(u['units_stats'].get(key,0)*u['unit_count'] for u in attacking_army
+                       if u['units_stats']['Класс юнита'] in ('2','3')) for key in ('Урон','Защита','Живучесть'))
+        ours=sum(sum(base_power(u,aura,self.faction))*u['unit_count'] for u in attacking_army)
+        from utils.garrison_stats import garrison_totals
+        theirs=garrison_totals(self.db_connection,target_city)
+        if ours<1.2*(theirs['attack']+theirs['defense']):return
+    print(f"[AI] {self.faction}: ранний поход {allied_city} → {target_city}")
     try:
         from terrain_journeys import start_journey
         if start_journey(self.db_connection,self.faction,allied_city,target_city,attacking_army,'attack'):
@@ -965,7 +947,7 @@ def _find_neutral_in_radius(self, radius):
                 except Exception:
                     continue
                 dist = abs(ox - nx) + abs(oy - ny)
-                if dist < best_dist:
+                if dist < best_dist and self.has_road_between_cities(our_name,n_name):
                     best_dist = dist
                     best = n_name
         return best
@@ -1074,24 +1056,13 @@ def rally_units_to_frontier(self):
 # ============================================================
 
 def make_turn_v2(self):
-    """
-    РАСПИСАНИЕ v6 (turn в ИИ начинается с 0!):
-      turn=0 (1-й ход):
-        - только постройка зданий (1 больница + 2 фабрики)
-      turn=1+ (2-й и далее):
-        1. emergency_sell_crystals — если 0 крон, продаём кристаллы
-        2. ensure_scout_unit — нанимаем 1 разведчика если нет юнитов 1 класса
-        3. early_expansion — захват нейтрала 1 юнитом
-        4. hire_army — обычный найм
-        5. check_and_declare_war — войны и атаки
-        6. manage_buildings — стройка на остатки (с ходов 0,1,2 — гарантированно)
-        7. sell_resources — обычная продажа кристаллов
-        8. артефакты, дипломатия
-    """
+    """Every turn: foundations, trade, recruitment, legal expansion, development."""
     print(f'---------ХОДИТ ФРАКЦИЯ: {self.faction}-------------------')
     try:
         self.hero_used_in_turn = False
         self._action_taken_this_turn = False
+        from alliance_rules import support_player
+        support_player(self.db_connection,getattr(self,'player_faction',None))
 
         if self.faction == "Мятежники":
             from rebel_campaign import make_turn as rebel_turn
@@ -1107,6 +1078,13 @@ def make_turn_v2(self):
             self.garrison = self.load_garrison()
             self.army_limit = self.calculate_army_limit()
             self.calculate_current_consumption()
+            # Build the opening economy before the first income/upkeep tick.
+            # Otherwise an empty capital starves, loses its workers and cannot
+            # recruit for expansion until a later turn. Never overwrite the
+            # existing campaign purse with constructor defaults.
+            if self.turn == 0:
+                self.load_resources_from_db()
+                self.manage_buildings()
             self.update_resources()
             self.process_queries()
 
@@ -1125,108 +1103,15 @@ def make_turn_v2(self):
             emergency_sell_crystals(self)
             self.sell_resources()
 
-            # ===== РАСПИСАНИЕ =====
-            if self.turn == TURN_BUILD_ONLY:
-                # turn=0 = 1-й игровой ход: ТОЛЬКО стройка
-                _diag(self, "1-й ход: только постройка, без атак и найма армии")
-                self.manage_buildings()
+            from ai_opening import development_cycle
+            development_cycle(self)
+            self.generate_and_buy_artifacts_for_ai_hero()
+            self.send_proactive_diplomacy()
+            self.send_help_request_if_needed()
+            self.send_mercy_request_if_needed()
 
-            else:
-                # turn>=1 = 2-й и далее ход
-
-                # Шаг 0: АВАРИЙНАЯ продажа кристаллов (если 0 крон)
-                _diag(self, "шаг 0: emergency_sell_crystals")
-                emergency_sell_crystals(self)
-
-                # Определяем режим экономического развития:
-                # первые 8 ходов без войны — приоритет стройке
-                _at_war = bool(self.get_factions_at_war())
-                _economy_phase = self.turn < 8 and not _at_war
-
-                if _economy_phase:
-                    # ЭКОНОМИЧЕСКАЯ ФАЗА: сначала стройка, потом найм на остатки
-                    _diag(self, "ЭКОНОМИЧЕСКАЯ ФАЗА: приоритет стройке")
-                    print(f"[AI] {self.faction}: ход {self.turn+1}, нет войны — приоритет недостающим зданиям")
-
-                    # Шаг 1: стройка (основной приоритет)
-                    _diag(self, "шаг 1: manage_buildings (приоритет)")
-                    self.manage_buildings()
-
-                    # Шаг 2: обычная продажа
-                    self.sell_resources()
-
-                    # Шаг 3: гарантированный разведчик
-                    _diag(self, "шаг 3: ensure_scout_unit")
-                    ensure_scout_unit(self)
-
-                    # Шаг 4: захват нейтрала
-                    _expansion_rounds = 2 if self.faction == 'Элины' else 1
-                    for _er in range(_expansion_rounds):
-                        _diag(self, f"шаг 4: early_expansion (раунд {_er+1}/{_expansion_rounds})")
-                        try:
-                            self._action_taken_this_turn = False
-                            early_expansion(self)
-                        except Exception as e:
-                            print(f"[AI] early_expansion: {e}")
-
-                    # Шаг 5: найм на остатки (только 10% ресурсов — см. hire_army)
-                    _diag(self, "шаг 5: hire_army (10% бюджет)")
-                    if self.resources.get('Кроны', 0) > 0:
-                        self.hire_army()
-
-                    # Шаг 6: собираем армию с героями у выбранной границы
-                    rally_units_to_frontier(self)
-
-                else:
-                    # БОЕВАЯ ФАЗА: стандартное расписание
-
-                    # Keep damaged/new towns productive before spending on war.
-                    self.manage_buildings()
-
-                    # Шаг 1: гарантированный найм 1 разведчика
-                    _diag(self, "шаг 1: ensure_scout_unit")
-                    ensure_scout_unit(self)
-
-                    # Шаг 2: захват нейтрала (Элины — 2 попытки)
-                    _expansion_rounds = 2 if self.faction == 'Элины' else 1
-                    for _er in range(_expansion_rounds):
-                        _diag(self, f"шаг 2: early_expansion (раунд {_er+1}/{_expansion_rounds})")
-                        try:
-                            self._action_taken_this_turn = False
-                            early_expansion(self)
-                        except Exception as e:
-                            print(f"[AI] early_expansion: {e}")
-
-                    # Шаг 3: обычный найм
-                    _diag(self, "шаг 3: hire_army")
-                    if self.resources.get('Кроны', 0) > 0:
-                        self.hire_army()
-
-                    # Шаг 3.5: подготовка приграничного гарнизона
-                    _diag(self, "шаг 3.5: rally_units_to_frontier")
-                    rally_units_to_frontier(self)
-
-                    # Шаг 4: войны и атаки
-                    _war_rounds = 2 if self.faction == 'Элины' else 1
-                    for _wr in range(_war_rounds):
-                        _diag(self, f"шаг 4: check_and_declare_war (раунд {_wr+1}/{_war_rounds})")
-                        self.check_and_declare_war()
-
-                    # Шаг 5: стройка
-                    _diag(self, "шаг 5: manage_buildings")
-                    self.manage_buildings()
-
-                    # Шаг 6: обычная продажа
-                    self.sell_resources()
-
-                # Шаг 7: артефакты + дипломатия
-                self.generate_and_buy_artifacts_for_ai_hero()
-                self.send_proactive_diplomacy()
-                self.send_help_request_if_needed()
-                self.send_mercy_request_if_needed()
-
-                # Keep freshly hired and surviving troops at the current border.
-                rally_units_to_frontier(self)
+            # Keep surviving troops with their heroes.
+            rally_units_to_frontier(self)
 
         if self.faction not in ('Нежить', 'Мятежники'):
             from ai_economy import secure_supply

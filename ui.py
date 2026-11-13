@@ -659,6 +659,19 @@ class FortressInfoPopup(Popup):
     def get_garrison(self):
         """Получает гарнизон города из таблицы garrisons и отображает его с учетом класса и специализации юнитов."""
         try:
+            from army_intelligence import city_visible,UNKNOWN
+            if not city_visible(self.conn,self.player_fraction,self.city_name):
+                self.garrison_profiles_snapshot={}
+                self.garrison_totals_snapshot=None
+                if hasattr(self,'garrison_attack_total'):
+                    self.garrison_attack_total.text='?'
+                    self.garrison_defense_total.text='?'
+                self.attacking_units_box.clear_widgets()
+                label=Label(text=UNKNOWN+'\nПолучите сведения в таверне. Срок: 2 хода.',
+                    size_hint_y=None,height=dp(78),font_size=sp(13),halign='center',valign='middle')
+                label.bind(size=label.setter('text_size'))
+                self.attacking_units_box.add_widget(label)
+                return
             from utils.garrison_stats import garrison_profiles,garrison_totals
             profiles=garrison_profiles(self.conn,self.city_name)
             self.garrison_profiles_snapshot=profiles
@@ -993,6 +1006,10 @@ class FortressInfoPopup(Popup):
                                hero_bonus_atk=0, hero_bonus_def=0, hero_bonus_dur=0, unit_exp=0,
                                morale=100, unit_type='infantry', battle_spirit=False):
         """Попап с изображением юнита справа и характеристиками слева."""
+        from army_intelligence import city_visible,UNKNOWN
+        if not city_visible(self.conn,self.player_fraction,self.city_name):
+            _show_dark_error_popup(UNKNOWN,'Получите свежие сведения в таверне. Они действуют 2 хода.')
+            return
         from heart_contract import multiplier
         curse=multiplier(self.conn,self.ai_fraction)
         attack,defense,durability=(value*curse for value in (attack,defense,durability))
@@ -1479,7 +1496,8 @@ class FortressInfoPopup(Popup):
             else:
                 _moves_left = _ml_row[0] if _ml_row[0] is not None else 0
                 print(f"[MOVE CHECK] {current_player_kingdom} moves_left={_moves_left}")
-                if _moves_left <= 0:
+                from developer_access import unlimited_actions
+                if _moves_left <= 0 and not unlimited_actions(self.conn,current_player_kingdom):
                     show_popup_message("Ошибка", "Вы уже использовали своё перемещение на этом ходу.")
                     return
 
@@ -1552,8 +1570,8 @@ class FortressInfoPopup(Popup):
                                     raise ValueError('Не удалось отправить часть группы.')
                                 if is_war_destination:
                                     break
-                    cursor.execute('UPDATE turn_check_move SET moves_left=MAX(0,moves_left-1) WHERE faction=?',
-                                   (current_player_kingdom,))
+                    from developer_access import consume_action
+                    consume_action(self.conn,current_player_kingdom)
                     self.conn.commit()
                     from troop_movement import close_transfer_windows
                     close_transfer_windows(self)
@@ -1587,10 +1605,8 @@ class FortressInfoPopup(Popup):
                         break
 
             # Фиксируем одно использование перемещения (один раз за всю группу)
-            cursor.execute(
-                "UPDATE turn_check_move SET moves_left = MAX(0, moves_left - 1) WHERE faction = ?",
-                (current_player_kingdom,)
-            )
+            from developer_access import consume_action
+            consume_action(self.conn,current_player_kingdom)
             self.conn.commit()
 
             # Закрываем попап и обновляем интерфейс

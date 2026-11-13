@@ -3,11 +3,11 @@ ROOT='files/otherworld/themes/'
 # Presentation coordinates on the 1200x800 world canvas. Stable city IDs keep
 # expedition, market and quest progress while each realm has its own landmass.
 CITY_LAYOUTS={
-    'north':((210,265),(1010,235),(285,590),(905,600),(500,190),(600,495),(815,390)),
-    'elves':((220,420),(960,510),(430,620),(775,610),(325,200),(610,380),(840,210)),
-    'vampires':((190,260),(995,530),(275,600),(780,625),(480,180),(555,460),(915,230)),
-    'adepts':((245,410),(1010,290),(420,615),(865,550),(380,235),(650,430),(760,200)),
-    'elines':((200,525),(1020,245),(385,615),(1000,600),(330,220),(645,525),(765,205)),
+    'north':((220,295),(1015,250),(300,615),(930,625),(505,215),(615,515),(830,420)),
+    'elves':((230,435),(980,505),(440,645),(805,635),(340,225),(615,405),(865,235)),
+    'vampires':((205,310),(995,535),(290,625),(790,650),(480,210),(575,475),(950,260)),
+    'adepts':((255,435),(1005,315),(425,640),(885,575),(390,260),(540,430),(780,225)),
+    'elines':((210,510),(1030,250),(395,640),(995,625),(355,215),(580,525),(770,190)),
 }
 CONFLICT_SIDES={
     'Север':('Клан Медведя','Клан Грома'),
@@ -51,6 +51,7 @@ def image_path(faction,group,key):
     female={'north':('archer','weaver','boss'),'elves':('archer','weaver','boss'),
             'vampires':('archer','boss'),'adepts':('archer','boss'),'elines':('archer','weaver','boss')}
     skin=theme(faction)['key']
+    if group=='cities' and Path(ROOT+skin+'/cities-v2.atlas').is_file():group='cities-v2'
     if group=='units' and key in female[skin] and Path(ROOT+skin+'/women.atlas').is_file():group='women'
     return 'atlas://'+ROOT+theme(faction)['key']+'/'+group+'/'+key
 

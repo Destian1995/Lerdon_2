@@ -5,7 +5,8 @@ import sqlite3
 def market_policy(conn,faction):
     try:row=conn.execute('SELECT system FROM political_systems WHERE faction=?',(faction,)).fetchone()
     except sqlite3.OperationalError:row=None
-    if row and row[0]=='Борьба':return 'Кристаллы',110 if faction=='Элины' else 65
+    if row and row[0]=='Борьба':
+        return 'Кристаллы',{'Элины':110,'Вампиры':130,'Эльфы':130,'Адепты':80}.get(faction,65)
     return 'Кроны',15 if faction=='Север' else 10
 
 

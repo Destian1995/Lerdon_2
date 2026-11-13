@@ -33,15 +33,15 @@ class InvestigationTests(unittest.TestCase):
         self.assertEqual(q.evidence(self.db,'Север'),([],[]))
         self.assertEqual(q.pending(self.db,'Север'),[])
 
-    def test_missing_board_blocks_and_wrong_order_fails(self):
+    def test_missing_board_blocks_but_pinning_order_does_not_reject_correct_suspect(self):
         self.collect();culprit=self.d['suspects'][self.run['culprit']]
         with self.assertRaises(ValueError):q.action(self.db,'Север','accuse',culprit)
         self.assertGreater(self.crowns(),0)
         collected,_=q.evidence(self.db,'Север')
         for clue in reversed(collected):q.action(self.db,'Север','arrange',clue)
         q.action(self.db,'Север','accuse',culprit)
-        self.assertEqual(self.crowns(),0)
-        self.assertEqual(q.state(self.db,'Север')['detective'],0)
+        self.assertGreater(self.crowns(),0)
+        self.assertEqual(q.state(self.db,'Север')['detective'],3)
 
     def test_board_survives_reload_and_can_be_rearranged(self):
         self.collect();collected,_=q.evidence(self.db,'Север')

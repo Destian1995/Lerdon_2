@@ -360,7 +360,7 @@ class MirrorCampaignTests(unittest.TestCase):
         from otherworld_quest_pool import DETECTIVE,WARS
         seen={'detective':[],'war':[]}
         previous=None
-        for cycle in range(17):
+        for cycle in range(2*max(len(DETECTIVE),len(WARS))+1):
             self.at(1);self.turn(cycle*15)
             q.begin(self.db,'Север',random.Random(31+cycle))
             scenario=q.details(q.state(self.db,'Север'))
@@ -372,8 +372,9 @@ class MirrorCampaignTests(unittest.TestCase):
             self.db.execute("UPDATE portal_quest_runs SET finished_turn=?,repeat_turn=? WHERE faction='Север'",(cycle*15,cycle*15+15))
             self.db.commit()
         for kind,pool in (('detective',DETECTIVE),('war',WARS)):
-            self.assertEqual(len(set(seen[kind][:8])),len(pool))
-            self.assertEqual(len(set(seen[kind][8:16])),len(pool))
+            count=len(pool)
+            self.assertEqual(len(set(seen[kind][:count])),count)
+            self.assertEqual(len(set(seen[kind][count:2*count])),count)
 
     def test_generated_routes_gate_steps_and_use_selected_supply_resource(self):
         q.begin(self.db,'Север',random.Random(45))

@@ -201,7 +201,7 @@ def restore_from_backup(conn):
         from starting_economy import reset_starting_crowns
         reset_starting_crowns(conn)
 
-        # Сброс инвазии нежити для новой игры (случайный ход 18-26)
+        # Сброс инвазии нежити для новой игры (случайный ход 22-30)
         import random as _rnd
         _inv_turn = _rnd.randint(18, 26)
         cursor.execute("""
@@ -235,6 +235,7 @@ def clear_tables(conn):
     """
     Очищает данные из указанных таблиц базы данных.
     :param conn: Подключение к базе данных SQLite.
+    
     """
     tables_to_clear = [
         "morgana_covenants",
@@ -300,6 +301,7 @@ def clear_tables(conn):
         "map_companion_temper",
         "map_intrigue_log",
         "map_intrigue_turns",
+        "map_army_intelligence",
         "portal_companion_forms",
     ]
 
@@ -566,11 +568,12 @@ class LoadingScreen(FloatLayout):
 
     def step_cleanup_cache(self):
         self.update_progress(0, 1)
-        from threading import Thread
+        from background_tasks import tasks
         def cleanup_task():
             clear_tables(self.conn)
-            Clock.schedule_once(self.run_next_step, 0)
-        Thread(target=cleanup_task, daemon=True).start()
+            if not tasks.stopping.is_set():
+                Clock.schedule_once(lambda dt:None if tasks.stopping.is_set() else self.run_next_step(dt),0)
+        tasks.start(cleanup_task,'campaign-cleanup')
 
     def step_restore_backup(self):
         self.update_progress(20, 2)
@@ -678,6 +681,8 @@ class MapWidget(Widget):
                 self._map_atmosphere.start()
 
     def update_cities(self, dt=None):
+        from turn_ui_guard import database_busy
+        if database_busy(self.conn):return
         snapshot = self._read_map_snapshot()
         if snapshot is not None and snapshot == self._map_snapshot:
             return
@@ -1210,9 +1215,15 @@ class MapWidget(Widget):
         from map_city_effects import read_hero_garrisons
         from troop_movement import deferred_ai_captures
         from portal_home import marked_cities
+        from army_intelligence import visible,player_faction
+        standards=read_hero_garrisons(self.conn)
+        viewer=player_faction(self.conn)
+        owners={name:faction for name,_,_,faction in war_cities}
+        unknown={(city,faction or owners.get(city)) for city,faction in standards
+                 if not visible(self.conn,viewer,faction or owners.get(city))}
         layer.city_effects.sync(war_cities, read_city_war_states(self.conn), current_turn(self.conn),
-                               read_hero_garrisons(self.conn), deferred=deferred_ai_captures(self.conn),
-                               portals=marked_cities(self.conn))
+                               standards, deferred=deferred_ai_captures(self.conn),
+                               portals=marked_cities(self.conn),unknown=unknown)
         cursor = self.conn.cursor()
         try:
             cursor.execute('SELECT current_season FROM season WHERE id = 1')
@@ -1722,6 +1733,8 @@ class KingdomSelectionWidget(MDFloatLayout):
         if not getattr(self, 'selected_button', None):
             print("Фракция не выбрана.")
             return
+        from premium_access import allowed
+        if not allowed('faction',self.selected_button.text):return
         # Блокируем кнопки
         self.buttons_locked = True
         self.disable_all_buttons(True)
@@ -1753,6 +1766,11 @@ class KingdomSelectionWidget(MDFloatLayout):
         from game_loading import GameLoadingPanel
         app = App.get_running_app()
         selected_kingdom = app.selected_kingdom
+        from premium_access import require
+        if not require('faction',selected_kingdom):
+            self.buttons_locked=False
+            self.disable_all_buttons(False)
+            return
         self.buttons_locked = True
         self.disable_all_buttons(True)
         state = {}
@@ -1922,7 +1940,8 @@ class TutorialFactionScreen(FloatLayout):
         self.selected_faction = faction
         for name, button in self._faction_btns.items():
             button.set_selected(name == faction)
-        self.start_btn.disabled = False
+        from premium_access import allowed
+        self.start_btn.disabled = not allowed('faction',faction)
         from frontend_ui import update_tutorial_faction
         update_tutorial_faction(self, faction)
 
@@ -1937,6 +1956,8 @@ class TutorialFactionScreen(FloatLayout):
         from game_loading import GameLoadingPanel
         app = App.get_running_app()
         faction = self.selected_faction
+        from premium_access import require
+        if not require('faction',faction):return
         state = {}
         self.start_btn.disabled = True
         for button in self._faction_btns.values():
@@ -2092,7 +2113,6 @@ class MenuWidget(FloatLayout):
 
     def exit_game(self, instance):
         app = App.get_running_app()
-        app.on_stop()
         app.stop()
 
 
@@ -3191,6 +3211,8 @@ class Lerdon(MDApp):
 
     def restart_app(self):
         """Перезапуск игры — очистка БД, восстановление бэкапа, пересоздание интерфейса."""
+        from game_process import cleanup_active_screen
+        cleanup_active_screen()
         try:
             # Очистка таблиц
             clear_tables(self.conn)
@@ -3219,6 +3241,12 @@ class Lerdon(MDApp):
         print("Главное меню полностью пересоздано")
 
     def on_stop(self):
+        if getattr(self,'_shutdown_complete',False):return
+        self._shutdown_complete=True
+        from background_tasks import tasks
+        # Wake tactical waiters and finish DB workers before closing SQLite
+        # or allowing the interpreter to destroy stdout/stderr.
+        tasks.shutdown()
         Window.unbind(focus=self._audio_focus)
         if hasattr(self,'_game_audio'):
             self._game_audio.close()
@@ -3254,4 +3282,12 @@ class Lerdon(MDApp):
 
 
 if __name__ == '__main__':
-    Lerdon().run()
+    app=Lerdon()
+    from runtime_diagnostics import install_crash_log
+    try:install_crash_log(os.path.join(app.user_data_dir,'crash.log'))
+    except OSError:pass
+    try:
+        app.run()
+    finally:
+        # Kivy can leave run() through an exception before its normal _stop().
+        app.on_stop()

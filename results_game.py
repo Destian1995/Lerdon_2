@@ -70,6 +70,7 @@ def clear_tables(conn):
         "portal_heart_contracts",
         "portal_companion_forms",
         "portal_monster_cases",
+        "map_army_intelligence",
     ]
 
     cursor = conn.cursor()

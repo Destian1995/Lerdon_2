@@ -1,0 +1,5 @@
+<activity android:name="com.lerdonlegends.billing.BillingActivity"
+    android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"
+    android:theme="@android:style/Theme.Material.NoActionBar" />
+<meta-data xmlns:tools="http://schemas.android.com/tools"
+    android:name="com.google.android.gms.wallet.api.enabled" tools:node="remove" />

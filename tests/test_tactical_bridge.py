@@ -17,6 +17,23 @@ def descendants(root):
 
 
 class TacticalBridgeTests(unittest.TestCase):
+    def setUp(self):
+        license=patch('premium_access.full_access',return_value=True)
+        license.start();self.addCleanup(license.stop)
+
+    def test_unpaid_player_can_preview_battle_modes_and_choose_quick(self):
+        from premium_options_ui import FullVersionNotice
+        with patch.object(App,'_running_app',App()),patch('premium_access.full_access',return_value=False):
+            worker,result,chooser=self.start()
+            tactical=next(w for w in descendants(chooser) if isinstance(w,StrategyButton) and w.text=='Тактический бой')
+            quick=next(w for w in descendants(chooser) if isinstance(w,StrategyButton) and w.text=='Быстрый бой')
+            self.assertTrue(tactical.disabled)
+            self.assertFalse(quick.disabled)
+            self.assertTrue(any(isinstance(w,FullVersionNotice) for w in descendants(chooser)))
+            quick.dispatch('on_release');worker.join(1)
+            self.assertFalse(worker.is_alive())
+            self.assertEqual(result,[None])
+
     def tearDown(self):
         for popup in list(Window.children):
             if isinstance(popup,Popup):popup.dismiss(animation=False)

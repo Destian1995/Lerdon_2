@@ -47,8 +47,13 @@ class PassageRule(BoxLayout):
         self.title.font_size=min(sp(19),self.height*.27,max(11,self.width/17))
         self.description.font_size=min(sp(14),self.height*.21,max(10,self.width/23))
         self.title.height=self.title.font_size*1.35
-        self.description.height=self.description.font_size*1.6
+        lines=self.description.text.count('\n')+1
+        self.description.height=self.description.font_size*(1.4*lines if lines>1 else 1.6)
         self.copy.spacing=min(dp(4),self.height*.04)
+        needed=self.title.height+self.description.height+self.copy.spacing
+        scale=min(1,max(1,self.height-2*inset)/max(1,needed))
+        self.title.font_size*=scale;self.title.height*=scale
+        self.description.font_size*=scale;self.description.height*=scale
         self.copy.height=self.title.height+self.description.height+self.copy.spacing
 
 
@@ -73,7 +78,8 @@ class PortalEntryPopup(WorldPopup):
             self.details.add_widget(label)
         self.rules=[
             PassageRule('1 действие','Герой 4 класса остаётся в городе','files/pict/hire/sword.png',self.accent),
-            PassageRule('Чужие города','Торговля и бои без захвата','files/buildings/poly.png',self.accent),
+            PassageRule('Чужие города','Торговля, бои и расследования.\nНовые юниты, артефакты и секретные концовки.',
+                        'files/buildings/poly.png',self.accent),
             PassageRule('Обратный путь','Через Врата странников','files/status/resource_box/crystal.png',self.accent),
         ]
         for rule in self.rules:self.details.add_widget(rule)
@@ -140,8 +146,12 @@ class PortalEntryPopup(WorldPopup):
         soldiers=sum(row[1] for row in units if str(row[7]).split()[0]=='1')
         row=self.conn.execute('SELECT moves_left FROM turn_check_move WHERE faction=?',(self.faction,)).fetchone()
         moves=row[0] if row else 0
+        from developer_access import unlimited_actions
+        if unlimited_actions(self.conn,self.faction):moves=max(1,moves)
         ready=bool(heroes and soldiers and moves>0)
         self.enter_button.disabled=not ready or _busy(self.conn)
+        from premium_access import allowed
+        if not allowed('mirror'):self.enter_button.disabled=_busy(self.conn)
         if not heroes:
             self.readiness.text='Для путешествия нужен герой 2–3 класса в гарнизоне.'
         elif not soldiers:
@@ -153,6 +163,11 @@ class PortalEntryPopup(WorldPopup):
         self.readiness.color=(.43,.89,.63,1) if ready else (1,.74,.42,1)
 
     def enter(self,*_):
+        from premium_access import allowed
+        if not allowed('mirror'):
+            from premium_options_ui import show_locked_content
+            show_locked_content(on_change=self.refresh_readiness)
+            return
         if _busy(self.conn):return
         try:
             worlds.enter(self.conn,self.faction,self.city_popup.city_name)

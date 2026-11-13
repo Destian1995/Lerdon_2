@@ -211,6 +211,7 @@ class Battlefield(Widget):
                 Line(rectangle=(px-c/2+1,py-c/2+1,c-2,c-2),width=1.8)
             # Far rows before near rows; dead bodies behind living figures.
             for s in sorted(battle.stacks.values(),key=lambda s:(s.alive,-s.pos[1])):
+                if not battle.visible_to(self.owner.player_side,s):continue
                 state,age,p = self.owner.visual(s)
                 pending=next((hit for when,hit in self.owner.pending_strikes
                               if when>self.owner.age and hit.get('grenade') and hit['target']==s.id),None)
@@ -295,10 +296,20 @@ class Battlefield(Widget):
             StencilPush()
             Rectangle(pos=self.origin,size=(WIDTH*c,HEIGHT*c))
             StencilUse()
+            for cloud in battle.smoke_clouds:
+                for x,y in cloud['cells']:
+                    px,py=self.cell_center((x,y))
+                    # Slow overlapping wisps remain translucent to the owner.
+                    for i in range(5):
+                        phase=self.owner.age*.65+i*1.7+x*.4+y*.6
+                        size=c*(.62+.08*math.sin(phase))
+                        Color(.67,.73,.77,.12 if cloud['side']==self.owner.player_side else .23)
+                        Ellipse(pos=(px+math.sin(phase)*c*.18-size/2,
+                                     py+math.cos(phase*.8)*c*.16-size/2),size=(size,size*.8))
             for cells,start,key in self.owner.ability_fx:
                 age=self.owner.age-start
                 if self.spell_art.cast(key,cells,age,self.cell_center,c,self.owner.spell_origins.get((start,key))):continue
-                if 0<=age<.8 and key!='grenade':
+                if 0<=age<.8 and key not in ('grenade','smoke'):
                     hue=(.45,.83,1) if key in ('freeze','blizzard','priest_shield') else (1,.82,.34) if key=='paladin_shield' else (.4,1,.6) if key in ('heal','inspire','vampirism','vampire_raise') else (1,.35,.17)
                     Color(*hue,(1-age/.8)*.7)
                     for pos in cells:
@@ -600,7 +611,11 @@ class TacticalBattlePopup(Popup):
         if self.selection in self.battle.terrain:
             t = self.battle.tile(self.selection)
             self.info.text += '\n\n'+t.name+' · '+t.description
+            for cloud in self.battle.smoke_clouds:
+                if self.selection in cloud['cells']:
+                    self.info.text+=f"\nДым · осталось раундов: {cloud['expires']-self.battle.round}"
             target = self.battle.at(self.selection)
+            if target and not self.battle.visible_to(self.player_side,target):target=None
             if target:
                 self.info.text += f'\n{target.name} · {format_number(target.count)}\nЗдоровье: {target.hp/target.max_hp:.0%}'
                 self.info.text+=f'\nНа бойца · АТК {format_number(self.battle._power(target,True))} · ЗАЩ {format_number(self.battle._power(target,False))}'
@@ -713,7 +728,7 @@ class TacticalBattlePopup(Popup):
         grenade=action=='ability' and event['ability']=='grenade'
         if action=='ability':
             key=event['ability']
-            sound=('throw' if grenade else 'rifle' if key=='snipe' else None if key in ('burst','sword_throw','auto_burst','twin_arrow')
+            sound=('throw' if grenade or key=='smoke' else 'rifle' if key=='snipe' else None if key in ('sword_throw','auto_burst','twin_arrow')
                    else 'frost' if key in ('freeze','blizzard') else 'heal' if key in ('heal','inspire','vampirism')
                    else 'sword' if key in ('whirlwind','paladin_shield') else 'heal' if key in ('priest_shield','vampire_raise') else 'magic')
             if sound:self.audio.play(sound,owner=self)
@@ -745,8 +760,8 @@ class TacticalBattlePopup(Popup):
             self.busy=max(.3,(len(event['path'])-1)*.13)
             self.animations[actor.id]=('walk',self.age,self.age+self.busy)
         elif action in ('attack','ability') and event.get('strikes'):
-            volley=event.get('ability') in ('burst','sword_throw','auto_burst','twin_arrow')
-            interval=.16 if event.get('ability') in ('burst','auto_burst') else .28 if volley else .72
+            volley=event.get('ability') in ('sword_throw','auto_burst','twin_arrow')
+            interval=.16 if event.get('ability') in ('auto_burst',) else .28 if volley else .72
             last=max((hit.get('shot',i) if volley else i) for i,hit in enumerate(event['strikes']))
             self.busy=interval*last+.75
             for i,strike in enumerate(event['strikes']):
@@ -811,8 +826,8 @@ class TacticalBattlePopup(Popup):
                     target=self.battle.stacks[strike['target']]
                     if target.pos[0]!=actor.pos[0]:
                         self.facings[actor.id]=target.pos[0]<actor.pos[0]
-                    if strike.get('ability') in ('burst','sword_throw','auto_burst','twin_arrow'):
-                        if strike.get('volley_lead',True):self.audio.play('rifle' if strike['ability'] in ('burst','auto_burst') else 'bow' if strike['ability']=='twin_arrow' else 'throw',owner=self)
+                    if strike.get('ability') in ('sword_throw','auto_burst','twin_arrow'):
+                        if strike.get('volley_lead',True):self.audio.play('rifle' if strike['ability'] in ('auto_burst',) else 'bow' if strike['ability']=='twin_arrow' else 'throw',owner=self)
                     elif not strike.get('ability'):
                         ranged=max(abs(actor.pos[0]-target.pos[0]),abs(actor.pos[1]-target.pos[1]))>1
                         self.audio.play(attack_sound(actor.unit,actor.role,ranged),owner=self)

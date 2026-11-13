@@ -139,6 +139,10 @@ def show_diversion_window(conn, faction, class_faction):
     )
     sub.bind(size=lambda i, s: setattr(i, 'text_size', (s[0], None)))
     content.add_widget(sub)
+    from premium_access import allowed
+    if not allowed('sabotage'):
+        from premium_options_ui import FullVersionNotice
+        content.add_widget(FullVersionNotice(compact=True))
 
     # Список фракций — каждая как карточка
     scroll = ScrollView(do_scroll_x=False, size_hint_y=1)
@@ -717,6 +721,8 @@ def show_confirmation_popup(conn, player_faction, cash_player, op_name, op_info,
     confirmed = False
     def on_confirm(instance):
         nonlocal confirmed
+        from premium_access import require
+        if not require('sabotage'):return
         if confirmed:
             return
         confirmed = True

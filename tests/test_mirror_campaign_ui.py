@@ -33,6 +33,59 @@ class MirrorCampaignUITests(unittest.TestCase):
         for city in self.map.map.nodes:
             self.assertEqual((city['x'],city['y']),city_position('Север',city['id']))
 
+    def test_completed_battle_refreshes_open_journal_and_selects_reward_without_a_turn(self):
+        from otherworld_ui import _refresh_main
+        from portal_items import reward
+        q.begin(self.db,'Север')
+        run=q.state(self.db,'Север');war=q.details(run)['war']
+        self.db.execute("UPDATE portal_quest_runs SET war=2 WHERE faction='Север'")
+        self.db.commit()
+        journal=QuestJournal(self.map);journal.open(animation=False);settle()
+        self.assertNotIn('Ваши награды',[page.title for page in journal.cards.pages])
+        turn=self.db.execute('SELECT turn_count FROM turn LIMIT 1').fetchone()[0]
+        self.assertTrue(q.battle_won(self.db,'Север',war['target']));self.db.commit()
+        _refresh_main(self.db,'Север');self.map.refresh();settle()
+        selected=journal.cards.pages[journal.cards.page_index]
+        self.assertEqual(selected.title,'Ваши награды')
+        copy=' '.join(label.text for label in selected.sections)
+        self.assertIn(reward(self.db,'Север',102)['name'],copy)
+        self.assertIn('АТК +',copy);self.assertIn('ЗАЩ +',copy)
+        self.assertIn('Доступны награды: 1',self.map.message.text)
+        self.assertEqual(self.db.execute('SELECT turn_count FROM turn LIMIT 1').fetchone()[0],turn)
+        journal.perform(lambda:q.claim(self.db,'Север'));settle()
+        self.assertFalse(q.pending(self.db,'Север'))
+        self.assertNotIn('Ваши награды',[page.title for page in journal.cards.pages])
+        self.assertNotIn('Доступны награды:',self.map.message.text)
+        self.assertEqual(self.db.execute('SELECT turn_count FROM turn LIMIT 1').fetchone()[0],turn)
+
+    def test_battle_transaction_suspends_map_database_poll_until_ui_completion(self):
+        import sqlite3
+        import tempfile
+        import threading
+        from pathlib import Path
+        from unittest.mock import Mock,patch
+        from background_tasks import TaskGroup
+        from tactical_battle_bridge import launch_operation,operation_busy
+        temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
+        db=sqlite3.connect(str(Path(temp.name)/'campaign.db'))
+        self.db.commit();self.db.backup(db);self.addCleanup(db.close)
+        world=OtherworldMap(db,'Север');world.open(animation=False);settle()
+        group=TaskGroup();started=threading.Event();release=threading.Event();completed=Mock()
+        def operation(private):
+            private.execute('UPDATE resources SET amount=amount+1')
+            started.set();release.wait(3);private.commit()
+            return {'won':True}
+        with patch('background_tasks.tasks',group):
+            worker=launch_operation(db,operation,completed)
+            try:
+                self.assertTrue(started.wait(2));self.assertTrue(operation_busy(db))
+                with patch('portal_items.expire',side_effect=AssertionError('DB poll during battle')):
+                    world.refresh()
+            finally:
+                release.set();worker.join(3)
+            self.assertFalse(worker.is_alive());settle()
+            self.assertFalse(operation_busy(db));completed.assert_called_once_with({'won':True})
+
     def test_journal_records_clues_and_fits_small_landscape_screen(self):
         journal=QuestJournal(self.map);journal.open(animation=False);settle()
         journal.perform(lambda:q.begin(self.db,'Север'))

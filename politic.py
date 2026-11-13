@@ -577,6 +577,8 @@ class DiplomacyManager:
                 "UPDATE relations SET relationship = MAX(0, relationship - 30) WHERE faction1 = ? AND faction2 = ?",
                 (target_faction, self.faction)
             )
+            from alliance_rules import support_player
+            support_player(self.db_connection,self.faction)
             self.db_connection.commit()
             print(f"[ДИПЛОМАТИЯ] {self.faction} объявил войну {target_faction}!")
 
@@ -898,9 +900,11 @@ def calculate_army_strength(conn):
     formatted_army_strength = {faction: format_number(strength) for faction, strength in army_strength.items()}
     return army_strength, formatted_army_strength
 
-def create_army_rating_table(conn):
+def create_army_rating_table(conn,viewer=None):
     """Создает таблицу рейтинга армий в стиле таблицы отношений (тёмная тема)."""
     from undead_invasion import is_invasion_active
+    from army_intelligence import player_faction,visible,UNKNOWN
+    viewer=viewer or player_faction(conn)
 
     cursor = conn.cursor()
     if is_invasion_active(conn):
@@ -920,15 +924,17 @@ def create_army_rating_table(conn):
 
     faction_ratings = []
     for faction in all_factions:
-        local_power = calculate_peace_army_points(conn, faction)
-        global_power = calculate_total_faction_power(conn, faction)
+        known=visible(conn,viewer,faction)
+        local_power = calculate_peace_army_points(conn, faction) if known else None
+        global_power = calculate_total_faction_power(conn, faction) if known else None
         faction_ratings.append({
             "faction": faction,
             "local_power": local_power,
             "global_power": global_power
         })
 
-    faction_ratings.sort(key=lambda x: x["global_power"], reverse=True)
+    # Ordering hidden factions by actual strength would reveal the ranking.
+    faction_ratings.sort(key=lambda x:(x['global_power'] is None,-(x['global_power'] or 0),x['faction']))
 
     layout = GridLayout(
         cols=3,
@@ -977,8 +983,8 @@ def create_army_rating_table(conn):
     for data in faction_ratings:
         faction_name = faction_names.get(data["faction"], data["faction"])
         layout.add_widget(_cell(faction_name))
-        layout.add_widget(_cell(format_number(int(data["local_power"]))))
-        layout.add_widget(_cell(format_number(int(data["global_power"])), bold=True))
+        layout.add_widget(_cell(UNKNOWN if data['local_power'] is None else format_number(int(data["local_power"]))))
+        layout.add_widget(_cell(UNKNOWN if data['global_power'] is None else format_number(int(data["global_power"])), bold=True))
 
     return layout
 

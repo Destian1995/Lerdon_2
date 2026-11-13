@@ -36,6 +36,9 @@ def frontend_classes():
 
 class FrontendTests(unittest.TestCase):
     def setUp(self):
+        # Layout tests inspect every faction with a full license.
+        license_patch=patch('premium_access.full_access',return_value=True)
+        license_patch.start();self.addCleanup(license_patch.stop)
         self.original_size = Window.size
         Window.size = (640, 360)
         settle()
@@ -64,7 +67,7 @@ class FrontendTests(unittest.TestCase):
         with patch('game_audio.set_menu_music') as music:
             menu = self.show('MenuWidget')
             music.assert_called_once_with()
-        self.assertEqual(len(menu.buttons), 7)
+        self.assertEqual(len(menu.buttons), 8)
         self.assertIn('Звук',[button.text for button in menu.buttons])
         self.assertTrue(all(isinstance(b, StrategyButton) and b.height >= 48 for b in menu.buttons))
         self.assertTrue(any(isinstance(w, Label) and w.text == 'v'+VERSION for w in menu.walk()))
@@ -90,6 +93,23 @@ class FrontendTests(unittest.TestCase):
             setup.disable_all_buttons(True)
             self.assertTrue(setup.ideology_spinner.disabled)
             self.assertTrue(setup.start_game_button.disabled)
+
+    def test_paid_faction_can_be_previewed_without_starting_campaign(self):
+        app=SimpleNamespace(selected_kingdom=None)
+        with patch('kivy.app.App.get_running_app',return_value=app), \
+             patch('premium_access.full_access',return_value=False), \
+             patch('premium_options_ui.show_locked_content') as popup:
+            setup=self.show('KingdomSelectionWidget')
+            setup.kingdom_button_widgets['Север'].dispatch('on_release');settle()
+            self.assertEqual(app.selected_kingdom,'Север')
+            self.assertTrue(setup.kingdom_button_widgets['Север'].selected)
+            self.assertTrue(setup.start_game_button.disabled)
+            self.assertTrue(setup.faction_ability_label.text)
+            self.assertIsNotNone(setup.full_version_notice.parent)
+            popup.assert_not_called()
+            setup.kingdom_button_widgets['Эльфы'].dispatch('on_release');settle()
+            self.assertFalse(setup.start_game_button.disabled)
+            self.assertIsNone(setup.full_version_notice)
 
     def test_loading_text_and_meter_remain_stable_through_progress_and_resize(self):
         # Use the actual loading widget without running startup against any database.

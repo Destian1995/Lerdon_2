@@ -6,10 +6,33 @@ import math
 
 from city_construction import CATALOG, AI_FACTORY_YIELD, HOSPITAL_GROWTH, building_counts
 
+TAX_BASE={'Север':.12,'Эльфы':.08,'Вампиры':.06,'Адепты':.04,'Элины':.03}
+
+
+def tax_policy(ai):
+    """Grow the tax base first, then collect without tax-driven population loss."""
+    population=ai.resources.get('Население',0)
+    per_person={'Север':.3,'Эльфы':.15,'Вампиры':.08,'Адепты':.02,'Элины':.005}.get(ai.faction,0)
+    # Finance supply before the tax-free population boom outruns production.
+    future_population=population*1.57+getattr(ai,'hospitals',0)*HOSPITAL_GROWTH
+    food=per_person*future_population
+    production=getattr(ai,'factories',0)*AI_FACTORY_YIELD
+    needs_income=population>=1000 and food+getattr(ai,'total_consumption',0)>production
+    return 0 if population<50000 and getattr(ai,'turn',0)<12 and not needs_income else 34
+
 
 def supply_reserve(ai):
-    return max(100, math.ceil(2 * (max(0, getattr(ai, 'total_consumption', 0))
-                                 + max(0, getattr(ai, 'food_peoples', 0)))))
+    # food_info is production AFTER population food. Incoming production is
+    # usable supply; buying two gross bills every turn bankrupted the AI.
+    income=max(0,getattr(ai,'food_info',0))
+    system=ai.load_political_system() if hasattr(ai,'load_political_system') else 'Смирение'
+    if system=='Борьба':income*=6.5
+    deficit=max(0,getattr(ai,'total_consumption',0)-income)
+    # Negative population-food balance is not represented by clamped food_info.
+    production=getattr(ai,'factories',0)*AI_FACTORY_YIELD
+    if income<=0 and production<getattr(ai,'food_peoples',0):
+        deficit+=getattr(ai,'food_peoples',0)-production
+    return max(100,math.ceil(deficit*1.25))
 
 
 def investment_plan(ai):
@@ -59,7 +82,25 @@ def investment_plan(ai):
 
 def cash_target(ai):
     plan = investment_plan(ai)
-    return CATALOG[plan[0][2]]['cost'] if plan else 1500
+    target=CATALOG[plan[0][2]]['cost'] if plan else 1500
+    if hasattr(ai,'has_hero_of_class'):
+        if not ai.has_hero_of_class('3'):
+            heroes=[data for data in ai.army.values() if str(data['stats']['Класс'])=='3']
+            if heroes:target=max(target,max(data['cost']['money'] for data in heroes))
+        elif needs_equipment(ai):target=max(target,100000)
+        elif getattr(ai,'total_consumption',0)<getattr(ai,'army_limit',0):target=max(target,100000)
+    return target
+
+
+def needs_equipment(ai):
+    soldiers=sum(u.get('unit_count',0) for units in getattr(ai,'garrison',{}).values() for u in units
+                 if str(ai.army.get(u.get('unit_name'),{}).get('stats',{}).get('Класс'))=='1')
+    if soldiers<1000:return False
+    rows=ai.db_connection.execute('''SELECT COUNT(*),COUNT(artifact_id) FROM ai_hero_equipment
+        WHERE faction_name=?''',(ai.faction,)).fetchone()
+    # Fund the first force multiplier, then resume mustering. Saving for all
+    # five slots before recruiting would create another army-growth blockade.
+    return bool(rows and rows[0] and not rows[1])
 
 
 def develop(ai, kinds=None, limit=None):
@@ -74,6 +115,10 @@ def develop(ai, kinds=None, limit=None):
             plan = [p for p in investment_plan(ai) if (not kinds or p[2] in kinds)
                     and CATALOG[p[2]]['cost'] <= available
                     and construction_allowed(ai.db_connection, p[1], ai.faction)]
+            plan=[p for p in plan if (p[2]!='Рынок' or available>10000)
+                  and (p[2] in ('Фабрика','Больница','Рынок') or getattr(ai,'turn',0)>=8)]
+            basics=[p for p in plan if p[2] in ('Фабрика','Больница')]
+            if basics:plan=basics
             if not plan: break
             _, city, kind = plan[0]
             buy_building(ai.db_connection, city, ai.faction, kind)
@@ -97,21 +142,50 @@ def secure_supply(ai):
 
 
 def hire_with_budget(ai):
-    """Protect investments from *all* recruitment paths, including special heroes."""
+    """Recruit heroes and soldiers using the real army cap, never a food quota."""
     if ai.faction in ('Нежить', 'Мятежники'):
         return ai._orig_hire_army()
-    at_war = bool(ai.get_factions_at_war())
-    early = getattr(ai, 'turn', 0) < 8 and not at_war
-    money = max(0, ai.resources.get('Кроны', 0))
-    reserve = min(money * (.6 if early else .15), cash_target(ai))
-    old_limit = ai.army_limit
-    # Income after population food, plus expendable stock above the safety buffer.
-    extra = max(0, ai.resources.get('Кристаллы', 0) - supply_reserve(ai)) / 3
-    affordable_upkeep = max(0, getattr(ai, 'food_info', 0)) + extra
-    ai.army_limit = min(old_limit, max(getattr(ai, 'total_consumption', 0), affordable_upkeep))
-    ai.resources['Кроны'] -= reserve
-    try:
-        return ai._orig_hire_army()
-    finally:
-        ai.resources['Кроны'] += reserve
-        ai.army_limit = old_limit
+    ai.update_buildings_for_current_cities()
+    ai.calculate_current_consumption()
+    city=ai._find_hero_city() or next(iter(ai.buildings),None)
+    if not city:return
+    pending={city:[]}
+    available=max(0,ai.army_limit-ai.total_consumption)
+    for rank in ('3','2','4'):
+        if rank=='4' and ai.turn<14:continue
+        if ai.has_hero_of_class(rank):continue
+        choices=[(name,data) for name,data in ai.army.items()
+                 if str(data['stats']['Класс'])==rank and not ai.is_unit_already_hired(name)]
+        critical=getattr(ai,'_situation',{}).get('threat_level')=='critical'
+        primary='Защита' if critical and len(ai.cities)<2 else 'Атака'
+        choices.sort(key=lambda item:-(item[1]['stats'][primary]))
+        # Save for the selected champion rather than permanently locking
+        # the faction into a cheaper defensive hero while waiting for cash.
+        choices=choices[:1]
+        for name,data in choices:
+            money,workers=data['cost']['money'],data['cost']['time']
+            upkeep=data['consumption']
+            if money>ai.resources.get('Кроны',0) or workers>ai.resources.get('Рабочие',0) or upkeep>available:continue
+            ai.resources['Кроны']-=money;ai.resources['Рабочие']-=workers;available-=upkeep
+            pending[city].append(dict(unit_name=name,unit_count=1))
+            if rank=='3':ai.create_empty_equipment_slots_for_ai_hero(name)
+            break
+    if pending[city]:
+        ai.garrison=pending;ai.save_garrison();ai.garrison=ai.load_garrison()
+        ai.calculate_current_consumption()
+    # Equipment is an army multiplier. Buy it before soldiers spend its budget.
+    ai.generate_and_buy_artifacts_for_ai_hero()
+    pending={city:[]}
+    savings=100000 if needs_equipment(ai) else 0
+    # A new town must not stay empty forever because every small daily income
+    # is spent on soldiers before it reaches the price of a hospital/factory.
+    basics=[p for p in investment_plan(ai) if p[2] in ('Фабрика','Больница')]
+    has_soldiers=any(str(ai.army.get(u.get('unit_name'),{}).get('stats',{}).get('Класс'))=='1'
+                     for units in ai.garrison.values() for u in units)
+    if basics and has_soldiers:savings=max(savings,CATALOG[basics[0][2]]['cost'])
+    ai.hire_units(pending,int(max(0,ai.resources.get('Кроны',0)-savings)*.8),
+                  int(max(0,ai.resources.get('Рабочие',0))*.8),
+                  max(0,ai.army_limit-ai.total_consumption))
+    if pending[city]:
+        ai.garrison=pending;ai.save_garrison();ai.garrison=ai.load_garrison()
+        ai.calculate_current_consumption()

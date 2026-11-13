@@ -90,6 +90,8 @@ class TownScene(StencilView):
         self.faction=city_owner(self.conn,self.city) or self.faction
         from morgana_covenant import presentation_faction
         self._art_faction=presentation_faction(self.conn,self.city,self.faction)
+        from undead_atmosphere import town_omens
+        self.ominous_weather=town_omens(self.conn,self.city)
         self.counts=building_counts(self.conn,self.city,self.faction)
         if old_faction!=self.faction:self.effects.flashes.clear()
         self.draw()

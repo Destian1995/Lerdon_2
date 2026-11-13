@@ -49,7 +49,30 @@ def ensure_schema(conn):
 def evidence(conn,faction):
     ensure_schema(conn)
     row=conn.execute('SELECT collected,arranged FROM portal_evidence WHERE faction=?',(faction,)).fetchone()
-    return tuple(json.loads(x) for x in row) if row else ([],[])
+    collected,arranged=tuple(json.loads(x) for x in row) if row else ([],[])
+    # Old saves can have a completed interview/search without evidence rows.
+    # Reconstruct only facts already earned, never answers to a future step.
+    run=state(conn,faction)
+    stage=run['detective'] if run else 0
+    earned=list(EVIDENCE_ORDER[:1] if stage==1 else EVIDENCE_ORDER if stage>=2 else ())
+    if any(key not in collected for key in earned):
+        collected=earned
+        _evidence(conn,faction,collected,arranged)
+    return collected,arranged
+
+
+def detective_hint(run,faction):
+    """Persistent next destination, including the search clue after interview."""
+    if not run:return ''
+    from otherworld_themes import theme
+    d=details(run)['detective'];stage=run['detective'];names=theme(faction)['cities']
+    if stage==0:return 'Опросите свидетеля: '+names[d['cities'][0]-1]+'.'
+    if stage==1:
+        hint='Ищите улику: '+names[d['cities'][1]-1]
+        from otherworld_quest_pool import search_hint
+        return hint+'. '+search_hint(d)
+    if stage==2:return 'Сопоставьте улики и предъявите обвинение: '+names[d['cities'][2]-1]+'.'
+    return 'Дело раскрыто. Материалы сохранены.'
 
 
 def evidence_notes(run):
@@ -89,8 +112,8 @@ def local_detective_clue(run,city_id):
     if not run or not 1<=run['detective']<3:return ''
     d=details(run)['detective']
     if city_id==d['cities'][0]:
-        site=d.get('search_sites')
-        return 'Улика свидетеля: '+d['tokens'][run['culprit']]+('. Место поиска: '+site[d['search_answer']]+'.' if site else '.')
+        from otherworld_quest_pool import search_hint
+        return 'Улика свидетеля: '+d['tokens'][run['culprit']]+'. '+search_hint(d)
     if run['detective']>=2 and city_id==d['cities'][1]:
         return 'Записи: '+'; '.join(n+' — '+t for n,t in zip(d['suspects'],d['tokens']))+'.'
     return ''
@@ -171,7 +194,8 @@ def action(conn,faction,kind,choice=None):
             conn.execute('UPDATE portal_quest_runs SET detective=1 WHERE faction=?',(faction,))
             site=detective.get('search_sites',[])
             _evidence(conn,faction,[EVIDENCE_ORDER[0]],[])
-            return detective['witness']+': '+tokens[run['culprit']]+('. Ищите в месте: '+site[detective['search_answer']]+'.' if site else '. Следующий шаг указан в журнале.')
+            from otherworld_quest_pool import search_hint
+            return detective['witness']+': '+tokens[run['culprit']]+'. '+(search_hint(detective) if site else 'Следующий шаг указан на доске расследования.')
         if kind=='ledger' and run['detective']==1 and city['id']==detective['cities'][1]:
             sites=detective.get('search_sites')
             if sites:
@@ -193,7 +217,8 @@ def action(conn,faction,kind,choice=None):
             collected,arranged=evidence(conn,faction)
             if detective.get('search_sites') and len(arranged)!=3:
                 raise ValueError('Сначала разместите все три улики на доске.')
-            if choice!=suspects[run['culprit']] or (detective.get('search_sites') and arranged!=collected):
+            # Pinning order is presentation, not evidence against a suspect.
+            if choice!=suspects[run['culprit']]:
                 return _failed(conn,faction)
             conn.execute('UPDATE portal_quest_runs SET detective=3 WHERE faction=?',(faction,))
             _queue(conn,faction,101);_finish(conn,faction)
