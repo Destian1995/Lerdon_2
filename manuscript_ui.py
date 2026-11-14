@@ -5,7 +5,7 @@ import re
 from functools import lru_cache
 from kivy.clock import Clock
 from kivy.core.window import Window
-from kivy.graphics import Color, Rectangle, RoundedRectangle, Ellipse, Line, Mesh
+from kivy.graphics import Color, Rectangle, RoundedRectangle, Line, Mesh, RenderContext
 from kivy.graphics.texture import Texture
 from kivy.metrics import dp, sp
 from kivy.uix.boxlayout import BoxLayout
@@ -18,6 +18,68 @@ from strategy_ui import StrategyButton, GOLD
 
 FONT='files/menu/manuscript/DejaVuSerif.ttf'
 INK=(.19,.115,.065,1)
+CANDLE_ART='files/menu/manuscript/realistic-candle.png'
+
+FIRE_FRAGMENT='''
+$HEADER$
+uniform float u_time;
+float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+float noise(vec2 p) {
+    vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
+    return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x),
+               mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x),f.y);
+}
+float flow(vec2 p) {
+    float v=0.0,a=0.55;
+    for(int i=0;i<4;i++) { v+=a*noise(p); p=p*2.03+vec2(8.1,3.7); a*=0.5; }
+    return v;
+}
+void main(void) {
+    vec2 uv=tex_coord0;
+    float n=flow(vec2(uv.x*6.0,uv.y*5.0-u_time*2.8));
+    float bend=(sin(u_time*2.5+uv.y*7.0)*0.045+(n-0.5)*0.12)*uv.y;
+    float width=0.26*pow(max(0.0001,sin(uv.y*3.14159265)),0.75)*(1.0-uv.y*0.60);
+    float d=abs(uv.x-0.5-bend);
+    float edge=1.0-smoothstep(width*0.48,width,d);
+    float vertical=smoothstep(0.0,0.045,uv.y)*(1.0-smoothstep(0.80,1.0,uv.y));
+    float heat=clamp((1.0-d/max(width,0.001))*1.2+(1.0-uv.y)*0.12+(n-0.5)*0.18,0.0,1.0);
+    vec3 rgb=mix(vec3(1.0,0.20,0.015),vec3(1.0,0.76,0.17),smoothstep(0.18,0.75,heat));
+    float core=smoothstep(0.73,0.98,heat)*(1.0-smoothstep(0.48,0.94,uv.y));
+    rgb=mix(rgb,vec3(1.0,0.98,0.80),core);
+    rgb=mix(vec3(0.26,0.43,1.0),rgb,smoothstep(0.01,0.13,uv.y));
+    gl_FragColor=vec4(rgb,edge*vertical*0.98)*frag_color;
+}
+'''
+
+
+class LivingFlame(Widget):
+    """A small GLES2 fire surface: advected noise, soft edges and a hot core."""
+    def __init__(self,**kwargs):
+        super().__init__(**kwargs)
+        self.canvas=RenderContext(use_parent_projection=True,use_parent_modelview=True)
+        self.fallback=None
+        try:
+            self.canvas.shader.fs=FIRE_FRAGMENT
+            if not self.canvas.shader.success:raise RuntimeError('Fire shader unavailable')
+            with self.canvas:
+                Color(1,1,1,1);self.rect=Rectangle(texture=texture('light'))
+        except Exception:
+            # Keep a flame on older GL drivers rather than fail the entire screen.
+            self.canvas.shader.fs='$HEADER$\nvoid main(void){gl_FragColor=frag_color;}'
+            with self.canvas:
+                Color(1,.80,.28,1);self.fallback=Mesh(mode='triangle_fan')
+        self.canvas['u_time']=0.0
+        self.bind(pos=self.layout,size=self.layout)
+        self.layout()
+
+    def layout(self,*_):
+        if self.fallback is None:self.rect.pos,self.rect.size=self.pos,self.size
+
+    def animate(self,t):
+        self.canvas['u_time']=float(t)
+        if self.fallback is not None:
+            Candle.flame_mesh(self.fallback,self.center_x,self.y,self.width*.20,self.height,
+                              math.sin(t*3.8)*self.width*.08)
 
 
 @lru_cache(maxsize=2)
@@ -40,41 +102,26 @@ def texture(kind):
 
 
 class Candle(Widget):
-    """Wax and brass stay still; the flame bends and the halo breathes."""
+    """Detailed wax/brass artwork, illuminated by a continuously moving fire."""
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
         with self.canvas:
             self.halo_color=Color(1,.65,.19,.65)
             self.halo=Rectangle(texture=texture('light'))
-            Color(.08,.045,.018,.65);self.shadow=Ellipse()
-            Color(.32,.19,.055,1);self.tray=Ellipse()
-            Color(.65,.43,.12,1);self.rim=Ellipse()
-            self.wax=[]
-            for i in range(12):
-                Color(.65+.025*i,.51+.025*i,.29+.023*i,1)
-                self.wax.append(Rectangle())
-            Color(.96,.82,.51,1);self.wax_top=Ellipse()
-            Color(.99,.88,.61,1)
-            self.drips=[RoundedRectangle(radius=[dp(3)]) for _ in range(3)]
-            Color(.20,.11,.035,1);self.wick=Line(width=dp(1.3))
-            Color(1,.30,.025,.65);self.outer=Mesh(mode='triangle_fan')
-            Color(1,.73,.13,1);self.flame=Mesh(mode='triangle_fan')
-            Color(1,.97,.72,1);self.core=Mesh(mode='triangle_fan')
+            Color(1,1,1,1);self.body=Rectangle(source=CANDLE_ART)
+        self.flame=LivingFlame(size_hint=(None,None))
+        self.add_widget(self.flame)
         self.bind(pos=self.layout,size=self.layout)
         self.layout()
 
     def layout(self,*_):
         x,y=self.pos;w,h=self.size
-        self.shadow.pos=(x+w*.05,y);self.shadow.size=(w*.9,h*.11)
-        self.tray.pos=(x+w*.10,y+h*.03);self.tray.size=(w*.8,h*.12)
-        self.rim.pos=(x+w*.14,y+h*.08);self.rim.size=(w*.72,h*.10)
-        for i,strip in enumerate(self.wax):
-            strip.pos=(x+w*.34+i*w*.026,y+h*.14);strip.size=(w*.027,h*.50)
-        self.wax_top.pos=(x+w*.34,y+h*.61);self.wax_top.size=(w*.312,h*.06)
-        for drip,offset,length in zip(self.drips,(.36,.49,.59),(.13,.09,.18)):
-            drip.pos=(x+w*offset,y+h*(.64-length));drip.size=(w*.045,h*length)
-        self.wick.points=(x+w*.50,y+h*.64,x+w*.51,y+h*.69)
-        self.halo.pos=(x-w*1.1,y+h*.20);self.halo.size=(w*3.2,h*1.05)
+        body_h=min(h*.78,w*.98*1.5);body_w=body_h*2/3
+        self.body.pos=(x+(w-body_w)/2,y+h*.03);self.body.size=(body_w,body_h)
+        self.flame.size=(w*.64,h*.25)
+        self.flame.pos=(self.center_x-self.flame.width/2,y+h*.03+body_h*.862)
+        self.halo.size=(w*3.2,h*1.05)
+        self.halo.pos=(self.center_x-self.halo.size[0]/2,self.flame.center_y-self.halo.size[1]/2)
         self.animate(0)
 
     @staticmethod
@@ -90,12 +137,7 @@ class Candle(Widget):
         mesh.vertices=vertices;mesh.indices=list(range(34))
 
     def animate(self,t):
-        w,h=self.size;x=self.x+w*.505;y=self.y+h*.665
-        sway=math.sin(t*3.8)*w*.055+math.sin(t*7.1)*w*.018
-        height=h*(.22+.012*math.sin(t*5.2))
-        self.flame_mesh(self.outer,x,y,w*.11,height*1.13,sway)
-        self.flame_mesh(self.flame,x,y,w*.075,height,sway)
-        self.flame_mesh(self.core,x,y,w*.036,height*.58,sway*.4)
+        self.flame.animate(t)
         intensity=.82+.10*math.sin(t*3.1)+.06*math.sin(t*8.3)
         self.halo_color.a=.62*intensity
         return intensity
@@ -165,7 +207,8 @@ class ManuscriptPage(FloatLayout):
         self.title.height=dp(35 if compact else 48);self.title.font_size=sp(20 if compact else 29)
         self.title.text_size=(max(1,w-dp(28)),None)
         self.ink.font_size=sp(16 if compact else 18)
-        self.candle.size=(gutter+dp(12),min(h*.65,dp(265)))
+        candle_w=gutter+dp(12)
+        self.candle.size=(candle_w,min(h*.65,dp(265),candle_w*1.9))
         self.candle.pos=(self.sheet.right-dp(5),y+dp(35 if compact else 58))
         self.light.pos=(self.sheet.right-w*.65,y+h*.04);self.light.size=(w*.9,h*.95)
         self.wrap()

@@ -24,6 +24,8 @@ class ManuscriptUITests(unittest.TestCase):
             p=self.page
             self.assertGreaterEqual(p.sheet.x,0)
             self.assertLessEqual(p.candle.right,Window.width+1)
+            self.assertGreaterEqual(p.candle.body.pos[0],0)
+            self.assertLessEqual(p.candle.body.pos[0]+p.candle.body.size[0],Window.width+1)
             self.assertGreaterEqual(p.back_button.height,48)
             self.assertGreaterEqual(p.back_button.y,p.sheet.y)
             self.assertGreaterEqual(p.back_button.x,p.sheet.x)
@@ -36,9 +38,12 @@ class ManuscriptUITests(unittest.TestCase):
     def test_flame_moves_without_accumulating_canvas_and_stops_on_exit(self):
         Window.size=(640,360);settle()
         p=self.page;count=len(p.candle.canvas.children)
-        first=list(p.candle.flame.vertices)
+        self.assertIsNone(p.candle.flame.fallback)
+        first=p.candle.flame.canvas['u_time']
+        pixels=p.candle.flame.export_as_image().texture.pixels
         p.update(.1)
-        self.assertNotEqual(first,list(p.candle.flame.vertices))
+        self.assertNotEqual(first,p.candle.flame.canvas['u_time'])
+        self.assertNotEqual(pixels,p.candle.flame.export_as_image().texture.pixels)
         for _ in range(120):p.update(.04)
         self.assertEqual(count,len(p.candle.canvas.children))
         self.assertIsNotNone(p._event)
