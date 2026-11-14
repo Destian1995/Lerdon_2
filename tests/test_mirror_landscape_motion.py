@@ -11,6 +11,20 @@ from tools.build_mirror_ambience import water_pixel
 
 
 class LandscapeMotionTests(unittest.TestCase):
+    def test_requested_water_directions_are_reversed_and_other_two_preserved(self):
+        from tools.build_mirror_ambience import FLOW
+        previous={'north':(.95,-.22),'elves':(.10,-1),'adepts':(.35,-1),
+                  'elines':(.8,-.1),'vampires':(.65,-.3)}
+        from otherworld_effects import water_ripple_state
+        for key,old in previous.items():
+            direction=-1 if key in ('north','elines','vampires') else 1
+            self.assertEqual(FLOW[key],tuple(direction*v for v in old))
+            patch=landscape_data(key)['water'][0]
+            a=water_position(patch,1,0);b=water_position(patch,1.1,0)
+            self.assertGreater(direction*((b[0]-a[0])*old[0]+(b[1]-a[1])*old[1]),0)
+            start=water_ripple_state(key,1,0);end=water_ripple_state(key,1.1,0)
+            self.assertGreater(direction*(end[0]-start[0]),0)
+
     def test_animation_keeps_running_without_quest_queries_during_ai_turn(self):
         from otherworld_effects import MirrorEffects
         model=SimpleNamespace(owner=SimpleNamespace(faction='Эльфы',conn=object()),

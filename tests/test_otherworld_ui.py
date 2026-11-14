@@ -9,6 +9,22 @@ from kivy.uix.popup import Popup
 
 
 class OtherworldUITests(unittest.TestCase):
+    def test_ambient_poll_retries_database_lock_without_losing_highlights(self):
+        import sqlite3
+        from unittest.mock import patch
+        overview=OtherworldMap(self.db,'Север')
+        self.addCleanup(overview._poll.cancel)
+        effects=overview.map.effects
+        effects.quest_targets={2};effects._quest_refresh=-1
+        with patch('otherworld_quests.objectives',side_effect=sqlite3.OperationalError('database is locked')):
+            effects.update(.01)
+        self.assertEqual(effects.quest_targets,{2})
+        effects.age+=.6
+        with patch('otherworld_quests.objectives',return_value={3}):
+            effects.update(.01)
+        self.assertEqual(effects.quest_targets,{3})
+        effects.stop()
+
     def setUp(self):
         import otherworlds
         self.db=fixture();self.addCleanup(self.db.close)
@@ -52,6 +68,26 @@ class OtherworldUITests(unittest.TestCase):
         self.assertTrue(overview.map.effects._event)
         overview.dismiss(animation=False)
         self.assertIsNone(overview.map.effects._event)
+
+    def test_geography_and_city_bases_stay_above_phone_action_bar(self):
+        import otherworlds
+        from otherworld_themes import THEMES
+        for faction in THEMES:
+            self.db.execute('UPDATE portal_parties SET faction=?',(faction,))
+            for size in ((640,360),(320,568)):
+                with self.subTest(faction=faction,size=size):
+                    Window.size=size
+                    overview=OtherworldMap(self.db,faction);overview.open(animation=False);settle()
+                    overview.fit();settle();overview.map.draw()
+                    self.assertGreater(overview.map.y,overview.action_bar.top)
+                    for _,bottom,_,_,city_id in overview.map.city_bounds:
+                        # Reserve a readable city-name line below each icon.
+                        self.assertGreater(bottom-18,overview.action_bar.top,(faction,city_id))
+                    for left,bottom,width,_,city_id in overview.map.city_label_bounds:
+                        self.assertGreaterEqual(left,overview.map.x,(faction,city_id))
+                        self.assertLessEqual(left+width,overview.map.right,(faction,city_id))
+                        self.assertGreater(bottom,overview.action_bar.top,(faction,city_id))
+                    overview.dismiss(animation=False);settle()
 
     def test_battle_window_receives_hero_portrait_and_keeps_guard_portrait(self):
         from types import SimpleNamespace

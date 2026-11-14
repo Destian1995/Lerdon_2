@@ -97,7 +97,7 @@ def _failed(conn,faction):
 
 
 def state(conn,faction):
-    ensure_schema(conn)
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='portal_quest_runs'").fetchone():return None
     row=conn.execute('SELECT cycle,culprit,detective,war,side,finished_turn,repeat_turn,scenario FROM portal_quest_runs WHERE faction=?',(faction,)).fetchone()
     return dict(zip(('cycle','culprit','detective','war','side','finished_turn','repeat_turn','scenario'),row)) if row else None
 

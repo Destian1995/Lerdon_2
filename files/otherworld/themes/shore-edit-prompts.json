@@ -1,0 +1,14 @@
+{
+  "generator": "Built-in image_gen",
+  "transparent_background": false,
+  "images": [
+    {
+      "file": "files/otherworld/themes/elines/map.png",
+      "prompt": "Precise local geography edit to this existing fantasy strategy background map. Preserve EXACT canvas 1536x1024, framing, scale, colors, all landmarks, seven clearing locations and all terrain outside the edited shoreline. Do NOT redraw the overall map. The player requests MORE WATER in the sandy peninsula immediately LEFT of the lower-right turquoise oasis. Flood the exposed pale sandy patch approximately x=57%..71%, y=60%..77% of the image (pixel region roughly x875..1090 y615..790). Extend the EXISTING turquoise oasis water LEFTWARD into that region, forming a broad shallow connected inlet, not a separate puddle. The shore should retreat naturally toward the palms on the left, smooth irregular curving sand banks, matching turquoise shallows and depth gradients. Leave a modest land edge at the upper rim of this inlet for the separate harbor sprite, but most of that old bare sandy peninsula becomes navigable water. Keep the lower-middle clearing, central clearing, dunes, canyon walls, salt flats, floating gold stones, waterfalls and distant crystals in exactly their current places. No text, annotations, rectangles, UI, buildings or city icons; only background landscape."
+    },
+    {
+      "file": "files/otherworld/themes/vampires/map.png",
+      "prompt": "Precise local geography edit to this existing fantasy strategy background map. Preserve EXACT canvas 1536x1024, framing, lighting, style, scale, distant mountains, floating red monoliths, forest and other clearings. Do NOT redraw the overall map. Expand the existing black-violet lake in the lower-right into the large bare grassy clearing immediately on its LEFT, approximately x=61%..74%, y=58%..81% (roughly pixel x935..1135 y595..830). That highlighted bare lower-right meadow must become a real connected bay of the lake, not a separate puddle. Also flood/remove the low sandy spit just below and slightly right of the upper harbor location, approximately x=74%..86%, y=65%..81% (x1135..1320 y665..830), joining both edited regions into the existing lake. Create physically continuous dark silver-violet rippling water throughout, a natural irregular bank receding to the red shrubs at the LEFT and north edge. Preserve a narrow upper shore at around x78%,y57% where a separately drawn harbor will meet land. Keep the lower-left market clearing and upper-right clearing entirely dry and unchanged. No text, annotations, outlines, UI, city sprites, boats or new buildings. Only extend the water and adapt the immediate banks."
+    }
+  ]
+}

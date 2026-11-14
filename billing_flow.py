@@ -75,6 +75,7 @@ class BillingController:
         if access:return prefix+('Покупка навсегда подтверждена.' if access['permanent'] else 'Подписка подтверждена.')
         if self.native is None:return prefix+'Оплата доступна в Android-приложении.'
         if not self.client.config.get('sdk_key'):return prefix+'Ключ мобильного SDK ещё не настроен.'
+        if not self.client.config.get('public_key'):return prefix+'Магазин ещё настраивается: не указан ключ проверки покупок.'
         if self.client.pending:
             if self.client.pending['stage']=='tokenizing':
                 return prefix+'Оплата подготовлена. Если форма ЮKassa закрыта, нажмите «Отменить подготовку оплаты» и повторите покупку.'

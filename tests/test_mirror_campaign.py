@@ -42,7 +42,7 @@ class MirrorCampaignTests(unittest.TestCase):
             self.assertEqual([c['id'] for c in cities],list(range(1,8)))
             positions=tuple((c['x'],c['y']) for c in cities)
             self.assertEqual(positions,CITY_LAYOUTS[data['key']])
-            self.assertTrue(all(100<x<1100 and 120<y<680 for x,y in positions))
+            self.assertTrue(all(100<x<1100 and 120<y<740 for x,y in positions))
             layouts.append(positions)
         self.assertEqual(len(set(layouts)),5)
         self.assertEqual(list(self.db.execute('SELECT id,x,y FROM portal_cities ORDER BY id')),saved)

@@ -11,6 +11,28 @@ import mirror_monster_quest as hunt
 
 
 class MonsterCaseTests(unittest.TestCase):
+    def test_map_objectives_are_read_only_while_combat_connection_writes(self):
+        import tempfile
+        case=self.accept()
+        quests.begin(self.db,'Север',random.Random(4))
+        self.db.commit()
+        with tempfile.TemporaryDirectory() as folder:
+            reader=sqlite3.connect(str(Path(folder)/'combat.db'),timeout=.01)
+            try:
+                self.db.backup(reader)
+                writer=sqlite3.connect(str(Path(folder)/'combat.db'),timeout=.01)
+                try:
+                    writer.execute('BEGIN IMMEDIATE')
+                    writer.execute('UPDATE portal_monster_cases SET stage=stage WHERE id=?',(case['id'],))
+                    statements=[]
+                    reader.set_trace_callback(statements.append)
+                    self.assertIn(case['city_id'],quests.objectives(reader,'Север'))
+                    self.assertFalse(reader.in_transaction)
+                    self.assertTrue(all(s.lstrip().upper().startswith('SELECT') for s in statements),statements)
+                finally:
+                    writer.rollback();writer.close()
+            finally:reader.close()
+
     def setUp(self):
         self.db=fixture();self.addCleanup(self.db.close)
         self.db.executescript('CREATE TABLE season(id PRIMARY KEY,current_season,season_index); INSERT INTO season VALUES(1,"Зима",0);')
@@ -117,6 +139,10 @@ class MonsterCaseTests(unittest.TestCase):
                 percent=round(effects[faction]['stat']*100)
                 self.assertEqual(profile['attack'],260_000_000*percent//100)
                 self.assertEqual(profile['defense'],310_000_000*percent//100)
+                # A conquered noble retains 60% of their own original profile,
+                # independent of the player's army, for every faction/season.
+                self.assertEqual(profile['attack']*hunt.CONQUERED_PERCENT//100,260_000_000*percent*60//10000)
+                self.assertEqual(profile['defense']*hunt.CONQUERED_PERCENT//100,310_000_000*percent*60//10000)
         self.assertEqual(hunt.monster(dict(case,faction='Элины',season=2))['attack'],455_000_000)
 
     def test_already_revealed_legacy_case_keeps_access_to_battle(self):

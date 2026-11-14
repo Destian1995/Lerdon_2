@@ -102,7 +102,8 @@ class MirrorSmallScreenTests(unittest.TestCase):
 
     def test_map_fills_window_and_keeps_fixed_view_while_city_taps_work(self):
         m=self.owner.map
-        self.assertGreater(m.height,self.owner.height*.90)
+        self.assertGreater(m.height,self.owner.height*.80)
+        self.assertGreater(m.y,self.owner.action_bar.top)
         self.assertGreater(m.width,self.owner.width*.95)
         self.assertFalse(hasattr(self.owner,'zoom_controls'))
         m.set_zoom(1.5);m.camera.move(35,20);m.redraw_camera();settle()

@@ -99,7 +99,9 @@ def deadline_caption(conn,faction):
 
 
 def state(conn,faction):
-    ensure_schema(conn)
+    # Map animation polls this during combat, while another connection may write.
+    # Schema creation and legacy migrations belong to initialization/actions.
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='portal_monster_cases'").fetchone():return None
     cursor=conn.execute('SELECT * FROM portal_monster_cases WHERE faction=? ORDER BY id DESC LIMIT 1',(faction,))
     row=cursor.fetchone()
     return dict(zip((c[0] for c in cursor.description),row)) if row else None
@@ -387,9 +389,9 @@ def fight(conn,faction,hero,skirmish=None,tactical=False):
         result['hero']=hero;result['companion']=None
         if result['won']:
             # Service won in battle is permanent and creates no timed contract.
-            enemy=monster(case)
-            attack=enemy['attack']*CONQUERED_PERCENT//100
-            defense=enemy['defense']*CONQUERED_PERCENT//100
+            original=monster(case)
+            attack=original['attack']*CONQUERED_PERCENT//100
+            defense=original['defense']*CONQUERED_PERCENT//100
             story=json.loads(case['scenario']);story['service']='conquered'
             conn.execute('UPDATE portal_monster_cases SET scenario=? WHERE id=?',
                          (json.dumps(story,ensure_ascii=False),case['id']))

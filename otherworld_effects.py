@@ -1,5 +1,6 @@
 """A single, disposable clock for the Mirror Realm's magical map ambience."""
 import math
+import sqlite3
 from kivy.clock import Clock
 from kivy.graphics import Color,Rectangle
 from kivy.graphics.texture import Texture
@@ -9,6 +10,16 @@ AMBIENT_ICON_SCALE=.35
 SKY_EFFECT_SPOTS=((430,630),(470,520),(700,650),(970,540),(820,360),(360,370))
 LIGHTNING_INTERVAL=1.9
 SKY_EFFECT_INTERVAL=2.4
+
+
+def water_ripple_state(weather,age,index):
+    phase=(age*.12+index*.21)%1
+    clip_age=age*.4+index
+    reverse=weather in ('vampires','elines','north')
+    if reverse:
+        period=4/3  # four painted frames at three frames per second
+        clip_age=(-clip_age)%period
+    return (1-phase if reverse else phase),clip_age,math.sin(math.pi*phase)*.28
 
 
 def mountain_anchors(terrain):
@@ -119,7 +130,12 @@ class MirrorEffects(Widget):
         conn=getattr(w.owner,'conn',None)
         if self.age-self._quest_refresh>=.5 and conn is not None and not database_busy(conn):
             from otherworld_quests import objectives
-            self.quest_targets=set(objectives(w.owner.conn,w.owner.faction))
+            try:
+                self.quest_targets=set(objectives(conn,w.owner.faction))
+            except sqlite3.OperationalError as exc:
+                # Keep the previous highlights until the combat writer releases
+                # its lock; an ambient animation must never terminate the game.
+                if 'locked' not in str(exc).lower() and 'busy' not in str(exc).lower():raise
             self._quest_refresh=self.age
         for city,color,shape in self.quest_glows:
             color.a=(.35+.25*math.sin(self.age*3)**2) if city['id'] in self.quest_targets else 0
@@ -211,11 +227,11 @@ class MirrorEffects(Widget):
                         fps=7 if self.weather=='vampires' else 4,angle=angle)
         for i,sprite in enumerate(self.ripples):
             node=w.nodes[i%len(w.nodes)]
-            phase=(t*.12+i*.21)%1
+            phase,clip_age,opacity=water_ripple_state(self.weather,t,i)
             x,y=w.point(node['x'],node['y']-10)
             radius=(28+phase*38)*scale
-            sprite.draw(self.weather,2,(x,y),(radius*2.6,radius*1.2),t*.4+i,
-                        math.sin(math.pi*phase)*.28,fps=3)
+            sprite.draw(self.weather,2,(x,y),(radius*2.6,radius*1.2),clip_age,
+                        opacity,fps=3)
         for i,sprite in enumerate(self.runes):
             ax,ay=self.anchors[(i*7)%len(self.anchors)]
             x,y=w.point(ax,ay)

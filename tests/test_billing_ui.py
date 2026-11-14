@@ -14,7 +14,7 @@ class BillingUITests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.size=Window.size;self.addCleanup(setattr,Window,'size',self.size)
-        catalog=dict(currency='RUB',plans={'full_monthly':4500,'full_permanent':20000},test=True,subscriptions_available=False)
+        catalog=dict(currency='RUB',plans={'full_monthly':5500,'full_permanent':25000},test=True,subscriptions_available=False)
         def api(action,*args,**kwargs):
             if action=='catalog':return catalog
             if action=='register':return dict(account_id='a'*32,recovery_code='b'*64)

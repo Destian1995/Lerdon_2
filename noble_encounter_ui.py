@@ -74,7 +74,7 @@ class NobleEncounter(WorldPopup):
         if self.exposed:
             self.heading.text='ИСТИННАЯ СУЩНОСТЬ'
             self.speech.text='Сделка отвергнута. Дворянин раскрывает свою истинную сущность. Вы можете сразиться сейчас или вернуться с более сильным отрядом.'
-            self.terms.text='Победа в бою: постоянный спутник без ограничения ходов. Его характеристики будут на 40% ниже силы противника.'
+            self.terms.text='Победа в бою: постоянный спутник без ограничения ходов. Его характеристики будут на 40% ниже его собственных исходных характеристик.'
             self.stats.text='Противник: АТК '+format_number(enemy['attack'])+' · ЗАЩ '+format_number(enemy['defense'])
             self.hero_caption.text='Герой, который вступит в бой:'
             self.accept_button.text='В бой';self.refuse_button.text='Уйти'

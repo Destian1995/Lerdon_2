@@ -159,7 +159,7 @@ class WorldMapCanvas(StencilView):
     def draw(self,*_):
         from kivy.core.text import Label as CoreLabel
         from mirror_city_visuals import city_scale,depth_order
-        self._base.clear();self.hits=[];self.city_bounds=[]
+        self._base.clear();self.hits=[];self.city_bounds=[];self.city_label_bounds=[]
         self.camera.configure(self.size,(0,0,*self.size))
         zoom=self.camera.zoom
         if len(self._city_labels)>64:self._city_labels.clear()
@@ -197,11 +197,14 @@ class WorldMapCanvas(StencilView):
                     label=CoreLabel(text=label_key[0],font_size=label_key[1],bold=True,color=TEXT)
                     label.refresh();self._city_labels[label_key]=label
                 label=self._city_labels[label_key];w,h=label.texture.size
+                label_x=max(self.x+dp(4),min(x-w/2,self.right-w-dp(4)))
+                label_y=y-icon_height*.34-h
+                self.city_label_bounds.append((label_x,label_y,w,h,city['id']))
                 for dx,dy in ((-1,-1),(1,-1),(-1,1),(1,1),(0,-2),(0,2),(-2,0),(2,0)):
                     Color(.025,.018,.05,.95)
-                    Rectangle(texture=label.texture,pos=(x-w/2+dx,y-icon_height*.34-h+dy),size=(w,h))
+                    Rectangle(texture=label.texture,pos=(label_x+dx,label_y+dy),size=(w,h))
                 Color(1,1,1,1)
-                Rectangle(texture=label.texture,pos=(x-w/2,y-icon_height*.34-h),size=(w,h))
+                Rectangle(texture=label.texture,pos=(label_x,label_y),size=(w,h))
                 stationed=bool(worlds._camp_units(self.owner.conn,worlds.city_camp(
                     self.owner.conn,self.owner.faction,city['id'])))
                 if self._current_city==city['id'] or stationed:
@@ -306,7 +309,7 @@ class OtherworldMap(WorldPopup):
         self.root.remove_widget(self.header)
         self.stage=FloatLayout()
         self.root.add_widget(self.stage)
-        self.map=WorldMapCanvas(self)
+        self.map=WorldMapCanvas(self,size_hint=(None,None))
         self.stage.add_widget(self.map)
         self.header.size_hint=(None,None)
         self.header.pos_hint={'top':1}
@@ -376,7 +379,9 @@ class OtherworldMap(WorldPopup):
         margin=dp(6)
         self._compact_hud=not portrait and w<dp(800)
         resource_width=dp(112 if self._compact_hud else 150) if not portrait else min(dp(170),w*.46)
-        self.resource_panel.size=(resource_width,dp(82 if self._compact_hud else 110))
+        self.resource_panel.size=(resource_width,dp(64 if self._compact_hud else 110))
+        self.resource_panel.padding=dp(4 if self._compact_hud else 8)
+        self.resource_panel.spacing=dp(2 if self._compact_hud else 4)
         self.resource_panel.pos=(x+margin,y+h-self.resource_panel.height-margin)
         for label in self.resource_labels.values():
             label.maximum=sp(14);label.minimum=sp(13)
@@ -401,6 +406,11 @@ class OtherworldMap(WorldPopup):
         self.action_bar.cols=(3 if len(self.action_bar.children)>4 else 2) if portrait else len(self.action_bar.children)
         self.action_bar.size=(w-2*margin,dp(94 if portrait else 44))
         self.action_bar.pos=(x+margin,y+margin);self.action_bar.spacing=dp(6)
+        # Keep the painting and its city anchors together above the controls.
+        # Moving only labels/markers would detach harbors from their shores.
+        map_bottom=self.action_bar.top+dp(4)
+        self.map.pos=(x,map_bottom)
+        self.map.size=(w,max(dp(40),y+h-map_bottom))
         self.return_button.text='Портал'
         for button in self.action_bar.children:button.font_size=sp(15)
         self.message.pos=(x+margin,self.action_bar.top+dp(4))

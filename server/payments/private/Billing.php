@@ -7,7 +7,7 @@ final class PayError extends RuntimeException {
 }
 
 final class Billing {
-    public const PLANS = ['full_monthly'=>4500, 'full_permanent'=>20000];
+    public const PLANS = ['full_monthly'=>5500, 'full_permanent'=>25000];
     public function __construct(public PDO $db, public array $config, private $transport=null) {
         $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
@@ -282,7 +282,7 @@ final class Billing {
                     $old=$this->run('SELECT id FROM pay_orders WHERE account_id=? AND request_key=?',[$a['id'],$request])->fetch();
                     if ($old || $this->run("SELECT id FROM pay_orders WHERE account_id=? AND status IN ('creating','pending','review')",[$a['id']])->fetch()) {$this->db->commit();continue;}
                     $id=bin2hex(random_bytes(16));
-                    $payload=['amount'=>['value'=>'45.00','currency'=>'RUB'],'capture'=>true,
+                    $payload=['amount'=>['value'=>self::money(self::PLANS['full_monthly']),'currency'=>'RUB'],'capture'=>true,
                         'payment_method_id'=>$this->decrypt($a['method_cipher']),'description'=>'Lerdon — продление полного доступа на месяц',
                         'metadata'=>['order_id'=>$id,'account_id'=>$a['id'],'plan'=>'full_monthly']];
                     $this->insertOrder($id,$a,$request,'full_monthly',(int)$a['consent_revision'],true,$payload);

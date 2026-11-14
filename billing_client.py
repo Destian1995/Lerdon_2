@@ -127,6 +127,8 @@ class BillingClient:
     def prepare(self,plan,email='',consent=False):
         if self.pending:raise BillingError('Сначала проверьте незавершённую покупку.')
         if plan not in PLANS:raise BillingError('Неизвестный тариф.')
+        if not self.config.get('public_key'):
+            raise BillingError('Магазин ещё настраивается: не указан ключ проверки покупок.')
         if self.catalog is None:self.load_catalog()
         if plan=='full_monthly' and (not self.catalog.get('subscriptions_available') or not consent):
             raise BillingError('Подписка недоступна или не подтверждено согласие на продление.')

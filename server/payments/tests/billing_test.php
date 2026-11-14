@@ -31,7 +31,7 @@ function user(): array {global $b;return $b->register('player@example.org');}
 function input(string $plan,string $request): array {return ['plan'=>$plan,'request_id'=>$request,'payment_token'=>'sdk-test-token','recurring_consent'=>true];}
 $u=user();$a=$b->authenticate($u['recovery_code']);check($a['id']===$u['account_id'],'Recovery code authentication');
 fails(fn()=>$b->authenticate(str_repeat('0',64)),401);
-check(Billing::money(20000)==='200.00' && Billing::money(4500)==='45.00','Price precision');
+check(Billing::money(Billing::PLANS['full_permanent'])==='250.00' && Billing::money(Billing::PLANS['full_monthly'])==='55.00','Price precision');
 check(gmdate('Y-m-d H:i:s',Billing::nextMonth(strtotime('2028-01-31 13:20:30 UTC')))==='2028-02-29 13:20:30','Leap-year month clamp');
 check(gmdate('Y-m-d',Billing::nextMonth(strtotime('2027-01-31 UTC')))==='2027-02-28','Calendar-month clamp');
 $result=$b->create($a['id'],input('full_monthly','monthly-request-0001'));
@@ -50,7 +50,7 @@ $license=$b->entitlement($a['id']);
 check($license['algorithm']==='RS256','Explicit signature algorithm');
 check(openssl_verify($license['signed_payload'],base64_decode($license['signature']),base64_decode($license['public_key']),OPENSSL_ALGO_SHA256)===1,'License signature');
 check(openssl_verify($license['signed_payload'].'x',base64_decode($license['signature']),base64_decode($license['public_key']),OPENSSL_ALGO_SHA256)===0,'Tampered license rejected');
-$payments[$p['payment_id']]['refunded_amount']['value']='200.00';$b->sync($p['payment_id']);
+$payments[$p['payment_id']]['refunded_amount']['value']='250.00';$b->sync($p['payment_id']);
 check($b->account($a['id'])['permanent']==0 && (int)$b->account($a['id'])['monthly_until']>time(),'Refund removes only refunded grant');
 $u2=user();$unknownOnce=true;
 fails(fn()=>$b->create($u2['account_id'],input('full_permanent','network-request-0001')),503);
@@ -63,6 +63,7 @@ check($b->account($u3['account_id'])['permanent']==0,'Wrong amount cannot grant 
 $u4=user();$r4=$b->create($u4['account_id'],input('full_monthly','renewal-request-0001'));
 $b->run('UPDATE pay_accounts SET monthly_until=? WHERE id=?',[time()-1,$u4['account_id']]);
 $oldPosts=count($posts);$b->cron();check(count($posts)===$oldPosts+1,'One automatic renewal');
+check(end($payments)['amount']['value']==='55.00','Renewal uses current monthly price');
 $b->cron();check(count($posts)===$oldPosts+1,'Repeated cron does not charge twice');
 $b->cancel($u4['account_id']);$b->run('UPDATE pay_accounts SET monthly_until=? WHERE id=?',[time()-1,$u4['account_id']]);
 $b->cron();check(count($posts)===$oldPosts+1,'No renewals after cancellation');
@@ -90,6 +91,6 @@ $b->run('UPDATE pay_gift_keys SET revoked=1 WHERE id=?',[$unused['id']]);
 fails(fn()=>$b->redeemGift($other['account_id'],$unused['key']),404);
 $gift2=$b->createGift('Monthly upgrade');$b->redeemGift($u4['account_id'],$gift2['key']);
 check(!$b->account($u4['account_id'])['auto_renew'],'Gift disables renewals');
-$payments[$r4['payment_id']]['refunded_amount']['value']='45.00';$b->sync($r4['payment_id']);
+$payments[$r4['payment_id']]['refunded_amount']['value']='55.00';$b->sync($r4['payment_id']);
 check((bool)$b->account($u4['account_id'])['permanent'],'Refund of paid order preserves independent gift grant');
 echo "OK: $checks checks; fake provider, SQLite test store; no real payments.\n";

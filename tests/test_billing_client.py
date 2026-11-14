@@ -66,7 +66,7 @@ class BillingClientTests(unittest.TestCase):
         self.api.assert_not_called()
 
     def ready(self):
-        self.client.catalog=dict(currency='RUB',test=True,plans={'full_monthly':4500,'full_permanent':20000},subscriptions_available=True)
+        self.client.catalog=dict(currency='RUB',test=True,plans={'full_monthly':5500,'full_permanent':25000},subscriptions_available=True)
         self.account()
 
     def test_signature_covers_claims_and_does_not_trust_unsigned_fields(self):
@@ -133,8 +133,15 @@ class BillingClientTests(unittest.TestCase):
         self.assertTrue(restored.access()['permanent']);self.assertIsNone(restored.pending)
 
     def test_catalog_mismatch_blocks_payment_preparation(self):
-        self.api.return_value=dict(currency='RUB',test=False,plans={'full_permanent':20000})
+        self.api.return_value=dict(currency='RUB',test=False,plans={'full_permanent':25000})
         with self.assertRaises(BillingError):self.client.prepare('full_permanent','a@example.org')
+        self.assertIsNone(self.client.pending)
+
+    def test_missing_live_signing_key_blocks_before_network_or_payment(self):
+        self.config.update(test_mode=False,public_key='',shop_id='1525689')
+        with self.assertRaisesRegex(BillingError,'ключ проверки'):
+            self.client.prepare('full_permanent','player@example.org')
+        self.api.assert_not_called()
         self.assertIsNone(self.client.pending)
 
     def test_subscription_requires_server_availability_and_explicit_consent(self):

@@ -3,11 +3,11 @@ ROOT='files/otherworld/themes/'
 # Presentation coordinates on the 1200x800 world canvas. Stable city IDs keep
 # expedition, market and quest progress while each realm has its own landmass.
 CITY_LAYOUTS={
-    'north':((220,295),(1015,250),(300,615),(930,625),(505,215),(615,515),(830,420)),
-    'elves':((230,435),(980,505),(440,645),(805,635),(340,225),(615,405),(865,235)),
-    'vampires':((205,310),(995,535),(290,625),(790,650),(480,210),(575,475),(950,260)),
-    'adepts':((255,435),(1005,315),(425,640),(885,575),(390,260),(540,430),(780,225)),
-    'elines':((210,510),(1030,250),(395,640),(995,625),(355,215),(580,525),(770,190)),
+    'north':((180,450),(1010,200),(470,580),(1030,675),(405,190),(590,370),(870,420)),
+    'elves':((220,550),(840,360),(220,410),(1020,700),(275,170),(610,470),(812,175)),
+    'vampires':((235,435),(945,305),(300,600),(830,630),(290,205),(610,490),(985,455)),
+    'adepts':((180,464),(135,125),(265,640),(820,668),(656,270),(600,515),(984,145)),
+    'elines':((275,490),(915,310),(625,645),(1000,580),(260,230),(610,400),(570,145)),
 }
 CONFLICT_SIDES={
     'Север':('Клан Медведя','Клан Грома'),
@@ -17,7 +17,7 @@ CONFLICT_SIDES={
     'Эльфы':('Город Зари','Вестники Шианы'),
 }
 THEMES={
-    'Север':dict(key='north',name='Острова Инея',accent=(.46,.79,1,1),prefix='Инея',
+    'Север':dict(key='north',name='Фьорды Инея',accent=(.46,.79,1,1),prefix='Инея',
         units=('Страж инея','Северный охотник','Снежный всадник','Рунный проводник','Ледяной исполин'),
         cities=('Врата странников','Гавань инея','Серебряный приют','Лунный оплот','Северный торг','Башни сияния','Звёздный перевал'),
         attack=1.05,defense=1.20),
@@ -51,6 +51,8 @@ def image_path(faction,group,key):
     female={'north':('archer','weaver','boss'),'elves':('archer','weaver','boss'),
             'vampires':('archer','boss'),'adepts':('archer','boss'),'elines':('archer','weaver','boss')}
     skin=theme(faction)['key']
+    if group=='cities' and key=='city_2' and Path(ROOT+skin+'/harbor-water.png').is_file():
+        return ROOT+skin+'/harbor-water.png'
     if group=='cities' and Path(ROOT+skin+'/cities-v2.atlas').is_file():group='cities-v2'
     if group=='units' and key in female[skin] and Path(ROOT+skin+'/women.atlas').is_file():group='women'
     return 'atlas://'+ROOT+theme(faction)['key']+'/'+group+'/'+key

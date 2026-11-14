@@ -14,8 +14,8 @@ class Plan:
         return str(self.price_kopecks//100)+' ₽'+(' / месяц' if self.period else ' навсегда')
 
 
-MONTHLY=Plan('full_monthly','Подписка',4500,'P1M')
-PERMANENT=Plan('full_permanent','Покупка навсегда',20000,None)
+MONTHLY=Plan('full_monthly','Подписка',5500,'P1M')
+PERMANENT=Plan('full_permanent','Покупка навсегда',25000,None)
 PLANS={plan.key:plan for plan in (MONTHLY,PERMANENT)}
 BENEFITS=('Все игровые фракции и Зазеркалье',
           'Тактические бои',

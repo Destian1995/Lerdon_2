@@ -142,7 +142,7 @@ class FullAccessPopup(Popup):
     def sync_billing(self,controller):
         client=controller.client;busy=controller.busy
         catalog=client.catalog or {}
-        ready=bool(catalog and controller.native and client.config.get('sdk_key'))
+        ready=bool(catalog and controller.native and client.config.get('sdk_key') and client.config.get('public_key'))
         access=client.access()
         for key,button in self.buy_buttons.items():
             button.disabled=bool(busy or not ready or client.pending or (access and access['permanent']) or
@@ -167,8 +167,8 @@ class FullAccessPopup(Popup):
     def start_purchase(self,key):
         if key!=MONTHLY.key:return self.controller.purchase(key,self.email.text)
         box=BoxLayout(orientation='vertical',padding=dp(12),spacing=dp(10))
-        box.add_widget(ReadableText('45 ₽ каждый месяц с автоматическим продлением. Продление можно отключить в этом окне или на странице управления подпиской. Оплаченный срок сохраняется. Покупка навсегда за 200 ₽ оформляется отдельно.',size=16))
-        accept=StrategyButton(text='Согласен · 45 ₽ в месяц',size_hint_y=None,height=dp(48))
+        box.add_widget(ReadableText(f'{MONTHLY.price_kopecks//100} ₽ каждый месяц с автоматическим продлением. Продление можно отключить в этом окне или на странице управления подпиской. Оплаченный срок сохраняется. Покупка навсегда за {PERMANENT.price_kopecks//100} ₽ оформляется отдельно.',size=16))
+        accept=StrategyButton(text=f'Согласен · {MONTHLY.price_kopecks//100} ₽ в месяц',size_hint_y=None,height=dp(48))
         cancel=StrategyButton(text='Отмена',size_hint_y=None,height=dp(48))
         box.add_widget(accept);box.add_widget(cancel)
         popup=Popup(title='Условия подписки',content=box,size_hint=(.94,.85),auto_dismiss=False)

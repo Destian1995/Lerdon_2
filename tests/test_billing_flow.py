@@ -7,7 +7,7 @@ from billing_flow import BillingController
 class BillingFlowTests(unittest.TestCase):
     def setUp(self):
         self.callbacks=[];self.client=Mock()
-        self.client.config={'test_mode':True,'sdk_key':'sdk-key'}
+        self.client.config={'test_mode':True,'sdk_key':'sdk-key','public_key':'configured-key'}
         self.client.pending={'request_id':'session','stage':'checking'}
         self.client.access.return_value=None
         self.native=Mock()

@@ -26,7 +26,8 @@ def ensure_schema(conn):
             accepted=service[0] if service[0] is not None else signed
             conn.execute('UPDATE portal_soul_pacts SET case_id=0,signed_turn=?,deadline=? WHERE faction=?',(accepted,accepted+SOUL_TURNS,faction))
         else:conn.execute('DELETE FROM portal_soul_pacts WHERE faction=?',(faction,))
-    conn.execute('UPDATE portal_soul_pacts SET deadline=signed_turn+? WHERE case_id=0 AND deadline-signed_turn=30',(SOUL_TURNS,))
+    if conn.execute('SELECT 1 FROM portal_soul_pacts WHERE case_id=0 AND deadline-signed_turn=30 LIMIT 1').fetchone():
+        conn.execute('UPDATE portal_soul_pacts SET deadline=signed_turn+? WHERE case_id=0 AND deadline-signed_turn=30',(SOUL_TURNS,))
 
 
 def state(conn,faction):
