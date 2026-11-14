@@ -3017,47 +3017,9 @@ class Lor(Screen):
     def __init__(self, conn, **kwargs):
         super().__init__(**kwargs)
         self.conn = conn
-        with self.canvas.before:
-            self.bg_rect = Rectangle(
-                source='files/menu/lor.jpg',  # путь к фону экрана обучения
-                pos=self.pos,
-                size=self.size
-            )
-        self.bind(pos=self._update_bg, size=self._update_bg)
         self.build_ui()
 
     def build_ui(self):
-        layout = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(20))
-
-        with layout.canvas.before:
-            Color(0, 0, 0, 0.58)
-            _layout_bg = RoundedRectangle(pos=layout.pos, size=layout.size, radius=[dp(10)])
-
-        def _upd_layout_bg(instance, value):
-            _layout_bg.pos = instance.pos
-            _layout_bg.size = instance.size
-
-        layout.bind(pos=_upd_layout_bg, size=_upd_layout_bg)
-
-        title = Label(
-            text="[b]История Лэрдона[/b]",
-            markup=True,
-            font_size='34sp',
-            size_hint=(1, None),
-            height=dp(65),
-            halign='center',
-            valign='middle',
-            color=(1, 0.85, 0.3, 1),
-            outline_color=(0, 0, 0, 1),
-            outline_width=2
-        )
-        layout.add_widget(title)
-
-        scroll = ScrollView(size_hint=(1, 1), bar_width=dp(12), scroll_type=['bars', 'content'], bar_color=(1, 1, 0, 1),
-                            bar_inactive_color=(1, 1, 0, 0.4))
-        content = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(10), padding=dp(10))
-        content.bind(minimum_height=content.setter('height'))
-
         how_to_text = (
             "[color=#AAAAAA][i]XVI Вторая полная луна с начала сезона.[/i][/color]\n\n"
 
@@ -3116,45 +3078,8 @@ class Lor(Screen):
             "[color=#AAAAAA][i]Командующий 9-й армией Владислав.[/i][/color]"
         )
 
-        label = Label(
-            text=how_to_text,
-            markup=True,
-            font_size='18sp',
-            halign='left',
-            valign='top',
-            size_hint_y=None,
-            text_size=(Window.width * 0.9, None)
-        )
-        label.bind(texture_size=lambda instance, value: setattr(label, 'height', value[1]))
-
-        content.add_widget(label)
-        scroll.add_widget(content)
-
-        # Пульсация полосы прокрутки
-        from kivy.animation import Animation
-        def animate_bar():
-            anim = Animation(bar_color=(1, 0.6, 0, 1), duration=0.5) + Animation(bar_color=(1, 1, 0, 1), duration=0.5)
-            anim.repeat = True
-            anim.start(scroll)
-
-        layout.add_widget(scroll)
-
-        back_button = RoundedButton(
-            text="Назад",
-            size_hint=(0.3, None),
-            height=dp(50),
-            pos_hint={'center_x': 0.5},
-            font_size='16sp'
-        )
-        back_button.bind(on_release=self.go_back)
-        layout.add_widget(back_button)
-
-        from frontend_ui import finish_legacy_page
-        finish_legacy_page(self, layout)
-
-    def _update_bg(self, *args):
-        self.bg_rect.pos = self.pos
-        self.bg_rect.size = self.size
+        from manuscript_ui import build_manuscript
+        build_manuscript(self, how_to_text)
 
     def go_back(self, instance):
         app = App.get_running_app()
