@@ -33,7 +33,8 @@ class BillingUITests(unittest.TestCase):
             self.assertGreaterEqual(self.popup.footer.height,48)
             self.assertGreater(self.popup.scroll.height,40)
             for button in self.popup.buy_buttons.values():self.assertGreaterEqual(button.height,48)
-            self.assertTrue(self.popup.buy_buttons['full_monthly'].disabled)
+            self.assertNotIn('full_monthly',self.popup.buy_buttons)
+            self.assertGreaterEqual(self.popup.reward_button.height,48)
             self.assertFalse(self.popup.buy_buttons['full_permanent'].disabled)
 
     def test_gift_input_is_usable_on_phone_and_activates_without_payment_sdk(self):

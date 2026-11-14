@@ -8,6 +8,8 @@ class PremiumAccessTests(unittest.TestCase):
     def setUp(self):
         developer=patch('developer_access.enabled',return_value=False)
         developer.start();self.addCleanup(developer.stop)
+        rewards=patch('rewarded_access.get_rewarded',return_value=None)
+        rewards.start();self.addCleanup(rewards.stop)
 
     def test_local_developer_mode_unlocks_without_contacting_billing(self):
         with patch('developer_access.enabled',return_value=True), \
@@ -31,6 +33,14 @@ class PremiumAccessTests(unittest.TestCase):
         with patch.object(access,'full_access',return_value=True):
             for feature in access.PAID_FEATURES:self.assertTrue(access.allowed(feature))
             self.assertTrue(access.allowed('faction','Север'))
+
+    def test_reward_minutes_unlock_without_a_paid_license(self):
+        from kivy.app import App
+        with patch.object(App,'get_running_app',return_value=object()), \
+             patch('rewarded_access.get_rewarded',return_value=SimpleNamespace(available=True)), \
+             patch('billing_flow.get_billing_controller') as billing:
+            self.assertTrue(access.full_access())
+            billing.assert_not_called()
 
     def test_only_verified_client_access_is_used_and_errors_fail_closed(self):
         from kivy.app import App

@@ -3,3 +3,4 @@
     android:theme="@android:style/Theme.Material.NoActionBar" />
 <meta-data xmlns:tools="http://schemas.android.com/tools"
     android:name="com.google.android.gms.wallet.api.enabled" tools:node="remove" />
+<meta-data android:name="com.yandex.mobile.ads.AUTOMATIC_SDK_INITIALIZATION" android:value="false" />

@@ -347,6 +347,10 @@ class OtherworldMap(WorldPopup):
         self.next_turn_button=_button('Завершить ход',self.next_turn)
         bar.add_widget(self.next_turn_button)
         bar.add_widget(_button('Основная карта',self.dismiss))
+        from rewarded_access_ui import RewardedButton
+        self.access_button=RewardedButton(compact=True,font_size=sp(12))
+        bar.add_widget(self.access_button)
+        self.bind(on_dismiss=lambda *_:self.access_button._parent_changed(self.access_button,None))
         from developer_access import unlimited_actions
         if unlimited_actions(self.conn,self.faction):
             from developer_tools_ui import show_tools

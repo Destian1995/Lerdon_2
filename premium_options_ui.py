@@ -72,12 +72,22 @@ class FullAccessPopup(Popup):
         root=BoxLayout(orientation='vertical',padding=dp(10),spacing=dp(8))
         root._strategy_fixed_layout=True
         super().__init__(title='Полная версия',content=root,size_hint=(.94,.94),auto_dismiss=False,**kwargs)
-        self.status=ReadableText('Покупки пока недоступны.' if on_purchase is None else '',size=14,color=GOLD)
+        self.status=ReadableText('',size=14,color=GOLD)
         root.add_widget(self.status)
         scroll=ScrollView(do_scroll_x=False,bar_width=dp(4))
         body=BoxLayout(orientation='vertical',size_hint_y=None,spacing=dp(8))
         body.bind(minimum_height=body.setter('height'));scroll.add_widget(body);root.add_widget(scroll)
-        body.add_widget(ReadableText('Одинаковый полный доступ. Выберите удобный срок.',size=17,bold=True,color=GOLD))
+        body.add_widget(ReadableText('Полный доступ: за просмотр рекламы или навсегда.',size=17,bold=True,color=GOLD))
+        reward_card=surface(BoxLayout(orientation='vertical',padding=dp(10),spacing=dp(8),size_hint_y=None),(.07,.13,.12,1),(.4,.9,.65,1))
+        reward_card.bind(minimum_height=reward_card.setter('height'))
+        reward_card.add_widget(ReadableText('15 минут за один просмотр',size=21,bold=True,color=(.4,.9,.65,1)))
+        reward_card.add_widget(ReadableText('Просмотр — +15 минут игры. Остаток сохраняется; в фоне таймер на паузе. '
+            'Продлевайте в любой момент.',size=14,color=MUTED))
+        self.reward_status=ReadableText('',size=14,color=GOLD)
+        reward_card.add_widget(self.reward_status)
+        self.reward_button=StrategyButton(text='Смотреть рекламу · +15 минут',primary=True,size_hint_y=None,height=dp(48))
+        self.reward_button.bind(on_release=self.watch_rewarded)
+        reward_card.add_widget(self.reward_button);body.add_widget(reward_card)
         body.add_widget(ReadableText('Почта для чека и связи по покупке',size=13,color=MUTED))
         self.email=TextInput(multiline=False,size_hint_y=None,height=dp(46),hint_text='name@example.ru',
             background_color=(.08,.10,.15,1),foreground_color=(.94,.94,.94,1),
@@ -86,7 +96,7 @@ class FullAccessPopup(Popup):
         self.cards=GridLayout(cols=1,size_hint_y=None,spacing=dp(8))
         self.cards.bind(minimum_height=self.cards.setter('height'),width=self.fit_cards)
         self.buy_buttons={}
-        for plan in (MONTHLY,PERMANENT):
+        for plan in (PERMANENT,):
             card=surface(BoxLayout(orientation='vertical',padding=dp(10),spacing=dp(8),
                 size_hint_y=None),(.075,.095,.12,1),GOLD)
             card.bind(minimum_height=card.setter('height'))
@@ -106,16 +116,14 @@ class FullAccessPopup(Popup):
         body.add_widget(self.gift_button)
         body.add_widget(ReadableText('Полный доступ включает:',size=16,bold=True,color=GOLD))
         for text in BENEFITS:body.add_widget(ReadableText('• '+text,size=14))
-        months=PERMANENT.price_kopecks//MONTHLY.price_kopecks+1
-        body.add_widget(ReadableText(f'{months} месяцев подписки — {months*MONTHLY.price_kopecks//100} ₽. Покупка навсегда — {PERMANENT.price_kopecks//100} ₽. Подписка не является рассрочкой покупки.',size=13,color=MUTED))
         self.code_label=ReadableText('',size=13,color=MUTED);body.add_widget(self.code_label)
         self.copy_code=StrategyButton(text='Скопировать личный код',size_hint_y=None,height=dp(46),disabled=True)
         self.copy_code.bind(on_release=self.copy_recovery);body.add_widget(self.copy_code)
-        self.check_button=StrategyButton(text='Проверить покупку',size_hint_y=None,height=dp(46),disabled=True)
+        self.check_button=StrategyButton(text='Проверить покупку',size_hint_y=None,height=0,opacity=0,disabled=True)
         self.check_button.bind(on_release=self.check_purchase)
         # Recovery from an unfinished SDK form must remain visible on phones.
         root.add_widget(self.check_button)
-        self.cancel_renewal=StrategyButton(text='Отключить автопродление',size_hint_y=None,height=dp(46),disabled=True)
+        self.cancel_renewal=StrategyButton(text='Отключить автопродление',size_hint_y=None,height=0,opacity=0,disabled=True)
         self.cancel_renewal.bind(on_release=lambda *_:self.controller.cancel_subscription() if getattr(self,'controller',None) else None)
         body.add_widget(self.cancel_renewal)
         footer=BoxLayout(size_hint_y=None,height=dp(48),spacing=dp(8))
@@ -125,6 +133,29 @@ class FullAccessPopup(Popup):
         footer.add_widget(self.restore_button);footer.add_widget(close);root.add_widget(footer)
         self.scroll=scroll;self.footer=footer
         prepare_custom_popup(self)
+        from rewarded_access import get_rewarded
+        rewarded=get_rewarded()
+        if rewarded:
+            rewarded.bank.tick(False)
+            rewarded.views.add(self)
+            self.bind(on_dismiss=lambda *_:rewarded.views.discard(self))
+            self.sync_rewarded(rewarded)
+
+    def watch_rewarded(self,*_):
+        from rewarded_access import get_rewarded
+        controller=get_rewarded()
+        if controller:controller.watch()
+
+    def sync_rewarded(self,controller):
+        from rewarded_access import paid_access
+        licensed=paid_access()
+        self.reward_button.disabled=bool(controller.session or licensed or not controller.native)
+        self.reward_button.text=('Полный доступ уже открыт' if licensed else
+            'Загрузка рекламы…' if controller.session else 'Смотреть рекламу · +15 минут')
+        caption='Осталось '+controller.bank.caption if controller.available else 'Просмотр добровольный. Для рекламы нужен интернет.'
+        if not controller.native and not controller.available and not licensed:
+            caption='Реклама доступна в Android-версии с подключённым SDK.'
+        self.reward_status.text=caption+('\n'+controller.message if controller.message else '')
 
     def fit_cards(self,*_):self.cards.cols=2 if self.cards.width>=dp(560) else 1
 
@@ -153,8 +184,6 @@ class FullAccessPopup(Popup):
         self.status.text=controller.message or ('Подключение к магазину…' if busy else controller.access_caption())
         self.status.color=(.43,.88,.60,1) if access else GOLD
         self.buy_buttons[PERMANENT.key].text=('Полная версия открыта' if access and access['permanent'] else 'Купить навсегда')
-        if catalog and not catalog.get('subscriptions_available'):
-            self.buy_buttons[MONTHLY.key].text='Подписка пока недоступна'
         self.copy_code.disabled=not bool(client.code)
         self.code_label.text='Сохраните личный код: он нужен для восстановления покупки после переустановки или на другом устройстве.' if client.code else ''
         preparing=bool(client.pending and client.pending['stage']=='tokenizing')
@@ -163,6 +192,11 @@ class FullAccessPopup(Popup):
         self.check_button.height=dp(46) if client.code else 0
         self.check_button.opacity=1 if client.code else 0
         self.cancel_renewal.disabled=busy or not bool(client.code)
+        # Existing subscribers keep the cancellation action; new subscriptions are no longer offered.
+        active_renewal=bool(access and access.get('auto_renew'))
+        self.cancel_renewal.height=dp(46) if active_renewal else 0
+        self.cancel_renewal.opacity=1 if active_renewal else 0
+        self.cancel_renewal.disabled=busy or not active_renewal
 
     def start_purchase(self,key):
         if key!=MONTHLY.key:return self.controller.purchase(key,self.email.text)

@@ -19,7 +19,7 @@ from strategy_ui import INK, SURFACE, GOLD, TEXT, MUTED, FACTIONS, StrategyButto
 from responsive_ui import WindowFlow
 from ui_motion import enter
 
-VERSION = '9.5.11'
+VERSION = '9.5.12'
 FACTION_ART = {'Север': 'people', 'Эльфы': 'elfs', 'Вампиры': 'vampire', 'Адепты': 'adepts', 'Элины': 'elins'}
 
 
@@ -432,19 +432,8 @@ def update_tutorial_faction(owner, faction):
 
 
 def build_author(owner):
-    page = FrontPage(owner, 'Об авторе', 'Добро пожаловать в мир Лэрдона.')
-    page.column.add_widget(text_label('Желаю вам приятно провести время в моём мире!', 20, GOLD,
-                                      size_hint_y=None, height=dp(80)))
-    for caption, address in (('Автор ВКонтакте', 'https://vk.com/destianfarbius'),
-                              ('Сообщество Telegram', 'https://t.me/+scOGK6ph6r03YmU6')):
-        button = StrategyButton(text=caption, size_hint_y=None, height=dp(52))
-        button.bind(on_release=lambda widget, address=address: owner.open_link(widget, address))
-        page.column.add_widget(button)
-    page.column.add_widget(text_label('Иконки и изображения: Flaticon.com, Qwen, ChatGPT', 12, MUTED,
-                                      size_hint_y=None, height=dp(56)))
-    back = StrategyButton(text='В меню', size_hint_y=None, height=dp(52))
-    back.bind(on_release=owner.go_back)
-    page.column.add_widget(back)
+    from author_ui import build_author as build
+    return build(owner)
 
 
 def finish_legacy_page(owner, root):

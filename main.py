@@ -3191,21 +3191,32 @@ class Lerdon(MDApp):
         return LoadingScreen(self.conn)
 
     def on_start(self):
+        from rewarded_access import get_rewarded
+        get_rewarded()
         from game_audio import get_audio
         get_audio().show_menu()
         Window.bind(focus=self._audio_focus)
 
     def _audio_focus(self, window, focused):
+        from rewarded_access import get_rewarded
+        rewarded=get_rewarded()
+        if rewarded:rewarded.pause('focus',not focused)
         from game_audio import get_audio
         audio=get_audio()
         audio.resume('focus') if focused else audio.pause('focus')
 
     def on_pause(self):
+        from rewarded_access import get_rewarded
+        rewarded=get_rewarded()
+        if rewarded:rewarded.pause('app',True)
         from game_audio import get_audio
         get_audio().pause('app')
         return True
 
     def on_resume(self):
+        from rewarded_access import get_rewarded
+        rewarded=get_rewarded()
+        if rewarded:rewarded.pause('app',False)
         from game_audio import get_audio
         get_audio().resume('app')
 
@@ -3243,6 +3254,9 @@ class Lerdon(MDApp):
     def on_stop(self):
         if getattr(self,'_shutdown_complete',False):return
         self._shutdown_complete=True
+        if getattr(self,'_rewarded_access',None):
+            self._rewarded_access._event.cancel()
+            self._rewarded_access.close()
         from background_tasks import tasks
         # Wake tactical waiters and finish DB workers before closing SQLite
         # or allowing the interpreter to destroy stdout/stderr.

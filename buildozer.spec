@@ -4,7 +4,7 @@
 # Основные параметры приложения
 # ---------------------------------
 
-version = 9.5.11
+version = 9.5.12
 title = Легенды Лэрдона
 package.name = lerdonlegends
 package.domain = com.lerdonlegends
@@ -55,7 +55,7 @@ android.release = True
 android.release_artifact = apk
 # Keep the legacy p4a prefix (10 + min API 21). Version 6.5.1 used 102160501.
 # A short code such as 70000 is LOWER and cannot update the existing store app.
-android.numeric_version = 102190514
+android.numeric_version = 102190515
 
 # ---------------------------------
 # Прочее
@@ -64,7 +64,7 @@ android.numeric_version = 102190514
 buildozer.build_logfile = buildozer.log
 android.add_gradle_properties = org.gradle.jvmargs=-Xmx6g
 android.enable_androidx = True
-android.gradle_dependencies = ru.yoomoney.sdk.kassa.payments:yookassa-android-sdk:8.6.0
+android.gradle_dependencies = ru.yoomoney.sdk.kassa.payments:yookassa-android-sdk:8.6.0,com.yandex.android:mobileads:8.6.0
 android.add_gradle_repositories = maven { url 'https://repo.yoomoney.ru/repository/android-libraries/' }, mavenCentral(), maven { url 'https://developer.huawei.com/repo/' }
 android.add_src = android_billing/src
 p4a.hook = android_billing/build_hook.py

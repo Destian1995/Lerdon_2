@@ -25,6 +25,10 @@ class BillingAndroidBuildTests(unittest.TestCase):
             application=ET.parse(manifest).getroot().find('application')
             self.assertEqual(len(application.findall('activity')),1)
             self.assertEqual(application.find('activity').get('{http://schemas.android.com/apk/res/android}exported'),'false')
+            namespace='{http://schemas.android.com/apk/res/android}'
+            ads=[node for node in application.findall('meta-data') if node.get(namespace+'name')=='com.yandex.mobile.ads.AUTOMATIC_SDK_INITIALIZATION']
+            self.assertEqual(len(ads),1)
+            self.assertEqual(ads[0].get(namespace+'value'),'false')
 
     def test_sdk_activity_cannot_be_started_by_external_apps(self):
         xml=Path('android_billing/application.xml').read_text()

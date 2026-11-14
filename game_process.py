@@ -1297,6 +1297,10 @@ class GameScreen(Screen):
         # === Главный контейнер поверх всех элементов ===
         self.root_overlay = FloatLayout()
         self.add_widget(self.root_overlay)
+        from rewarded_access_ui import RewardedButton
+        self.access_button=RewardedButton(compact=True,size_hint=(None,None),size=(dp(160),dp(42)),
+                                         pos_hint={'x':.005,'y':.01},font_size=sp(12))
+        self.root_overlay.add_widget(self.access_button)
         self.season_container = FloatLayout(
             size_hint=(None, None),
             size=(dp(120), dp(50)),
@@ -2301,6 +2305,8 @@ class GameScreen(Screen):
         """Очистка ресурсов: таймеры, привязки, анимации."""
         if getattr(self,'_cleaned_up',False):return
         self._cleaned_up=True
+        if hasattr(self,'access_button'):
+            self.access_button._parent_changed(self.access_button,None)
         print("Очистка GameScreen...")
         if getattr(self, '_tutorial_start_event', None):
             self._tutorial_start_event.cancel()

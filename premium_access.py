@@ -8,6 +8,9 @@ def full_access():
     if enabled():return True
     from kivy.app import App
     if App.get_running_app() is None:return False
+    from rewarded_access import get_rewarded
+    reward=get_rewarded()
+    if reward and reward.available:return True
     try:
         from billing_flow import get_billing_controller
         return bool(get_billing_controller().client.access())

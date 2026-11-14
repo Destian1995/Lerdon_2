@@ -429,6 +429,8 @@ def decorate_hud(screen, **panels):
             width, height = args[1:3] if len(args) >= 3 else Window.size
             compact = width < dp(800)
             panels['resources'].width = dp(136 if compact else 156)
+            if hasattr(screen,'access_button'):
+                screen.access_button.width=panels['resources'].width
             panels['end_turn'].size = (panels['resources'].width, dp(60 if height < dp(480) else 72))
             panels['end_turn'].pos_hint = {'x': 0, 'top': 1 - (panels['resources'].height + dp(9)) / max(1, height)}
             panels['faction'].width = dp(110 if compact else 130)
